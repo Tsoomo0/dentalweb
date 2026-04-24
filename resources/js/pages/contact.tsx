@@ -3,13 +3,20 @@ import PublicLayout from '@/layouts/public-layout';
 import { MapPin, Phone, Clock, Mail, Calendar, Facebook, Instagram, Youtube, ArrowRight } from 'lucide-react';
 
 interface Branch { id: number; name: string; address: string | null; phone: string | null; type: string | null }
+interface SiteSettings {
+    contact_phone?: string; contact_email?: string;
+    working_hours?: string; facebook_url?: string; instagram_url?: string;
+    [key: string]: unknown;
+}
 interface PageProps {
     auth: { user?: { name: string } };
     branches: Branch[];
+    site_settings?: SiteSettings;
+    [key: string]: unknown;
 }
 
 export default function ContactPage() {
-    const { branches } = usePage<PageProps>().props;
+    const { branches, site_settings: s = {} } = usePage<PageProps>().props;
 
     const fallbackBranches: Branch[] = [
         { id: 1, name: 'Хан-Уул салбар', address: 'Хан-Уул дүүрэг, 15-р хороо, Нарны зам', phone: '+976 9900-0000', type: 'main' },
@@ -22,7 +29,7 @@ export default function ContactPage() {
 
     return (
         <>
-            <Head title="Холбоо барих — Cuticul" />
+            <Head title="Холбоо барих" />
             <PublicLayout>
 
                 {/* ── Hero ── */}
@@ -48,9 +55,9 @@ export default function ContactPage() {
                             {/* Quick contact */}
                             <div className="flex flex-col gap-3">
                                 {[
-                                    { icon: Phone, label: 'Утас', value: main?.phone ?? '+976 9900-0000', href: `tel:${main?.phone ?? '+97699000000'}` },
-                                    { icon: Mail, label: 'И-мэйл', value: 'info@cuticul.mn', href: 'mailto:info@cuticul.mn' },
-                                    { icon: Clock, label: 'Ажлын цаг', value: 'Да–Ба 09:00–18:00, Бя 10:00–15:00', href: null },
+                                    { icon: Phone, label: 'Утас', value: s.contact_phone ?? main?.phone ?? '', href: `tel:${s.contact_phone ?? main?.phone ?? ''}` },
+                                    { icon: Mail, label: 'И-мэйл', value: s.contact_email ?? '', href: `mailto:${s.contact_email ?? ''}` },
+                                    { icon: Clock, label: 'Ажлын цаг', value: s.working_hours ?? '', href: null },
                                 ].map((item, i) => (
                                     <div key={i} className="bg-white/5 border border-white/8 rounded-2xl px-5 py-4 flex items-center gap-4">
                                         <div className="w-10 h-10 rounded-xl bg-red-600/20 flex items-center justify-center flex-shrink-0">
@@ -109,7 +116,7 @@ export default function ContactPage() {
                                                 )}
                                                 <div className="flex items-center gap-3 text-gray-500 text-sm">
                                                     <Clock className="w-4 h-4 text-red-800 flex-shrink-0"/>
-                                                    <span>Да–Ба: 09:00–18:00 &nbsp;|&nbsp; Бя: 10:00–15:00</span>
+                                                    <span>{s.working_hours ?? ''}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -229,17 +236,14 @@ export default function ContactPage() {
                             </div>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 {[
-                                    { Icon: Facebook, label: 'Facebook', handle: '@cuticul.mn', color: 'hover:bg-blue-600 hover:border-blue-600' },
-                                    { Icon: Instagram, label: 'Instagram', handle: '@cuticul_mn', color: 'hover:bg-gradient-to-br hover:from-purple-600 hover:via-pink-600 hover:to-orange-500 hover:border-pink-500' },
-                                    { Icon: Youtube, label: 'YouTube', handle: 'Cuticul TV', color: 'hover:bg-red-600 hover:border-red-600' },
-                                ].map(({ Icon, label, handle, color }) => (
-                                    <a key={label} href="#"
+                                    { Icon: Facebook,  label: 'Facebook',  href: s.facebook_url  || '#', color: 'hover:bg-blue-600 hover:border-blue-600' },
+                                    { Icon: Instagram, label: 'Instagram', href: s.instagram_url || '#', color: 'hover:bg-gradient-to-br hover:from-purple-600 hover:via-pink-600 hover:to-orange-500 hover:border-pink-500' },
+                                    { Icon: Youtube,   label: 'YouTube',   href: '#',                    color: 'hover:bg-red-600 hover:border-red-600' },
+                                ].map(({ Icon, label, href, color }) => (
+                                    <a key={label} href={href} target="_blank" rel="noreferrer"
                                         className={`flex-1 flex flex-col items-center gap-3 bg-white border-2 border-gray-100 ${color} hover:text-white px-6 py-6 rounded-2xl transition-all font-medium text-gray-700 text-center group`}>
                                         <Icon className="w-6 h-6"/>
-                                        <div>
-                                            <p className="font-bold text-sm">{label}</p>
-                                            <p className="text-xs opacity-60 mt-0.5">{handle}</p>
-                                        </div>
+                                        <p className="font-bold text-sm">{label}</p>
                                     </a>
                                 ))}
                             </div>

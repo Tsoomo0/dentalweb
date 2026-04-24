@@ -2,8 +2,8 @@ import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { Building2, CalendarClock, HelpCircle, Images, LayoutGrid, Newspaper, Stethoscope, Tag, UserRound } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { BadgeCheck, Building2, CalendarClock, ClipboardList, CreditCard, HelpCircle, Images, LayoutGrid, Newspaper, ReceiptText, RefreshCw, Settings, ShieldCheck, Stethoscope, Tag, UserRound, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -50,6 +50,28 @@ const mainNavItems: NavItem[] = [
         icon: CalendarClock,
     },
     {
+        title: 'Төлбөр',
+        url: '/admin/payments',
+        icon: CreditCard,
+        children: [
+            {
+                title: 'Бүх төлбөрүүд',
+                url: '/admin/payments',
+                icon: ReceiptText,
+            },
+            {
+                title: 'Хүлээгдэж буй',
+                url: '/admin/payments?payment_status=pending',
+                icon: RefreshCw,
+            },
+            {
+                title: 'Баталгаажсан',
+                url: '/admin/payments?payment_status=paid',
+                icon: BadgeCheck,
+            },
+        ],
+    },
+    {
         title: 'Үр дүнгийн галерей',
         url: '/admin/gallery',
         icon: Images,
@@ -59,9 +81,46 @@ const mainNavItems: NavItem[] = [
         url: '/admin/faqs',
         icon: HelpCircle,
     },
+    {
+        title: 'Ажлын анкет',
+        url: '/admin/job-applications',
+        icon: ClipboardList,
+    },
+    {
+        title: 'Хэрэглэгчид',
+        url: '/admin/users',
+        icon: Users,
+        children: [
+            {
+                title: 'Бүх хэрэглэгч',
+                url: '/admin/users',
+                icon: Users,
+            },
+            {
+                title: 'Шинэ хэрэглэгч',
+                url: '/admin/users/create',
+                icon: ShieldCheck,
+            },
+        ],
+    },
+    {
+        title: 'Тохиргоо',
+        url: '/admin/settings',
+        icon: Settings,
+    },
 ];
 
 export function AppSidebar() {
+    const { pending_job_applications } = usePage<{ pending_job_applications: number }>().props;
+
+    const navItems: NavItem[] = [
+        ...mainNavItems.map(item =>
+            item.url === '/admin/job-applications'
+                ? { ...item, badge: pending_job_applications || undefined }
+                : item
+        ),
+    ];
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -77,7 +136,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={navItems} />
             </SidebarContent>
 
             <SidebarFooter>

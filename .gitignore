@@ -1,4 +1,6 @@
 .DS_Store
+storage/app/google-service-account.json
+storage/app/*.json
 .env
 .env.backup
 .env.production

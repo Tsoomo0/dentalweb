@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Award, Briefcase, Building2, CheckCircle2, Edit, Mail, Phone, Plus, Trash2, UserRound, Users, X } from 'lucide-react';
+import { Award, Briefcase, Building2, CalendarDays, CheckCircle2, Edit, Mail, Phone, Plus, Trash2, UserRound, Users, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface Branch { id: number; name: string }
@@ -26,6 +26,7 @@ interface Doctor {
     email: string | null;
     is_active: boolean;
     branch: Branch;
+    online_slots?: Array<{ is_booked: boolean }>;
 }
 
 interface Props {
@@ -184,13 +185,6 @@ export default function DoctorsIndex({ doctors, branches, stats }: Props) {
             {modalDoctor && <DoctorModal doctor={modalDoctor} onClose={() => setModalDoctor(null)} />}
 
             <div className="flex h-full flex-1 flex-col gap-6 p-6">
-                {props.flash?.success && (
-                    <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400">
-                        <CheckCircle2 className="size-4 shrink-0" />
-                        {props.flash.success}
-                    </div>
-                )}
-
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
@@ -313,6 +307,10 @@ export default function DoctorsIndex({ doctors, branches, stats }: Props) {
                                         Дэлгэрэнгүй харах
                                     </button>
                                     <div className="flex gap-2">
+                                        <Link href={`/admin/doctors/${doctor.id}/slots`}
+                                            className="flex items-center gap-1 rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:hover:bg-blue-950">
+                                            <CalendarDays className="size-3" /> Цаг
+                                        </Link>
                                         <Link href={`/admin/doctors/${doctor.id}/edit`}
                                             className="flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium hover:bg-muted">
                                             <Edit className="size-3" /> Засах

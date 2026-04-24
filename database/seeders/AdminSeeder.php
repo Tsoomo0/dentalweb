@@ -16,7 +16,7 @@ class AdminSeeder extends Seeder
     public function run(): void
     {
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
-        $userRole  = Role::firstOrCreate(['name' => 'user']);
+        Role::firstOrCreate(['name' => 'receptionist']);
 
         \App\Models\User::firstOrCreate(
             ['email' => 'admin@gmail.com'],

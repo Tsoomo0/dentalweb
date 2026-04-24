@@ -20,6 +20,10 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
+            $table->string('password')->nullable();
+            $table->json('online_slots')->nullable();
+            $table->boolean('has_online_booking')->default(true);
+            $table->rememberToken();
             $table->boolean('is_active')->default(true);
             $table->integer('order')->default(0);
             $table->timestamps();

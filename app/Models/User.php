@@ -22,6 +22,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
+        'branch_id',
+        'is_active',
     ];
 
     /**
@@ -52,8 +54,23 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class);
+    }
+
     public function isAdmin(): bool
     {
         return $this->role?->name === 'admin';
+    }
+
+    public function isReceptionist(): bool
+    {
+        return $this->role?->name === 'receptionist';
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->isAdmin() || $this->isReceptionist();
     }
 }

@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\DoctorMiddleware;
+use App\Http\Middleware\MaintenanceMiddleware;
+use App\Http\Middleware\ReceptionMiddleware;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,10 +20,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            MaintenanceMiddleware::class,
         ]);
 
         $middleware->alias([
-            'admin' => AdminMiddleware::class,
+            'admin'       => AdminMiddleware::class,
+            'doctor'      => DoctorMiddleware::class,
+            'reception'   => ReceptionMiddleware::class,
+        ]);
+
+        // QPay callback — гадны сервер дуудах тул CSRF-аас чөлөөлөх
+        $middleware->validateCsrfTokens(except: [
+            'payment/callback/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

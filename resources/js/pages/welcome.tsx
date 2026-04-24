@@ -4,7 +4,7 @@ import PublicLayout from '@/layouts/public-layout';
 import {
     ArrowRight, Calendar, CheckCircle, Award,
     ChevronRight, Smile, MapPin, ChevronLeft,
-    X, Phone, Mail, Clock, Star, Image as ImageIcon,
+    X, Phone, Mail, Image as ImageIcon,
     GraduationCap, Briefcase, BadgeCheck
 } from 'lucide-react';
 
@@ -44,6 +44,7 @@ interface Article {
 interface Faq { id: number; question: string; answer: string; category: string | null }
 interface Branch { id: number; name: string; address: string | null; phone: string | null }
 interface PageProps {
+    [key: string]: unknown;
     auth: { user?: { name: string } };
     doctors: Doctor[]; treatments: TreatmentCategory[];
     gallery: GalleryItem[]; articles: Article[];
@@ -359,6 +360,50 @@ function DoctorModal({ doctor, onClose }: { doctor: Doctor | null; onClose: () =
                     <Calendar className="w-5 h-5" />
                     {doctor.name}-д цаг захиалах
                 </Link>
+            </div>
+        </Modal>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ARTICLE MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ArticleModal({ article, onClose }: { article: Article | null; onClose: () => void }) {
+    if (!article) return null;
+    return (
+        <Modal open onClose={onClose}>
+            <div className="relative">
+                {article.featured_image ? (
+                    <div className="aspect-[16/7] overflow-hidden rounded-t-3xl">
+                        <img src={article.featured_image} alt={article.title} className="w-full h-full object-cover"/>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-t-3xl"/>
+                    </div>
+                ) : (
+                    <div className="aspect-[16/7] bg-gradient-to-br from-rose-100 to-red-50 rounded-t-3xl flex items-center justify-center">
+                        <Smile className="w-16 h-16 text-red-200"/>
+                    </div>
+                )}
+                <button onClick={onClose}
+                    className="absolute top-4 right-4 w-9 h-9 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all">
+                    <X className="w-5 h-5"/>
+                </button>
+                {article.category && (
+                    <div className="absolute bottom-4 left-5">
+                        <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/30">
+                            {article.category}
+                        </span>
+                    </div>
+                )}
+            </div>
+            <div className="p-6 sm:p-8">
+                {article.published_at && (
+                    <p className="text-gray-400 text-sm mb-3">{article.published_at}</p>
+                )}
+                <h2 className="text-2xl font-black text-gray-900 leading-tight mb-4">{article.title}</h2>
+                {article.excerpt && (
+                    <p className="text-gray-600 leading-relaxed text-[15px]">{article.excerpt}</p>
+                )}
             </div>
         </Modal>
     );
@@ -713,13 +758,13 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
 
     return (
         <>
-            <section className="py-12 md:py-16 bg-white">
+            <section className="py-5 md:py-7 bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Header */}
-                    <div className="flex items-end justify-between gap-4 mb-6">
+                    <div className="flex items-end justify-between gap-4 mb-4">
                         <div>
                             <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Үйлчилгээ</span>
-                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">Эмчилгээний төрлүүд</h2>
+                            <h2 className="text-base sm:text-lg font-bold text-gray-900 mt-0.5">Эмчилгээний төрлүүд</h2>
                         </div>
                         <Link href="/services" className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
                             Бүгд <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -727,10 +772,10 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                     </div>
 
                     {/* Category tabs */}
-                    <div className="flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-hide">
+                    <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide">
                         {data.map((c,i) => (
                             <button key={c.id} onClick={() => setActiveCat(i)}
-                                className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${i===activeCat ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'}`}>
+                                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${i===activeCat ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'}`}>
                                 {c.name}
                             </button>
                         ))}
@@ -746,48 +791,20 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                                 const t = cat.treatments[0];
                                 return (
                                     <button onClick={() => openTreatment(t, cat.name)}
-                                        className="lg:col-span-5 group rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all bg-white text-left w-full">
-                                        <div className="aspect-video overflow-hidden relative">
+                                        className="lg:col-span-4 group rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all bg-white text-left w-full">
+                                        <div className="aspect-[4/3] overflow-hidden relative">
                                             {t.image_url
                                                 ? <img src={t.image_url} alt={t.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                                                : <div className="w-full h-full bg-gradient-to-br from-rose-50 to-red-100 flex items-center justify-center"><ImageIcon className="w-10 h-10 text-red-200"/></div>
+                                                : <div className="w-full h-full bg-gradient-to-br from-rose-50 to-red-100 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-red-200"/></div>
                                             }
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"/>
                                             <div className="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] font-bold text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 Дэлгэрэнгүй →
                                             </div>
                                         </div>
-                                        <div className="p-4">
-                                            <div className="flex items-start justify-between gap-2 mb-1.5">
-                                                <h3 className="text-base font-bold text-gray-900 group-hover:text-red-700 transition-colors leading-snug">{t.title}</h3>
-                                                {t.price_min && (
-                                                    <span className="text-red-600 font-bold text-sm flex-shrink-0">
-                                                        {Number(t.price_min).toLocaleString()}₮+
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {t.description && (
-                                                <p className="text-gray-400 text-xs leading-relaxed line-clamp-2">{t.description}</p>
-                                            )}
-                                        </div>
-                                    </button>
-                                );
-                            })()}
-
-                            {/* Small cards */}
-                            <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-2 gap-3 content-start">
-                                {cat.treatments.slice(1, 3).map(t => (
-                                    <button key={t.id} onClick={() => openTreatment(t, cat.name)}
-                                        className="group rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-md transition-all bg-white text-left flex flex-col">
-                                        <div className="aspect-video overflow-hidden relative">
-                                            {t.image_url
-                                                ? <img src={t.image_url} alt={t.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                                                : <div className="w-full h-full bg-gradient-to-br from-rose-50 to-red-100 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-red-200"/></div>
-                                            }
-                                        </div>
-                                        <div className="p-3.5 flex-1 flex flex-col">
+                                        <div className="p-2.5">
                                             <div className="flex items-start justify-between gap-2 mb-1">
-                                                <h3 className="font-semibold text-gray-900 group-hover:text-red-700 transition-colors text-sm leading-snug">{t.title}</h3>
+                                                <h3 className="text-sm font-bold text-gray-900 group-hover:text-red-700 transition-colors leading-snug">{t.title}</h3>
                                                 {t.price_min && (
                                                     <span className="text-red-600 font-bold text-xs flex-shrink-0">
                                                         {Number(t.price_min).toLocaleString()}₮+
@@ -795,7 +812,35 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                                                 )}
                                             </div>
                                             {t.description && (
-                                                <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-2 mt-auto">{t.description}</p>
+                                                <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-2">{t.description}</p>
+                                            )}
+                                        </div>
+                                    </button>
+                                );
+                            })()}
+
+                            {/* Small cards */}
+                            <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-2 gap-3 content-start">
+                                {cat.treatments.slice(1, 3).map(t => (
+                                    <button key={t.id} onClick={() => openTreatment(t, cat.name)}
+                                        className="group rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-md transition-all bg-white text-left flex flex-col">
+                                        <div className="aspect-[4/3] overflow-hidden relative">
+                                            {t.image_url
+                                                ? <img src={t.image_url} alt={t.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                                                : <div className="w-full h-full bg-gradient-to-br from-rose-50 to-red-100 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-red-200"/></div>
+                                            }
+                                        </div>
+                                        <div className="p-2.5 flex-1 flex flex-col">
+                                            <div className="flex items-start justify-between gap-2 mb-1">
+                                                <h3 className="font-semibold text-gray-900 group-hover:text-red-700 transition-colors text-xs leading-snug">{t.title}</h3>
+                                                {t.price_min && (
+                                                    <span className="text-red-600 font-bold text-[10px] flex-shrink-0">
+                                                        {Number(t.price_min).toLocaleString()}₮+
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {t.description && (
+                                                <p className="text-gray-400 text-[10px] leading-relaxed line-clamp-2 mt-auto">{t.description}</p>
                                             )}
                                         </div>
                                     </button>
@@ -885,6 +930,7 @@ export default function Welcome() {
 
     const [activeBranch, setActiveBranch] = useState<number|null>(null);
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor|null>(null);
+    const [selectedArticle, setSelectedArticle] = useState<Article|null>(null);
 
     const filteredDoctors = (activeBranch
         ? doctors.filter(d => d.branch_id === activeBranch)
@@ -899,7 +945,7 @@ export default function Welcome() {
 
     return (
         <>
-            <Head title="Cuticul — Гажиг Засал">
+            <Head title="Нүүр хуудас">
                 <link rel="preconnect" href="https://fonts.bunny.net"/>
                 <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900" rel="stylesheet"/>
                 <style>{`
@@ -995,6 +1041,11 @@ export default function Welcome() {
                     <DoctorModal doctor={selectedDoctor} onClose={() => setSelectedDoctor(null)} />
                 )}
 
+                {/* Article Modal */}
+                {selectedArticle && (
+                    <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+                )}
+
                 {/* GALLERY */}
                 <section className="py-24 bg-white">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1038,7 +1089,8 @@ export default function Welcome() {
                                 { id:2, title:'Брекет тавиулсны дараа арчлалт', excerpt:'Шүдний цэвэрлэгээ, хоолны дэглэм.', category:'Зөвлөгөө', featured_image:null, published_at:'2024.11.15', slug:'' },
                                 { id:3, title:'Хүүхдийн шүдний эрүүл мэнд', excerpt:'Сүү шүдний арчлалт.', category:'Урьдчилан сэргийлэлт', featured_image:null, published_at:'2024.11.01', slug:'' },
                             ] as Article[]).map(a => (
-                                <article key={a.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-md transition-all group">
+                                <button key={a.id} onClick={() => setSelectedArticle(a)}
+                                    className="text-left bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-md transition-all group w-full">
                                     <div className="aspect-[16/9] bg-rose-50 overflow-hidden">
                                         {a.featured_image
                                             ? <img src={a.featured_image} alt={a.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
@@ -1054,7 +1106,7 @@ export default function Welcome() {
                                             <span className="text-red-600 text-sm font-semibold flex items-center gap-1 ml-auto">Унших <ArrowRight className="w-3.5 h-3.5"/></span>
                                         </div>
                                     </div>
-                                </article>
+                                </button>
                             ))}
                         </div>
                     </div>

@@ -56,10 +56,15 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                         </Collapsible>
                     ) : (
                         <SidebarMenuItem key={item.title}>
-                            <SidebarMenuButton asChild isActive={item.url === page.url}>
+                            <SidebarMenuButton asChild isActive={item.url === page.url} tooltip={item.title}>
                                 <Link href={item.url}>
                                     {item.icon && <item.icon />}
                                     <span>{item.title}</span>
+                                    {!!item.badge && (
+                                        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                                            {item.badge > 99 ? '99+' : item.badge}
+                                        </span>
+                                    )}
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>

@@ -12,7 +12,7 @@ export default function AboutPage() {
 
     return (
         <>
-            <Head title="Бидний тухай — Cuticul" />
+            <Head title="Бидний тухай" />
             <PublicLayout>
 
                 {/* ── Hero ── */}
@@ -36,7 +36,7 @@ export default function AboutPage() {
                                     <span className="text-red-500">найдвартай түнш</span>
                                 </h1>
                                 <p className="text-gray-400 text-lg leading-relaxed mb-8 max-w-lg">
-                                    Cuticul нь орчин үеийн технологи болон мэргэшсэн эмч нартайгаа хосолсон
+                                    Манай эмнэлэг орчин үеийн технологи болон мэргэшсэн эмч нартайгаа хосолсон
                                     дэлхийн түвшинд гажиг заслын үйлчилгээ үзүүлдэг эмнэлэг юм.
                                 </p>
                                 <Link href="/booking"
@@ -115,7 +115,7 @@ export default function AboutPage() {
                                                 <span className="text-white font-black text-sm">C</span>
                                             </div>
                                             <div>
-                                                <p className="text-white font-bold text-sm">Cuticul Dental</p>
+                                                <p className="text-white font-bold text-sm">Манай эмнэлэг</p>
                                                 <p className="text-gray-500 text-xs">Үндэслэгч, 2014</p>
                                             </div>
                                         </div>

@@ -49,13 +49,6 @@ export default function BranchesIndex({ branches, total_doctors }: Props) {
             <Head title="Салбарууд" />
 
             <div className="flex h-full flex-1 flex-col gap-6 p-6">
-                {props.flash?.success && (
-                    <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-400">
-                        <CheckCircle2 className="size-4 shrink-0" />
-                        {props.flash.success}
-                    </div>
-                )}
-
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>

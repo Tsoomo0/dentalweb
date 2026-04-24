@@ -16,16 +16,24 @@ class Appointment extends Model
         'branch_id',
         'service',
         'type',
+        'online_slot_id',
         'appointment_date',
         'appointment_time',
         'appointment_time_end',
         'status',
         'notes',
         'admin_notes',
+        'payment_status',
+        'payment_amount',
+        'qpay_invoice_id',
+        'meet_link',
+        'created_by',
+        'confirmed_by',
     ];
 
     protected $casts = [
-        'appointment_date' => 'date',
+        'appointment_date'  => 'date:Y-m-d',
+        'payment_amount'    => 'integer',
     ];
 
     public function doctor(): BelongsTo
@@ -47,6 +55,6 @@ class Appointment extends Model
 
     public function getFormattedDateAttribute(): string
     {
-        return $this->appointment_date->format('Y оны m сарын d');
+        return $this->appointment_date?->format('Y оны m сарын d') ?? '—';
     }
 }

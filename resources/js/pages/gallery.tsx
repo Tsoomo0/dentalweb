@@ -88,7 +88,7 @@ export default function GalleryPage() {
 
     return (
         <>
-            <Head title="Үр дүн — Cuticul" />
+            <Head title="Үр дүн" />
             <PublicLayout>
 
                 {/* ── Hero ── */}

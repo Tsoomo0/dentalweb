@@ -2,21 +2,34 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
-class Doctor extends Model
+class Doctor extends Authenticatable
 {
+    use Notifiable;
+
     protected $fillable = [
         'branch_id', 'name', 'specialization', 'degree',
         'experience_years', 'experiences', 'photo',
-        'description', 'phone', 'email', 'is_active', 'order',
+        'description', 'phone', 'email', 'password',
+        'online_slots', 'has_online_booking', 'is_active', 'order',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
     ];
 
     protected $casts = [
-        'is_active'        => 'boolean',
+        'is_active'            => 'boolean',
+        'has_online_booking'   => 'boolean',
         'experiences'      => 'array',
+        'online_slots'     => 'array',
         'experience_years' => 'integer',
+        'password'         => 'hashed',
     ];
 
     public function branch(): BelongsTo
@@ -24,9 +37,12 @@ class Doctor extends Model
         return $this->belongsTo(Branch::class);
     }
 
-    /**
-     * Хос дүрмүүд - эмч үүсэх үед эмчүүдийн тоо синхрончлогдоно
-     */
+    /** Эмч ажиллах бүх салбарууд (many-to-many) */
+    public function branches(): BelongsToMany
+    {
+        return $this->belongsToMany(Branch::class, 'branch_doctor');
+    }
+
     protected static function booted(): void
     {
         static::created(function ($doctor) {
@@ -36,12 +52,10 @@ class Doctor extends Model
         });
 
         static::updated(function ($doctor) {
-            // Статус өөрчлөгдөөс олон салбар сольж болох учираас хэмжээ өновчлөнө
             if ($doctor->isDirty('is_active') || $doctor->isDirty('branch_id')) {
                 if ($doctor->branch) {
                     $doctor->branch->updateDoctorCount();
                 }
-                // Хэрвээ салбар сольсон бол өндөр салбарыг найруулна
                 if ($doctor->isDirty('branch_id')) {
                     Branch::find($doctor->getOriginal('branch_id'))?->updateDoctorCount();
                 }
@@ -55,4 +69,3 @@ class Doctor extends Model
         });
     }
 }
-

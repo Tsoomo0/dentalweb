@@ -18,11 +18,14 @@ return new class extends Migration
             $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
             $table->string('service')->nullable();
             $table->enum('type', ['online', 'in_person'])->default('online');
-            $table->date('appointment_date');
-            $table->time('appointment_time');
+            $table->string('online_slot_id')->nullable();
+            $table->date('appointment_date')->nullable();
+            $table->time('appointment_time')->nullable();
             $table->enum('status', ['pending', 'confirmed', 'cancelled', 'completed'])->default('pending');
             $table->text('notes')->nullable();
             $table->text('admin_notes')->nullable();
+            $table->string('created_by')->nullable();
+            $table->string('confirmed_by')->nullable();
             $table->timestamps();
         });
     }

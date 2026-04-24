@@ -24,9 +24,13 @@ class AuthenticatedSessionController extends Controller
 
     public function store(LoginRequest $request): RedirectResponse
     {
-        // LoginRequest аль хэдийн validate хийсэн байдаг
+        // Эхлээд doctor guard-аар нэвтрэх оролдлого
+        if (Auth::guard('doctor')->attempt(['email' => $request->email, 'password' => $request->password], $request->boolean('remember'))) {
+            $request->session()->regenerate();
+            return redirect()->route('doctor.dashboard');
+        }
 
-        // Хэрэглэгч байгаа эсэхийг шалгах
+        // User байгаа эсэхийг шалгах
         $user = \App\Models\User::where('email', $request->email)->first();
 
         if (!$user) {
@@ -35,25 +39,32 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        // Нэвтрэх оролдлого
-        $request->authenticate(); // LoginRequest-ийн built-in метод
-
+        // Admin нэвтрэх
+        $request->authenticate();
         $request->session()->regenerate();
 
-        $user = Auth::user();
-
-        // Spatie package суулгасан бол:
-        if ($user->isAdmin()) {
+        if (Auth::user()->isAdmin()) {
             return redirect()->route('admin.dashboard');
         }
 
-        return redirect()->route('dashboard');
+        if (Auth::user()->isReceptionist()) {
+            return redirect()->route('reception.dashboard');
+        }
+
+        return redirect()->intended('/');
     }
 
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
+        // Doctor guard-аас гарах
+        if (Auth::guard('doctor')->check()) {
+            Auth::guard('doctor')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            return redirect('/');
+        }
 
+        Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

@@ -8,6 +8,7 @@ use App\Models\Doctor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,11 +16,13 @@ class DoctorController extends Controller
 {
     public function index(): Response
     {
-        $doctors = Doctor::with('branch')
+        $doctors = Doctor::with(['branch', 'branches'])
             ->orderBy('order')
             ->get()
             ->map(fn($d) => array_merge($d->toArray(), [
-                'photo_url' => $d->photo ? Storage::url($d->photo) : null,
+                'photo_url'    => $d->photo ? Storage::url($d->photo) : null,
+                'has_login'    => !empty($d->password),
+                'branch_names' => $d->branches->pluck('name')->join(', '),
             ]));
 
         return Inertia::render('admin/doctors/index', [
@@ -43,6 +46,8 @@ class DoctorController extends Controller
     {
         $request->validate([
             'branch_id'        => 'required|exists:branches,id',
+            'extra_branch_ids' => 'nullable|array',
+            'extra_branch_ids.*' => 'exists:branches,id',
             'name'             => 'required|string|max:255',
             'specialization'   => 'nullable|string|max:255',
             'degree'           => 'nullable|string|max:255',
@@ -54,25 +59,40 @@ class DoctorController extends Controller
             'photo'            => 'nullable|image|max:5120',
             'description'      => 'nullable|string',
             'phone'            => 'nullable|string|max:50',
-            'email'            => 'nullable|email|max:255',
-            'is_active'        => 'boolean',
+            'email'            => 'required|email|max:255|unique:doctors,email',
+            'password'            => 'nullable|string|min:8|confirmed',
+            'is_active'           => 'boolean',
+            'has_online_booking'  => 'boolean',
         ]);
 
-        $data = $request->only('branch_id', 'name', 'specialization', 'degree', 'experience_years', 'experiences', 'description', 'phone', 'email', 'is_active');
+        $data = $request->only('branch_id', 'name', 'specialization', 'degree', 'experience_years', 'experiences', 'description', 'phone', 'email', 'is_active', 'has_online_booking');
         $data['order'] = Doctor::max('order') + 1;
+
+        if ($request->filled('password')) {
+            $data['password'] = $request->password;
+        }
 
         if ($request->hasFile('photo')) {
             $data['photo'] = $request->file('photo')->store('doctors', 'public');
         }
 
-        Doctor::create($data);
+        $doctor = Doctor::create($data);
+
+        // Ажиллах бүх салбарыг sync хийх (үндсэн + нэмэлт)
+        $allBranchIds = array_unique(array_merge(
+            [(int) $request->branch_id],
+            array_map('intval', $request->input('extra_branch_ids', []))
+        ));
+        $doctor->branches()->sync($allBranchIds);
 
         return redirect()->route('admin.doctors.index')->with('success', 'Эмч амжилттай нэмэгдлээ.');
     }
 
     public function edit(Doctor $doctor): Response
     {
-        $doctor->photo_url = $doctor->photo ? Storage::url($doctor->photo) : null;
+        $doctor->load('branches');
+        $doctor->photo_url    = $doctor->photo ? Storage::url($doctor->photo) : null;
+        $doctor->branch_ids   = $doctor->branches->pluck('id')->toArray();
 
         return Inertia::render('admin/doctors/edit', [
             'doctor'   => $doctor,
@@ -84,6 +104,8 @@ class DoctorController extends Controller
     {
         $request->validate([
             'branch_id'        => 'required|exists:branches,id',
+            'extra_branch_ids' => 'nullable|array',
+            'extra_branch_ids.*' => 'exists:branches,id',
             'name'             => 'required|string|max:255',
             'specialization'   => 'nullable|string|max:255',
             'degree'           => 'nullable|string|max:255',
@@ -95,11 +117,17 @@ class DoctorController extends Controller
             'photo'            => 'nullable|image|max:5120',
             'description'      => 'nullable|string',
             'phone'            => 'nullable|string|max:50',
-            'email'            => 'nullable|email|max:255',
-            'is_active'        => 'boolean',
+            'email'            => ['required', 'email', 'max:255', Rule::unique('doctors', 'email')->ignore($doctor->id)],
+            'password'            => 'nullable|string|min:8|confirmed',
+            'is_active'           => 'boolean',
+            'has_online_booking'  => 'boolean',
         ]);
 
-        $data = $request->only('branch_id', 'name', 'specialization', 'degree', 'experience_years', 'experiences', 'description', 'phone', 'email', 'is_active');
+        $data = $request->only('branch_id', 'name', 'specialization', 'degree', 'experience_years', 'experiences', 'description', 'phone', 'email', 'is_active', 'has_online_booking');
+
+        if ($request->filled('password')) {
+            $data['password'] = $request->password;
+        }
 
         if ($request->hasFile('photo')) {
             if ($doctor->photo) Storage::disk('public')->delete($doctor->photo);
@@ -107,6 +135,13 @@ class DoctorController extends Controller
         }
 
         $doctor->update($data);
+
+        // Ажиллах бүх салбарыг sync хийх
+        $allBranchIds = array_unique(array_merge(
+            [(int) $request->branch_id],
+            array_map('intval', $request->input('extra_branch_ids', []))
+        ));
+        $doctor->branches()->sync($allBranchIds);
 
         return redirect()->route('admin.doctors.index')->with('success', 'Эмчийн мэдээлэл шинэчлэгдлээ.');
     }

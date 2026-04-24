@@ -16,6 +16,7 @@ interface Experience {
 interface Doctor {
     id: number;
     branch_id: number;
+    branch_ids: number[];
     name: string;
     specialization: string | null;
     degree: string | null;
@@ -26,6 +27,7 @@ interface Doctor {
     phone: string | null;
     email: string | null;
     is_active: boolean;
+    has_online_booking: boolean;
 }
 
 interface Props { doctor: Doctor; branches: Branch[] }
@@ -45,6 +47,7 @@ export default function DoctorEdit({ doctor, branches }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
         _method: string;
         branch_id: number | string;
+        extra_branch_ids: number[];
         name: string;
         specialization: string;
         degree: string;
@@ -53,11 +56,15 @@ export default function DoctorEdit({ doctor, branches }: Props) {
         description: string;
         phone: string;
         email: string;
+        password: string;
+        password_confirmation: string;
         is_active: boolean;
+        has_online_booking: boolean;
         photo: File | null;
     }>({
         _method: 'PUT',
         branch_id: doctor.branch_id,
+        extra_branch_ids: (doctor.branch_ids ?? []).filter(id => id !== doctor.branch_id),
         name: doctor.name,
         specialization: doctor.specialization ?? '',
         degree: doctor.degree ?? '',
@@ -66,9 +73,20 @@ export default function DoctorEdit({ doctor, branches }: Props) {
         description: doctor.description ?? '',
         phone: doctor.phone ?? '',
         email: doctor.email ?? '',
+        password: '',
+        password_confirmation: '',
         is_active: doctor.is_active,
+        has_online_booking: doctor.has_online_booking ?? true,
         photo: null,
     });
+
+    function toggleExtraBranch(id: number) {
+        setData('extra_branch_ids',
+            data.extra_branch_ids.includes(id)
+                ? data.extra_branch_ids.filter(x => x !== id)
+                : [...data.extra_branch_ids, id]
+        );
+    }
 
     function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0] ?? null;
@@ -110,8 +128,11 @@ export default function DoctorEdit({ doctor, branches }: Props) {
                     <div className="grid gap-6 lg:grid-cols-3">
                         <div className="space-y-5 lg:col-span-2">
                             {/* Branch */}
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Салбар *</label>
+                            <div className="space-y-3 rounded-xl border p-4">
+                                <div>
+                                    <label className="text-sm font-semibold">Салбар *</label>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Үндсэн салбар — нийтийн хуудсанд харагдана</p>
+                                </div>
                                 <div className="grid gap-2 sm:grid-cols-2">
                                     {branches.map((b) => (
                                         <button key={b.id} type="button" onClick={() => setData('branch_id', b.id)}
@@ -122,6 +143,24 @@ export default function DoctorEdit({ doctor, branches }: Props) {
                                     ))}
                                 </div>
                                 {errors.branch_id && <p className="text-xs text-red-500">{errors.branch_id}</p>}
+
+                                {/* Нэмэлт салбарууд */}
+                                {branches.length > 1 && (
+                                    <div className="border-t pt-3 space-y-1.5">
+                                        <p className="text-xs font-semibold text-muted-foreground">Мөн ажилладаг салбарууд <span className="font-normal">(цаг захиалгад харагдана)</span></p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {branches.filter(b => Number(data.branch_id) !== b.id).map((b) => {
+                                                const checked = data.extra_branch_ids.includes(b.id);
+                                                return (
+                                                    <label key={b.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${checked ? 'border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' : 'hover:bg-muted'}`}>
+                                                        <input type="checkbox" checked={checked} onChange={() => toggleExtraBranch(b.id)} className="size-3.5 accent-blue-600" />
+                                                        {b.name}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Name */}
@@ -172,16 +211,49 @@ export default function DoctorEdit({ doctor, branches }: Props) {
                                         className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-sm font-medium">И-мэйл</label>
+                                    <label className="text-sm font-medium">И-мэйл *</label>
                                     <input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)}
                                         className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
+                                    {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
                                 </div>
                             </div>
 
-                            <label className="flex cursor-pointer items-center gap-3">
-                                <input type="checkbox" checked={data.is_active} onChange={(e) => setData('is_active', e.target.checked)} className="size-4 accent-red-600" />
-                                <span className="text-sm font-medium">Идэвхтэй</span>
-                            </label>
+                            {/* Password */}
+                            <div className="rounded-xl border p-4 space-y-4">
+                                <div>
+                                    <h3 className="text-sm font-semibold">Нэвтрэх эрх шинэчлэх</h3>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Хоосон орхивол нууц үг өөрчлөгдөхгүй</p>
+                                </div>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-medium">Шинэ нууц үг</label>
+                                        <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)}
+                                            placeholder="Доод тал нь 8 тэмдэгт"
+                                            className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
+                                        {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-medium">Нууц үг давтах</label>
+                                        <input type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)}
+                                            placeholder="Нууц үгийг давтана уу"
+                                            className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="flex cursor-pointer items-center gap-3">
+                                    <input type="checkbox" checked={data.is_active} onChange={(e) => setData('is_active', e.target.checked)} className="size-4 accent-red-600" />
+                                    <span className="text-sm font-medium">Идэвхтэй</span>
+                                </label>
+                                <label className="flex cursor-pointer items-center gap-3">
+                                    <input type="checkbox" checked={data.has_online_booking} onChange={(e) => setData('has_online_booking', e.target.checked)} className="size-4 accent-blue-600" />
+                                    <div>
+                                        <span className="text-sm font-medium">Онлайн цаг захиалгатай эмч</span>
+                                        <p className="text-xs text-muted-foreground">Идэвхгүй болгосон тохиолдолд эмч онлайн цаг хэсэгт нэвтрэх эрхгүй болно</p>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
 
                         {/* Photo */}
