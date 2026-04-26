@@ -786,121 +786,129 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
 
     const fallback: TreatmentCategory[] = [
         { id: 1, name: 'Гажиг засал', icon: null, treatments: [
-            { id: 1, title: 'Invisalign', description: 'Харагдахгүй, авч хийж болдог шилэн тэгшлэгч систем. Өдөр тутмын амьдралд саад болохгүйгээр гажиг засаад явна.', price_min: 1500000, price_max: 3000000, duration_min: 60, image_url: null, sub_treatments: [] },
+            { id: 1, title: 'Invisalign', description: 'Харагдахгүй, авч хийж болдог шилэн тэгшлэгч систем.', price_min: 1500000, price_max: 3000000, duration_min: 60, image_url: null, sub_treatments: [] },
             { id: 2, title: 'Металл брекет', description: 'Тогтвортой, батуу уламжлалт гажиг засалтын брекет систем.', price_min: 800000, price_max: 1500000, duration_min: 45, image_url: null, sub_treatments: [] },
             { id: 3, title: 'Мэлмий брекет', description: 'Шүдтэй нийлэх өнгийн керамик брекет — гоо үзэмжтэй.', price_min: 1200000, price_max: 2000000, duration_min: 45, image_url: null, sub_treatments: [] },
+            { id: 4, title: 'Retainer', description: 'Засал дууссаны дараах байрлалыг хадгалах аппарат.', price_min: 150000, price_max: 300000, duration_min: 30, image_url: null, sub_treatments: [] },
         ]},
     ];
     const data = treatments.length > 0 ? treatments : fallback;
     const cat = data[activeCat] ?? data[0];
 
-    function openTreatment(t: Treatment, catN: string) {
-        setSelectedTreatment(t);
-        setSelectedCatName(catN);
-    }
-
     return (
         <>
-            <section className="py-5 md:py-7 bg-white">
+            <section className="py-14 md:py-20 bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="flex items-end justify-between gap-4 mb-4">
+
+                    {/* ── Header ── */}
+                    <div className="flex items-end justify-between gap-4 mb-8">
                         <div>
                             <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Үйлчилгээ</span>
-                            <h2 className="text-base sm:text-lg font-bold text-gray-900 mt-0.5">Эмчилгээний төрлүүд</h2>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 leading-tight">
+                                Эмчилгээний төрлүүд
+                            </h2>
                         </div>
-                        <Link href="/services" className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
-                            Бүгд <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                        <Link href="/services"
+                            className="flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
+                            Бүгдийг харах
+                            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                         </Link>
                     </div>
 
-                    {/* Category tabs */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        {data.map((c,i) => (
-                            <button key={c.id} onClick={() => setActiveCat(i)}
-                                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${i===activeCat ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'}`}>
-                                {c.name}
-                            </button>
-                        ))}
-                    </div>
+                    {/* ── Category tabs ── */}
+                    {data.length > 1 && (
+                        <div className="flex flex-wrap gap-2 mb-8">
+                            {data.map((c, i) => (
+                                <button key={c.id} onClick={() => setActiveCat(i)}
+                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                                        i === activeCat
+                                            ? 'bg-gray-900 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800'
+                                    }`}>
+                                    {c.icon && <span className="text-base leading-none">{c.icon}</span>}
+                                    {c.name}
+                                    <span className={`text-[11px] font-bold tabular-nums ${
+                                        i === activeCat ? 'text-white/70' : 'text-gray-400'
+                                    }`}>
+                                        {c.treatments.length}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
-                    {/* Treatment cards — asymmetric grid */}
+                    {/* ── Uniform card grid ── */}
                     {cat && cat.treatments.length > 0 ? (
-                        <div key={cat.id} style={{ animation:'fadeSlideIn 0.35s ease forwards' }}
-                            className="grid lg:grid-cols-12 gap-3">
+                        <div key={cat.id} style={{ animation: 'fadeSlideIn 0.3s ease forwards' }}
+                            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
 
-                            {/* FEATURED card */}
-                            {cat.treatments[0] && (() => {
-                                const t = cat.treatments[0];
-                                return (
-                                    <button onClick={() => openTreatment(t, cat.name)}
-                                        className="lg:col-span-4 group rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all bg-white text-left w-full">
-                                        <div className="aspect-[4/3] overflow-hidden relative">
-                                            {t.image_url
-                                                ? <img src={t.image_url} alt={t.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                                                : <div className="w-full h-full bg-gradient-to-br from-rose-50 to-red-100 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-red-200"/></div>
-                                            }
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"/>
-                                            <div className="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] font-bold text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                Дэлгэрэнгүй →
-                                            </div>
-                                        </div>
-                                        <div className="p-2.5">
-                                            <div className="flex items-start justify-between gap-2 mb-1">
-                                                <h3 className="text-sm font-bold text-gray-900 group-hover:text-red-700 transition-colors leading-snug">{t.title}</h3>
-                                                {t.price_min && (
-                                                    <span className="text-red-600 font-bold text-xs flex-shrink-0">
-                                                        {Number(t.price_min).toLocaleString()}₮+
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {t.description && (
-                                                <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-2">{t.description}</p>
-                                            )}
-                                        </div>
-                                    </button>
-                                );
-                            })()}
+                            {cat.treatments.slice(0, 7).map(t => (
+                                <button key={t.id}
+                                    onClick={() => { setSelectedTreatment(t); setSelectedCatName(cat.name); }}
+                                    className="group text-left bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-red-200 hover:shadow-lg transition-all duration-300 flex flex-col w-full">
 
-                            {/* Small cards */}
-                            <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-2 gap-3 content-start">
-                                {cat.treatments.slice(1, 3).map(t => (
-                                    <button key={t.id} onClick={() => openTreatment(t, cat.name)}
-                                        className="group rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-md transition-all bg-white text-left flex flex-col">
-                                        <div className="aspect-[4/3] overflow-hidden relative">
-                                            {t.image_url
-                                                ? <img src={t.image_url} alt={t.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                                                : <div className="w-full h-full bg-gradient-to-br from-rose-50 to-red-100 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-red-200"/></div>
-                                            }
-                                        </div>
-                                        <div className="p-2.5 flex-1 flex flex-col">
-                                            <div className="flex items-start justify-between gap-2 mb-1">
-                                                <h3 className="font-semibold text-gray-900 group-hover:text-red-700 transition-colors text-xs leading-snug">{t.title}</h3>
-                                                {t.price_min && (
-                                                    <span className="text-red-600 font-bold text-[10px] flex-shrink-0">
-                                                        {Number(t.price_min).toLocaleString()}₮+
-                                                    </span>
-                                                )}
+                                    {/* Image */}
+                                    <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-rose-50 to-red-50 flex-shrink-0">
+                                        {t.image_url ? (
+                                            <img src={t.image_url} alt={t.title}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <ImageIcon className="w-8 h-8 text-red-200" />
                                             </div>
-                                            {t.description && (
-                                                <p className="text-gray-400 text-[10px] leading-relaxed line-clamp-2 mt-auto">{t.description}</p>
-                                            )}
-                                        </div>
-                                    </button>
-                                ))}
-                                {cat.treatments.length > 3 && (
-                                    <Link href="/services"
-                                        className="rounded-2xl border-2 border-dashed border-gray-200 hover:border-red-300 bg-gray-50 hover:bg-red-50 flex flex-col items-center justify-center p-6 gap-2 transition-all group">
-                                        <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors"/>
-                                        <span className="text-xs font-semibold text-gray-500 group-hover:text-red-600 transition-colors text-center">
-                                            {cat.treatments.length-3}+ үйлчилгээ
+                                        )}
+                                        {/* Hover badge */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <span className="absolute bottom-2.5 left-2.5 bg-white/95 backdrop-blur-sm text-gray-800 text-[10px] font-bold px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                                            Дэлгэрэнгүй харах →
                                         </span>
-                                    </Link>
-                                )}
-                            </div>
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="p-3.5 flex flex-col flex-1">
+                                        <h3 className="text-sm font-bold text-gray-900 group-hover:text-red-700 transition-colors leading-snug line-clamp-2 mb-1.5">
+                                            {t.title}
+                                        </h3>
+                                        {t.description && (
+                                            <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-2 mb-3 flex-1">
+                                                {t.description}
+                                            </p>
+                                        )}
+                                        <div className="flex items-center justify-between mt-auto pt-2.5 border-t border-gray-50">
+                                            {(t.price_min || t.price_max) ? (
+                                                <span className="text-red-600 font-bold text-xs">
+                                                    {t.price_min ? `${Number(t.price_min).toLocaleString()}₮` : ''}
+                                                    {t.price_min && t.price_max ? '–' : ''}
+                                                    {t.price_max ? `${Number(t.price_max).toLocaleString()}₮` : ''}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-300 text-xs">—</span>
+                                            )}
+                                            {t.duration_min && (
+                                                <span className="text-[10px] text-gray-400 font-medium">
+                                                    {t.duration_min} мин
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+
+                            {/* "See more" card */}
+                            {cat.treatments.length > 7 && (
+                                <Link href="/services"
+                                    className="group border-2 border-dashed border-gray-200 hover:border-red-300 bg-gray-50/50 hover:bg-red-50/50 rounded-2xl flex flex-col items-center justify-center gap-3 p-6 transition-all duration-300 min-h-[180px]">
+                                    <div className="w-10 h-10 rounded-full bg-gray-200 group-hover:bg-red-100 flex items-center justify-center transition-colors">
+                                        <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" />
+                                    </div>
+                                    <span className="text-xs font-semibold text-gray-500 group-hover:text-red-600 transition-colors text-center">
+                                        {cat.treatments.length - 7}+ үйлчилгээ
+                                    </span>
+                                </Link>
+                            )}
                         </div>
                     ) : (
-                        <p className="text-center text-gray-400 py-10">Энэ ангилалд үйлчилгээ байхгүй байна.</p>
+                        <p className="text-center text-gray-400 py-12">Энэ ангилалд үйлчилгээ байхгүй байна.</p>
                     )}
                 </div>
             </section>
