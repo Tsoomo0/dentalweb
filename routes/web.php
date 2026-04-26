@@ -31,16 +31,28 @@ use Illuminate\Support\Facades\Route;
 Route::get('/',               [PublicController::class, 'home'])->name('home');
 
 Route::get('/sitemap.xml', function () {
-    $sitemap = \Spatie\Sitemap\Sitemap::create()
-        ->add(\Spatie\Sitemap\Tags\Url::create('/')->setPriority(1.0)->setChangeFrequency('weekly'))
-        ->add(\Spatie\Sitemap\Tags\Url::create('/about')->setPriority(0.8)->setChangeFrequency('monthly'))
-        ->add(\Spatie\Sitemap\Tags\Url::create('/services')->setPriority(0.9)->setChangeFrequency('weekly'))
-        ->add(\Spatie\Sitemap\Tags\Url::create('/doctors')->setPriority(0.8)->setChangeFrequency('weekly'))
-        ->add(\Spatie\Sitemap\Tags\Url::create('/gallery')->setPriority(0.7)->setChangeFrequency('weekly'))
-        ->add(\Spatie\Sitemap\Tags\Url::create('/articles')->setPriority(0.7)->setChangeFrequency('daily'))
-        ->add(\Spatie\Sitemap\Tags\Url::create('/contact')->setPriority(0.6)->setChangeFrequency('monthly'))
-        ->add(\Spatie\Sitemap\Tags\Url::create('/booking')->setPriority(0.9)->setChangeFrequency('weekly'));
-    return $sitemap->toResponse(request());
+    $base = config('app.url');
+    $pages = [
+        ['url' => $base . '/',         'priority' => '1.0', 'freq' => 'weekly'],
+        ['url' => $base . '/about',    'priority' => '0.8', 'freq' => 'monthly'],
+        ['url' => $base . '/services', 'priority' => '0.9', 'freq' => 'weekly'],
+        ['url' => $base . '/doctors',  'priority' => '0.8', 'freq' => 'weekly'],
+        ['url' => $base . '/gallery',  'priority' => '0.7', 'freq' => 'weekly'],
+        ['url' => $base . '/articles', 'priority' => '0.7', 'freq' => 'daily'],
+        ['url' => $base . '/contact',  'priority' => '0.6', 'freq' => 'monthly'],
+        ['url' => $base . '/booking',  'priority' => '0.9', 'freq' => 'weekly'],
+    ];
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>';
+    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+    foreach ($pages as $page) {
+        $xml .= '<url>';
+        $xml .= '<loc>' . $page['url'] . '</loc>';
+        $xml .= '<changefreq>' . $page['freq'] . '</changefreq>';
+        $xml .= '<priority>' . $page['priority'] . '</priority>';
+        $xml .= '</url>';
+    }
+    $xml .= '</urlset>';
+    return response($xml, 200)->header('Content-Type', 'application/xml');
 });
 Route::get('/about',          [PublicController::class, 'about'])->name('about');
 Route::get('/services',       [PublicController::class, 'services'])->name('services');
