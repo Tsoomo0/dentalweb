@@ -74,7 +74,7 @@ function Modal({ open, onClose, children }: {
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             {/* Panel */}
             <div
-                className="relative w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl"
+                className="relative w-full sm:max-w-lg max-h-[88vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl"
                 onClick={e => e.stopPropagation()}
                 style={{ animation: 'modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
             >
@@ -101,15 +101,15 @@ function TreatmentModal({ treatment, catName, onClose }: {
             {/* Image or gradient header */}
             <div className="relative">
                 {treatment.image_url ? (
-                    <div className="aspect-[16/7] overflow-hidden rounded-t-3xl sm:rounded-t-3xl">
+                    <div className="h-40 overflow-hidden rounded-t-3xl sm:rounded-t-3xl">
                         <img src={treatment.image_url} alt={treatment.title}
                             className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-t-3xl" />
                     </div>
                 ) : (
-                    <div className="aspect-[16/7] bg-gradient-to-br from-red-700 via-red-600 to-rose-500 rounded-t-3xl sm:rounded-t-3xl flex items-center justify-center">
+                    <div className="h-40 bg-gradient-to-br from-red-700 via-red-600 to-rose-500 rounded-t-3xl sm:rounded-t-3xl flex items-center justify-center">
                         <div className="text-white/20">
-                            <ImageIcon className="w-20 h-20" />
+                            <ImageIcon className="w-14 h-14" />
                         </div>
                     </div>
                 )}
@@ -129,10 +129,10 @@ function TreatmentModal({ treatment, catName, onClose }: {
             </div>
 
             {/* Content */}
-            <div className="p-6 sm:p-8">
+            <div className="p-5">
                 {/* Title + price */}
-                <div className="flex items-start justify-between gap-4 mb-4">
-                    <h2 className="text-2xl font-black text-gray-900 leading-tight">{treatment.title}</h2>
+                <div className="flex items-start justify-between gap-4 mb-3">
+                    <h2 className="text-xl font-black text-gray-900 leading-tight">{treatment.title}</h2>
                     {hasPrice && (
                         <div className="text-right flex-shrink-0">
                             <p className="text-red-600 font-black text-lg">
@@ -815,7 +815,7 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                     </div>
 
                     {/* Category tabs */}
-                    <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide">
+                    <div className="flex flex-wrap gap-2 mb-4">
                         {data.map((c,i) => (
                             <button key={c.id} onClick={() => setActiveCat(i)}
                                 className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${i===activeCat ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'}`}>

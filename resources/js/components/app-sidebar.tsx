@@ -3,8 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BadgeCheck, Building2, CalendarClock, ClipboardList, CreditCard, HelpCircle, Images, LayoutGrid, Newspaper, ReceiptText, RefreshCw, Settings, ShieldCheck, Stethoscope, Tag, UserRound, Users } from 'lucide-react';
-import AppLogo from './app-logo';
+import { BadgeCheck, Building2, CalendarClock, ClipboardList, CreditCard, HelpCircle, Images, LayoutGrid, Newspaper, ReceiptText, RefreshCw, Settings, ShieldCheck, Smile, Stethoscope, Tag, UserRound, Users } from 'lucide-react';
 
 const mainNavItems: NavItem[] = [
     {
@@ -110,8 +109,14 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
+interface SharedProps {
+    pending_job_applications: number;
+    site_settings?: { site_logo?: string; site_name?: string };
+}
+
 export function AppSidebar() {
-    const { pending_job_applications } = usePage<{ pending_job_applications: number }>().props;
+    const { pending_job_applications, site_settings } = usePage<SharedProps>().props;
+    const logoUrl = site_settings?.site_logo || '';
 
     const navItems: NavItem[] = [
         ...mainNavItems.map(item =>
@@ -127,8 +132,18 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/dashboard">
-                                <AppLogo />
+                            <Link href="/dashboard" className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+                                    {logoUrl
+                                        ? <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                                        : <div className="w-full h-full bg-red-600 flex items-center justify-center">
+                                            <Smile className="w-5 h-5 text-white" />
+                                          </div>
+                                    }
+                                </div>
+                                <span className="font-semibold text-sm truncate">
+                                    {site_settings?.site_name || 'Admin'}
+                                </span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>

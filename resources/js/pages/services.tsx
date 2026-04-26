@@ -193,14 +193,14 @@ export default function ServicesPage() {
                 {/* ── Category filter ── */}
                 {source.length > 1 && (
                     <div className="sticky top-[68px] z-40 bg-white border-b border-gray-100 shadow-sm">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex gap-2 overflow-x-auto">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap gap-2">
                             <button onClick={() => setActiveCat(null)}
-                                className={`px-4 py-2 rounded-xl text-sm font-semibold flex-shrink-0 transition-all ${activeCat === null ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600'}`}>
+                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${activeCat === null ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600'}`}>
                                 Бүгд
                             </button>
                             {source.map(c => (
                                 <button key={c.id} onClick={() => setActiveCat(c.id)}
-                                    className={`px-4 py-2 rounded-xl text-sm font-semibold flex-shrink-0 transition-all ${activeCat === c.id ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600'}`}>
+                                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${activeCat === c.id ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600'}`}>
                                     {c.name}
                                 </button>
                             ))}

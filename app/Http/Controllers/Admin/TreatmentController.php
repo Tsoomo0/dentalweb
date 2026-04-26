@@ -78,7 +78,7 @@ class TreatmentController extends Controller
             ? 'Эмчилгээ болон дэд эмчилгээнүүд амжилттай нэмэгдлээ.'
             : 'Эмчилгээ нэмэгдлээ! Дэд эмчилгээ нэмэх боломжтой.';
 
-        return redirect()->route('admin.treatments.edit', $treatment)->with('success', $message);
+        return redirect()->route('admin.treatments.index')->with('success', $message);
     }
 
     public function edit(Treatment $treatment): Response
