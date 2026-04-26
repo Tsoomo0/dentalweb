@@ -1,8 +1,9 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import PublicLayout from '@/layouts/public-layout';
-import { CheckCircle, Award, Users, Building2, Star, Calendar, ArrowRight, Shield, Clock, Heart, Zap } from 'lucide-react';
+import { Award, Users, Star, Calendar, Shield, Clock, Heart, Zap } from 'lucide-react';
 
 interface PageProps {
+    [key: string]: unknown;
     auth: { user?: { name: string } };
     stats: { doctors: number; appointments: number; branches: number };
 }
@@ -31,27 +32,27 @@ export default function AboutPage() {
                                 <span className="inline-block text-red-500 text-xs font-bold uppercase tracking-widest mb-5 bg-red-500/10 px-3 py-1 rounded-full">
                                     Бидний тухай
                                 </span>
-                                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-6">
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white leading-tight mb-6">
                                     Таны инээмсэглэлийн<br />
-                                    <span className="text-red-500">найдвартай түнш</span>
+                                    <span className="text-red-500">цаана бид байна</span>
                                 </h1>
                                 <p className="text-gray-400 text-lg leading-relaxed mb-8 max-w-lg">
-                                    Манай эмнэлэг орчин үеийн технологи болон мэргэшсэн эмч нартайгаа хосолсон
-                                    дэлхийн түвшинд гажиг заслын үйлчилгээ үзүүлдэг эмнэлэг юм.
+                                    Шүдний эмчид очих нь заримдаа айдастай санагддаг. Манай баг таныг тав тухтай
+                                    мэдрүүлж, хамгийн сайн үр дүнд хүргэхийн тулд ажилладаг.
                                 </p>
                                 <Link href="/booking"
                                     className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-7 py-3.5 rounded-2xl transition-all shadow-xl shadow-red-900/30 text-sm">
-                                    <Calendar className="w-4 h-4"/> Үнэгүй зөвлөгөө авах
+                                    <Calendar className="w-4 h-4"/> Цаг захиалах
                                 </Link>
                             </div>
 
                             {/* Right — Stats */}
                             <div className="grid grid-cols-2 gap-3 sm:gap-4">
                                 {[
-                                    { value: `${stats.appointments}+`, label: 'Амжилттай засал', icon: Star, color: 'text-red-400' },
+                                    { value: `${stats.appointments}+`, label: 'Эмчилгээ хийлгэсэн өвчтөн', icon: Star, color: 'text-red-400' },
                                     { value: `${stats.doctors}+`, label: 'Мэргэшсэн эмч', icon: Users, color: 'text-red-400' },
                                     { value: '10+', label: 'Жилийн туршлага', icon: Award, color: 'text-red-400' },
-                                    { value: '98%', label: 'Сэтгэл ханамж', icon: Heart, color: 'text-red-400' },
+                                    { value: '98%', label: 'Сэтгэл ханасан үйлчлүүлэгч', icon: Heart, color: 'text-red-400' },
                                 ].map((s, i) => (
                                     <div key={i} className="bg-white/5 border border-white/8 rounded-2xl p-4 sm:p-6 backdrop-blur-sm">
                                         <s.icon className={`w-5 h-5 ${s.color} mb-2 sm:mb-3`}/>
@@ -71,28 +72,24 @@ export default function AboutPage() {
                             <div>
                                 <span className="text-red-600 text-xs font-bold uppercase tracking-widest">Манай зорилго</span>
                                 <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 mb-6 leading-tight">
-                                    Орчин үеийн технологиор<br/>хамгийн сайн үр дүнд хүрэх
+                                    10 гаруй жилийн<br/>хайр халамж
                                 </h2>
-                                <p className="text-gray-500 leading-relaxed mb-5">
-                                    Бид гажиг засалд шинэ стандарт тогтоохыг зорьдог. Invisalign, металл болон мэлмий брекет
-                                    зэрэг орчин үеийн аргуудыг ашиглан хамгийн сайн үр дүнд хүргэнэ.
+                                <p className="text-gray-500 leading-relaxed mb-8">
+                                    "Кутикул" эрүү, нүүр ам, гажиг, согог заслын шүдний эмнэлэг нь 2012 оноос
+                                    одоог хүртэл 10 гаруй жил үйл ажиллагаагаа тасралтгүй явуулж байна.
+                                    Таны инээмсэглэл бол биднийг өдөр бүр урамшуулдаг зүйл.
                                 </p>
-                                <p className="text-gray-500 leading-relaxed mb-10">
-                                    Хүн бүрийн нүүрний бүтэц, хэрэгцээ өөр байдаг тул бид тус бүрт тохируулсан
-                                    хувийн засалтын төлөвлөгөө боловсруулдаг.
-                                </p>
-                                <div className="flex flex-col gap-4">
+                                <div className="grid sm:grid-cols-2 gap-4">
                                     {[
-                                        'Олон улсын сертификаттай эмч нар',
-                                        'Орчин үеийн 3D дижитал сканнер',
-                                        'Invisalign мэргэшсэн Provider',
-                                        'Үнэгүй анхан шатны зөвлөгөө',
-                                    ].map((item, i) => (
-                                        <div key={i} className="flex items-center gap-3.5">
-                                            <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                                                <CheckCircle className="w-3.5 h-3.5 text-red-600" />
+                                        { icon: Users, title: 'Мэргэжлийн хамт олон', desc: 'Бид салбартаа тэргүүлэх чадвартай, олон жилийн туршлагатай эмч нартай.' },
+                                        { icon: Zap, title: 'Орчин үеийн технологи', desc: 'Бид сүүлийн үеийн дэвшилтэт техник, тоног төхөөрөмжийг ашиглан таныг эмчилнэ.' },
+                                    ].map((card, i) => (
+                                        <div key={i} className="bg-red-50 rounded-2xl p-5 border border-red-100">
+                                            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mb-3">
+                                                <card.icon className="w-5 h-5 text-red-600"/>
                                             </div>
-                                            <span className="text-gray-700 font-medium">{item}</span>
+                                            <h3 className="font-bold text-gray-900 text-sm mb-1.5">{card.title}</h3>
+                                            <p className="text-gray-500 text-sm leading-relaxed">{card.desc}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -140,17 +137,18 @@ export default function AboutPage() {
                 <section className="py-14 sm:py-20 lg:py-28 bg-[#F9F4F2]">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="max-w-2xl mb-10 sm:mb-16">
-                            <span className="text-red-600 text-xs font-bold uppercase tracking-widest">Яагаад биднийг сонгох вэ</span>
-                            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3">Манай давуу талууд</h2>
+                            <span className="text-red-600 text-xs font-bold uppercase tracking-widest">Яагаад бидэнд хандах вэ</span>
+                            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 mb-3">Та бидэнд итгэж болно</h2>
+                            <p className="text-gray-500 leading-relaxed">Шүдний эмчид очих нь заримдаа дарамттай санагддаг. Бид үүнийг мэднэ — тиймдээ ч тав тухтай, ил тод байхыг чухалчилдаг.</p>
                         </div>
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {[
-                                { icon: Award, title: 'Мэргэжлийн ур чадвар', desc: 'Манай эмч нар олон улсын зэрэглэлд суралцан, тогтмол мэргэжлийн хөгжлийн сургалтад хамрагдаж байдаг.' },
-                                { icon: Zap, title: 'Орчин үеийн технологи', desc: '3D сканнер, дижитал рентген, Invisalign ClinCheck зэрэг дэвшилтэт тоног төхөөрөмжийг ашигладаг.' },
-                                { icon: Clock, title: 'Тохиромжтой хугацаа', desc: 'Эрт өглөөнөөс орой хүртэл, бямба гарагт ч үйлчилгээ үзүүлдэг.' },
-                                { icon: Heart, title: 'Хувийн хандлага', desc: 'Хүн бүрт тусгай хандан, хувийн засалтын төлөвлөгөө боловсруулдаг.' },
-                                { icon: Shield, title: 'Ил тод үнэ', desc: 'Нуугдмал нэмэлт хураамжгүй, бүх зардлыг урьдчилан тайлбарладаг.' },
-                                { icon: Star, title: 'Дэмжлэг & Хяналт', desc: 'Засалтын явцад болон дуусгавар болсны дараа ч тогтмол хяналт шинжилгээ хийдэг.' },
+                                { icon: Award, title: 'Арав гаруй жил ажилласан', desc: '2012 оноос хойш олон мянган хүнд үйлчилж ирсэн. Та биднийг сонгоход эргэлзэх шаардлагагүй.' },
+                                { icon: Zap, title: 'Шинэ тоног төхөөрөмж', desc: '3D сканнер, дижитал рентгенийг ашиглан таны шүдийг нарийн үнэлнэ. Үр дүн нь илүү үнэн зөв, илүү найдвартай.' },
+                                { icon: Clock, title: 'Цагийн хувьд уян хатан', desc: 'Бямба, Ням гарагт ч ажилладаг. Ажил, сургуультайгаа зохицуулаад ирээрэй.' },
+                                { icon: Heart, title: 'Таны байдалд тохируулна', desc: 'Хүн бүрийн шүд, хэрэгцээ өөр байдаг. Таны нөхцөлд тохирсон эмчилгээний төлөвлөгөөг хамт гаргана.' },
+                                { icon: Shield, title: 'Үнийг урьдчилан мэдэх', desc: 'Эмчилгээ эхлэхээс өмнө бүх зардлыг тодорхой тайлбарлана. Дараа нь гэнэтийн нэхэмжлэл гарахгүй.' },
+                                { icon: Star, title: 'Эмчилгээний дараа ч анхаарна', desc: 'Эмчилгээ дуусаад асуулт гарвал хандаарай. Явцыг хянаж, шаардлагатай тохиолдолд эмчилж өгнө.' },
                             ].map((v, i) => (
                                 <div key={i}
                                     className="bg-white rounded-3xl p-7 border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all group">
@@ -177,21 +175,15 @@ export default function AboutPage() {
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] pointer-events-none"
                         style={{ background: 'radial-gradient(ellipse, rgba(180,20,20,0.15) 0%, transparent 70%)' }}/>
                     <div className="relative max-w-2xl mx-auto px-4 text-center">
-                        <span className="inline-block text-red-500 text-xs font-bold uppercase tracking-widest mb-5">Эхлэцгээе</span>
-                        <h2 className="text-4xl md:text-5xl font-black text-white mb-5 leading-tight">Үнэгүй зөвлөгөө авах</h2>
-                        <p className="text-gray-400 mb-10 leading-relaxed">
-                            Манай мэргэшсэн эмчтэй уулзаж, хувийн засалтын төлөвлөгөөгөө боловсруул.
+                        <span className="inline-block text-red-400 text-xs font-bold uppercase tracking-widest mb-5">Цаг захиалах</span>
+                        <h2 className="text-4xl md:text-5xl font-black text-white mb-5 leading-tight">Эхний алхмаа<br/>хамт хийцгээе</h2>
+                        <p className="text-gray-500 mb-8 leading-relaxed">
+                            Шүдний асуудлаа шийдэх нь таны бодсоноос хялбар. Бидэнд хандаад эмчтэйгээ уулзаарай — үлдсэнийг бид шийдэрнэ.
                         </p>
-                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                            <Link href="/booking"
-                                className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-2xl shadow-red-900/40 text-base">
-                                <Calendar className="w-5 h-5"/> Цаг захиалах
-                            </Link>
-                            <Link href="/contact"
-                                className="inline-flex items-center gap-2.5 bg-white/8 hover:bg-white/12 border border-white/10 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-base">
-                                Холбоо барих <ArrowRight className="w-4 h-4"/>
-                            </Link>
-                        </div>
+                        <Link href="/booking"
+                            className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-2xl shadow-red-900/40 text-base">
+                            <Calendar className="w-5 h-5"/> Онлайн цаг захиалах
+                        </Link>
                     </div>
                 </section>
 

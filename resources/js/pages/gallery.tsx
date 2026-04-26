@@ -100,12 +100,12 @@ export default function GalleryPage() {
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-end">
                             <div>
-                                <span className="inline-block text-red-500 text-xs font-bold uppercase tracking-widest mb-5 bg-red-500/10 px-3 py-1 rounded-full">Галерей</span>
-                                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-5">
+                                <span className="inline-block text-red-500 text-xs font-bold uppercase tracking-widest mb-5 bg-red-500/10 px-3 py-1 rounded-full">Үр дүн</span>
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white leading-tight mb-5">
                                     Өмнө <span className="text-red-500">&amp;</span><br/>дараа нь
                                 </h1>
                                 <p className="text-gray-400 text-lg max-w-md leading-relaxed">
-                                    Манай эмч нарын бодит үр дүнг нүдээрээ үзэж, итгэлтэйгээр шийдвэр гар.
+                                    Манай эмч нарын бодит үр дүнтэй танилцаарай
                                 </p>
                             </div>
                             {/* Stats */}

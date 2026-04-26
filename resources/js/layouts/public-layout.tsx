@@ -189,7 +189,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                                 <span className="text-white text-sm font-semibold">{siteName}</span>
                             </div>
                             <p className="text-sm leading-relaxed mb-6 text-gray-500">
-                                {s.site_tagline || 'Мэргэшсэн гажиг заслын эмнэлэг. Таны гоё инээмсэглэл — манай эрхэм зорилго.'}
+                                {s.site_tagline || 'Таны инээмсэглэл бол биднийг урам зориулдаг зүйл.'}
                             </p>
                             {/* Social links */}
                             <div className="flex gap-2.5">

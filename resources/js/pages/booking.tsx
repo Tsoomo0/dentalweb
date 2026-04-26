@@ -313,14 +313,14 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                         <span className="inline-flex items-center gap-2 text-red-400 text-xs font-bold uppercase tracking-widest mb-5 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
                             <Calendar className="w-3.5 h-3.5"/> Цаг захиалах
                         </span>
-                        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight mb-4">
-                            Цаг захиалах<br/>
-                            <span className="text-red-500">хялбар болсон</span>
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white leading-tight mb-4">
+                            Хэдхэн минутад<br/>
+                            <span className="text-red-500">цагаа авч болно</span>
                         </h1>
                         <p className="text-gray-400 text-base leading-relaxed max-w-md mx-auto">
                             {bookingType === 'online'
-                                ? 'Салбар болон эмчээ сонгоод тохирох цагаа захиалаарай.'
-                                : 'Салбараа сонгоод хүсэлтээ илгээгээрэй. Манай ажилтан тантай холбогдоно.'}
+                                ? 'Эмчээ сонгоод, тохирох цагаа аваад болоо. Бусдыг бид шийдрэнэ.'
+                                : 'Хүсэлтээ илгээгээрэй — манай ажилтан тантай холбогдож цагийг тохиролцоно.'}
                         </p>
                         <div className="flex items-center justify-center gap-2 mt-8 text-xs text-gray-500 flex-wrap">
                             {(bookingType === 'online' ? onlineSteps : inPersonSteps).map((s, i, arr) => (
@@ -368,9 +368,9 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                     <CheckCheck className="w-5 h-5 text-green-600"/>
                                 </div>
                                 <div>
-                                    <p className="font-bold text-green-800">Захиалга амжилттай илгээгдлээ!</p>
+                                    <p className="font-bold text-green-800">Цаг амжилттай захиалагдлаа!</p>
                                     <p className="mt-1 text-sm text-green-700">Захиалгын дугаар: <strong>{flash.booking_success}</strong></p>
-                                    <p className="mt-0.5 text-sm text-green-600">Бид тантай удахгүй холбогдох болно.</p>
+                                    <p className="mt-0.5 text-sm text-green-600">Удахгүй бид тантай холбогдоно — та суугаад л байгаарай.</p>
                                 </div>
                             </div>
                         )}
@@ -383,9 +383,9 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                     <CheckCheck className="w-5 h-5 text-green-600"/>
                                 </div>
                                 <div>
-                                    <p className="font-bold text-green-800">Хүсэлт амжилттай илгээгдлээ!</p>
+                                    <p className="font-bold text-green-800">Хүсэлт хүрлээ!</p>
                                     <p className="mt-1 text-sm text-green-700">
-                                        Манай ажилтан боломжит цагийг харж тантай холбогдох болно.
+                                        Манай ажилтан тантай удахгүй холбогдож, тохиромжтой цагийг тохиролцоно.
                                     </p>
                                 </div>
                             </div>
@@ -511,8 +511,8 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                         {sortedDates.length === 0 ? (
                                             <div className="text-center py-8">
                                                 <Video className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
-                                                <p className="font-medium text-gray-700">Боломжтой цаг байхгүй байна</p>
-                                                <p className="text-sm text-gray-400 mt-1">Энэ эмч одоогоор онлайн цаг оруулаагүй байна.</p>
+                                                <p className="font-medium text-gray-700">Одоогоор нээлттэй цаг байхгүй байна</p>
+                                                <p className="text-sm text-gray-400 mt-1">Энэ эмч удахгүй цаг нэмэх болно. Эсвэл өөр эмчийг сонгоорой.</p>
                                             </div>
                                         ) : (
                                             <div className="space-y-5">
@@ -691,9 +691,9 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                 <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 flex items-start gap-3">
                                     <Building2 className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"/>
                                     <div>
-                                        <p className="text-sm font-semibold text-blue-800">Биечлэн ирэх хүсэлт</p>
+                                        <p className="text-sm font-semibold text-blue-800">Биечлэн ирэхийг хүсч байна уу?</p>
                                         <p className="text-xs text-blue-600 mt-0.5">
-                                            Та хүсэлтээ илгээсний дараа манай ажилтан боломжит цагийг харж тантай холбогдох болно. Ямар ч төлбөр шаардлагагүй.
+                                            Хүсэлтээ илгээгээрэй — манай ажилтан тантай холбогдож, тохиромжтой цагийг хамт олох болно.
                                         </p>
                                     </div>
                                 </div>

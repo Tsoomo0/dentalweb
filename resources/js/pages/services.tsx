@@ -175,17 +175,17 @@ export default function ServicesPage() {
                         style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }}/>
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <span className="inline-block text-red-500 text-xs font-bold uppercase tracking-widest mb-4 bg-red-500/10 px-3 py-1 rounded-full">Үйлчилгээ</span>
-                        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-5">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white leading-tight mb-5">
                             Манай эмчилгээний<br />
                             <span className="text-red-500">төрлүүд</span>
                         </h1>
                         <p className="text-gray-400 text-lg max-w-xl leading-relaxed">
-                            Орчин үеийн тоног төхөөрөмж, мэргэшсэн эмч нартайгаа хосолсон цогц үйлчилгээ.
+                            Ямар асуудалтай байгаагаас үл хамааран — бид шийдлийг хамт олно.
                         </p>
                         <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-gray-500">
-                            <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"/>Олон улсын сертификат</span>
-                            <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"/>Орчин үеийн аргачлал</span>
-                            <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"/>Хүртээмжтэй үнэ</span>
+                            <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"/>Туршлагатай баг</span>
+                            <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"/>Таны хэрэгцээнд тохирсон шийдэл</span>
+                            <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block"/>Ил тод үнэ</span>
                         </div>
                     </div>
                 </section>
@@ -292,13 +292,13 @@ export default function ServicesPage() {
                     <div className="absolute inset-0 opacity-[0.04]"
                         style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }}/>
                     <div className="relative max-w-xl mx-auto px-4 text-center">
-                        <span className="inline-block text-red-500 text-xs font-bold uppercase tracking-widest mb-4">Эхлэцгээе</span>
-                        <h2 className="text-4xl font-black text-white mb-5">Ямар үйлчилгээ хэрэгтэй вэ?</h2>
-                        <p className="text-gray-400 mb-8 leading-relaxed">Мэдэхгүй байна уу? Манай эмчтэй зөвлөлдөж, таны хэрэгцээнд тохирсон үйлчилгээг сонгоорой.</p>
+                        <span className="inline-block text-red-400 text-xs font-bold uppercase tracking-widest mb-4">Цаг захиалах</span>
+                        <h2 className="text-4xl font-black text-white mb-5">Эхний алхмаа<br/>хамт хийцгээе</h2>
+                        <p className="text-gray-500 mb-8 leading-relaxed">Шүдний асуудлаа шийдэх нь таны бодсоноос хялбар. Бидэнд хандаад эмчтэйгээ уулзаарай — үлдсэнийг бид шийдэрнэ.</p>
                         <Link href="/booking"
                             className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-2xl shadow-red-900/40 text-base">
                             <Calendar className="w-5 h-5"/>
-                            Үнэгүй зөвлөгөө авах
+                            Онлайн цаг захиалах
                         </Link>
                     </div>
                 </section>

@@ -8,7 +8,7 @@ import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
+        title: 'Хянах самбар',
         url: '/admin/dashboard',
         icon: LayoutGrid,
     },

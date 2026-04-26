@@ -13,6 +13,7 @@ interface Doctor {
 }
 interface Branch { id: number; name: string; address: string | null; phone: string | null }
 interface PageProps {
+    [key: string]: unknown;
     auth: { user?: { name: string } };
     doctors: Doctor[];
     branches: Branch[];
@@ -166,7 +167,7 @@ function DoctorModal({ doctor, onClose }: { doctor: Doctor; onClose: () => void 
                 <Link href={bookingUrl}
                     className="w-full flex items-center justify-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-200 text-base">
                     <Calendar className="w-5 h-5"/>
-                    {doctor.name}-д цаг захиалах
+                    Цаг захиалах
                 </Link>
             </div>
         </Modal>
@@ -203,12 +204,12 @@ export default function DoctorsPage() {
                         style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }}/>
                     <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <span className="inline-block text-red-500 text-xs font-bold uppercase tracking-widest mb-4 bg-red-500/10 px-3 py-1 rounded-full">Манай баг</span>
-                        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-5">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white leading-tight mb-5">
                             Мэргэшсэн<br />
                             <span className="text-red-500">эмч нар</span>
                         </h1>
                         <p className="text-gray-400 text-lg max-w-xl leading-relaxed">
-                            Олон улсын сертификаттай, туршлагатай, халамжтай эмч нашид танд хамгийн сайн үйлчилгээ үзүүлэхэд бэлэн.
+                            Таны шүдийг хамгийн сайн мэддэг хүн бол таны эмч. Манай баг тантай хамт ажиллахад бэлэн.
                         </p>
                     </div>
                 </section>
@@ -305,8 +306,8 @@ export default function DoctorsPage() {
                 <section className="py-24 bg-[#F9F4F2]">
                     <div className="max-w-xl mx-auto px-4 text-center">
                         <span className="inline-block text-red-600 text-xs font-bold uppercase tracking-widest mb-4">Цаг захиалах</span>
-                        <h2 className="text-3xl font-black text-gray-900 mb-4">Танд тохирсон эмчийг сонго</h2>
-                        <p className="text-gray-500 mb-8 leading-relaxed">Манай мэргэшсэн эмч нарын аль нэгтэй уулзаж, өөрт тохирсон эмчилгээгээ эхлүүл.</p>
+                        <h2 className="text-3xl font-black text-gray-900 mb-4">Эхний алхмаа хамт хийцгээе</h2>
+                        <p className="text-gray-500 mb-8 leading-relaxed">Шүдний асуудлаа шийдэх нь таны бодсоноос хялбар. Бидэнд хандаад эмчтэйгээ уулзаарай — үлдсэнийг бид шийдэрнэ.</p>
                         <Link href="/booking"
                             className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-lg shadow-red-200 text-base">
                             <Calendar className="w-5 h-5"/>

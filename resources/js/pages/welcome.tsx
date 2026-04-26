@@ -358,7 +358,7 @@ function DoctorModal({ doctor, onClose }: { doctor: Doctor | null; onClose: () =
                 <Link href={bookingUrl}
                     className="w-full flex items-center justify-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-200 text-base">
                     <Calendar className="w-5 h-5" />
-                    {doctor.name}-д цаг захиалах
+                    Цаг захиалах
                 </Link>
             </div>
         </Modal>
@@ -496,40 +496,83 @@ function ImplantIllustration() {
     );
 }
 
-function VeneerIllustration() {
+function WhiteningIllustration() {
     return (
         <svg viewBox="0 0 480 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
+            <defs>
+                <linearGradient id="whiteningBefore" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#D4C89A"/><stop offset="100%" stopColor="#C2B07A"/>
+                </linearGradient>
+                <linearGradient id="whiteningAfter" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#FFFFFF"/><stop offset="100%" stopColor="#F0F4FF"/>
+                </linearGradient>
+                <radialGradient id="glowCenter" cx="50%" cy="40%" r="50%">
+                    <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0"/>
+                </radialGradient>
+                <filter id="sparkBlur">
+                    <feGaussianBlur stdDeviation="1.5"/>
+                </filter>
+            </defs>
+
+            {/* Shadow */}
             <ellipse cx="240" cy="478" rx="145" ry="14" fill="#C62828" opacity="0.10"/>
-            <path d="M148 72 Q152 42 180 38 Q200 34 230 34 Q236 38 236 72 Q238 160 234 240 Q216 258 190 258 Q162 256 152 238 Q142 210 148 72Z"
-                fill="#FEF9EC" stroke="#E8DDB8" strokeWidth="2" opacity="0.7"/>
-            <path d="M158 68 Q164 36 196 30 Q228 24 262 28 Q292 34 302 60 Q316 100 314 180 Q312 240 300 280 Q278 306 248 312 Q216 316 192 302 Q164 286 158 262 Q144 220 158 68Z"
-                fill="url(#toothBase)" stroke="#E5E7EB" strokeWidth="2"/>
-            <path d="M164 64 Q170 34 200 30 Q232 26 264 30 Q290 36 298 62 Q308 102 306 176 Q304 228 294 265 Q272 292 246 296 Q220 298 200 285 Q178 272 168 248 Q156 210 164 64Z"
-                fill="url(#veneerGrad)" stroke="rgba(255,255,255,0.8)" strokeWidth="1.5"/>
-            <path d="M186 46 Q200 32 228 32 Q250 34 258 50 Q244 56 220 58 Q200 58 186 46Z" fill="white" opacity="0.55"/>
-            <path d="M178 80 Q182 68 190 64" stroke="white" strokeWidth="6" strokeLinecap="round" opacity="0.4"/>
-            <path d="M175 180 Q232 190 295 180" stroke="#E8E8E8" strokeWidth="1" strokeLinecap="round"/>
-            <path d="M180 220 Q232 228 288 220" stroke="#E8E8E8" strokeWidth="1" strokeLinecap="round"/>
-            <rect x={106} y={340} width={100} height={36} rx={10} fill="#FEF9EC" stroke="#E8DDB8" strokeWidth="1.5"/>
-            <text x="156" y="363" textAnchor="middle" fontSize="12" fill="#B45309" fontWeight="700">Өмнө</text>
-            <rect x={274} y={340} width={100} height={36} rx={10} fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
-            <text x="324" y="363" textAnchor="middle" fontSize="12" fill="#C62828" fontWeight="700">Дараа ✨</text>
-            <path d="M212 358 L268 358" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"/>
-            <path d="M260 353 L268 358 L260 363" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            {[[340,100],[380,160],[360,220]].map(([cx,cy],i) => (
-                <g key={i}>
-                    <path d={`M${cx} ${cy-8} L${cx+3} ${cy} L${cx} ${cy+8} L${cx-3} ${cy}Z`} fill="#C62828" opacity="0.3"/>
-                    <path d={`M${cx-8} ${cy} L${cx} ${cy-3} L${cx+8} ${cy} L${cx} ${cy+3}Z`} fill="#C62828" opacity="0.3"/>
+
+            {/* Glow behind teeth */}
+            <ellipse cx="240" cy="210" rx="140" ry="110" fill="url(#glowCenter)"/>
+
+            {/* ── BEFORE teeth (left, yellowish) ── */}
+            {[
+                { x: 90,  w: 54, h: 165, r: "M90 180 Q90 60 117 40 Q144 20 144 180 Q144 230 117 238 Q90 238 90 180Z" },
+                { x: 148, w: 48, h: 148, r: "M148 175 Q150 68 172 52 Q194 38 196 175 Q196 222 172 228 Q148 228 148 175Z" },
+            ].map((t, i) => (
+                <g key={i} opacity="0.88">
+                    <path d={t.r} fill="url(#whiteningBefore)" stroke="#C2A96A" strokeWidth="1.5"/>
+                    <path d={t.r.replace('Q','q').slice(0,18)} fill="rgba(255,255,255,0.15)"/>
                 </g>
             ))}
-            <defs>
-                <linearGradient id="toothBase" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#F5F0E4"/><stop offset="100%" stopColor="#EDE8D8"/>
-                </linearGradient>
-                <linearGradient id="veneerGrad" x1="0.1" y1="0" x2="0.9" y2="1">
-                    <stop offset="0%" stopColor="#FFFFFF"/><stop offset="40%" stopColor="#FAFAFA"/><stop offset="100%" stopColor="#F2F2F2"/>
-                </linearGradient>
-            </defs>
+
+            {/* ── AFTER teeth (right, bright white) ── */}
+            {[
+                { r: "M284 175 Q284 68 306 52 Q328 38 330 175 Q330 222 306 228 Q284 228 284 175Z" },
+                { r: "M334 180 Q334 60 361 40 Q388 20 388 180 Q388 230 361 238 Q334 238 334 180Z" },
+            ].map((t, i) => (
+                <g key={i}>
+                    <path d={t.r} fill="url(#whiteningAfter)" stroke="#D1D9FF" strokeWidth="1.5"/>
+                    {/* shine streak */}
+                    <path d={t.r.replace(/Q[\d\s]+/,'').slice(0,12)} fill="rgba(255,255,255,0.4)"/>
+                </g>
+            ))}
+
+            {/* Centre divider */}
+            <line x1="238" y1="44" x2="246" y2="244" stroke="#9CA3AF" strokeWidth="1.5" strokeDasharray="5 4" opacity="0.5"/>
+
+            {/* Before label */}
+            <rect x="78" y="258" width="84" height="28" rx="8" fill="#FEF3C7" stroke="#D97706" strokeWidth="1.2"/>
+            <text x="120" y="277" textAnchor="middle" fontSize="11" fill="#92400E" fontWeight="700">Өмнө</text>
+
+            {/* After label */}
+            <rect x="318" y="258" width="84" height="28" rx="8" fill="white" stroke="#6366F1" strokeWidth="1.2"/>
+            <text x="360" y="277" textAnchor="middle" fontSize="11" fill="#4F46E5" fontWeight="700">Дараа</text>
+
+            {/* Arrow */}
+            <path d="M214 272 L266 272" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M259 267 L266 272 L259 277" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+
+            {/* Sparkles around the white side */}
+            {[[370,90],[400,145],[385,55],[350,130]].map(([cx,cy],i) => (
+                <g key={i} opacity={0.7 - i*0.1}>
+                    <line x1={cx} y1={cy-9} x2={cx} y2={cy+9} stroke="#FDE68A" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1={cx-9} y1={cy} x2={cx+9} y2={cy} stroke="#FDE68A" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1={cx-5} y1={cy-5} x2={cx+5} y2={cy+5} stroke="#FDE68A" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+                    <line x1={cx+5} y1={cy-5} x2={cx-5} y2={cy+5} stroke="#FDE68A" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+                </g>
+            ))}
+
+            {/* Shade percentage badge */}
+            <rect x="290" y="310" width="110" height="44" rx="12" fill="#1E1B4B" opacity="0.85"/>
+            <text x="345" y="328" textAnchor="middle" fontSize="10" fill="#A5B4FC" fontWeight="600">Цайрлын зэрэг</text>
+            <text x="345" y="346" textAnchor="middle" fontSize="13" fill="white" fontWeight="800">8+ шат</text>
         </svg>
     );
 }
@@ -539,9 +582,9 @@ function VeneerIllustration() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const HERO_SLIDES = [
-    { id: 0, tag: 'Гажиг засал', title: 'Гоё инээмсэглэл\nтаны эрхэм', highlight: 'инээмсэглэл', sub: 'Invisalign, брекет болон орчин үеийн гажиг засалтай аргуудаар хоёр жилд шинэ амьдрал эхлүүл.', badge: 'Invisalign™ Provider', Illustration: BracesIllustration },
-    { id: 1, tag: 'Имплант шүд', title: 'Алдсан шүдийг\nсэргээх цаг', highlight: 'сэргээх', sub: 'Дэлхийн чанарын титан имплантаар байнгын шүдийг бүрэн сэргээ. Гэрэлтэх инээмсэглэлд буц.', badge: 'ISO Сертификаттай', Illustration: ImplantIllustration },
-    { id: 2, tag: 'Шүдний шигтгээ', title: 'Алмаз мэт\nгэрэлтэх шүд', highlight: 'гэрэлтэх', sub: 'Порселан венер болон гоёлын шигтгээгээр шүдийг тань өнгө, хэлбэр, эгнээгээр нь төгс болгоно.', badge: 'Эстетик Шүд судлал', Illustration: VeneerIllustration },
+    { id: 0, tag: 'Гажиг засал', title: 'Инээмсэглэлдээ\nитгэлтэй бол', highlight: 'итгэлтэй', sub: 'Шүдний гажиг нь таны инээмсэглэлийг зогсоохгүй. Ой санамжтай тунгалаг авагддаг аппарат эсвэл уламжлалт аппаратаар хэдхэн сард тодорхой үр дүн гарна.', badgeLabel: 'Хамрагдсан өвчтөн', badge: '500+', Illustration: BracesIllustration },
+    { id: 1, tag: 'Имплант шүд', title: 'Алдсан шүдийгөө\nэргүүлж авч болно', highlight: 'эргүүлж', sub: 'Имплант нь байгалийн шүдтэй адил мэдрэгддэг. Идэж, ярьж, инээмсэглэхдээ ямар ч ялгаа анзааралгүй амьдрана.', badgeLabel: 'Амжилтын түвшин', badge: '98%', Illustration: ImplantIllustration },
+    { id: 2, tag: 'Шүдний цайруулалт', title: 'Цайвар шүд —\n', highlight: 'Цайвар', sub: 'Мэргэжлийн гэрлийн цайруулалтаар шүдний өнгийг 8 шат хүртэл цайруулна. Өвдөлтгүй, хурдан, байнгын үр дүнтэй.', badgeLabel: 'Нэг удаа л ирэхэд хангалттай', badge: '60 минут', Illustration: WhiteningIllustration },
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -597,7 +640,7 @@ function HeroSlideshow({ doctors }: { doctors: Doctor[] }) {
                             <span className="text-red-400 text-xs font-bold uppercase tracking-[0.2em]">{slide.tag}</span>
                         </div>
                         <div key={`title-${current}`} style={{ animation: 'fadeSlideIn 0.8s ease 0.1s both' }}>
-                            <h1 className="text-3xl sm:text-4xl md:text-[3.5rem] lg:text-[3.8rem] font-black text-white leading-[1.05] tracking-tight">
+                            <h1 className="text-2xl sm:text-3xl md:text-[2.8rem] lg:text-[3.2rem] font-black text-white leading-[1.08] tracking-tight">
                                 {titleLines.map((line, li) =>
                                     line.includes(slide.highlight)
                                         ? <span key={li}>{line.split(slide.highlight)[0]}<span className="text-red-500">{slide.highlight}</span>{line.split(slide.highlight)[1]}{li < titleLines.length-1 && <br/>}</span>
@@ -616,7 +659,7 @@ function HeroSlideshow({ doctors }: { doctors: Doctor[] }) {
                             </Link>
                         </div>
                         <div className="flex gap-6 pt-4 border-t border-white/8 mt-2">
-                            {[{ v: '10+', l: 'Жилийн туршлага' }, { v: '98%', l: 'Сэтгэл ханамж' }].map((s,i) => (
+                            {[{ v: '10+', l: 'Жилийн туршлага' }, { v: '98%', l: 'Сэтгэл ханасан үйлчлүүлэгч' }].map((s,i) => (
                                 <div key={i}>
                                     <p className="text-2xl font-black text-white">{s.v}</p>
                                     <p className="text-gray-500 text-xs mt-0.5">{s.l}</p>
@@ -639,17 +682,17 @@ function HeroSlideshow({ doctors }: { doctors: Doctor[] }) {
                                     <CheckCircle className="w-4 h-4 text-red-600" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] text-gray-400 font-medium">Мэргэжлийн</p>
+                                    <p className="text-[10px] text-gray-400 font-medium">{slide.badgeLabel}</p>
                                     <p className="text-sm font-black text-gray-900">{slide.badge}</p>
                                 </div>
                             </div>
                             <div className="absolute bottom-10 -left-3 lg:-left-8 bg-white rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-2.5">
-                                <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center">
-                                    <Award className="w-4 h-4 text-amber-600" />
+                                <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center">
+                                    <Smile className="w-4 h-4 text-emerald-600" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] text-gray-400 font-medium">Баталгааллагдсан</p>
-                                    <p className="text-sm font-black text-gray-900">ISO 9001</p>
+                                    <p className="text-[10px] text-gray-400 font-medium">Сэтгэл ханасан үйлчлүүлэгч</p>
+                                    <p className="text-sm font-black text-gray-900">1,000+</p>
                                 </div>
                             </div>
                         </div>
@@ -970,8 +1013,7 @@ export default function Welcome() {
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
                             <div>
-                                <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Эмч нар</span>
-                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2 leading-tight">Мэргэшсэн баг</h2>
+                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2 leading-tight">Эмч нар</h2>
                             </div>
                             <Link href="/doctors" className="flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
                                 Бүх эмчийг харах <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
@@ -1052,7 +1094,7 @@ export default function Welcome() {
                         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
                             <div>
                                 <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Үр дүн</span>
-                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2">Өмнө ба дараа нь</h2>
+                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2">Бодит үр дүн</h2>
                             </div>
                             <Link href="/gallery" className="flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
                                 Бүгдийг харах <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
@@ -1116,8 +1158,8 @@ export default function Welcome() {
                 <section className="py-24 bg-white">
                     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="mb-10">
-                            <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Асуулт & Хариулт</span>
-                            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2">Түгээмэл асуултууд</h2>
+                            <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Та асуух уу?</span>
+                            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2">Ихэнх хүн асуудаг зүйлс</h2>
                         </div>
                         <div className="flex flex-col gap-3">
                             {(faqs.length > 0 ? faqs : defaultFaqs).map(f => <FaqItem key={f.id} faq={f}/>)}
@@ -1132,8 +1174,8 @@ export default function Welcome() {
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-red-900/20 rounded-full blur-3xl pointer-events-none"/>
                     <div className="relative max-w-2xl mx-auto px-4 text-center">
                         <span className="text-red-400 text-xs font-bold uppercase tracking-widest">Цаг захиалах</span>
-                        <h2 className="text-4xl md:text-5xl font-black text-white mt-4 mb-5 leading-tight">Өнөөдөр эхлэх цаг болжээ</h2>
-                        <p className="text-gray-500 mb-8 leading-relaxed">Үнэгүй зөвлөгөө авч, хувийн засалтын төлөвлөгөөгөө боловсруул.</p>
+                        <h2 className="text-4xl md:text-5xl font-black text-white mt-4 mb-5 leading-tight">Эхний алхмаа<br/>хамт хийцгээе</h2>
+                        <p className="text-gray-400 mb-8 leading-relaxed">Шүдний асуудлаа шийдэх нь таны бодсоноос хялбар.<br className="hidden sm:block"/> Бидэнд хандаад эмчтэйгээ уулзаарай — үлдсэнийг бид шийдэрнэ.</p>
                         <Link href="/booking"
                             className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-2xl shadow-red-900/40 text-base">
                             <Calendar className="w-5 h-5"/> Онлайн цаг захиалах

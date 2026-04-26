@@ -204,7 +204,7 @@ export default function ArticlesPage() {
                             <span className="inline-flex items-center gap-2 text-red-500 text-xs font-bold uppercase tracking-widest mb-5 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
                                 <BookOpen className="w-3.5 h-3.5"/> Мэдээ мэдээлэл
                             </span>
-                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight mb-4">
+                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white leading-tight mb-4">
                                 Шүдний эрүүл<br/>
                                 <span className="text-red-500">мэндийн мэдлэг</span>
                             </h1>
