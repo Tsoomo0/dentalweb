@@ -29,6 +29,18 @@ use Illuminate\Support\Facades\Route;
 // ── Public pages ─────────────────────────────────────────────────────────────
 
 Route::get('/',               [PublicController::class, 'home'])->name('home');
+
+Route::get('/sitemap.xml', function () {
+    return \Spatie\Sitemap\SitemapGenerator::create(config('app.url'))
+        ->hasCrawled(function (\Spatie\Sitemap\Tags\Url $url) {
+            if (str_contains($url->url, '/admin') || str_contains($url->url, '/reception') || str_contains($url->url, '/doctor')) {
+                return false;
+            }
+            return $url;
+        })
+        ->getSitemap()
+        ->toResponse(request());
+});
 Route::get('/about',          [PublicController::class, 'about'])->name('about');
 Route::get('/services',       [PublicController::class, 'services'])->name('services');
 Route::get('/doctors',        [PublicController::class, 'doctors'])->name('doctors');
