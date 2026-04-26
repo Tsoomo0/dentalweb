@@ -22,6 +22,11 @@ class MaintenanceMiddleware
                 return $next($request);
             }
 
+            // /admin, /login хаягуудыг бүгдийг нь тойрно
+            if ($request->is('admin*', 'login', 'logout', 'dashboard')) {
+                return $next($request);
+            }
+
             return response()->view('errors.maintenance', [], 503);
         }
 
