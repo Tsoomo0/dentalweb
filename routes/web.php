@@ -31,15 +31,16 @@ use Illuminate\Support\Facades\Route;
 Route::get('/',               [PublicController::class, 'home'])->name('home');
 
 Route::get('/sitemap.xml', function () {
-    return \Spatie\Sitemap\SitemapGenerator::create(config('app.url'))
-        ->hasCrawled(function (\Spatie\Sitemap\Tags\Url $url) {
-            if (str_contains($url->url, '/admin') || str_contains($url->url, '/reception') || str_contains($url->url, '/doctor')) {
-                return false;
-            }
-            return $url;
-        })
-        ->getSitemap()
-        ->toResponse(request());
+    $sitemap = \Spatie\Sitemap\Sitemap::create()
+        ->add(\Spatie\Sitemap\Tags\Url::create('/')->setPriority(1.0)->setChangeFrequency('weekly'))
+        ->add(\Spatie\Sitemap\Tags\Url::create('/about')->setPriority(0.8)->setChangeFrequency('monthly'))
+        ->add(\Spatie\Sitemap\Tags\Url::create('/services')->setPriority(0.9)->setChangeFrequency('weekly'))
+        ->add(\Spatie\Sitemap\Tags\Url::create('/doctors')->setPriority(0.8)->setChangeFrequency('weekly'))
+        ->add(\Spatie\Sitemap\Tags\Url::create('/gallery')->setPriority(0.7)->setChangeFrequency('weekly'))
+        ->add(\Spatie\Sitemap\Tags\Url::create('/articles')->setPriority(0.7)->setChangeFrequency('daily'))
+        ->add(\Spatie\Sitemap\Tags\Url::create('/contact')->setPriority(0.6)->setChangeFrequency('monthly'))
+        ->add(\Spatie\Sitemap\Tags\Url::create('/booking')->setPriority(0.9)->setChangeFrequency('weekly'));
+    return $sitemap->toResponse(request());
 });
 Route::get('/about',          [PublicController::class, 'about'])->name('about');
 Route::get('/services',       [PublicController::class, 'services'])->name('services');
