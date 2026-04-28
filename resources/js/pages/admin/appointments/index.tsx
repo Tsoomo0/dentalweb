@@ -370,12 +370,9 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
     }
 
 
-    /* ---- calendar data: зөвхөн баталгаажсан + төлбөр төлөгдсөн (эсвэл төлбөргүй) ---- */
+    /* ---- calendar data: баталгаажсан цагууд ---- */
     const visibleApts = useMemo(() => {
-        let r = apts.filter(a =>
-            a.status === 'confirmed' &&
-            (a.payment_status === null || a.payment_status === 'paid')
-        );
+        let r = apts.filter(a => a.status === 'confirmed');
         if (filterBranches.size > 0) {
             const docIds = new Set(doctors.filter(d => d.branch_id && filterBranches.has(Number(d.branch_id))).map(d => Number(d.id)));
             r = r.filter(a =>
