@@ -717,6 +717,9 @@ export default function DoctorDashboard({ doctor, appointments, stats }: Props) 
                                                                     background: compact
                                                                         ? `${pal2.bg}28`
                                                                         : `linear-gradient(145deg, ${pal2.bg}55, ${pal2.bg}33)`,
+                                                                    borderTop: `1px solid ${pal2.bg}40`,
+                                                                    borderRight: `1px solid ${pal2.bg}40`,
+                                                                    borderBottom: `1px solid ${pal2.bg}40`,
                                                                     borderLeft: `3px solid ${pal2.bg}`,
                                                                     borderRadius: compact ? 6 : 10,
                                                                     cursor:'pointer', overflow:'hidden',
@@ -918,6 +921,9 @@ export default function DoctorDashboard({ doctor, appointments, stats }: Props) 
                                                                             top: top2, height: h3,
                                                                             zIndex: col + 1,
                                                                             background: pal2.light,
+                                                                            borderTop: `1px solid ${pal2.bg}40`,
+                                                                            borderRight: `1px solid ${pal2.bg}40`,
+                                                                            borderBottom: `1px solid ${pal2.bg}40`,
                                                                             borderLeft: `3px solid ${pal2.bg}`,
                                                                             borderRadius:6, cursor:'pointer', overflow:'hidden',
                                                                             padding:'3px 5px',

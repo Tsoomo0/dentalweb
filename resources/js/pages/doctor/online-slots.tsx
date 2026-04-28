@@ -80,16 +80,16 @@ function addMinutes(time: string, mins: number) {
 function StatCard({ icon: Icon, value, label, sub, accent }:
     { icon: React.ElementType; value: number; label: string; sub?: string; accent: string }) {
     return (
-        <div className={`relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm`}>
+        <div className={`relative overflow-hidden rounded-2xl border bg-card p-3 sm:p-5 shadow-sm`}>
             <div className={`pointer-events-none absolute -right-4 -top-4 size-20 rounded-full opacity-10 ${accent}`} />
             <div className="flex items-start justify-between">
                 <div>
-                    <p className="text-3xl font-black tabular-nums leading-none">{value}</p>
-                    <p className="mt-1.5 text-xs font-medium text-muted-foreground">{label}</p>
-                    {sub && <p className="text-[10px] text-muted-foreground/60 mt-0.5">{sub}</p>}
+                    <p className="text-2xl sm:text-3xl font-black tabular-nums leading-none">{value}</p>
+                    <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs font-medium text-muted-foreground leading-tight">{label}</p>
+                    {sub && <p className="hidden sm:block text-[10px] text-muted-foreground/60 mt-0.5">{sub}</p>}
                 </div>
-                <div className={`flex size-9 items-center justify-center rounded-xl ${accent} bg-opacity-15`}>
-                    <Icon className="size-4" />
+                <div className={`flex size-7 sm:size-9 items-center justify-center rounded-xl ${accent} bg-opacity-15`}>
+                    <Icon className="size-3.5 sm:size-4" />
                 </div>
             </div>
         </div>
@@ -300,19 +300,19 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                 </div>
             )}
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6">
+            <div className="flex h-full flex-1 flex-col gap-4 p-4 sm:gap-6 sm:p-6">
 
                 {/* ══ Page header ══════════════════════════════════════ */}
-                <div className="flex items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold">Онлайн цагийн хуваарь</h1>
-                        <p className="mt-0.5 text-sm text-muted-foreground">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-bold truncate">Онлайн цагийн хуваарь</h1>
+                        <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground hidden sm:block">
                             Өвчтөнүүдэд захиалуулах онлайн зөвлөгөөний цагаа удирдана уу
                         </p>
                     </div>
                     <button
                         onClick={() => setShowForm(v => !v)}
-                        className={`flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold shadow-sm transition-all ${
+                        className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold shadow-sm transition-all ${
                             showForm
                                 ? 'bg-muted text-foreground hover:bg-muted/80'
                                 : 'bg-red-600 text-white hover:bg-red-700 shadow-red-200 dark:shadow-red-900/30'
@@ -323,7 +323,7 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                 </div>
 
                 {/* ══ Stats row ════════════════════════════════════════ */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     <StatCard icon={CalendarDays} value={totalUpcoming} label="Ирэх цагууд"
                         sub={totalUpcoming > 0 ? `${upcoming.length} өдөр` : undefined}
                         accent="bg-blue-500 text-blue-600 dark:text-blue-400" />
@@ -338,15 +338,15 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                 {/* ══ Week strip ═══════════════════════════════════════ */}
                 <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
                     {/* Header */}
-                    <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-3">
-                        <div className="flex items-center gap-2">
-                            <Video className="size-4 text-muted-foreground" />
-                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2.5 sm:px-5 sm:py-3">
+                        <div className="flex items-center gap-1.5">
+                            <Video className="size-3.5 text-muted-foreground" />
+                            <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden xs:block">
                                 7 хоногийн хуваарь
                             </span>
                         </div>
                         <div className="flex items-center gap-1">
-                            <span className="mr-1 text-xs font-medium text-muted-foreground">{weekLabel}</span>
+                            <span className="mr-1 text-[11px] sm:text-xs font-medium text-muted-foreground">{weekLabel}</span>
                             <button onClick={() => setWeekOffset(v => v - 1)}
                                 className="flex size-7 items-center justify-center rounded-lg hover:bg-muted transition-colors">
                                 <ChevronLeft className="size-4 text-muted-foreground" />
@@ -553,11 +553,11 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                                 <div key={date} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
 
                                     {/* ── Date header ── */}
-                                    <div className="flex items-center gap-4 border-b px-5 py-4">
+                                    <div className="flex items-center gap-3 border-b px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
                                         {/* Calendar date chip */}
-                                        <div className="flex size-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-gradient-to-b from-red-500 to-red-700 shadow-sm shadow-red-200 dark:shadow-red-900/30">
-                                            <span className="text-[9px] font-bold uppercase tracking-widest text-red-200 leading-none">{fd.weekday}</span>
-                                            <span className="text-xl font-black text-white leading-tight">{fd.day}</span>
+                                        <div className="flex size-10 shrink-0 flex-col items-center justify-center rounded-xl sm:size-12 sm:rounded-2xl bg-gradient-to-b from-red-500 to-red-700 shadow-sm shadow-red-200 dark:shadow-red-900/30">
+                                            <span className="text-[8px] font-bold uppercase tracking-widest text-red-200 leading-none">{fd.weekday.slice(0,3)}</span>
+                                            <span className="text-lg sm:text-xl font-black text-white leading-tight">{fd.day}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="font-bold text-sm">{fd.weekday}, {fd.day} {fd.month}</p>
@@ -567,7 +567,7 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                                                     <div className="h-full rounded-full bg-amber-400 transition-all"
                                                         style={{ width: `${fillPct}%` }} />
                                                 </div>
-                                                <span className="shrink-0 text-[10px] text-muted-foreground">{fillPct}% дүүрсэн</span>
+                                                <span className="shrink-0 text-[10px] text-muted-foreground">{fillPct}%</span>
                                             </div>
                                         </div>
                                         {/* Day stat badges */}
@@ -575,13 +575,13 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                                             {dayBook > 0 && (
                                                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/30 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">
                                                     <span className="size-1.5 rounded-full bg-amber-500" />
-                                                    {dayBook} захиалсан
+                                                    {dayBook}
                                                 </span>
                                             )}
                                             {dayFree > 0 && (
                                                 <span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-950/30 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:text-green-400">
                                                     <span className="size-1.5 rounded-full bg-green-500" />
-                                                    {dayFree} чөлөөтэй
+                                                    {dayFree}
                                                 </span>
                                             )}
                                         </div>
@@ -597,7 +597,7 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                                             return (
                                                 <div key={slot.id}
                                                     onClick={() => slot.is_booked && setActiveSlot(slot)}
-                                                    className={`group relative flex items-center gap-4 px-5 py-4 transition-colors ${
+                                                    className={`group relative flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4 transition-colors ${
                                                         slot.is_booked
                                                             ? 'cursor-pointer hover:bg-amber-50/40 dark:hover:bg-amber-950/10'
                                                             : 'hover:bg-green-50/30 dark:hover:bg-green-950/10'
@@ -608,8 +608,8 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                                                         slot.is_booked ? 'bg-amber-400' : 'bg-green-400'
                                                     }`} />
 
-                                                    {/* Index + time icon */}
-                                                    <div className={`flex size-10 shrink-0 flex-col items-center justify-center rounded-xl text-[10px] font-black ${
+                                                    {/* Time icon */}
+                                                    <div className={`flex size-9 shrink-0 flex-col items-center justify-center rounded-xl text-[10px] font-black ${
                                                         slot.is_booked
                                                             ? 'bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
                                                             : 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
@@ -619,12 +619,12 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
 
                                                     {/* Time + visual bar */}
                                                     <div className="min-w-0 flex-1">
-                                                        <div className="flex items-baseline gap-2">
-                                                            <span className="text-base font-black tabular-nums leading-none">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="text-sm sm:text-base font-black tabular-nums leading-none">
                                                                 {slot.start_time}
                                                             </span>
-                                                            <span className="text-sm text-muted-foreground">–</span>
-                                                            <span className="text-base font-black tabular-nums leading-none">
+                                                            <span className="text-xs text-muted-foreground">–</span>
+                                                            <span className="text-sm sm:text-base font-black tabular-nums leading-none">
                                                                 {slot.end_time}
                                                             </span>
                                                             {durText && (
@@ -635,7 +635,7 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                                                         </div>
 
                                                         {/* Mini timeline bar */}
-                                                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted/60">
+                                                        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted/60">
                                                             <div className={`h-full rounded-full transition-all ${
                                                                 slot.is_booked ? 'bg-amber-400' : 'bg-green-400'
                                                             }`} style={{ marginLeft: `${startF * 100}%`, width: `${Math.max(1, (endF - startF) * 100)}%` }} />
@@ -644,20 +644,20 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
 
                                                     {/* Status badge */}
                                                     {slot.is_booked ? (
-                                                        <div className="flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 px-3 py-2">
+                                                        <div className="flex shrink-0 items-center gap-1 rounded-xl bg-amber-100 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 px-2.5 py-1.5 sm:gap-1.5 sm:px-3 sm:py-2">
                                                             <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-                                                            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Захиалагдсан</span>
+                                                            <span className="text-[11px] sm:text-xs font-semibold text-amber-700 dark:text-amber-400">Захиалагдсан</span>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex shrink-0 items-center gap-1.5 rounded-xl bg-green-100 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40 px-3 py-2">
-                                                            <CheckCircle2 className="size-3.5 text-green-600 dark:text-green-400" />
-                                                            <span className="text-xs font-semibold text-green-700 dark:text-green-400">Чөлөөтэй</span>
+                                                        <div className="flex shrink-0 items-center gap-1 rounded-xl bg-green-100 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40 px-2.5 py-1.5 sm:gap-1.5 sm:px-3 sm:py-2">
+                                                            <CheckCircle2 className="size-3 sm:size-3.5 text-green-600 dark:text-green-400" />
+                                                            <span className="text-[11px] sm:text-xs font-semibold text-green-700 dark:text-green-400">Чөлөөтэй</span>
                                                         </div>
                                                     )}
 
                                                     {/* Delete */}
                                                     {!slot.is_booked && (
-                                                        <button onClick={() => deleteSlot(slot.id)}
+                                                        <button onClick={(e) => { e.stopPropagation(); deleteSlot(slot.id); }}
                                                             disabled={deletingId === slot.id}
                                                             className="flex size-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/30 transition-all disabled:opacity-50">
                                                             {deletingId === slot.id
