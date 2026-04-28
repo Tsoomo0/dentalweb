@@ -37,6 +37,16 @@ class ReceptionAppointmentController extends Controller
         if ($request->filled('doctor_id')) $query->where('doctor_id', $request->doctor_id);
         if ($request->filled('date'))      $query->whereDate('appointment_date', $request->date);
 
+        if ($request->filled('month')) {
+            $query->whereYear('appointment_date', substr($request->month, 0, 4))
+                  ->whereMonth('appointment_date', substr($request->month, 5, 2));
+        } elseif (!$request->filled('date') && !$request->filled('status')) {
+            $query->whereBetween('appointment_date', [
+                now()->subMonth()->startOfMonth()->toDateString(),
+                now()->addMonths(2)->endOfMonth()->toDateString(),
+            ]);
+        }
+
         $appointments = $query->get()->map(fn($a) => [
             'id'                   => $a->id,
             'appointment_number'   => $a->appointment_number,
