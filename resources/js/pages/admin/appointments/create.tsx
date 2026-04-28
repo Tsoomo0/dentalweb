@@ -231,25 +231,6 @@ export default function AppointmentCreate({ doctors, branches }: Props) {
                                 {errors.doctor_id && <p className="text-xs text-red-500">{errors.doctor_id}</p>}
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Үйлчилгээ</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {SERVICES.map(s => (
-                                        <button
-                                            key={s}
-                                            type="button"
-                                            onClick={() => setData('service', data.service === s ? '' : s)}
-                                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                                                data.service === s
-                                                    ? 'bg-red-600 text-white'
-                                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                            }`}
-                                        >
-                                            {s}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
                         </div>
 
                         {/* Status */}

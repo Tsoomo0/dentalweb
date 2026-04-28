@@ -803,35 +803,6 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                     <Card step={3} title="Үзлэгийн мэдээлэл" icon={Stethoscope}>
                                         <div className="flex flex-col gap-4">
 
-                                            {/* Treatment chips */}
-                                            {treatments.length > 0 && (
-                                                <div>
-                                                    <Label>Эмчилгээ / үйлчилгээ</Label>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {treatments.map(t => {
-                                                            const isSel = ipData.service === t.title;
-                                                            return (
-                                                                <button key={t.id} type="button"
-                                                                    onClick={() => setIpData('service', isSel ? '' : t.title)}
-                                                                    className={`flex items-center gap-1.5 rounded-xl border-2 px-3.5 py-2 text-xs font-semibold transition-all ${
-                                                                        isSel
-                                                                            ? 'border-red-500 bg-red-600 text-white shadow-sm'
-                                                                            : 'border-gray-200 bg-white text-gray-700 hover:border-red-300 hover:text-red-600'
-                                                                    }`}>
-                                                                    {isSel && <CheckCircle2 className="w-3.5 h-3.5"/>}
-                                                                    {t.title}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    {ipData.service && (
-                                                        <p className="text-xs text-red-600 mt-1.5 font-medium flex items-center gap-1">
-                                                            <CheckCircle2 className="w-3 h-3"/> Сонгосон: {ipData.service}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
-
                                             <div>
                                                 <Label>Үзүүлэх шалтгаан</Label>
                                                 <div className="relative">

@@ -302,29 +302,6 @@ export function AptFormModal({
                         </div>
                     </div>
 
-                    {/* Үйлчилгээ */}
-                    {treatments.length > 0 && (
-                        <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">Үйлчилгээ</label>
-                            <div className="flex flex-wrap gap-1.5">
-                                {treatments.map(t => (
-                                    <button key={t.id} type="button"
-                                        onClick={() => setData('service', data.service === t.title ? '' : t.title)}
-                                        className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                                            data.service === t.title
-                                                ? 'bg-red-600 text-white border-red-600'
-                                                : 'border-input text-muted-foreground hover:border-red-400 hover:text-red-600 bg-background'
-                                        }`}>{t.title}</button>
-                                ))}
-                                <input type="text"
-                                    value={treatments.some(t => t.title === data.service) ? '' : data.service}
-                                    onChange={e => setData('service', e.target.value)}
-                                    placeholder="Өөр..."
-                                    className="rounded-full border border-dashed border-input px-2.5 py-1 text-xs bg-background focus:outline-none focus:border-red-400 w-24" />
-                            </div>
-                        </div>
-                    )}
-
                     {/* Статус */}
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Төлөв</label>
