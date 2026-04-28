@@ -5,6 +5,8 @@ import { DoctorSidebar } from '@/components/doctor-sidebar';
 import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
+
+type FullPageProps = PageProps & { site_settings?: { site_logo?: string; site_name?: string } };
 import { CalendarClock, CalendarDays, LayoutGrid, Lock, UserCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -26,8 +28,9 @@ interface Props {
 }
 
 export default function DoctorLayout({ children, breadcrumbs = [] }: Props) {
-    const { url, props } = usePage<PageProps>();
+    const { url, props } = usePage<FullPageProps>();
     const hasOnlineBooking = props.auth?.doctor?.has_online_booking !== false;
+    const logoUrl = props.site_settings?.site_logo || '/img/black.png';
 
     const [isMobile, setIsMobile] = useState(() =>
         typeof window !== 'undefined' ? window.innerWidth < 768 : false
@@ -51,7 +54,7 @@ export default function DoctorLayout({ children, breadcrumbs = [] }: Props) {
                 {/* Top bar */}
                 <header className="bg-card border-b border-border"
                     style={{ height: '3.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, paddingInline: 16 }}>
-                    <img src="/img/black.png" alt="logo"
+                    <img src={logoUrl} alt="logo"
                         style={{ width: 30, height: 30, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
                     <span className="text-foreground"
                         style={{ fontSize: 15, fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
