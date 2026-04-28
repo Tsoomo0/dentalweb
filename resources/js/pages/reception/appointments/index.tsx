@@ -677,7 +677,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                         const pal = a.doctor_id ? dayPalette(a.doctor_id) : DAY_PALETTE[0];
                                         return (
                                             <button key={a.id} onClick={() => { openApt(a); changeSelected(a.appointment_date); setMobileSearchOpen(false); setMobileSearchQ(''); }}
-                                                style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid hsl(var(--border))', background:'none', border:'none', borderBottom:'1px solid hsl(var(--border))', cursor:'pointer', textAlign:'left' }}>
+                                                style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid hsl(var(--border))', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
                                                 <div style={{ width:4, alignSelf:'stretch', borderRadius:99, background: pal.bg, flexShrink:0 }} />
                                                 <div style={{ flex:1, minWidth:0 }}>
                                                     <p style={{ fontSize:14, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))', marginBottom:2 }}>{a.patient_name}</p>
