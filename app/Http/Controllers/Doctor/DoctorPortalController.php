@@ -69,7 +69,6 @@ class DoctorPortalController extends Controller
 
         $appointments = Appointment::where('doctor_id', $doctor->id)
             ->where('status', 'confirmed')
-            ->where(fn($q) => $q->whereNull('payment_status')->orWhere('payment_status', 'paid'))
             ->with('branch')
             ->orderBy('appointment_date')
             ->orderBy('appointment_time')

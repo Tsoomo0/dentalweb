@@ -156,10 +156,7 @@ export default function DoctorDashboard({ doctor, appointments, stats }: Props) 
 
     /* ── Calendar data ── */
     const visibleApts = useMemo(() =>
-        appointments.filter(a =>
-            a.status === 'confirmed' &&
-            (a.payment_status === null || a.payment_status === 'paid')
-        ),
+        appointments.filter(a => a.status === 'confirmed'),
         [appointments]
     );
     const aptByDate = useMemo(() => {

@@ -357,17 +357,14 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
     }
 
 
-    /* ---- calendar data: зөвхөн баталгаажсан + төлбөр төлөгдсөн (эсвэл төлбөргүй) ---- */
+    /* ---- calendar data: баталгаажсан цагууд ---- */
     const visibleApts = useMemo(() => {
-        let r = apts.filter(a =>
-            a.status === 'confirmed' &&
-            (a.payment_status === null || a.payment_status === 'paid')
-        );
+        let r = apts.filter(a => a.status === 'confirmed');
         if (filterDocs.size > 0) {
             r = r.filter(a => a.doctor_id !== null && filterDocs.has(Number(a.doctor_id)));
         }
         return r;
-    }, [apts, filterDocs, doctors]);
+    }, [apts, filterDocs]);
 
 
     const sidebarDoctors = doctors;
