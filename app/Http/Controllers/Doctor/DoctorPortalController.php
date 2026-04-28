@@ -27,8 +27,8 @@ class DoctorPortalController extends Controller
                 'patient_phone'        => $a->patient_phone,
                 'service'              => $a->service,
                 'type'                 => $a->type,
-                'appointment_time'     => $a->appointment_time ?? '',
-                'appointment_time_end' => $a->appointment_time_end,
+                'appointment_time'     => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
+                'appointment_time_end' => $a->appointment_time_end ? substr($a->appointment_time_end, 0, 5) : null,
                 'status'               => $a->status,
             ]);
 
@@ -45,7 +45,7 @@ class DoctorPortalController extends Controller
                 'patient_phone'        => $a->patient_phone,
                 'appointment_date'     => $a->appointment_date?->format('Y-m-d') ?? '',
                 'formatted_date'       => $a->appointment_date?->format('Y.m.d') ?? '—',
-                'appointment_time'     => $a->appointment_time ?? '',
+                'appointment_time'     => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
                 'service'              => $a->service,
                 'type'                 => $a->type,
             ]);
@@ -82,8 +82,8 @@ class DoctorPortalController extends Controller
                 'service'              => $a->service,
                 'type'                 => $a->type,
                 'appointment_date'     => $a->appointment_date?->format('Y-m-d') ?? '',
-                'appointment_time'     => $a->appointment_time ?? '',
-                'appointment_time_end' => $a->appointment_time_end,
+                'appointment_time'     => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
+                'appointment_time_end' => $a->appointment_time_end ? substr($a->appointment_time_end, 0, 5) : null,
                 'formatted_date'       => $a->appointment_date?->format('Y.m.d') ?? '—',
                 'status'               => $a->status,
                 'payment_status'       => $a->payment_status,
