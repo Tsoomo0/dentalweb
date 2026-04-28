@@ -171,6 +171,8 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
     const [createTime, setCreateTime] = useState('10:00');
     const [createDocId, setCreateDocId] = useState('');
     const [doctorPanelOpen, setDoctorPanelOpen] = useState(false);
+    const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+    const [mobileSearchQ, setMobileSearchQ] = useState('');
 
     /* ---- Search state ---- */
     const [searchOpen,       setSearchOpen]       = useState(false);
@@ -563,7 +565,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
 
                     {/* ── HEADER ── */}
                     <div className="bg-background border-b border-border" style={{ flexShrink:0, padding:'10px 16px 0', userSelect:'none' }}>
-                        {/* Top row: hamburger · date · view toggle */}
+                        {/* Top row: hamburger · date · view toggle · search */}
                         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
                             <button onClick={() => setDoctorPanelOpen(true)}
                                 className="bg-muted hover:bg-muted/80 transition-colors"
@@ -577,19 +579,49 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                     {new Date(selDay + 'T00:00').getDate()}-ны өдөр
                                 </div>
                             </button>
-                            <div className="bg-muted" style={{ display:'flex', borderRadius:10, padding:2, gap:1 }}>
-                                {(['month','week','day'] as const).map((v, vi) => (
-                                    <button key={v} onClick={() => { changeView(v); if (v === 'day' && !selected) changeSelected(todayStr); }}
-                                        style={{
-                                            padding:'4px 9px', borderRadius:8, fontSize:11, fontWeight:700, border:'none', cursor:'pointer',
-                                            background: view === v ? '#22c55e' : 'transparent',
-                                            color: view === v ? 'white' : 'hsl(var(--muted-foreground))',
-                                        }}>
-                                        {['Сар','7х','Өдөр'][vi]}
-                                    </button>
-                                ))}
+                            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                <div className="bg-muted" style={{ display:'flex', borderRadius:10, padding:2, gap:1 }}>
+                                    {(['month','week','day'] as const).map((v, vi) => (
+                                        <button key={v} onClick={() => { changeView(v); if (v === 'day' && !selected) changeSelected(todayStr); }}
+                                            style={{
+                                                padding:'4px 9px', borderRadius:8, fontSize:11, fontWeight:700, border:'none', cursor:'pointer',
+                                                background: view === v ? '#22c55e' : 'transparent',
+                                                color: view === v ? 'white' : 'hsl(var(--muted-foreground))',
+                                            }}>
+                                            {['Сар','7х','Өдөр'][vi]}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button onClick={() => setMobileSearchOpen(o => !o)}
+                                    className="bg-muted hover:bg-muted/80 transition-colors"
+                                    style={{ width:36, height:36, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer' }}>
+                                    <Search className="text-foreground" style={{ width:16, height:16 }} />
+                                </button>
                             </div>
                         </div>
+
+                        {/* Mobile search bar */}
+                        {mobileSearchOpen && (
+                            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 0 10px', marginTop:-4 }}>
+                                <div className="bg-muted" style={{ flex:1, display:'flex', alignItems:'center', gap:8, borderRadius:10, padding:'8px 12px' }}>
+                                    <Search className="text-muted-foreground" style={{ width:14, height:14, flexShrink:0 }} />
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={mobileSearchQ}
+                                        onChange={e => setMobileSearchQ(e.target.value)}
+                                        placeholder="Нэр эсвэл утасны дугаар..."
+                                        className="bg-transparent text-foreground placeholder:text-muted-foreground/50 outline-none"
+                                        style={{ flex:1, fontSize:13, border:'none' }}
+                                    />
+                                    {mobileSearchQ && (
+                                        <button onClick={() => setMobileSearchQ('')} style={{ background:'none', border:'none', cursor:'pointer', padding:0 }}>
+                                            <X className="text-muted-foreground" style={{ width:14, height:14 }} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Week strip (Sun→Sat) */}
                         {(() => {
@@ -626,6 +658,43 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
 
                     {/* ── CONTENT AREA ── */}
                     <div style={{ flex:1, overflow:'hidden', position:'relative' }}>
+
+                        {/* ── MOBILE SEARCH RESULTS ── */}
+                        {mobileSearchOpen && mobileSearchQ.trim() && (() => {
+                            const q = mobileSearchQ.trim().toLowerCase();
+                            const results = visibleApts.filter(a =>
+                                a.patient_name.toLowerCase().includes(q) ||
+                                a.patient_phone.includes(q)
+                            ).sort((a, b) => a.appointment_date.localeCompare(b.appointment_date) || a.appointment_time.localeCompare(b.appointment_time));
+                            return (
+                                <div style={{ position:'absolute', inset:0, zIndex:30, overflowY:'auto', background:'hsl(var(--background))' }}>
+                                    {results.length === 0 ? (
+                                        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, padding:'60px 0', color:'hsl(var(--muted-foreground))' }}>
+                                            <Search style={{ width:36, height:36, opacity:0.2 }} />
+                                            <p style={{ fontSize:14 }}>Үр дүн олдсонгүй</p>
+                                        </div>
+                                    ) : results.map(a => {
+                                        const pal = a.doctor_id ? dayPalette(a.doctor_id) : DAY_PALETTE[0];
+                                        return (
+                                            <button key={a.id} onClick={() => { openApt(a); changeSelected(a.appointment_date); setMobileSearchOpen(false); setMobileSearchQ(''); }}
+                                                style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid hsl(var(--border))', background:'none', border:'none', borderBottom:'1px solid hsl(var(--border))', cursor:'pointer', textAlign:'left' }}>
+                                                <div style={{ width:4, alignSelf:'stretch', borderRadius:99, background: pal.bg, flexShrink:0 }} />
+                                                <div style={{ flex:1, minWidth:0 }}>
+                                                    <p style={{ fontSize:14, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))', marginBottom:2 }}>{a.patient_name}</p>
+                                                    <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
+                                                        {a.appointment_date} · {a.appointment_time}
+                                                        {a.doctor_name && <span style={{ color: pal.bg }}> · {a.doctor_name.split(' ')[0]}</span>}
+                                                    </p>
+                                                </div>
+                                                <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:99, background: pal.light, color: pal.border, flexShrink:0 }}>
+                                                    {STATUS_LABEL[a.status]}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
 
                         {/* ── DAY VIEW ── */}
                         {view === 'day' && (
@@ -810,27 +879,37 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                     {(() => {
                                         const dapts = (aptByDate[selDay] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
                                         if (dapts.length === 0) return <p style={{ fontSize:13, color:'hsl(var(--muted-foreground))', fontStyle:'italic' }}>Захиалга байхгүй</p>;
-                                        return dapts.map(a => {
-                                            const pal = a.doctor_id ? dayPalette(a.doctor_id) : DAY_PALETTE[0];
-                                            return (
-                                                <button key={a.id} onClick={() => openApt(a)}
-                                                    style={{ width:'100%', display:'flex', alignItems:'center', gap:14, padding:'10px 0', borderBottom:'1px solid hsl(var(--border))', textAlign:'left', background:'none', cursor:'pointer' }}>
-                                                    <div style={{ width:4, alignSelf:'stretch', borderRadius:99, background: pal.bg, flexShrink:0 }} />
-                                                    <span style={{ fontSize:13, fontWeight:700, color: pal.bg, width:44, flexShrink:0 }}>
-                                                        {a.appointment_time}
-                                                    </span>
-                                                    <div style={{ flex:1, minWidth:0 }}>
-                                                        <p className="text-foreground" style={{ fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>
-                                                            {a.patient_name}
-                                                        </p>
-                                                        <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
-                                                            {a.doctor_name && <span style={{ color: pal.bg }}>{a.doctor_name.split(' ')[0]}</span>}
-                                                            {a.service && ` · ${a.service}`}
-                                                        </p>
-                                                    </div>
-                                                </button>
-                                            );
-                                        });
+                                        return (
+                                            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                                                {dapts.map(a => {
+                                                    const pal = a.doctor_id ? dayPalette(a.doctor_id) : DAY_PALETTE[0];
+                                                    return (
+                                                        <button key={a.id} onClick={() => openApt(a)}
+                                                            style={{
+                                                                width:'100%', display:'flex', alignItems:'center', gap:12,
+                                                                padding:'10px 12px', textAlign:'left', cursor:'pointer',
+                                                                background: pal.light,
+                                                                border: `1.5px solid ${pal.bg}55`,
+                                                                borderLeft: `4px solid ${pal.bg}`,
+                                                                borderRadius:12,
+                                                            }}>
+                                                            <span style={{ fontSize:12, fontWeight:700, color: pal.bg, width:44, flexShrink:0 }}>
+                                                                {a.appointment_time}
+                                                            </span>
+                                                            <div style={{ flex:1, minWidth:0 }}>
+                                                                <p className="text-foreground" style={{ fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>
+                                                                    {a.patient_name}
+                                                                </p>
+                                                                <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
+                                                                    {a.doctor_name && <span style={{ color: pal.bg }}>{a.doctor_name.split(' ')[0]}</span>}
+                                                                    {a.service && ` · ${a.service}`}
+                                                                </p>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
                                     })()}
                                 </div>
                             </div>

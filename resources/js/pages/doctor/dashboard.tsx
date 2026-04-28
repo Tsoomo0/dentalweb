@@ -319,7 +319,7 @@ export default function DoctorDashboard({ stats, today_appointments, pending_app
                                 {[
                                     { label: 'Календарь',        href: '/doctor/calendar',     icon: CalendarDays,  color: 'text-red-600 dark:text-red-400',     bg: 'bg-red-50 dark:bg-red-950/30' },
                                     { label: 'Онлайн цагууд',    href: '/doctor/online-slots', icon: CalendarClock, color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-950/30' },
-                                    { label: 'Мэргэжлийн мэдээлэл', href: '/doctor/profile',  icon: Stethoscope,   color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/30' },
+                                    { label: 'Профайл', href: '/doctor/profile',  icon: Stethoscope,   color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/30' },
                                 ].map(item => (
                                     <Link key={item.href} href={item.href}
                                         className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted/50 group">

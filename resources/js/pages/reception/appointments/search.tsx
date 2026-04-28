@@ -47,7 +47,7 @@ const STATUS_COLORS: Record<string, { chip: string; dot: string; label: string }
     cancelled: { chip: 'bg-red-50 border-red-300 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400',               dot: 'bg-red-400',    label: 'Цуцлагдсан' },
     completed: { chip: 'bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300',         dot: 'bg-blue-400',   label: 'Дууссан' },
 };
-const ALL_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'] as const;
+const ALL_STATUSES = ['pending', 'confirmed'] as const;
 const TYPE_ICON: Record<string, ReactElement> = {
     online:    <Monitor className="size-3" />,
     in_person: <User className="size-3" />,
@@ -104,7 +104,7 @@ export default function ReceptionAppointmentsSearch({ appointments, creatorStats
         else { setSortField(field); setSortAsc(true); }
     }
 
-    const sorted = [...appointments].sort((a, b) => {
+    const sorted = [...appointments].filter(a => a.status !== 'cancelled' && a.status !== 'completed').sort((a, b) => {
         let av: string | number = a[sortField] ?? '';
         let bv: string | number = b[sortField] ?? '';
         if (typeof av === 'string') av = av.toLowerCase();
