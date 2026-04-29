@@ -10,15 +10,12 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Шинэ салбар', href: '/admin/branches/create' },
 ];
 
-const TYPES = ['тов', 'төрөлжсөн', 'клиник', '24/7'] as const;
-
 export default function BranchCreate() {
     const [preview, setPreview] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
 
     const { data, setData, post, processing, errors } = useForm({
         name: '',
-        type: 'клиник' as string,
         address: '',
         phone: '',
         description: '',
@@ -65,28 +62,6 @@ export default function BranchCreate() {
                                 autoFocus
                             />
                             {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
-                        </div>
-
-                        {/* Type */}
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Төрөл *</label>
-                            <div className="flex flex-wrap gap-2">
-                                {TYPES.map((t) => (
-                                    <button
-                                        key={t}
-                                        type="button"
-                                        onClick={() => setData('type', t)}
-                                        className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                                            data.type === t
-                                                ? 'bg-red-600 text-white'
-                                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                        }`}
-                                    >
-                                        {t}
-                                    </button>
-                                ))}
-                            </div>
-                            {errors.type && <p className="text-xs text-red-500">{errors.type}</p>}
                         </div>
 
                         {/* Address */}

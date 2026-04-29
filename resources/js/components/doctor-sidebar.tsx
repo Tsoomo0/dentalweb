@@ -90,6 +90,7 @@ export function DoctorSidebar() {
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </SidebarGroup>
+
             </SidebarContent>
 
             <SidebarFooter>

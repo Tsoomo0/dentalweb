@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\Doctor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -91,6 +92,35 @@ class DoctorPortalController extends Controller
                 'branch_name'          => $a->branch?->name,
             ]);
 
+        $seniorDoctors = $doctor->seniorDoctors()->get()->map(function ($senior) {
+            return [
+                'id'   => $senior->id,
+                'name' => $senior->name,
+                'appointments' => Appointment::where('doctor_id', $senior->id)
+                    ->where('status', 'confirmed')
+                    ->orderBy('appointment_date')
+                    ->orderBy('appointment_time')
+                    ->get()
+                    ->map(fn($a) => [
+                        'id'                   => $a->id,
+                        'appointment_number'   => $a->appointment_number,
+                        'patient_name'         => $a->patient_name,
+                        'patient_phone'        => $a->patient_phone,
+                        'patient_email'        => $a->patient_email,
+                        'service'              => $a->service,
+                        'type'                 => $a->type,
+                        'appointment_date'     => $a->appointment_date?->format('Y-m-d') ?? '',
+                        'appointment_time'     => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
+                        'appointment_time_end' => $a->appointment_time_end ? substr($a->appointment_time_end, 0, 5) : null,
+                        'formatted_date'       => $a->appointment_date?->format('Y.m.d') ?? '—',
+                        'status'               => $a->status,
+                        'payment_status'       => $a->payment_status,
+                        'notes'                => $a->notes,
+                        'branch_name'          => $a->branch?->name,
+                    ]),
+            ];
+        });
+
         return Inertia::render('doctor/calendar', [
             'doctor' => array_merge($doctor->only([
                 'id', 'name', 'specialization', 'degree', 'experience_years',
@@ -100,12 +130,63 @@ class DoctorPortalController extends Controller
                 'branch_name'  => $doctor->branch?->name,
                 'online_slots' => $doctor->online_slots ?? [],
             ]),
-            'appointments' => $appointments,
+            'appointments'   => $appointments,
+            'senior_doctors' => $seniorDoctors,
             'stats' => [
                 'today'    => Appointment::where('doctor_id', $doctor->id)->whereDate('appointment_date', $today)->count(),
                 'upcoming' => Appointment::where('doctor_id', $doctor->id)->where('status', 'confirmed')->whereDate('appointment_date', '>=', $today)->count(),
                 'pending'  => Appointment::where('doctor_id', $doctor->id)->where('status', 'pending')->count(),
                 'total'    => Appointment::where('doctor_id', $doctor->id)->count(),
+            ],
+        ]);
+    }
+
+    public function seniorCalendar(Doctor $senior): Response
+    {
+        $doctor = Auth::guard('doctor')->user();
+
+        if (!$doctor->seniorDoctors()->where('doctors.id', $senior->id)->exists()) {
+            return redirect()->route('doctor.calendar');
+        }
+
+        $today = now()->toDateString();
+
+        $appointments = Appointment::where('doctor_id', $senior->id)
+            ->where('status', 'confirmed')
+            ->with('branch')
+            ->orderBy('appointment_date')
+            ->orderBy('appointment_time')
+            ->get()
+            ->map(fn($a) => [
+                'id'                   => $a->id,
+                'appointment_number'   => $a->appointment_number,
+                'patient_name'         => $a->patient_name,
+                'patient_phone'        => $a->patient_phone,
+                'patient_email'        => $a->patient_email,
+                'service'              => $a->service,
+                'type'                 => $a->type,
+                'appointment_date'     => $a->appointment_date?->format('Y-m-d') ?? '',
+                'appointment_time'     => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
+                'appointment_time_end' => $a->appointment_time_end ? substr($a->appointment_time_end, 0, 5) : null,
+                'formatted_date'       => $a->appointment_date?->format('Y.m.d') ?? '—',
+                'status'               => $a->status,
+                'notes'                => $a->notes,
+                'branch_name'          => $a->branch?->name,
+            ]);
+
+        return Inertia::render('doctor/senior-calendar', [
+            'senior' => [
+                'id'             => $senior->id,
+                'name'           => $senior->name,
+                'specialization' => $senior->specialization,
+                'photo_url'      => $senior->photo ? Storage::url($senior->photo) : null,
+                'branch_name'    => $senior->branch?->name,
+            ],
+            'appointments' => $appointments,
+            'stats' => [
+                'today'    => Appointment::where('doctor_id', $senior->id)->whereDate('appointment_date', $today)->count(),
+                'upcoming' => Appointment::where('doctor_id', $senior->id)->where('status', 'confirmed')->whereDate('appointment_date', '>=', $today)->count(),
+                'total'    => Appointment::where('doctor_id', $senior->id)->count(),
             ],
         ]);
     }

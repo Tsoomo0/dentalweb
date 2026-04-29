@@ -6,7 +6,6 @@ import { Building2, CheckCircle2, Clock, Edit, MapPin, Phone, Plus, Star, Trash2
 interface Branch {
     id: number;
     name: string;
-    type: 'тов' | 'төрөлжсөн' | 'клиник' | '24/7';
     address: string | null;
     phone: string | null;
     image_url: string | null;
@@ -25,13 +24,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Админ', href: '/admin/dashboard' },
     { title: 'Салбарууд', href: '/admin/branches' },
 ];
-
-const typeBadge: Record<string, string> = {
-    'тов':       'bg-red-600',
-    'төрөлжсөн': 'bg-blue-600',
-    'клиник':    'bg-green-700',
-    '24/7':      'bg-orange-600',
-};
 
 export default function BranchesIndex({ branches, total_doctors }: Props) {
     const { props } = usePage<{ flash?: { success?: string } }>();
@@ -134,11 +126,8 @@ export default function BranchesIndex({ branches, total_doctors }: Props) {
                                     <div className="relative h-36 overflow-hidden bg-muted">
                                         <img src={branch.image_url} alt={branch.name} className="h-full w-full object-cover" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                                        <div className="absolute bottom-3 left-3 right-3">
                                             <h3 className="font-bold text-white leading-tight">{branch.name}</h3>
-                                            <span className={`shrink-0 rounded px-2 py-0.5 text-xs font-bold uppercase text-white ${typeBadge[branch.type] ?? 'bg-zinc-600'}`}>
-                                                {branch.type}
-                                            </span>
                                         </div>
                                     </div>
                                 ) : (
@@ -149,9 +138,6 @@ export default function BranchesIndex({ branches, total_doctors }: Props) {
                                             </div>
                                             <h3 className="font-bold">{branch.name}</h3>
                                         </div>
-                                        <span className={`rounded px-2 py-0.5 text-xs font-bold uppercase text-white ${typeBadge[branch.type] ?? 'bg-zinc-600'}`}>
-                                            {branch.type}
-                                        </span>
                                     </div>
                                 )}
 

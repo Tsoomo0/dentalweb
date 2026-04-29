@@ -24,9 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'admin'       => AdminMiddleware::class,
-            'doctor'      => DoctorMiddleware::class,
-            'reception'   => ReceptionMiddleware::class,
+            'admin'     => AdminMiddleware::class,
+            'doctor'    => DoctorMiddleware::class,
+            'reception' => ReceptionMiddleware::class,
         ]);
 
         // QPay callback — гадны сервер дуудах тул CSRF-аас чөлөөлөх

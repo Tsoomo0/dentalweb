@@ -37,6 +37,18 @@ class Doctor extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    /** Энэ эмчийн ахлах эмч нар (pivot: doctor_senior) */
+    public function seniorDoctors(): BelongsToMany
+    {
+        return $this->belongsToMany(Doctor::class, 'doctor_senior', 'doctor_id', 'senior_id');
+    }
+
+    /** Энэ эмчийн харьяа туслах эмч нар */
+    public function assistantDoctors(): BelongsToMany
+    {
+        return $this->belongsToMany(Doctor::class, 'doctor_senior', 'senior_id', 'doctor_id');
+    }
+
     /** Эмч ажиллах бүх салбарууд (many-to-many) */
     public function branches(): BelongsToMany
     {

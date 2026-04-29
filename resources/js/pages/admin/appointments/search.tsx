@@ -48,6 +48,7 @@ const STATUS_COLORS: Record<string, { chip: string; dot: string; label: string }
     completed: { chip: 'bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300',         dot: 'bg-blue-400',   label: 'Дууссан' },
 };
 const ALL_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'] as const;
+const FILTER_STATUSES = ['pending', 'confirmed'] as const;
 const TYPE_ICON: Record<string, ReactElement> = {
     online:    <Monitor className="size-3" />,
     in_person: <User className="size-3" />,
@@ -185,7 +186,7 @@ export default function AppointmentsSearch({ appointments, creatorStats, doctors
                     {/* Status filter */}
                     <div className="flex items-center gap-1 rounded-lg border bg-card px-2 py-1 shadow-sm">
                         <span className="text-[10px] font-medium text-muted-foreground mr-1">Статус</span>
-                        {ALL_STATUSES.map(s => (
+                        {FILTER_STATUSES.map(s => (
                             <button key={s} onClick={() => { const nv = status === s ? '' : s; setStatus(nv); doSearch({ status: nv }); }}
                                 className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
                                     status === s

@@ -7,7 +7,6 @@ import { type FormEvent, useRef, useState } from 'react';
 interface Branch {
     id: number;
     name: string;
-    type: string;
     address: string | null;
     phone: string | null;
     image_url: string | null;
@@ -20,8 +19,6 @@ interface Branch {
 interface Props {
     branch: Branch;
 }
-
-const TYPES = ['тов', 'төрөлжсөн', 'клиник', '24/7'] as const;
 
 export default function BranchEdit({ branch }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -36,7 +33,6 @@ export default function BranchEdit({ branch }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         _method: 'PUT',
         name: branch.name,
-        type: branch.type,
         address: branch.address ?? '',
         phone: branch.phone ?? '',
         description: branch.description ?? '',
@@ -80,26 +76,6 @@ export default function BranchEdit({ branch }: Props) {
                                 className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                             />
                             {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Төрөл *</label>
-                            <div className="flex flex-wrap gap-2">
-                                {TYPES.map((t) => (
-                                    <button
-                                        key={t}
-                                        type="button"
-                                        onClick={() => setData('type', t)}
-                                        className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                                            data.type === t
-                                                ? 'bg-red-600 text-white'
-                                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                        }`}
-                                    >
-                                        {t}
-                                    </button>
-                                ))}
-                            </div>
                         </div>
 
                         <div className="space-y-1.5">

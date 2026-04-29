@@ -39,14 +39,17 @@ class DoctorController extends Controller
     {
         return Inertia::render('admin/doctors/create', [
             'branches' => Branch::where('is_active', true)->orderBy('order')->get(['id', 'name']),
+            'doctors'  => Doctor::where('is_active', true)->orderBy('name')->get(['id', 'name', 'specialization']),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'branch_id'        => 'required|exists:branches,id',
-            'extra_branch_ids' => 'nullable|array',
+            'branch_id'          => 'required|exists:branches,id',
+            'senior_doctor_ids'  => 'nullable|array',
+            'senior_doctor_ids.*' => 'exists:doctors,id',
+            'extra_branch_ids'   => 'nullable|array',
             'extra_branch_ids.*' => 'exists:branches,id',
             'name'             => 'required|string|max:255',
             'specialization'   => 'nullable|string|max:255',
@@ -78,33 +81,37 @@ class DoctorController extends Controller
 
         $doctor = Doctor::create($data);
 
-        // Ажиллах бүх салбарыг sync хийх (үндсэн + нэмэлт)
         $allBranchIds = array_unique(array_merge(
             [(int) $request->branch_id],
             array_map('intval', $request->input('extra_branch_ids', []))
         ));
         $doctor->branches()->sync($allBranchIds);
+        $doctor->seniorDoctors()->sync(array_map('intval', $request->input('senior_doctor_ids', [])));
 
         return redirect()->route('admin.doctors.index')->with('success', 'Эмч амжилттай нэмэгдлээ.');
     }
 
     public function edit(Doctor $doctor): Response
     {
-        $doctor->load('branches');
-        $doctor->photo_url    = $doctor->photo ? Storage::url($doctor->photo) : null;
-        $doctor->branch_ids   = $doctor->branches->pluck('id')->toArray();
+        $doctor->load('branches', 'seniorDoctors');
+        $doctor->photo_url        = $doctor->photo ? Storage::url($doctor->photo) : null;
+        $doctor->branch_ids       = $doctor->branches->pluck('id')->toArray();
+        $doctor->senior_doctor_ids = $doctor->seniorDoctors->pluck('id')->toArray();
 
         return Inertia::render('admin/doctors/edit', [
             'doctor'   => $doctor,
             'branches' => Branch::where('is_active', true)->orderBy('order')->get(['id', 'name']),
+            'doctors'  => Doctor::where('is_active', true)->where('id', '!=', $doctor->id)->orderBy('name')->get(['id', 'name', 'specialization']),
         ]);
     }
 
     public function update(Request $request, Doctor $doctor): RedirectResponse
     {
         $request->validate([
-            'branch_id'        => 'required|exists:branches,id',
-            'extra_branch_ids' => 'nullable|array',
+            'branch_id'          => 'required|exists:branches,id',
+            'senior_doctor_ids'  => 'nullable|array',
+            'senior_doctor_ids.*' => 'exists:doctors,id',
+            'extra_branch_ids'   => 'nullable|array',
             'extra_branch_ids.*' => 'exists:branches,id',
             'name'             => 'required|string|max:255',
             'specialization'   => 'nullable|string|max:255',
@@ -142,6 +149,7 @@ class DoctorController extends Controller
             array_map('intval', $request->input('extra_branch_ids', []))
         ));
         $doctor->branches()->sync($allBranchIds);
+        $doctor->seniorDoctors()->sync(array_map('intval', $request->input('senior_doctor_ids', [])));
 
         return redirect()->route('admin.doctors.index')->with('success', 'Эмчийн мэдээлэл шинэчлэгдлээ.');
     }

@@ -79,7 +79,10 @@ class HandleInertiaRequests extends Middleware
                     ? (function () {
                         $d = Auth::guard('doctor')->user();
                         return array_merge($d->only(['id', 'name', 'email', 'specialization', 'has_online_booking']), [
-                            'photo_url' => $d->photo ? Storage::url($d->photo) : null,
+                            'photo_url'      => $d->photo ? Storage::url($d->photo) : null,
+                            'senior_doctors' => $d->seniorDoctors()->get(['doctors.id', 'doctors.name'])
+                                ->map(fn($s) => ['id' => $s->id, 'name' => $s->name])
+                                ->toArray(),
                         ]);
                     })()
                     : null,

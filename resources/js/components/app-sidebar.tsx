@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BadgeCheck, Building2, CalendarClock, ClipboardList, CreditCard, HelpCircle, Images, LayoutGrid, Newspaper, ReceiptText, RefreshCw, Settings, ShieldCheck, Smile, Stethoscope, Tag, UserRound, Users } from 'lucide-react';
+import { Building2, CalendarClock, ClipboardList, CreditCard, HelpCircle, Images, LayoutGrid, Newspaper, Settings, Smile, Stethoscope, Tag, UserRound, Users } from 'lucide-react';
 
 const mainNavItems: NavItem[] = [
     {
@@ -52,23 +52,6 @@ const mainNavItems: NavItem[] = [
         title: 'Төлбөр',
         url: '/admin/payments',
         icon: CreditCard,
-        children: [
-            {
-                title: 'Бүх төлбөрүүд',
-                url: '/admin/payments',
-                icon: ReceiptText,
-            },
-            {
-                title: 'Хүлээгдэж буй',
-                url: '/admin/payments?payment_status=pending',
-                icon: RefreshCw,
-            },
-            {
-                title: 'Баталгаажсан',
-                url: '/admin/payments?payment_status=paid',
-                icon: BadgeCheck,
-            },
-        ],
     },
     {
         title: 'Үр дүнгийн галерей',
@@ -89,18 +72,6 @@ const mainNavItems: NavItem[] = [
         title: 'Хэрэглэгчид',
         url: '/admin/users',
         icon: Users,
-        children: [
-            {
-                title: 'Бүх хэрэглэгч',
-                url: '/admin/users',
-                icon: Users,
-            },
-            {
-                title: 'Шинэ хэрэглэгч',
-                url: '/admin/users/create',
-                icon: ShieldCheck,
-            },
-        ],
     },
     {
         title: 'Тохиргоо',

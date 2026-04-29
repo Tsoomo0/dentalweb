@@ -15,7 +15,6 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
-    /** Зөвхөн admin / receptionist роллуудыг буцаана */
     private function staffRoles(): \Illuminate\Database\Eloquent\Collection
     {
         return Role::whereIn('name', ['admin', 'receptionist'])->get(['id', 'name']);

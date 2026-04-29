@@ -35,7 +35,6 @@ class BranchController extends Controller
     {
         $request->validate([
             'name'         => 'required|string|max:255',
-            'type'         => 'required|in:тов,төрөлжсөн,клиник,24/7',
             'address'      => 'nullable|string|max:500',
             'phone'        => 'nullable|string|max:50',
             'image'        => 'nullable|image|max:5120',
@@ -45,7 +44,7 @@ class BranchController extends Controller
             'is_active'    => 'boolean',
         ]);
 
-        $data = $request->only('name', 'type', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active');
+        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active');
         $data['order'] = Branch::max('order') + 1;
 
         if ($request->hasFile('image')) {
@@ -70,7 +69,6 @@ class BranchController extends Controller
     {
         $request->validate([
             'name'         => 'required|string|max:255',
-            'type'         => 'required|in:тов,төрөлжсөн,клиник,24/7',
             'address'      => 'nullable|string|max:500',
             'phone'        => 'nullable|string|max:50',
             'image'        => 'nullable|image|max:5120',
@@ -80,7 +78,7 @@ class BranchController extends Controller
             'is_active'    => 'boolean',
         ]);
 
-        $data = $request->only('name', 'type', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active');
+        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active');
 
         if ($request->hasFile('image')) {
             if ($branch->image) Storage::disk('public')->delete($branch->image);

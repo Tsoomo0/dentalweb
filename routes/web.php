@@ -149,8 +149,9 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
 
 // ── Doctor portal ────────────────────────────────────────────────────────────
 Route::middleware(['doctor'])->prefix('doctor')->name('doctor.')->group(function () {
-    Route::get('/dashboard', [DoctorPortalController::class, 'dashboard'])->name('dashboard');
-    Route::get('/calendar',  [DoctorPortalController::class, 'calendar'])->name('calendar');
+    Route::get('/dashboard',        [DoctorPortalController::class, 'dashboard'])->name('dashboard');
+    Route::get('/calendar',         [DoctorPortalController::class, 'calendar'])->name('calendar');
+    Route::get('/senior-calendar/{senior}', [DoctorPortalController::class, 'seniorCalendar'])->name('senior-calendar');
     Route::get('/online-slots', [DoctorOnlineSlotController::class, 'index'])->name('online-slots');
     Route::post('/online-slots', [DoctorOnlineSlotController::class, 'store'])->name('online-slots.store');
     Route::delete('/online-slots/{slotId}', [DoctorOnlineSlotController::class, 'destroy'])->name('online-slots.destroy');

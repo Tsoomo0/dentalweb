@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2, Upload, UserRound } from 'lucide-react';
 import { type FormEvent, useRef, useState } from 'react';
 
 interface Branch { id: number; name: string }
+interface DoctorItem { id: number; name: string; specialization: string | null }
 
 interface Experience {
     year: string;
@@ -28,13 +29,14 @@ interface Doctor {
     email: string | null;
     is_active: boolean;
     has_online_booking: boolean;
+    senior_doctor_ids: number[];
 }
 
-interface Props { doctor: Doctor; branches: Branch[] }
+interface Props { doctor: Doctor; branches: Branch[]; doctors: DoctorItem[] }
 
 const emptyExp = (): Experience => ({ year: '', title: '', institution: '' });
 
-export default function DoctorEdit({ doctor, branches }: Props) {
+export default function DoctorEdit({ doctor, branches, doctors }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Админ', href: '/admin/dashboard' },
         { title: 'Эмч нар', href: '/admin/doctors' },
@@ -60,6 +62,7 @@ export default function DoctorEdit({ doctor, branches }: Props) {
         password_confirmation: string;
         is_active: boolean;
         has_online_booking: boolean;
+        senior_doctor_ids: number[];
         photo: File | null;
     }>({
         _method: 'PUT',
@@ -77,6 +80,7 @@ export default function DoctorEdit({ doctor, branches }: Props) {
         password_confirmation: '',
         is_active: doctor.is_active,
         has_online_booking: doctor.has_online_booking ?? true,
+        senior_doctor_ids: doctor.senior_doctor_ids ?? [],
         photo: null,
     });
 
@@ -254,6 +258,36 @@ export default function DoctorEdit({ doctor, branches }: Props) {
                                     </div>
                                 </label>
                             </div>
+
+                            {/* Senior doctors */}
+                            {doctors.length > 0 && (
+                                <div className="space-y-3 rounded-xl border p-4">
+                                    <div>
+                                        <label className="text-sm font-semibold">Ахлах эмч нар <span className="font-normal text-muted-foreground">(заавал биш)</span></label>
+                                        <p className="text-xs text-muted-foreground mt-0.5">Туслах эмч бол ахлах эмч нарыг сонгоно уу — тэд порталдоо тус бүрийн хуваарийг харах боломжтой болно</p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {doctors.map((d) => {
+                                            const checked = data.senior_doctor_ids.includes(d.id);
+                                            return (
+                                                <label key={d.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${checked ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'hover:bg-muted'}`}>
+                                                    <input type="checkbox" checked={checked}
+                                                        onChange={() => setData('senior_doctor_ids',
+                                                            checked
+                                                                ? data.senior_doctor_ids.filter(x => x !== d.id)
+                                                                : [...data.senior_doctor_ids, d.id]
+                                                        )}
+                                                        className="size-3.5 accent-emerald-600" />
+                                                    <span>
+                                                        {d.name}
+                                                        {d.specialization && <span className="ml-1 text-xs opacity-70">({d.specialization})</span>}
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Photo */}
