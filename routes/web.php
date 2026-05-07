@@ -138,6 +138,8 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Өдрийн тооцоо
     Route::get('daily-sheets/export-excel', [DailySheetAdminController::class, 'exportExcel'])->name('daily-sheets.export');
     Route::get('daily-sheets', [DailySheetAdminController::class, 'index'])->name('daily-sheets.index');
+    Route::delete('daily-sheets/{sheet}', [DailySheetAdminController::class, 'destroy'])->name('daily-sheets.destroy');
+    Route::post('daily-sheets/{sheet}/unlock', [DailySheetAdminController::class, 'unlock'])->name('daily-sheets.unlock');
 
     // Системийн тохиргоо
     Route::get('settings', [SettingController::class, 'index'])->name('settings');

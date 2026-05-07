@@ -7,6 +7,8 @@ use App\Models\Branch;
 use App\Models\DailySheet;
 use App\Models\DailySheetEntry;
 use App\Models\Doctor;
+use App\Models\Setting;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -128,6 +130,39 @@ class DailySheetAdminController extends Controller
             'outstandingEntries' => $outstandingEntries,
             'receptionRegistry'  => $receptionRegistry,
         ]);
+    }
+
+    public function destroy(Request $request, DailySheet $sheet): RedirectResponse
+    {
+        $request->validate(['code' => 'required|string']);
+
+        $correct = Setting::where('key', 'daily_sheet_code')->value('value') ?? '1234';
+
+        if ($request->input('code') !== $correct) {
+            return back()->withErrors(['code' => 'Код буруу байна.']);
+        }
+
+        $sheet->delete();
+
+        return back()->with('success', 'Тооцоо устгагдлаа.');
+    }
+
+    public function unlock(Request $request, DailySheet $sheet): RedirectResponse
+    {
+        $request->validate(['code' => 'required|string']);
+
+        $correct = Setting::where('key', 'daily_sheet_code')->value('value') ?? '1234';
+
+        if ($request->input('code') !== $correct) {
+            return back()->withErrors(['code' => 'Код буруу байна.']);
+        }
+
+        $sheet->update([
+            'submitted_at'    => null,
+            'receptionist_id' => null,
+        ]);
+
+        return back()->with('success', 'Тооцоо нээгдлээ. Ресепшн засварлах боломжтой болов.');
     }
 
     public function exportExcel(Request $request): StreamedResponse

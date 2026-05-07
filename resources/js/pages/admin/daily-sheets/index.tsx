@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Download, Printer, CheckCircle, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Download, Printer, CheckCircle, Clock, Trash2, LockOpen, X } from 'lucide-react';
 import { useState } from 'react';
 
 /* ------------------------------------------------------------------ */
@@ -238,6 +238,29 @@ export default function DailySheetsIndex({
     const [expanded, setExpanded]       = useState<Set<number>>(new Set());
     const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
     const [expandedRec, setExpandedRec] = useState<Set<number>>(new Set());
+
+    type ModalAction = 'delete' | 'unlock';
+    const [actionTarget, setActionTarget] = useState<{ type: ModalAction; id: number } | null>(null);
+    const [actionCode, setActionCode]     = useState('');
+    const [actionError, setActionError]   = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+
+    const openModal  = (type: ModalAction, id: number) => { setActionTarget({ type, id }); setActionCode(''); setActionError(null); };
+    const closeModal = () => { setActionTarget(null); setActionCode(''); setActionError(null); };
+    const handleAction = () => {
+        if (!actionTarget || !actionCode) return;
+        setActionLoading(true);
+        const cb = {
+            onSuccess: () => closeModal(),
+            onError: (errors: Record<string, string>) => setActionError(errors.code ?? 'Алдаа гарлаа.'),
+            onFinish: () => setActionLoading(false),
+        };
+        if (actionTarget.type === 'delete') {
+            router.delete(`/admin/daily-sheets/${actionTarget.id}`, { data: { code: actionCode }, ...cb });
+        } else {
+            router.post(`/admin/daily-sheets/${actionTarget.id}/unlock`, { code: actionCode }, cb);
+        }
+    };
 
     const toggle = (id: number) => setExpanded(prev => {
         const next = new Set(prev);
@@ -563,6 +586,18 @@ export default function DailySheetsIndex({
                                                 {isOpen && (
                                                     <div className="border-t border-gray-200 dark:border-gray-700">
                                                         <EntriesTable sheet={sheet} />
+                                                        <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                                                            {sheet.is_confirmed && (
+                                                                <button onClick={() => openModal('unlock', sheet.id)}
+                                                                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                                                                    <LockOpen className="size-3.5" /> Нээх
+                                                                </button>
+                                                            )}
+                                                            <button onClick={() => openModal('delete', sheet.id)}
+                                                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                                <Trash2 className="size-3.5" /> Устгах
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
@@ -647,6 +682,18 @@ export default function DailySheetsIndex({
                                                                     </div>
                                                                 )}
                                                                 <EntriesTable sheet={sheet} />
+                                                                <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                                                                    {sheet.is_confirmed && (
+                                                                        <button onClick={() => openModal('unlock', sheet.id)}
+                                                                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                                                                            <LockOpen className="size-3.5" /> Нээх
+                                                                        </button>
+                                                                    )}
+                                                                    <button onClick={() => openModal('delete', sheet.id)}
+                                                                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                                        <Trash2 className="size-3.5" /> Устгах
+                                                                    </button>
+                                                                </div>
                                                                 {si < dateSheets.length - 1 && (
                                                                     <div className="border-t-2 border-gray-200 dark:border-gray-600" />
                                                                 )}
@@ -857,6 +904,57 @@ export default function DailySheetsIndex({
                 )}
 
             </div>
+
+            {/* PIN confirmation modal */}
+            {actionTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                {actionTarget.type === 'delete' ? 'Тооцоо устгах' : 'Тооцоо нээх'}
+                            </h3>
+                            <button onClick={closeModal} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+                                <X className="size-4 text-gray-500" />
+                            </button>
+                        </div>
+                        <div className="px-5 py-4 flex flex-col gap-3">
+                            <p className="text-xs text-gray-500">
+                                {actionTarget.type === 'delete'
+                                    ? 'Энэ тооцоог устгахын тулд хамгаалалтын кодыг оруулна уу.'
+                                    : 'Тооцоог засварлахаар нээхийн тулд хамгаалалтын кодыг оруулна уу.'}
+                            </p>
+                            <input
+                                type="password"
+                                value={actionCode}
+                                onChange={e => setActionCode(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAction()}
+                                placeholder="Код оруулах..."
+                                className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+                                autoFocus
+                            />
+                            {actionError && (
+                                <p className="text-xs text-red-600 dark:text-red-400">{actionError}</p>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                            <button onClick={closeModal}
+                                className="text-xs px-4 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                Болих
+                            </button>
+                            <button
+                                onClick={handleAction}
+                                disabled={!actionCode || actionLoading}
+                                className={`text-xs px-4 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                                    actionTarget.type === 'delete'
+                                        ? 'bg-red-600 text-white hover:bg-red-700'
+                                        : 'bg-amber-500 text-white hover:bg-amber-600'
+                                }`}>
+                                {actionLoading ? 'Түр хүлээнэ үү...' : actionTarget.type === 'delete' ? 'Устгах' : 'Нээх'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AppLayout>
     );
 }
