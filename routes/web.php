@@ -86,9 +86,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', fn() => redirect()->route('admin.dashboard'))->name('dashboard');
 
     // Notification routes — admin болон reception хоёулаа хэрэглэнэ
-    Route::get('notifications',              [NotificationController::class, 'index'])->middleware('throttle:30,1')->name('notifications.index');
-    Route::patch('notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
-    Route::post('notifications/read-all',   [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::get('notifications',               [NotificationController::class, 'index'])->middleware('throttle:30,1')->name('notifications.index');
+    Route::patch('notifications/{id}/read',  [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('notifications/read-all',    [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::delete('notifications/clear-all', [NotificationController::class, 'clearAll'])->name('notifications.clear-all');
 });
 
 // ✅ Admin route

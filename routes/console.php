@@ -14,6 +14,13 @@ Schedule::command('appointments:cancel-unpaid')->everyFiveMinutes();
 // Захиалгын сануулга — цаг тутам шалгана (24h болон 2h өмнө имэйл)
 Schedule::command('appointments:send-reminders')->hourly();
 
+// Notification 30 хоноос хуучин бичлэгийг өдөр бүр цэвэрлэх
+Schedule::call(fn () => \Illuminate\Support\Facades\DB::table('notifications')
+    ->where('created_at', '<', now()->subDays(30))->delete())
+    ->daily()
+    ->name('notifications:prune')
+    ->description('30 хоноос хуучин notification устгах');
+
 // Audit log 25 хоноос хуучин бичлэгийг өдөр бүр шөнө цэвэрлэх
 Schedule::call(fn () => \App\Models\AuditLog::where('created_at', '<', now()->subDays(25))->delete())
     ->daily()

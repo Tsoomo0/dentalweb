@@ -35,4 +35,10 @@ class NotificationController extends Controller
         Auth::user()->unreadNotifications->markAsRead();
         return response()->json(['ok' => true]);
     }
+
+    public function clearAll(): JsonResponse
+    {
+        Auth::user()->notifications()->delete();
+        return response()->json(['ok' => true]);
+    }
 }

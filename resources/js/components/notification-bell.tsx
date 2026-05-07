@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, BriefcaseBusiness, CalendarClock, CheckCheck, CheckCircle2, DollarSign } from 'lucide-react';
+import { Bell, BriefcaseBusiness, CalendarClock, CheckCheck, CheckCircle2, DollarSign, Trash2 } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 
@@ -133,6 +133,14 @@ export function NotificationBell() {
         } catch { /* silent */ }
     };
 
+    const clearAll = async () => {
+        try {
+            await axios.delete('/notifications/clear-all');
+            setItems([]);
+            setUnreadCount(0);
+        } catch { /* silent */ }
+    };
+
     if (!initial) return null;
 
     /* ---- Render ---- */
@@ -163,14 +171,24 @@ export function NotificationBell() {
                                 <span className="ml-1.5 text-xs font-normal text-gray-400">({unreadCount} уншаагүй)</span>
                             )}
                         </span>
-                        {unreadCount > 0 && (
-                            <button
-                                onClick={markAllRead}
-                                className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                                <CheckCheck className="size-3" />
-                                Бүгдийг уншсан
-                            </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {unreadCount > 0 && (
+                                <button
+                                    onClick={markAllRead}
+                                    className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                    <CheckCheck className="size-3" />
+                                    Уншсан
+                                </button>
+                            )}
+                            {items.length > 0 && (
+                                <button
+                                    onClick={clearAll}
+                                    className="flex items-center gap-1 text-xs text-red-500 hover:underline">
+                                    <Trash2 className="size-3" />
+                                    Цэвэрлэх
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Tab bar */}
