@@ -1,7 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PublicLayout from '@/layouts/public-layout';
-import { Smile, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Smile, Calendar } from 'lucide-react';
 
 interface GalleryItem {
     id: number; title: string | null; description: string | null;
@@ -14,39 +14,49 @@ interface PageProps {
     categories: TreatmentCategory[];
 }
 
-function GalleryCard({ item }: { item: GalleryItem }) {
-    const [after, setAfter] = useState(false);
+function GalleryCard({ item, delay = 0 }: { item: GalleryItem; delay?: number }) {
+    const [showing, setShowing] = useState<'before' | 'after'>('before');
     const hasImg = item.before_url || item.after_url;
 
+    useEffect(() => {
+        if (!hasImg) return;
+        let interval: ReturnType<typeof setInterval>;
+        const init = setTimeout(() => {
+            setShowing('after');
+            interval = setInterval(() => setShowing(s => s === 'before' ? 'after' : 'before'), 3500);
+        }, delay);
+        return () => { clearTimeout(init); clearInterval(interval); };
+    }, [delay, hasImg]);
+
     return (
-        <div className="group rounded-3xl overflow-hidden bg-white border border-gray-100 hover:border-red-200 hover:shadow-xl transition-all duration-300">
+        <div className="group rounded-2xl sm:rounded-3xl overflow-hidden bg-white border border-gray-100 hover:border-red-200 hover:shadow-xl transition-all duration-300">
             {/* Image area */}
             <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-rose-50 to-red-100">
                 {hasImg ? (
                     <>
-                        <img
-                            src={after ? (item.after_url ?? '') : (item.before_url ?? '')}
-                            alt=""
-                            className="w-full h-full object-cover transition-all duration-500"
-                        />
-                        {/* Label */}
-                        <div className="absolute top-3 left-3">
-                            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg shadow-lg ${after ? 'bg-red-600 text-white' : 'bg-gray-900/80 text-white backdrop-blur-sm'}`}>
-                                {after ? 'Дараа' : 'Өмнө'}
+                        {item.before_url && (
+                            <img src={item.before_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                        )}
+                        {item.after_url && (
+                            <div className="absolute inset-0 overflow-hidden"
+                                style={{
+                                    clipPath: showing === 'after' ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)',
+                                    transition: 'clip-path 1.1s cubic-bezier(0.4,0,0.2,1)',
+                                }}>
+                                <img src={item.after_url} alt="" className="w-full h-full object-cover" />
+                            </div>
+                        )}
+                        {/* Badge */}
+                        <div className="absolute top-2.5 left-2.5">
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg shadow transition-colors duration-300 ${
+                                showing === 'after' ? 'bg-red-600 text-white' : 'bg-gray-900/75 text-white backdrop-blur-sm'
+                            }`}>
+                                {showing === 'after' ? 'Дараа' : 'Өмнө'}
                             </span>
                         </div>
-                        {/* Toggle */}
-                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-4 flex items-center justify-center gap-2">
-                            <button
-                                onClick={() => setAfter(false)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-full transition-all ${!after ? 'bg-white text-gray-900 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'}`}>
-                                Өмнө
-                            </button>
-                            <button
-                                onClick={() => setAfter(true)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-full transition-all ${after ? 'bg-red-600 text-white shadow-lg' : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'}`}>
-                                Дараа
-                            </button>
+                        {/* Progress bar */}
+                        <div className="absolute bottom-0 inset-x-0 h-0.5 bg-white/20">
+                            <div className={`h-full bg-red-500 transition-all duration-[3500ms] ease-linear ${showing === 'after' ? 'w-full' : 'w-0'}`} />
                         </div>
                     </>
                 ) : (
@@ -56,12 +66,12 @@ function GalleryCard({ item }: { item: GalleryItem }) {
                 )}
             </div>
             {/* Info */}
-            <div className="p-5">
+            <div className="p-3.5 sm:p-5">
                 {item.category_name && (
-                    <span className="text-red-600 text-[11px] font-bold uppercase tracking-wide">{item.category_name}</span>
+                    <span className="text-red-600 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide">{item.category_name}</span>
                 )}
-                {item.title && <p className="font-bold text-gray-900 mt-1 text-sm">{item.title}</p>}
-                {item.description && <p className="text-gray-400 text-xs mt-1 leading-relaxed line-clamp-2">{item.description}</p>}
+                {item.title && <p className="font-bold text-gray-900 mt-1 text-xs sm:text-sm leading-snug">{item.title}</p>}
+                {item.description && <p className="text-gray-400 text-[10px] sm:text-xs mt-1 leading-relaxed line-clamp-2 hidden sm:block">{item.description}</p>}
             </div>
         </div>
     );
@@ -147,8 +157,8 @@ export default function GalleryPage() {
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         {data.length > 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
-                                {data.map(item => (
-                                    <GalleryCard key={item.id} item={item} />
+                                {data.map((item, i) => (
+                                    <GalleryCard key={item.id} item={item} delay={(i % 4) * 900} />
                                 ))}
                             </div>
                         ) : (
