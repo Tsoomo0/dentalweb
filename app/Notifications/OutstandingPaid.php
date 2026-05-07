@@ -3,7 +3,6 @@
 namespace App\Notifications;
 
 use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\BroadcastMessage;
 
 class OutstandingPaid extends Notification
 {
@@ -17,7 +16,7 @@ class OutstandingPaid extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database'];
     }
 
     public function toDatabase(object $notifiable): array
@@ -31,8 +30,4 @@ class OutstandingPaid extends Notification
         ];
     }
 
-    public function toBroadcast(object $notifiable): BroadcastMessage
-    {
-        return new BroadcastMessage($this->toDatabase($notifiable));
-    }
 }

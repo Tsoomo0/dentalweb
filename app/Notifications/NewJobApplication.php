@@ -3,7 +3,6 @@
 namespace App\Notifications;
 
 use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Messages\MailMessage;
 
 class NewJobApplication extends Notification
@@ -18,7 +17,7 @@ class NewJobApplication extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast', 'mail'];
+        return ['database', 'mail'];
     }
 
     public function toDatabase(object $notifiable): array
@@ -30,11 +29,6 @@ class NewJobApplication extends Notification
             'position'       => $this->position,
             'submitted_at'   => $this->submittedAt,
         ];
-    }
-
-    public function toBroadcast(object $notifiable): BroadcastMessage
-    {
-        return new BroadcastMessage($this->toDatabase($notifiable));
     }
 
     public function toMail(object $notifiable): MailMessage
