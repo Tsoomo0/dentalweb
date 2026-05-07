@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +28,7 @@ class AuthenticatedSessionController extends Controller
         // Эхлээд doctor guard-аар нэвтрэх оролдлого
         if (Auth::guard('doctor')->attempt(['email' => $request->email, 'password' => $request->password], $request->boolean('remember'))) {
             $request->session()->regenerate();
+            AuditService::log('login', Auth::guard('doctor')->user(), null, null, 'Эмч нэвтэрсэн');
             return redirect()->route('doctor.dashboard');
         }
 
@@ -42,6 +44,8 @@ class AuthenticatedSessionController extends Controller
         // Admin нэвтрэх
         $request->authenticate();
         $request->session()->regenerate();
+
+        AuditService::log('login', Auth::user(), null, null, 'Нэвтэрсэн');
 
         if (Auth::user()->isAdmin()) {
             return redirect()->route('admin.dashboard');
