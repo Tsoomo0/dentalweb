@@ -18,9 +18,12 @@ import {
     ClipboardList,
     Clock,
     MapPin,
+    NotebookText,
     Plus,
+    ScrollText,
     Stethoscope,
     TrendingUp,
+    TriangleAlert,
     UserRound,
     Users,
     Video,
@@ -60,6 +63,11 @@ interface Stats {
     users_total: number;
     jobs_pending: number;
     jobs_total: number;
+    daily_today_revenue: number;
+    daily_today_patients: number;
+    daily_outstanding: number;
+    daily_month_revenue: number;
+    daily_sheets_today: number;
 }
 
 interface WeeklyPoint { date: string; day: string; count: number }
@@ -101,6 +109,15 @@ interface JobApplication {
     created_at: string;
 }
 
+interface AuditLogEntry {
+    id: number;
+    event: string;
+    auditable_type: string | null;
+    actor_name: string;
+    description: string | null;
+    created_at: string;
+}
+
 interface Props {
     stats: Stats;
     weekly_data: WeeklyPoint[];
@@ -110,6 +127,7 @@ interface Props {
     recent_appointments: Appointment[];
     today_appointments: TodayAppointment[];
     recent_jobs: JobApplication[];
+    recent_audit_logs: AuditLogEntry[];
 }
 
 /* ─── Helpers ─── */
@@ -212,6 +230,14 @@ function RevenueChart({ data }: { data: MonthlyRevenue[] }) {
 }
 
 /* ─── Main Component ─── */
+const AUDIT_EVENT_MAP: Record<string, { label: string; cls: string }> = {
+    created:        { label: 'Үүсгэсэн',     cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+    updated:        { label: 'Засварласан',   cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+    deleted:        { label: 'Устгасан',      cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+    status_changed: { label: 'Статус өөрчлөв', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+    login:          { label: 'Нэвтэрсэн',    cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
+};
+
 export default function AdminDashboard({
     stats,
     weekly_data,
@@ -221,6 +247,7 @@ export default function AdminDashboard({
     recent_appointments,
     today_appointments,
     recent_jobs,
+    recent_audit_logs,
 }: Props) {
     const today = new Date();
     const dateStr = today.toLocaleDateString('mn-MN', {
@@ -409,6 +436,48 @@ export default function AdminDashboard({
                     </div>
                 </div>
 
+                {/* ═══ DAILY SHEET SUMMARY ═══ */}
+                <div className="rounded-xl border bg-gradient-to-br from-teal-50 to-white p-5 dark:from-teal-950/20 dark:to-background">
+                    <div className="mb-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="rounded-lg bg-teal-100 p-2 dark:bg-teal-900/30">
+                                <NotebookText className="size-4 text-teal-600 dark:text-teal-400" />
+                            </div>
+                            <div>
+                                <h2 className="font-semibold">Өдрийн тооцоо</h2>
+                                <p className="text-muted-foreground text-xs">
+                                    Өнөөдөр {stats.daily_sheets_today} хуудас нэмэгдсэн
+                                </p>
+                            </div>
+                        </div>
+                        <Link href="/admin/daily-sheets" className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
+                            Харах <ArrowRight className="size-3" />
+                        </Link>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <div className="rounded-lg bg-white p-3 dark:bg-background border">
+                            <p className="text-muted-foreground text-xs">Өнөөдрийн орлого</p>
+                            <p className="mt-1 text-xl font-bold text-teal-600">{fmtShort(stats.daily_today_revenue)}</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-3 dark:bg-background border">
+                            <p className="text-muted-foreground text-xs">Өнөөдрийн үйлчлүүлэгч</p>
+                            <p className="mt-1 text-xl font-bold">{stats.daily_today_patients} <span className="text-sm font-normal text-muted-foreground">хүн</span></p>
+                        </div>
+                        <div className="rounded-lg bg-white p-3 dark:bg-background border">
+                            <p className="text-muted-foreground text-xs">Энэ сарын орлого</p>
+                            <p className="mt-1 text-xl font-bold">{fmtShort(stats.daily_month_revenue)}</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-3 dark:bg-background border">
+                            <p className="text-muted-foreground text-xs flex items-center gap-1">
+                                <TriangleAlert className="size-3 text-amber-500" /> Дутуу дүн
+                            </p>
+                            <p className={`mt-1 text-xl font-bold ${stats.daily_outstanding > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                                {fmtShort(stats.daily_outstanding)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* ═══ CHARTS + STATUS ROW ═══ */}
                 <div className="grid gap-4 lg:grid-cols-3">
 
@@ -540,12 +609,14 @@ export default function AdminDashboard({
                         <h2 className="mb-4 font-semibold">Хурдан үйлдлүүд</h2>
                         <div className="grid gap-2">
                             {[
-                                { href: '/admin/appointments/create', icon: CalendarClock, label: 'Цаг захиалах',       cls: 'text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/30' },
-                                { href: '/admin/doctors/create',      icon: UserRound,     label: 'Эмч нэмэх',         cls: 'text-cyan-600 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/20 dark:hover:bg-cyan-950/30' },
-                                { href: '/admin/treatments/create',   icon: Stethoscope,   label: 'Эмчилгээ нэмэх',    cls: 'text-orange-600 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/20 dark:hover:bg-orange-950/30' },
-                                { href: '/admin/articles/create',     icon: BookOpen,      label: 'Нийтлэл бичих',     cls: 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/30' },
-                                { href: '/admin/branches/create',     icon: Building2,     label: 'Салбар нэмэх',      cls: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30' },
-                                { href: '/admin/gallery/create',      icon: ClipboardList, label: 'Галерей нэмэх',     cls: 'text-pink-600 bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/20 dark:hover:bg-pink-950/30' },
+                                { href: '/admin/appointments/create', icon: CalendarClock,  label: 'Цаг захиалах',       cls: 'text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/30' },
+                                { href: '/admin/daily-sheets',        icon: NotebookText,   label: 'Өдрийн тооцоо',      cls: 'text-teal-600 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/20 dark:hover:bg-teal-950/30' },
+                                { href: '/admin/doctors/create',      icon: UserRound,      label: 'Эмч нэмэх',          cls: 'text-cyan-600 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/20 dark:hover:bg-cyan-950/30' },
+                                { href: '/admin/treatments/create',   icon: Stethoscope,    label: 'Эмчилгээ нэмэх',     cls: 'text-orange-600 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/20 dark:hover:bg-orange-950/30' },
+                                { href: '/admin/articles/create',     icon: BookOpen,       label: 'Нийтлэл бичих',      cls: 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/30' },
+                                { href: '/admin/branches/create',     icon: Building2,      label: 'Салбар нэмэх',       cls: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30' },
+                                { href: '/admin/gallery/create',      icon: ClipboardList,  label: 'Галерей нэмэх',      cls: 'text-pink-600 bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/20 dark:hover:bg-pink-950/30' },
+                                { href: '/admin/audit-logs',          icon: ScrollText,     label: 'Аудит лог',           cls: 'text-zinc-600 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900/30 dark:hover:bg-zinc-800/40' },
                             ].map(({ href, icon: Icon, label, cls }) => (
                                 <Link
                                     key={href}
@@ -683,6 +754,45 @@ export default function AdminDashboard({
                                     </Link>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══ RECENT AUDIT LOGS ═══ */}
+                {recent_audit_logs.length > 0 && (
+                    <div className="rounded-xl border">
+                        <div className="flex items-center justify-between border-b px-5 py-4">
+                            <div className="flex items-center gap-2">
+                                <ScrollText className="size-4 text-muted-foreground" />
+                                <h2 className="font-semibold">Сүүлийн үйл ажиллагаа</h2>
+                            </div>
+                            <Link href="/admin/audit-logs" className="flex items-center gap-1 text-xs text-red-600 hover:underline">
+                                Бүгдийг харах <ArrowRight className="size-3" />
+                            </Link>
+                        </div>
+                        <div className="divide-y">
+                            {recent_audit_logs.map((log) => {
+                                const ev = AUDIT_EVENT_MAP[log.event] ?? { label: log.event, cls: 'bg-zinc-100 text-zinc-500' };
+                                return (
+                                    <div key={log.id} className="flex items-center gap-4 px-5 py-3 hover:bg-muted/30 transition-colors">
+                                        <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ev.cls}`}>
+                                            {ev.label}
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="truncate text-sm">
+                                                <span className="font-medium">{log.actor_name}</span>
+                                                {log.auditable_type && (
+                                                    <span className="text-muted-foreground"> · {log.auditable_type}</span>
+                                                )}
+                                            </p>
+                                            {log.description && (
+                                                <p className="text-muted-foreground truncate text-xs">{log.description}</p>
+                                            )}
+                                        </div>
+                                        <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{log.created_at}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}

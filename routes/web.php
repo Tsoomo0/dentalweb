@@ -19,6 +19,11 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Reception\ReceptionDashboardController;
 use App\Http\Controllers\Reception\ReceptionAppointmentController;
+use App\Http\Controllers\Reception\DailySheetController;
+use App\Http\Controllers\Admin\DailySheetAdminController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\AppointmentExportController;
+use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\PublicController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\PaymentController;
@@ -79,6 +84,10 @@ Route::post('/payment/callback/{appointment}',[PaymentController::class, 'callba
 // ── Dashboard redirect ────────────────────────────────────────────────────────
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', fn() => redirect()->route('admin.dashboard'))->name('dashboard');
+
+    // Notification routes — admin болон reception хоёулаа хэрэглэнэ
+    Route::patch('notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('notifications/read-all',   [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
 });
 
 // ✅ Admin route
@@ -95,8 +104,10 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::resource('gallery', GalleryController::class)->except(['show']);
     Route::get('appointments/pending-poll', [AppointmentController::class, 'pendingPoll'])->name('appointments.pending-poll');
     Route::get('appointments/search', [AppointmentController::class, 'search'])->name('appointments.search');
+    Route::get('appointments/export-pdf', [AppointmentExportController::class, 'pdf'])->name('appointments.export-pdf');
     Route::resource('appointments', AppointmentController::class)->except(['edit']);
     Route::patch('appointments/{appointment}/status', [AppointmentController::class, 'changeStatus'])->name('appointments.status');
+    Route::get('appointments/{appointment}/rebook', [AppointmentController::class, 'rebookForm'])->name('appointments.rebook');
     Route::patch('faqs/{faq}/toggle', [FaqController::class, 'toggle'])->name('faqs.toggle');
     Route::patch('doctors/{doctor}/toggle', function (\App\Models\Doctor $doctor) {
         $doctor->update(['is_active' => !$doctor->is_active]);
@@ -122,6 +133,10 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::patch('job-applications/{jobApplication}', [AdminJobApplicationController::class, 'update'])->name('job-applications.update');
     Route::delete('job-applications/{jobApplication}', [AdminJobApplicationController::class, 'destroy'])->name('job-applications.destroy');
 
+    // Өдрийн тооцоо
+    Route::get('daily-sheets/export-excel', [DailySheetAdminController::class, 'exportExcel'])->name('daily-sheets.export');
+    Route::get('daily-sheets', [DailySheetAdminController::class, 'index'])->name('daily-sheets.index');
+
     // Системийн тохиргоо
     Route::get('settings', [SettingController::class, 'index'])->name('settings');
     Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
@@ -130,6 +145,13 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Хэрэглэгч удирдах
     Route::resource('users', UserController::class)->except(['show']);
     Route::patch('users/{user}/toggle', [UserController::class, 'toggle'])->name('users.toggle');
+
+    // Аудит лог
+    Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+
+    // Notification
+    Route::patch('notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('notifications/read-all',   [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
 });
 
 // ── Reception portal ─────────────────────────────────────────────────────────
@@ -137,6 +159,12 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     Route::get('/dashboard', [ReceptionDashboardController::class, 'dashboard'])->name('dashboard');
     Route::get('/profile', [ReceptionDashboardController::class, 'profile'])->name('profile');
     Route::post('/profile', [ReceptionDashboardController::class, 'updateProfile'])->name('profile.update');
+
+    // Өдрийн тооцоо
+    Route::get('/daily-sheet', [DailySheetController::class, 'index'])->name('daily-sheet.index');
+    Route::post('/daily-sheet/save', [DailySheetController::class, 'save'])->name('daily-sheet.save');
+    Route::post('/daily-sheet/submit', [DailySheetController::class, 'submit'])->name('daily-sheet.submit');
+    Route::post('/daily-sheet/pay-outstanding/{entry}', [DailySheetController::class, 'payOutstanding'])->name('daily-sheet.pay-outstanding');
 
     Route::get('/appointments/pending-poll', [ReceptionAppointmentController::class, 'pendingPoll'])->name('appointments.pending-poll');
     Route::get('/appointments/search', [ReceptionAppointmentController::class, 'search'])->name('appointments.search');

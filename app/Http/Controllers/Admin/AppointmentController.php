@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateMeetLink;
 use App\Models\Appointment;
 use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\Treatment;
-use App\Services\GoogleMeetService;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -123,13 +124,17 @@ class AppointmentController extends Controller
             'type'             => 'required|in:online,in_person',
             'appointment_date' => 'required|date|after_or_equal:today',
             'appointment_time'     => 'required',
-            'appointment_time_end' => 'nullable|date_format:H:i',
+            'appointment_time_end' => ['nullable', 'date_format:H:i', function ($attr, $value, $fail) use ($request) {
+                if ($value && $request->appointment_time && $value <= $request->appointment_time) {
+                    $fail('Дуусах цаг эхлэх цагаас хойш байх ёстой.');
+                }
+            }],
             'status'               => 'required|in:pending,confirmed,cancelled,completed',
             'notes'                => 'nullable|string',
             'admin_notes'          => 'nullable|string',
         ]);
 
-        Appointment::create([
+        $appointment = Appointment::create([
             'appointment_number' => Appointment::generateNumber(),
             'created_by'         => Auth::user()?->name ?? 'Админ',
             ...$request->only(
@@ -139,6 +144,8 @@ class AppointmentController extends Controller
                 'status', 'notes', 'admin_notes'
             ),
         ]);
+
+        AuditService::log('created', $appointment, null, $appointment->toArray(), "Захиалга үүсгэв: {$appointment->appointment_number}");
 
         return redirect()->route('admin.appointments.index')->with('success', 'Цаг захиалга амжилттай нэмэгдлээ.');
     }
@@ -177,12 +184,17 @@ class AppointmentController extends Controller
             'type'                 => 'required|in:online,in_person',
             'appointment_date'     => 'nullable|date',
             'appointment_time'     => 'nullable',
-            'appointment_time_end' => 'nullable|date_format:H:i',
+            'appointment_time_end' => ['nullable', 'date_format:H:i', function ($attr, $value, $fail) use ($request) {
+                if ($value && $request->appointment_time && $value <= $request->appointment_time) {
+                    $fail('Дуусах цаг эхлэх цагаас хойш байх ёстой.');
+                }
+            }],
             'status'               => 'required|in:pending,confirmed,cancelled,completed',
             'notes'                => 'nullable|string',
             'admin_notes'          => 'nullable|string',
         ]);
 
+        $old = $appointment->only('status', 'doctor_id', 'appointment_date', 'appointment_time');
         $appointment->update($request->only(
             'patient_name', 'patient_phone', 'patient_email',
             'doctor_id', 'branch_id', 'service', 'type',
@@ -190,11 +202,14 @@ class AppointmentController extends Controller
             'status', 'notes', 'admin_notes'
         ));
 
+        AuditService::log('updated', $appointment, $old, $appointment->fresh()->only('status', 'doctor_id', 'appointment_date', 'appointment_time'), "Захиалга шинэчлэв: {$appointment->appointment_number}");
+
         return back()->with('success', 'Захиалга шинэчлэгдлээ.');
     }
 
     public function destroy(Appointment $appointment): RedirectResponse
     {
+        AuditService::log('deleted', $appointment, $appointment->only('patient_name', 'appointment_number', 'status'), null, "Захиалга устгав: {$appointment->appointment_number}");
         $appointment->delete();
         return back()->with('success', 'Цаг захиалга устгагдлаа.');
     }
@@ -222,7 +237,7 @@ class AppointmentController extends Controller
         if ($request->filled('date_from'))  $query->whereDate('appointment_date', '>=', $request->date_from);
         if ($request->filled('date_to'))    $query->whereDate('appointment_date', '<=', $request->date_to);
 
-        $appointments = $query->get()->map(fn($a) => [
+        $paginated = $query->paginate(100)->through(fn($a) => [
             'id'                   => $a->id,
             'appointment_number'   => $a->appointment_number,
             'patient_name'         => $a->patient_name,
@@ -272,12 +287,37 @@ class AppointmentController extends Controller
         $creators = $staffUsers->pluck('name')->sort()->values();
 
         return Inertia::render('admin/appointments/search', [
-            'appointments' => $appointments,
+            'appointments' => $paginated,
             'creatorStats' => $creatorStats,
             'doctors'      => Doctor::where('is_active', true)->orderBy('name')->get(['id', 'name', 'specialization']),
             'branches'     => Branch::where('is_active', true)->orderBy('order')->get(['id', 'name']),
             'creators'     => $creators,
             'filters'      => $request->only('q', 'status', 'type', 'doctor_id', 'branch_id', 'created_by', 'date_from', 'date_to'),
+        ]);
+    }
+
+    /** Дахин захиалга — өмнөх мэдээллийг pre-fill хийж create хуудсанд илгээх */
+    public function rebookForm(Appointment $appointment): Response
+    {
+        return Inertia::render('admin/appointments/create', [
+            'doctors'  => Doctor::where('is_active', true)->with('branches')->orderBy('name')->get()->map(fn($d) => [
+                'id'             => $d->id,
+                'name'           => $d->name,
+                'specialization' => $d->specialization,
+                'branch_id'      => $d->branch_id,
+                'branch_ids'     => $d->branches->pluck('id')->toArray(),
+            ]),
+            'branches' => Branch::where('is_active', true)->orderBy('order')->get(['id', 'name']),
+            'prefill'  => [
+                'patient_name'  => $appointment->patient_name,
+                'patient_phone' => $appointment->patient_phone,
+                'patient_email' => $appointment->patient_email,
+                'doctor_id'     => $appointment->doctor_id,
+                'branch_id'     => $appointment->branch_id,
+                'service'       => $appointment->service,
+                'type'          => $appointment->type,
+                'notes'         => $appointment->notes,
+            ],
         ]);
     }
 
@@ -319,21 +359,30 @@ class AppointmentController extends Controller
     {
         $request->validate(['status' => 'required|in:pending,confirmed,cancelled,completed']);
 
+        $allowed = [
+            'pending'   => ['confirmed', 'cancelled'],
+            'confirmed' => ['pending', 'cancelled', 'completed'],
+            'cancelled' => [],
+            'completed' => [],
+        ];
+        if (!in_array($request->status, $allowed[$appointment->status] ?? [])) {
+            return back()->with('error', 'Энэ төлөв рүү шилжих боломжгүй.');
+        }
+
         $updateData = ['status' => $request->status];
         if ($request->status === 'confirmed') {
             $updateData['confirmed_by'] = Auth::user()?->name ?? 'Админ';
-
-            // Online захиалгад Meet линк үүсгэх
-            if ($appointment->type === 'online' && empty($appointment->meet_link)) {
-                $meetService = new GoogleMeetService();
-                $link = $meetService->createMeetLink();
-                if ($link) {
-                    $updateData['meet_link'] = $link;
-                }
-            }
         }
 
+        $oldStatus = $appointment->status;
         $appointment->update($updateData);
+
+        AuditService::log('status_changed', $appointment, ['status' => $oldStatus], ['status' => $request->status], "Захиалгын статус өөрчлөв: {$appointment->appointment_number} → {$request->status}");
+
+        // Online захиалгад Meet линк + имэйлийг queue-д явуулна
+        if ($request->status === 'confirmed' && $appointment->type === 'online' && empty($appointment->meet_link)) {
+            GenerateMeetLink::dispatch($appointment->id);
+        }
 
         $labels = [
             'confirmed' => 'Баталгаажлаа',

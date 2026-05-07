@@ -1,18 +1,20 @@
 import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
+import { NotificationBell } from '@/components/notification-bell';
 import { ReceptionSidebar } from '@/components/reception-sidebar';
 import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 
-type PageProps = { site_settings?: { site_logo?: string; site_name?: string }; url: string; [key: string]: unknown };
-import { CalendarClock, LayoutGrid, UserCircle2 } from 'lucide-react';
+type PageProps = { site_settings?: { site_logo?: string; site_name?: string }; notifications?: unknown; url: string; [key: string]: unknown };
+import { CalendarClock, ClipboardList, LayoutGrid, UserCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const BOTTOM_NAV = [
     { icon: LayoutGrid,    label: 'Самбар',       href: '/reception/dashboard' },
     { icon: CalendarClock, label: 'Цаг захиалга', href: '/reception/appointments' },
+    { icon: ClipboardList, label: 'Тооцоо',       href: '/reception/daily-sheet' },
     { icon: UserCircle2,   label: 'Профайл',      href: '/reception/profile' },
 ];
 
@@ -23,7 +25,8 @@ interface Props {
 
 export default function ReceptionLayout({ children, breadcrumbs = [] }: Props) {
     const { url, props } = usePage<PageProps>();
-    const logoUrl = props.site_settings?.site_logo || '/img/black.png';
+    const logoUrl       = props.site_settings?.site_logo || '/img/black.png';
+    const hasNotif      = !!props.notifications;
 
     const [isMobile, setIsMobile] = useState(() =>
         typeof window !== 'undefined' ? window.innerWidth < 768 : false
@@ -53,6 +56,7 @@ export default function ReceptionLayout({ children, breadcrumbs = [] }: Props) {
                         style={{ fontSize: 15, fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {pageTitle}
                     </span>
+                    {hasNotif && <NotificationBell />}
                 </header>
 
                 {/* Page content */}

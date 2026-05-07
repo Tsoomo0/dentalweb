@@ -514,6 +514,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                     apt={editApt as ModalAppt} date={editApt.appointment_date}
                     doctors={doctors} branches={branches} treatments={treatments}
                     onClose={() => setEditApt(null)}
+                    onDelete={deleteApt}
                     onSaved={updated => {
                         setApts(prev => prev.map(a => a.id === updated.id ? updated as unknown as Appointment : a));
                         setEditApt(null);
@@ -1112,6 +1113,12 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                             <Plus className="size-4" /> Цаг нэмэх
                         </button>
 
+                        {/* PDF export button */}
+                        <a href="/admin/appointments/export-pdf" target="_blank"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border py-2 text-xs font-semibold hover:bg-muted transition-colors">
+                            📄 PDF тайлан
+                        </a>
+
                         {/* ── Mini calendar (Google Calendar style) ── */}
                         <div className="select-none">
                             {/* Mini calendar header */}
@@ -1296,7 +1303,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                 </div>
 
                 {/* ===== MAIN CONTENT ===== */}
-                <div className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
+                <div className="flex flex-1 flex-col gap-3 overflow-hidden p-4 min-w-0">
 
                     {/* ── Search bar ── */}
                     <div className="relative shrink-0 flex items-center gap-2">

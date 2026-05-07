@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\JobApplication;
 use App\Models\Setting;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -57,20 +58,34 @@ class HandleInertiaRequests extends Middleware
                 'inperson_success' => fn () => $request->session()->get('inperson_success'),
             ],
 
-            // ─── Нийтийн тохиргоо (нийтийн хуудсуудад хэрэглэнэ) ────────────
-            'site_settings' => fn () => Setting::whereIn('key', [
-                'site_name', 'site_tagline',
-                'contact_phone', 'contact_email',
-                'address', 'working_hours',
-                'facebook_url', 'instagram_url',
-                'booking_enabled', 'maintenance_mode',
-                'site_logo', 'site_favicon',
-            ])->pluck('value', 'key')->toArray(),
+            // ─── Нийтийн тохиргоо (cache-тай) ───────────────────────────────
+            'site_settings' => fn () => Cache::remember('inertia_site_settings', 3600, function () {
+                return Setting::whereIn('key', [
+                    'site_name', 'site_tagline',
+                    'contact_phone', 'contact_email',
+                    'address', 'working_hours',
+                    'facebook_url', 'instagram_url',
+                    'booking_enabled', 'maintenance_mode',
+                    'site_logo', 'site_favicon',
+                ])->pluck('value', 'key')->toArray();
+            }),
 
             // ─── Admin notifications ──────────────────────────────────────────
             'pending_job_applications' => fn () => $request->user()
                 ? JobApplication::where('status', 'pending')->count()
                 : 0,
+
+            'notifications' => fn () => ($request->user()?->isAdmin() || $request->user()?->isReceptionist()) ? [
+                'unread_count' => $request->user()->unreadNotifications()->count(),
+                'items'        => $request->user()->notifications()->latest()->take(15)->get()
+                    ->map(fn ($n) => [
+                        'id'         => $n->id,
+                        'notif_type' => class_basename($n->type),
+                        'data'       => $n->data,
+                        'read_at'    => $n->read_at?->toIso8601String(),
+                        'created_at' => $n->created_at->diffForHumans(),
+                    ])->all(),
+            ] : null,
 
             // ─── Auth ─────────────────────────────────────────────────────────
             'auth' => [

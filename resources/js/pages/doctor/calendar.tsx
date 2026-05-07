@@ -394,7 +394,7 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                     </div>
 
                     {/* Main calendar area */}
-                    <div className="flex flex-1 flex-col overflow-hidden p-4 gap-3">
+                    <div className="flex flex-1 flex-col overflow-hidden p-4 gap-3 min-w-0">
                         {/* Toolbar */}
                         <div className="rounded-xl border bg-card overflow-hidden">
                             <div className="flex items-center justify-between px-5 py-3">

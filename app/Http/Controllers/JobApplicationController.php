@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobApplication;
+use App\Models\User;
+use App\Notifications\NewJobApplication;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 
 class JobApplicationController extends Controller
@@ -72,7 +75,21 @@ class JobApplicationController extends Controller
             'info_source'           => 'nullable|string|max:200',
         ]);
 
-        JobApplication::create($data);
+        $application = JobApplication::create($data);
+
+        $admins = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->get();
+
+        if ($admins->isNotEmpty()) {
+            $fullName    = trim(($data['last_name'] ?? '') . ' ' . ($data['first_name'] ?? ''));
+            $notification = new NewJobApplication(
+                applicantName: $fullName,
+                phone:         $data['phone_mobile'],
+                email:         $data['email'] ?? null,
+                position:      null,
+                submittedAt:   now()->format('Y.m.d H:i'),
+            );
+            Notification::send($admins, $notification);
+        }
 
         return back()->with('success', 'Таны анкет амжилттай илгээгдлээ. Бид тантай удахгүй холбоо барих болно.');
     }

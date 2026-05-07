@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { Building2, CalendarClock, ClipboardList, CreditCard, HelpCircle, Images, LayoutGrid, Newspaper, Settings, Smile, Stethoscope, Tag, UserRound, Users } from 'lucide-react';
+import { Building2, CalendarClock, ClipboardList, CreditCard, HelpCircle, Images, LayoutGrid, Newspaper, NotebookText, ScrollText, Settings, Smile, Stethoscope, Tag, UserRound, Users } from 'lucide-react';
 
 const mainNavItems: NavItem[] = [
     {
@@ -54,6 +54,11 @@ const mainNavItems: NavItem[] = [
         icon: CreditCard,
     },
     {
+        title: 'Өдрийн тооцоо',
+        url: '/admin/daily-sheets',
+        icon: NotebookText,
+    },
+    {
         title: 'Үр дүнгийн галерей',
         url: '/admin/gallery',
         icon: Images,
@@ -72,6 +77,11 @@ const mainNavItems: NavItem[] = [
         title: 'Хэрэглэгчид',
         url: '/admin/users',
         icon: Users,
+    },
+    {
+        title: 'Аудит лог',
+        url: '/admin/audit-logs',
+        icon: ScrollText,
     },
     {
         title: 'Тохиргоо',

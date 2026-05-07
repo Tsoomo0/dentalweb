@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -70,7 +71,7 @@ class UserController extends Controller
             'is_active' => 'boolean',
         ]);
 
-        User::create([
+        $user = User::create([
             'name'      => $request->name,
             'email'     => $request->email,
             'password'  => Hash::make($request->password),
@@ -78,6 +79,8 @@ class UserController extends Controller
             'branch_id' => $request->branch_id,
             'is_active' => $request->boolean('is_active', true),
         ]);
+
+        AuditService::log('created', $user, null, ['name' => $user->name, 'email' => $user->email], "Хэрэглэгч үүсгэв: {$user->name}");
 
         return redirect()->route('admin.users.index')
             ->with('success', 'Хэрэглэгч амжилттай нэмэгдлээ.');
@@ -127,6 +130,8 @@ class UserController extends Controller
 
         $user->update($data);
 
+        AuditService::log('updated', $user, null, ['name' => $user->name, 'email' => $user->email], "Хэрэглэгч шинэчлэв: {$user->name}");
+
         return redirect()->route('admin.users.index')
             ->with('success', 'Мэдээлэл амжилттай шинэчлэгдлээ.');
     }
@@ -136,6 +141,7 @@ class UserController extends Controller
         if ($user->id === auth()->id()) {
             return back()->with('error', 'Өөрийгөө устгах боломжгүй.');
         }
+        AuditService::log('deleted', $user, ['name' => $user->name, 'email' => $user->email], null, "Хэрэглэгч устгав: {$user->name}");
         $user->delete();
         return back()->with('success', 'Хэрэглэгч устгагдлаа.');
     }
@@ -145,7 +151,9 @@ class UserController extends Controller
         if ($user->id === auth()->id()) {
             return back()->with('error', 'Өөрийн эрхийг өөрчлөх боломжгүй.');
         }
+        $oldStatus = $user->is_active;
         $user->update(['is_active' => !$user->is_active]);
+        AuditService::log('updated', $user, ['is_active' => $oldStatus], ['is_active' => $user->is_active], ($user->is_active ? 'Идэвхжүүллээ' : 'Идэвхгүй болголоо') . ": {$user->name}");
         return back()->with('success', $user->is_active ? 'Идэвхжүүллээ.' : 'Идэвхгүй болголоо.');
     }
 }

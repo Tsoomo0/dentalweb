@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\AuditLog;
 use App\Models\Branch;
+use App\Models\DailySheet;
+use App\Models\DailySheetEntry;
 use App\Models\Doctor;
 use App\Models\JobApplication;
 use App\Models\Treatment;
 use App\Models\TreatmentCategory;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -46,28 +50,45 @@ class DashboardController extends Controller
             ? round((($appsThisMonth - $appsLastMonth) / $appsLastMonth) * 100, 1)
             : 0;
 
-        /* ── Сүүлийн 7 өдрийн цаг захиалгын тоо ── */
+        /* ── Сүүлийн 7 өдрийн цаг захиалгын тоо (1 query) ── */
+        $startDate = Carbon::today()->subDays(6)->toDateString();
+        $endDate   = Carbon::today()->toDateString();
+
+        $rawWeekly = Appointment::selectRaw('appointment_date, count(*) as cnt')
+            ->whereBetween('appointment_date', [$startDate, $endDate])
+            ->groupBy('appointment_date')
+            ->pluck('cnt', 'appointment_date')
+            ->toArray();
+
         $weeklyData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
+            $key  = $date->toDateString();
             $weeklyData[] = [
                 'date'  => $date->format('M d'),
                 'day'   => $date->format('D'),
-                'count' => Appointment::whereDate('appointment_date', $date)->count(),
+                'count' => $rawWeekly[$key] ?? 0,
             ];
         }
 
-        /* ── Сүүлийн 6 сарын орлого ── */
+        /* ── Сүүлийн 6 сарын орлого (1 query) ── */
+        $revenueStart = Carbon::now()->subMonths(5)->startOfMonth()->toDateString();
+
+        $rawMonthly = Appointment::selectRaw('YEAR(created_at) as yr, MONTH(created_at) as mo, SUM(payment_amount) as total')
+            ->where('payment_status', 'paid')
+            ->where('created_at', '>=', $revenueStart)
+            ->groupBy('yr', 'mo')
+            ->get()
+            ->keyBy(fn($r) => $r->yr . '-' . str_pad($r->mo, 2, '0', STR_PAD_LEFT));
+
         $monthlyRevenue = [];
         for ($i = 5; $i >= 0; $i--) {
             $month = Carbon::now()->subMonths($i);
+            $key   = $month->format('Y-m');
             $monthlyRevenue[] = [
                 'month'   => $month->format('M Y'),
                 'short'   => $month->format('M'),
-                'revenue' => (int) Appointment::where('payment_status', 'paid')
-                                ->whereYear('created_at', $month->year)
-                                ->whereMonth('created_at', $month->month)
-                                ->sum('payment_amount'),
+                'revenue' => (int) ($rawMonthly[$key]?->total ?? 0),
             ];
         }
 
@@ -83,6 +104,25 @@ class DashboardController extends Controller
 
         /* ── Хэрэглэгч ── */
         $usersTotal = User::count();
+
+        /* ── Өдрийн тооцоо ── */
+        $dailyTodayRevenue  = (int) DailySheetEntry::whereHas('dailySheet', fn($q) => $q->whereDate('date', $today))->sum('total_amount');
+        $dailyTodayPatients = DailySheetEntry::whereHas('dailySheet', fn($q) => $q->whereDate('date', $today))->count();
+        $dailyOutstanding   = (int) DailySheetEntry::where('outstanding_amount', '>', 0)->whereNull('outstanding_paid_at')->sum('outstanding_amount');
+        $dailyMonthRevenue  = (int) DailySheetEntry::whereHas('dailySheet', fn($q) => $q->where('date', '>=', $thisMonth))->sum('total_amount');
+        $dailySheetsToday   = DailySheet::whereDate('date', $today)->count();
+
+        /* ── Аудит лог (сүүлийн) ── */
+        $recentAuditLogs = AuditLog::orderByDesc('created_at')->take(5)->get([
+            'id', 'event', 'auditable_type', 'auditable_id', 'actor_name', 'description', 'created_at',
+        ])->map(fn($l) => [
+            'id'             => $l->id,
+            'event'          => $l->event,
+            'auditable_type' => $l->auditable_type ? class_basename($l->auditable_type) : null,
+            'actor_name'     => $l->actor_name ?? 'Систем',
+            'description'    => $l->description,
+            'created_at'     => $l->created_at->format('Y.m.d H:i'),
+        ]);
 
         /* ── Ажлын анкет ── */
         $jobsPending = JobApplication::where('status', 'pending')->count();
@@ -147,6 +187,13 @@ class DashboardController extends Controller
                 // Ажлын анкет
                 'jobs_pending'           => $jobsPending,
                 'jobs_total'             => $jobsTotal,
+
+                // Өдрийн тооцоо
+                'daily_today_revenue'    => $dailyTodayRevenue,
+                'daily_today_patients'   => $dailyTodayPatients,
+                'daily_outstanding'      => $dailyOutstanding,
+                'daily_month_revenue'    => $dailyMonthRevenue,
+                'daily_sheets_today'     => $dailySheetsToday,
             ],
 
             'weekly_data'           => $weeklyData,
@@ -156,6 +203,7 @@ class DashboardController extends Controller
             'recent_appointments'   => $recentAppointments,
             'today_appointments'    => $todayAppointments,
             'recent_jobs'           => $recentJobs,
+            'recent_audit_logs'     => $recentAuditLogs,
         ]);
     }
 }

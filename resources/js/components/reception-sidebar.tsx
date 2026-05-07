@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAppearance } from '@/hooks/use-appearance';
 import { Link, usePage } from '@inertiajs/react';
-import { CalendarClock, LayoutGrid, Monitor, Moon, Sun, UserCircle2 } from 'lucide-react';
+import { CalendarClock, ClipboardList, LayoutGrid, Monitor, Moon, Sun, UserCircle2 } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const navItems = [
@@ -19,6 +19,11 @@ const navItems = [
         title: 'Цаг захиалга',
         url:   '/reception/appointments',
         icon:  CalendarClock,
+    },
+    {
+        title: 'Өдрийн тооцоо',
+        url:   '/reception/daily-sheet',
+        icon:  ClipboardList,
     },
     {
         title: 'Миний профайл',

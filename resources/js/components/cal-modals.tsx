@@ -1,11 +1,11 @@
 import { router, useForm } from '@inertiajs/react';
 import {
-    Building2, CalendarCheck2, CheckCircle2, Clock,
+    CalendarCheck2, CheckCircle2, Clock,
     Mail, Monitor, Pencil, Phone, Stethoscope,
     Trash2, User, UserCheck, X, XCircle, Eye,
     CalendarClock,
 } from 'lucide-react';
-import { type FormEvent, useEffect, useMemo } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef } from 'react';
 
 /* ── Types ──────────────────────────────────────────────────────── */
 export interface ModalDoctor   { id: number; name: string; specialization: string | null; branch_id: number | null; branch_ids: number[] }
@@ -45,7 +45,7 @@ export const STATUS_CHIP: Record<string, string> = {
 };
 const MONTHS_MN = ['1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар','7-р сар','8-р сар','9-р сар','10-р сар','11-р сар','12-р сар'];
 const DAYS_MN   = ['Дав','Мяг','Лха','Пүр','Баа','Бям','Ням'];
-const QUICK_TIMES = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+const QUICK_TIMES = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
 
 /* ── Helpers ────────────────────────────────────────────────────── */
 function addMins(time: string, mins: number): string {
@@ -79,10 +79,11 @@ interface FormModalProps {
     treatments: ModalTreatment[];
     onClose: () => void;
     onSaved?: (updated: ModalAppt) => void;
+    onDelete?: (id: number, num: string) => void;
 }
 export function AptFormModal({
     routePrefix, apt, date, initialTime = '09:00', initialDoctorId = '',
-    doctors, branches, treatments, onClose, onSaved,
+    doctors, branches, treatments, onClose, onSaved, onDelete,
 }: FormModalProps) {
     const isEdit = !!apt;
 
@@ -130,6 +131,29 @@ export function AptFormModal({
 
     function setStartTime(v: string) {
         setData(prev => ({ ...prev, appointment_time: v, appointment_time_end: addMins(v, 20) }));
+    }
+
+    const nameRef = useRef(data.patient_name);
+    useEffect(() => { nameRef.current = data.patient_name; }, [data.patient_name]);
+    const phoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    function handlePhoneChange(phone: string) {
+        setData('patient_phone', phone);
+        if (isEdit) return;
+        if (phoneTimerRef.current) clearTimeout(phoneTimerRef.current);
+        if (phone.replace(/\D/g, '').length < 8) return;
+        phoneTimerRef.current = setTimeout(async () => {
+            try {
+                const r = await fetch(`/booking/patient-lookup?phone=${encodeURIComponent(phone)}`);
+                if (r.ok) {
+                    const p = await r.json();
+                    if (p?.name && !nameRef.current) {
+                        setData('patient_name', p.name);
+                        if (p.email) setData('patient_email', p.email);
+                    }
+                }
+            } catch {}
+        }, 400);
     }
 
     function submit(e: FormEvent) {
@@ -206,31 +230,19 @@ export function AptFormModal({
 
                 <form onSubmit={submit} className="cal-scroll flex-1 overflow-y-auto p-4 space-y-3">
 
-                    {/* Төрөл */}
-                    <div className="flex rounded-lg border overflow-hidden text-xs font-semibold">
-                        {(['in_person', 'online'] as const).map(v => (
-                            <button key={v} type="button" onClick={() => setData('type', v)}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors ${
-                                    data.type === v ? 'bg-red-600 text-white' : 'hover:bg-muted text-muted-foreground'
-                                }`}>
-                                {v === 'in_person' ? <><Building2 className="size-3.5" /> Биечлэн</> : <><Monitor className="size-3.5" /> Онлайн</>}
-                            </button>
-                        ))}
-                    </div>
-
                     {/* Нэр + Утас */}
                     <div className="grid grid-cols-2 gap-2">
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Нэр <span className="text-red-500">*</span></label>
-                            <input autoFocus type="text" value={data.patient_name}
+                            <input type="text" value={data.patient_name}
                                 onChange={e => setData('patient_name', e.target.value)}
                                 placeholder="Овог нэр" className={inp} />
                             {errors.patient_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.patient_name}</p>}
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-muted-foreground mb-1">Утас <span className="text-red-500">*</span></label>
-                            <input type="tel" value={data.patient_phone}
-                                onChange={e => setData('patient_phone', e.target.value)}
+                            <input autoFocus type="tel" value={data.patient_phone}
+                                onChange={e => handlePhoneChange(e.target.value)}
                                 placeholder="9900 0000" className={inp} />
                             {errors.patient_phone && <p className="text-[10px] text-red-500 mt-0.5">{errors.patient_phone}</p>}
                         </div>
@@ -238,7 +250,7 @@ export function AptFormModal({
 
                     {/* И-мэйл */}
                     <div>
-                        <label className="block text-xs font-medium text-muted-foreground mb-1">И-мэйл</label>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">И-мэйл <span className="text-muted-foreground/50 font-normal">(заавал биш)</span></label>
                         <input type="email" value={data.patient_email}
                             onChange={e => setData('patient_email', e.target.value)}
                             placeholder="example@mail.com" className={inp} />
@@ -305,23 +317,32 @@ export function AptFormModal({
                     {/* Статус */}
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Төлөв</label>
-                        <div className="flex gap-1.5">
-                            {([
-                                { v: 'pending',   label: 'Хүлээгдэж байна', dot: 'bg-yellow-400' },
-                                { v: 'confirmed', label: 'Баталгаажсан',    dot: 'bg-green-500'  },
-                            ] as const).map(({ v, label, dot }) => (
-                                <button key={v} type="button" onClick={() => setData('status', v)}
-                                    className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-[11px] font-semibold transition-colors ${
-                                        data.status === v
-                                            ? 'border-red-500 bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
-                                            : 'border-input bg-background text-muted-foreground hover:border-red-300'
-                                    }`}>
-                                    <span className={`size-1.5 rounded-full shrink-0 ${dot}`} />
-                                    <span className="hidden sm:inline">{label}</span>
-                                    <span className="sm:hidden">{label.split(' ')[0]}</span>
-                                </button>
-                            ))}
-                        </div>
+                        {(data.status === 'cancelled' || data.status === 'completed') ? (
+                            <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
+                                <span className={`size-2 rounded-full shrink-0 ${data.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-400'}`} />
+                                <span className="text-xs font-semibold text-muted-foreground">
+                                    {data.status === 'cancelled' ? 'Цуцлагдсан' : 'Дууссан'} — өөрчлөх боломжгүй
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="flex gap-1.5">
+                                {([
+                                    { v: 'pending',   label: 'Хүлээгдэж байна', dot: 'bg-yellow-400' },
+                                    { v: 'confirmed', label: 'Баталгаажсан',    dot: 'bg-green-500'  },
+                                ] as const).map(({ v, label, dot }) => (
+                                    <button key={v} type="button" onClick={() => setData('status', v)}
+                                        className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-[11px] font-semibold transition-colors ${
+                                            data.status === v
+                                                ? 'border-red-500 bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
+                                                : 'border-input bg-background text-muted-foreground hover:border-red-300'
+                                        }`}>
+                                        <span className={`size-1.5 rounded-full shrink-0 ${dot}`} />
+                                        <span className="hidden sm:inline">{label}</span>
+                                        <span className="sm:hidden">{label.split(' ')[0]}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Тэмдэглэл */}
@@ -354,6 +375,13 @@ export function AptFormModal({
                     <button onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
                         Болих
                     </button>
+                    {isEdit && onDelete && apt && (
+                        <button type="button"
+                            onClick={() => { onDelete(apt.id, apt.appointment_number); onClose(); }}
+                            className="flex items-center justify-center rounded-lg border border-red-200 dark:border-red-900 px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                            <Trash2 className="size-3.5" />
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -533,7 +561,7 @@ export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit,
                     )}
 
                     {/* Төлөв өөрчлөх */}
-                    {!readonly && onStatusChange && (
+                    {!readonly && onStatusChange && (apt.status === 'pending' || apt.status === 'confirmed') && (
                         <div>
                             <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Төлөв өөрчлөх</p>
                             <div className="flex gap-1.5">
@@ -547,6 +575,14 @@ export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit,
                                     </button>
                                 ))}
                             </div>
+                        </div>
+                    )}
+                    {(apt.status === 'cancelled' || apt.status === 'completed') && (
+                        <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-2">
+                            <span className={`size-2 rounded-full shrink-0 ${apt.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-400'}`} />
+                            <p className="text-[11px] text-muted-foreground">
+                                {apt.status === 'cancelled' ? 'Цуцлагдсан — төлөв өөрчлөх боломжгүй' : 'Дууссан — төлөв өөрчлөх боломжгүй'}
+                            </p>
                         </div>
                     )}
                 </div>

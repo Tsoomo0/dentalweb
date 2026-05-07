@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -68,6 +70,11 @@ class SettingController extends Controller
             $setting->update(['value' => $sanitized]);
         }
 
+        Setting::clearCache();
+        Cache::forget('inertia_site_settings');
+
+        AuditService::log('updated', null, null, ['group' => $group], $this->groupLabel($group) . ' тохиргоо шинэчлэв');
+
         return back()->with('success', $this->groupLabel($group) . ' тохиргоо амжилттай хадгаллаа.');
     }
 
@@ -112,6 +119,11 @@ class SettingController extends Controller
         if ($uploaded === 0) {
             return back()->with('error', 'Файл сонгогдоогүй байна.');
         }
+
+        Setting::clearCache();
+        Cache::forget('inertia_site_settings');
+
+        AuditService::log('updated', null, null, ['uploaded' => $uploaded], "Брэндийн зураг шинэчлэв ({$uploaded} файл)");
 
         return back()->with('success', 'Брэндийн зураг амжилттай хадгаллаа.');
     }

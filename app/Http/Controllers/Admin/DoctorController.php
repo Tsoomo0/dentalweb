@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Doctor;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -59,7 +60,7 @@ class DoctorController extends Controller
             'experiences.*.year'        => 'nullable|string|max:50',
             'experiences.*.title'       => 'required_with:experiences|string|max:255',
             'experiences.*.institution' => 'nullable|string|max:255',
-            'photo'            => 'nullable|image|max:5120',
+            'photo'            => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'description'      => 'nullable|string',
             'phone'            => 'nullable|string|max:50',
             'email'            => 'required|email|max:255|unique:doctors,email',
@@ -87,6 +88,8 @@ class DoctorController extends Controller
         ));
         $doctor->branches()->sync($allBranchIds);
         $doctor->seniorDoctors()->sync(array_map('intval', $request->input('senior_doctor_ids', [])));
+
+        AuditService::log('created', $doctor, null, ['name' => $doctor->name, 'email' => $doctor->email], "Эмч үүсгэв: {$doctor->name}");
 
         return redirect()->route('admin.doctors.index')->with('success', 'Эмч амжилттай нэмэгдлээ.');
     }
@@ -121,7 +124,7 @@ class DoctorController extends Controller
             'experiences.*.year'        => 'nullable|string|max:50',
             'experiences.*.title'       => 'required_with:experiences|string|max:255',
             'experiences.*.institution' => 'nullable|string|max:255',
-            'photo'            => 'nullable|image|max:5120',
+            'photo'            => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'description'      => 'nullable|string',
             'phone'            => 'nullable|string|max:50',
             'email'            => ['required', 'email', 'max:255', Rule::unique('doctors', 'email')->ignore($doctor->id)],
@@ -151,11 +154,14 @@ class DoctorController extends Controller
         $doctor->branches()->sync($allBranchIds);
         $doctor->seniorDoctors()->sync(array_map('intval', $request->input('senior_doctor_ids', [])));
 
+        AuditService::log('updated', $doctor, null, ['name' => $doctor->name, 'email' => $doctor->email], "Эмчийн мэдээлэл шинэчлэв: {$doctor->name}");
+
         return redirect()->route('admin.doctors.index')->with('success', 'Эмчийн мэдээлэл шинэчлэгдлээ.');
     }
 
     public function destroy(Doctor $doctor): RedirectResponse
     {
+        AuditService::log('deleted', $doctor, ['name' => $doctor->name, 'email' => $doctor->email], null, "Эмч устгав: {$doctor->name}");
         if ($doctor->photo) Storage::disk('public')->delete($doctor->photo);
         $doctor->delete();
 

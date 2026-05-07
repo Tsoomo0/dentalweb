@@ -9,6 +9,7 @@ use App\Models\Faq;
 use App\Models\GalleryItem;
 use App\Models\TreatmentCategory;
 use App\Models\Appointment;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -161,10 +162,10 @@ class PublicController extends Controller
 
     private function stats(): array
     {
-        return [
+        return Cache::remember('public_stats', 1800, fn () => [
             'doctors'      => Doctor::where('is_active', true)->count(),
             'appointments' => Appointment::count(),
             'branches'     => Branch::where('is_active', true)->count(),
-        ];
+        ]);
     }
 }

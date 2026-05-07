@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
-    ArrowLeft, CalendarRange, CheckCircle2, ChevronDown, ChevronUp,
+    ArrowLeft, CalendarRange, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
     Monitor, Search, User, UserCheck, X,
 } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
@@ -24,8 +24,15 @@ interface Appointment {
     created_by: string | null; confirmed_by: string | null;
 }
 interface CreatorStat { role: string; total: number; pending: number; confirmed: number; completed: number; cancelled: number }
+interface Paginated<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    total: number;
+    per_page: number;
+}
 interface Props {
-    appointments: Appointment[];
+    appointments: Paginated<Appointment>;
     creatorStats: Record<string, CreatorStat>;
     doctors: Doctor[];
     creators: string[];
@@ -106,7 +113,7 @@ export default function AppointmentsSearch({ appointments, creatorStats, doctors
         else { setSortField(field); setSortAsc(true); }
     }
 
-    const sorted = [...appointments].sort((a, b) => {
+    const sorted = [...appointments.data].sort((a, b) => {
         let av: string | number = a[sortField] ?? '';
         let bv: string | number = b[sortField] ?? '';
         if (typeof av === 'string') av = av.toLowerCase();
@@ -365,6 +372,44 @@ export default function AppointmentsSearch({ appointments, creatorStats, doctors
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        )}
+
+                        {/* ── Pagination ── */}
+                        {appointments.last_page > 1 && (
+                            <div className="flex items-center justify-between border-t px-4 py-3">
+                                <span className="text-xs text-muted-foreground">
+                                    Нийт {appointments.total} — хуудас {appointments.current_page}/{appointments.last_page}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        disabled={appointments.current_page === 1}
+                                        onClick={() => doSearch({ page: String(appointments.current_page - 1) })}
+                                        className="rounded-lg border p-1.5 hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <ChevronLeft className="size-4" />
+                                    </button>
+                                    {Array.from({ length: Math.min(5, appointments.last_page) }, (_, i) => {
+                                        const mid = appointments.current_page;
+                                        const start = Math.max(1, Math.min(mid - 2, appointments.last_page - 4));
+                                        const page = start + i;
+                                        if (page > appointments.last_page) return null;
+                                        return (
+                                            <button key={page}
+                                                onClick={() => doSearch({ page: String(page) })}
+                                                className={`min-w-[32px] rounded-lg border px-2 py-1 text-xs font-medium transition-colors
+                                                    ${page === mid ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}`}
+                                            >{page}</button>
+                                        );
+                                    })}
+                                    <button
+                                        disabled={appointments.current_page === appointments.last_page}
+                                        onClick={() => doSearch({ page: String(appointments.current_page + 1) })}
+                                        className="rounded-lg border p-1.5 hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <ChevronRight className="size-4" />
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

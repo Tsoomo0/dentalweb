@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // 10 минутын дотор төлбөр төлөгдөөгүй онлайн захиалгуудыг устгах
 Schedule::command('appointments:cancel-unpaid')->everyFiveMinutes();
+
+// Захиалгын сануулга — цаг тутам шалгана (24h болон 2h өмнө имэйл)
+Schedule::command('appointments:send-reminders')->hourly();

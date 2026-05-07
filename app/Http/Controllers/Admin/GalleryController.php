@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\GalleryItem;
 use App\Models\TreatmentCategory;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -49,13 +50,13 @@ class GalleryController extends Controller
             'title'        => 'required|string|max:255',
             'description'  => 'nullable|string',
             'category_id'  => 'nullable|exists:treatment_categories,id',
-            'before_image' => 'required|image|max:8192',
-            'after_image'  => 'required|image|max:8192',
+            'before_image' => 'required|image|mimes:jpg,jpeg,png,webp|max:8192',
+            'after_image'  => 'required|image|mimes:jpg,jpeg,png,webp|max:8192',
             'is_featured'  => 'boolean',
             'is_active'    => 'boolean',
         ]);
 
-        GalleryItem::create([
+        $item = GalleryItem::create([
             'title'        => $request->title,
             'description'  => $request->description,
             'category_id'  => $request->category_id,
@@ -65,6 +66,8 @@ class GalleryController extends Controller
             'is_active'    => $request->boolean('is_active', true),
             'order'        => GalleryItem::max('order') + 1,
         ]);
+
+        AuditService::log('created', $item, null, ['title' => $item->title], "Галерей зураг нэмэв: {$item->title}");
 
         return redirect()->route('admin.gallery.index')->with('success', 'Үр дүн амжилттай нэмэгдлээ.');
     }
@@ -86,8 +89,8 @@ class GalleryController extends Controller
             'title'        => 'required|string|max:255',
             'description'  => 'nullable|string',
             'category_id'  => 'nullable|exists:treatment_categories,id',
-            'before_image' => 'nullable|image|max:8192',
-            'after_image'  => 'nullable|image|max:8192',
+            'before_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
+            'after_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
             'is_featured'  => 'boolean',
             'is_active'    => 'boolean',
         ]);
@@ -112,11 +115,14 @@ class GalleryController extends Controller
 
         $gallery->update($data);
 
+        AuditService::log('updated', $gallery, null, ['title' => $gallery->title], "Галерей зураг шинэчлэв: {$gallery->title}");
+
         return redirect()->route('admin.gallery.index')->with('success', 'Үр дүн амжилттай шинэчлэгдлээ.');
     }
 
     public function destroy(GalleryItem $gallery): RedirectResponse
     {
+        AuditService::log('deleted', $gallery, ['title' => $gallery->title], null, "Галерей зураг устгав: {$gallery->title}");
         Storage::disk('public')->delete($gallery->before_image);
         Storage::disk('public')->delete($gallery->after_image);
         $gallery->delete();

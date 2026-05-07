@@ -7,9 +7,12 @@ use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\Setting;
 use App\Models\Treatment;
+use App\Models\User;
+use App\Notifications\NewAppointment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -145,6 +148,9 @@ class BookingController extends Controller
             'notes'                => $request->notes,
         ]);
 
+        $appointment->load('branch');
+        $this->notifyStaff($appointment, $doctor?->name);
+
         session()->flash('success', 'Цаг амжилттай захиалагдлаа! Та доорх товчийг дарж төлбөрөө төлнө үү.');
         return redirect()->route('payment.show', $appointment->id);
     }
@@ -166,7 +172,7 @@ class BookingController extends Controller
                 : null,
         ])->filter()->implode("\n");
 
-        Appointment::create([
+        $appointment = Appointment::create([
             'appointment_number'   => Appointment::generateNumber(),
             'patient_name'         => $request->patient_name,
             'patient_phone'        => $request->patient_phone,
@@ -181,6 +187,38 @@ class BookingController extends Controller
             'notes'                => $notes ?: null,
         ]);
 
+        $appointment->load('branch');
+        $this->notifyStaff($appointment, null);
+
         return redirect()->route('booking')->with('inperson_success', true);
+    }
+
+    private function notifyStaff(Appointment $appointment, ?string $doctorName): void
+    {
+        $branchName = $appointment->branch?->name;
+
+        $notif = new NewAppointment(
+            appointmentNumber: $appointment->appointment_number,
+            patientName:       $appointment->patient_name,
+            patientPhone:      $appointment->patient_phone,
+            appointmentType:   $appointment->type,
+            appointmentDate:   $appointment->appointment_date?->toDateString(),
+            appointmentTime:   $appointment->appointment_time,
+            doctorName:        $doctorName,
+            branchName:        $branchName,
+        );
+
+        // Зөвхөн тухайн салбарын ресепшнд л явуулна
+        $receptionists = User::whereHas('role', fn($q) => $q->where('name', 'receptionist'))
+            ->when($appointment->branch_id, fn($q) => $q->where('branch_id', $appointment->branch_id))
+            ->get();
+
+        $admins = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->get();
+
+        $recipients = $admins->merge($receptionists)->unique('id');
+
+        if ($recipients->isNotEmpty()) {
+            Notification::send($recipients, $notif);
+        }
     }
 }

@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Mail, Monitor, Phone } from 'lucide-react';
+import { ArrowLeft, CopyPlus, Mail, Monitor, Phone } from 'lucide-react';
 import { type FormEvent, useMemo } from 'react';
 
 interface Doctor  { id: number; name: string; specialization: string | null; branch_id: number | null }
@@ -121,6 +121,12 @@ export default function AppointmentShow({ appointment, doctors, branches }: Prop
                             </p>
                         </div>
                     </div>
+
+                    {/* Дахин захиалах */}
+                    <Link href={`/admin/appointments/${appointment.id}/rebook`}
+                        className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
+                        <CopyPlus className="size-4" /> Дахин захиалах
+                    </Link>
                 </div>
 
                 <form onSubmit={submit} className="grid gap-6 lg:grid-cols-3">

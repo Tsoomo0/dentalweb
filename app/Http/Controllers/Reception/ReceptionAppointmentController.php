@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\Treatment;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -127,13 +128,17 @@ class ReceptionAppointmentController extends Controller
             'type'                 => 'required|in:online,in_person',
             'appointment_date'     => 'required|date',
             'appointment_time'     => 'required',
-            'appointment_time_end' => 'nullable|date_format:H:i',
+            'appointment_time_end' => ['nullable', 'date_format:H:i', function ($attr, $value, $fail) use ($request) {
+                if ($value && $request->appointment_time && $value <= $request->appointment_time) {
+                    $fail('Дуусах цаг эхлэх цагаас хойш байх ёстой.');
+                }
+            }],
             'status'               => 'required|in:pending,confirmed,cancelled,completed',
             'notes'                => 'nullable|string',
             'admin_notes'          => 'nullable|string',
         ]);
 
-        Appointment::create([
+        $appointment = Appointment::create([
             'appointment_number' => Appointment::generateNumber(),
             'created_by'         => Auth::user()->name,
             'branch_id'          => $branchId ?? $request->branch_id,
@@ -144,6 +149,8 @@ class ReceptionAppointmentController extends Controller
                 'status', 'notes', 'admin_notes'
             ),
         ]);
+
+        AuditService::log('created', $appointment, null, ['patient_name' => $appointment->patient_name, 'appointment_number' => $appointment->appointment_number], "Ресепшн цаг захиалга үүсгэв: {$appointment->appointment_number}");
 
         return back()->with('success', 'Цаг захиалга амжилттай нэмэгдлээ.');
     }
@@ -164,7 +171,11 @@ class ReceptionAppointmentController extends Controller
             'type'                 => 'required|in:online,in_person',
             'appointment_date'     => 'nullable|date',
             'appointment_time'     => 'nullable',
-            'appointment_time_end' => 'nullable|date_format:H:i',
+            'appointment_time_end' => ['nullable', 'date_format:H:i', function ($attr, $value, $fail) use ($request) {
+                if ($value && $request->appointment_time && $value <= $request->appointment_time) {
+                    $fail('Дуусах цаг эхлэх цагаас хойш байх ёстой.');
+                }
+            }],
             'status'               => 'required|in:pending,confirmed,cancelled,completed',
             'notes'                => 'nullable|string',
             'admin_notes'          => 'nullable|string',
@@ -177,6 +188,8 @@ class ReceptionAppointmentController extends Controller
             'status', 'notes', 'admin_notes'
         ));
 
+        AuditService::log('updated', $appointment, null, ['patient_name' => $appointment->patient_name, 'status' => $appointment->status], "Ресепшн захиалга шинэчлэв: {$appointment->appointment_number}");
+
         return back()->with('success', 'Захиалга шинэчлэгдлээ.');
     }
 
@@ -187,6 +200,18 @@ class ReceptionAppointmentController extends Controller
         if ($this->branchId() && $appointment->branch_id !== null && $appointment->branch_id !== $this->branchId()) {
             return back()->with('error', 'Зөвшөөрөл байхгүй.');
         }
+
+        $allowed = [
+            'pending'   => ['confirmed', 'cancelled'],
+            'confirmed' => ['pending', 'cancelled', 'completed'],
+            'cancelled' => [],
+            'completed' => [],
+        ];
+        if (!in_array($request->status, $allowed[$appointment->status] ?? [])) {
+            return back()->with('error', 'Энэ төлөв рүү шилжих боломжгүй.');
+        }
+
+        $oldStatus = $appointment->status;
 
         $updateData = ['status' => $request->status];
         if ($request->status === 'confirmed') {
@@ -202,6 +227,8 @@ class ReceptionAppointmentController extends Controller
             'pending'    => 'Хүлээгдэж байна',
         ];
 
+        AuditService::log('status_changed', $appointment, ['status' => $oldStatus], ['status' => $request->status], "Ресепшн захиалгын төлөв өөрчлөв: {$appointment->appointment_number} → {$request->status}");
+
         return back()->with('success', $appointment->appointment_number . ' — ' . $labels[$request->status]);
     }
 
@@ -211,6 +238,7 @@ class ReceptionAppointmentController extends Controller
             return back()->with('error', 'Зөвшөөрөл байхгүй.');
         }
 
+        AuditService::log('deleted', $appointment, ['patient_name' => $appointment->patient_name, 'appointment_number' => $appointment->appointment_number], null, "Ресепшн захиалга устгав: {$appointment->appointment_number}");
         $appointment->delete();
 
         return back()->with('success', 'Цаг захиалга устгагдлаа.');

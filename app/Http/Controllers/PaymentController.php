@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\AppointmentConfirmed;
+use App\Jobs\GenerateMeetLink;
+use App\Jobs\SendAppointmentEmails;
 use App\Models\Appointment;
 use App\Services\GoogleMeetService;
 use App\Services\QPayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -136,43 +136,13 @@ class PaymentController extends Controller
             return; // давхардлаас сэргийлэх
         }
 
-        $meetLink = null;
-        if (\App\Models\Setting::get('google_meet_auto', '1') === '1') {
-            $meetLink = $this->meet->createMeetLink();
-        }
-
         $appointment->update([
             'payment_status' => 'paid',
             'status'         => 'confirmed',
-            'meet_link'      => $meetLink,
         ]);
 
-        // Мэйл илгээх
-        $this->sendEmails($appointment);
-    }
-
-    private function sendEmails(Appointment $appointment): void
-    {
-        // Үйлчлүүлэгч рүү
-        if ($appointment->patient_email) {
-            try {
-                Mail::to($appointment->patient_email)
-                    ->send(new AppointmentConfirmed($appointment, 'patient'));
-            } catch (\Throwable $e) {
-                Log::error('Patient email failed', ['appointment' => $appointment->id, 'error' => $e->getMessage()]);
-            }
-        }
-
-        // Эмч рүү
-        $doctorEmail = $appointment->doctor?->email;
-        if ($doctorEmail) {
-            try {
-                Mail::to($doctorEmail)
-                    ->send(new AppointmentConfirmed($appointment, 'doctor'));
-            } catch (\Throwable $e) {
-                Log::error('Doctor email failed', ['appointment' => $appointment->id, 'error' => $e->getMessage()]);
-            }
-        }
+        // Meet link болон имэйлийг дараалсан queue job-аар гүйцэтгэнэ
+        GenerateMeetLink::dispatch($appointment->id);
     }
 
     // ─── Helper ──────────────────────────────────────────────────────────────

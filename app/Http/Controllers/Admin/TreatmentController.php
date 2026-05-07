@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Treatment;
 use App\Models\TreatmentCategory;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -44,7 +45,7 @@ class TreatmentController extends Controller
             'treatment_category_id' => 'required|exists:treatment_categories,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|max:5120',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'price_min' => 'nullable|numeric|min:0',
             'price_max' => 'nullable|numeric|min:0',
             'duration_min' => 'nullable|integer|min:1',
@@ -59,6 +60,8 @@ class TreatmentController extends Controller
         }
 
         $treatment = Treatment::create($data);
+
+        AuditService::log('created', $treatment, null, ['title' => $treatment->title], "Эмчилгээ үүсгэв: {$treatment->title}");
 
         foreach ($request->input('sub_treatments', []) as $i => $sub) {
             if (!empty($sub['title'])) {
@@ -98,7 +101,7 @@ class TreatmentController extends Controller
             'treatment_category_id' => 'required|exists:treatment_categories,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|max:5120',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'price_min' => 'nullable|numeric|min:0',
             'price_max' => 'nullable|numeric|min:0',
             'duration_min' => 'nullable|integer|min:1',
@@ -116,11 +119,14 @@ class TreatmentController extends Controller
 
         $treatment->update($data);
 
+        AuditService::log('updated', $treatment, null, ['title' => $treatment->title], "Эмчилгээ шинэчлэв: {$treatment->title}");
+
         return redirect()->route('admin.treatments.index')->with('success', 'Эмчилгээ шинэчлэгдлээ.');
     }
 
     public function destroy(Treatment $treatment): RedirectResponse
     {
+        AuditService::log('deleted', $treatment, ['title' => $treatment->title], null, "Эмчилгээ устгав: {$treatment->title}");
         if ($treatment->image) {
             Storage::disk('public')->delete($treatment->image);
         }

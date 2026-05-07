@@ -11,10 +11,20 @@ class DoctorMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (Auth::guard('doctor')->check()) {
-            return $next($request);
+        if (! Auth::guard('doctor')->check()) {
+            return redirect()->route('login')->with('status', 'Эмчийн нэвтрэх эрх шаардлагатай.');
         }
 
-        return redirect()->route('login')->with('status', 'Эмчийн нэвтрэх эрх шаардлагатай.');
+        $doctor = Auth::guard('doctor')->user();
+
+        if (! $doctor->is_active) {
+            Auth::guard('doctor')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->with('status', 'Таны эрх түр хаагдсан байна. Дэлгэрэнгүй мэдээллийг удирдлагаас авна уу.');
+        }
+
+        return $next($request);
     }
 }

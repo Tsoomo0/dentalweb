@@ -14,7 +14,7 @@ interface LoginProps {
     canResetPassword: boolean;
 }
 
-export default function Login({ status, canResetPassword }: LoginProps) {
+export default function Login({ status }: LoginProps) {
     const { data, setData, post, processing, errors, reset } = useForm<LoginForm>({
         email: '',
         password: '',
@@ -50,13 +50,19 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                     from { opacity: 0; transform: translateY(24px); }
                     to   { opacity: 1; transform: translateY(0); }
                 }
-                @keyframes pulse-ring {
-                    0%   { transform: scale(1);   opacity: 0.6; }
-                    100% { transform: scale(1.8); opacity: 0; }
+                @keyframes fade-down {
+                    from { opacity: 0; transform: translateY(-16px); }
+                    to   { opacity: 1; transform: translateY(0); }
                 }
-                .animate-float  { animation: float  6s ease-in-out infinite; }
-                .animate-float2 { animation: float2 8s ease-in-out infinite; }
-                .animate-fade-up { animation: fade-up 0.6s ease forwards; }
+                @keyframes wave {
+                    0%   { d: path("M0,40 C80,80 160,0 240,40 C320,80 400,0 480,40 L480,100 L0,100 Z"); }
+                    50%  { d: path("M0,60 C80,20 160,80 240,60 C320,20 400,80 480,60 L480,100 L0,100 Z"); }
+                    100% { d: path("M0,40 C80,80 160,0 240,40 C320,80 400,0 480,40 L480,100 L0,100 Z"); }
+                }
+                .animate-float   { animation: float  6s ease-in-out infinite; }
+                .animate-float2  { animation: float2 8s ease-in-out infinite; }
+                .animate-fade-up { animation: fade-up  0.6s ease forwards; }
+                .animate-fade-down { animation: fade-down 0.5s ease forwards; }
                 .shimmer-text {
                     background: linear-gradient(90deg, #fff 0%, #fda4af 40%, #fff 60%, #fda4af 100%);
                     background-size: 200% auto;
@@ -84,15 +90,13 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
             <div className="relative flex min-h-screen w-full overflow-hidden bg-[#0d0d1a]">
 
-                {/* ── Left panel ── */}
+                {/* ── Left panel (desktop only) ── */}
                 <div className="relative hidden w-[55%] flex-col overflow-hidden lg:flex"
                     style={{ background: 'linear-gradient(135deg, #1a0a2e 0%, #2d0a1e 40%, #1a0520 70%, #0d0d1a 100%)' }}>
 
-                    {/* Grid overlay */}
                     <div className="absolute inset-0 opacity-[0.04]"
                         style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
 
-                    {/* Glowing orbs */}
                     <div className="absolute -top-32 -left-32 h-[500px] w-[500px] rounded-full opacity-20"
                         style={{ background: 'radial-gradient(circle, #e11d48 0%, transparent 70%)' }} />
                     <div className="absolute -bottom-20 right-10 h-[400px] w-[400px] rounded-full opacity-15"
@@ -100,10 +104,8 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full opacity-10"
                         style={{ background: 'radial-gradient(circle, #f43f5e 0%, transparent 60%)' }} />
 
-                    {/* Center content */}
                     <div className="relative z-10 flex flex-1 flex-col items-start justify-center px-14 pb-20">
 
-                        {/* Floating decorative cards */}
                         <div className="animate-float absolute right-16 top-24 glass-card rounded-2xl p-4 shadow-xl">
                             <div className="flex items-center gap-3">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/20">
@@ -128,24 +130,21 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             </div>
                         </div>
 
-                        {/* Badge */}
                         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-4 py-1.5">
                             <Sparkles className="h-3.5 w-3.5 text-rose-400" />
                             <span className="text-xs font-medium text-rose-300">Удирдлагын систем</span>
                         </div>
 
-                        {/* Headline */}
                         <h1 className="mb-4 text-5xl font-black leading-tight tracking-tight text-white">
-                            Мэнд <br />
-                            <span className="shimmer-text">эргэн ирлээ</span>
+                            Тавтай <br />
+                            <span className="shimmer-text">морилно уу</span>
                         </h1>
 
                         <p className="mb-10 max-w-sm text-base leading-relaxed text-white/50">
-                            Cuticul-ийн удирдлагын системд нэвтэрч
+                            Кутикулын удирдлагын системд нэвтэрч
                             цаг захиалга, эмч нар болон бусад зүйлийг хянаарай.
                         </p>
 
-                        {/* Stats row */}
                         <div className="flex gap-8">
                             {[
                                 { num: '500+', label: 'Жилийн захиалга' },
@@ -160,41 +159,93 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                         </div>
                     </div>
 
-                    {/* Bottom gradient fade */}
                     <div className="absolute bottom-0 left-0 right-0 h-32"
                         style={{ background: 'linear-gradient(to top, rgba(13,13,26,0.8), transparent)' }} />
                 </div>
 
-                {/* ── Right panel — login form ── */}
-                <div className="flex flex-1 items-center justify-center p-6 lg:p-12"
+                {/* ── Right panel ── */}
+                <div className="flex flex-1 flex-col lg:items-center lg:justify-center lg:p-12"
                     style={{ background: 'linear-gradient(160deg, #111127 0%, #0d0d1a 100%)' }}>
 
-                    {/* Subtle top-right glow */}
                     <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 opacity-20"
                         style={{ background: 'radial-gradient(circle at top right, #e11d48, transparent 70%)' }} />
 
-                    <div className="w-full max-w-md animate-fade-up">
+                    {/* ── Mobile header ── */}
+                    <div className="relative overflow-hidden lg:hidden"
+                        style={{ background: 'linear-gradient(135deg, #be123c 0%, #e11d48 50%, #9333ea 100%)' }}>
 
-                        {/* Mobile logo */}
-                        <div className="mb-8 flex items-center gap-3 lg:hidden">
+                        {/* decorative circles */}
+                        <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10" />
+                        <div className="absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-white/10" />
+                        <div className="absolute top-8 right-24 h-12 w-12 rounded-full bg-white/10" />
+
+                        <div className="relative z-10 px-6 pb-10 pt-12">
+                            {/* Logo row */}
+                            <div className="mb-5 flex items-center gap-3 animate-fade-down">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 shadow-lg backdrop-blur-sm">
+                                    <svg viewBox="0 0 40 42" className="h-6 w-6 fill-white">
+                                        <path fillRule="evenodd" clipRule="evenodd" d="M17.2 5.63325L8.6 0.855469L0 5.63325V32.1434L16.2 41.1434L32.4 32.1434V23.699L40 19.4767V9.85547L31.4 5.07769L22.8 9.85547V18.2999L17.2 21.411V5.63325ZM38 18.2999L32.4 21.411V15.2545L38 12.1434V18.2999ZM36.9409 10.4439L31.4 13.5221L25.8591 10.4439L31.4 7.36561L36.9409 10.4439ZM24.8 18.2999V12.1434L30.4 15.2545V21.411L24.8 18.2999ZM23.8 20.0323L29.3409 23.1105L16.2 30.411L10.6591 27.3328L23.8 20.0323ZM7.6 27.9212L15.2 32.1434V38.2999L2 30.9666V7.92116L7.6 11.0323V27.9212ZM8.6 9.29991L3.05913 6.22165L8.6 3.14339L14.1409 6.22165L8.6 9.29991ZM30.4 24.8101L17.2 32.1434V38.2999L30.4 30.9666V24.8101ZM9.6 11.0323L15.2 7.92117V22.5221L9.6 25.6333V11.0323Z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-lg font-black text-white leading-none">Кутикул</p>
+                                    <p className="text-[11px] text-white/60 leading-none mt-0.5">Удирдлагын систем</p>
+                                </div>
+                            </div>
+
+                            {/* Welcome text */}
+                            <div className="animate-fade-down" style={{ animationDelay: '0.1s', opacity: 0 }}>
+                                <h2 className="text-3xl font-black text-white leading-tight">
+                                    Тавтай <br />морилно уу 👋
+                                </h2>
+                                <p className="mt-2 text-sm text-white/60">
+                                    Системдээ нэвтэрч ажлаа эхлээрэй
+                                </p>
+                            </div>
+
+                            {/* Stats row */}
+                            <div className="mt-6 flex gap-5 animate-fade-down" style={{ animationDelay: '0.2s', opacity: 0 }}>
+                                {[
+                                    { num: '500+', label: 'Захиалга' },
+                                    { num: '20+',  label: 'Эмч' },
+                                    { num: '99%',  label: 'Сэтгэл ханасан' },
+                                ].map(s => (
+                                    <div key={s.label} className="flex flex-col">
+                                        <span className="text-xl font-black text-white leading-none">{s.num}</span>
+                                        <span className="text-[10px] text-white/50 mt-0.5">{s.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Wave bottom */}
+                        <svg viewBox="0 0 480 40" className="block w-full -mb-px" preserveAspectRatio="none" style={{ fill: '#0d0d1a', height: 36 }}>
+                            <path d="M0,20 C120,40 240,0 360,20 C400,28 440,16 480,20 L480,40 L0,40 Z" />
+                        </svg>
+                    </div>
+
+                    {/* ── Form area ── */}
+                    <div className="w-full max-w-md animate-fade-up px-5 py-7 lg:px-0 lg:py-0">
+
+                        {/* Desktop logo */}
+                        <div className="mb-8 hidden items-center gap-3 lg:flex">
                             <div className="flex h-9 w-9 items-center justify-center rounded-xl"
                                 style={{ background: 'linear-gradient(135deg, #f43f5e, #e11d48)' }}>
                                 <svg viewBox="0 0 40 42" className="h-5 w-5 fill-white">
                                     <path fillRule="evenodd" clipRule="evenodd" d="M17.2 5.63325L8.6 0.855469L0 5.63325V32.1434L16.2 41.1434L32.4 32.1434V23.699L40 19.4767V9.85547L31.4 5.07769L22.8 9.85547V18.2999L17.2 21.411V5.63325ZM38 18.2999L32.4 21.411V15.2545L38 12.1434V18.2999ZM36.9409 10.4439L31.4 13.5221L25.8591 10.4439L31.4 7.36561L36.9409 10.4439ZM24.8 18.2999V12.1434L30.4 15.2545V21.411L24.8 18.2999ZM23.8 20.0323L29.3409 23.1105L16.2 30.411L10.6591 27.3328L23.8 20.0323ZM7.6 27.9212L15.2 32.1434V38.2999L2 30.9666V7.92116L7.6 11.0323V27.9212ZM8.6 9.29991L3.05913 6.22165L8.6 3.14339L14.1409 6.22165L8.6 9.29991ZM30.4 24.8101L17.2 32.1434V38.2999L30.4 30.9666V24.8101ZM9.6 11.0323L15.2 7.92117V22.5221L9.6 25.6333V11.0323Z" />
                                 </svg>
                             </div>
-                            <span className="text-base font-bold text-white">Cuticul</span>
+                            <span className="text-base font-bold text-white">Кутикул</span>
                         </div>
 
-                        {/* Heading */}
-                        <div className="mb-8">
+                        {/* Desktop heading */}
+                        <div className="mb-8 hidden lg:block">
                             <h2 className="text-3xl font-black text-white">Нэвтрэх</h2>
                             <p className="mt-1.5 text-sm text-white/40">
                                 Имэйл болон нууц үгээ оруулна уу
                             </p>
                         </div>
 
-                        {/* Status message */}
                         {status && (
                             <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-400">
                                 {status}
@@ -208,7 +259,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                 <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-widest text-white/40">
                                     Имэйл хаяг
                                 </label>
-                                <div className={`input-glow flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 transition-all duration-200 focus-within:border-rose-500/60`}>
+                                <div className="input-glow flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 transition-all duration-200 focus-within:border-rose-500/60">
                                     <Mail className="h-4 w-4 shrink-0 text-white/30" />
                                     <input
                                         id="email"
@@ -227,18 +278,10 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
                             {/* Password */}
                             <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-widest text-white/40">
-                                        Нууц үг
-                                    </label>
-                                    {canResetPassword && (
-                                        <a href={route('password.request')}
-                                            className="text-xs text-rose-400 hover:text-rose-300 transition-colors">
-                                            Нууц үг мартсан?
-                                        </a>
-                                    )}
-                                </div>
-                                <div className={`input-glow flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 transition-all duration-200 focus-within:border-rose-500/60`}>
+                                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-widest text-white/40">
+                                    Нууц үг
+                                </label>
+                                <div className="input-glow flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 transition-all duration-200 focus-within:border-rose-500/60">
                                     <Lock className="h-4 w-4 shrink-0 text-white/30" />
                                     <input
                                         id="password"
@@ -282,22 +325,17 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="group relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl py-3.5 text-sm font-bold text-white transition-all duration-300 hover:shadow-lg hover:shadow-rose-500/25 disabled:opacity-60"
+                                className="group relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl py-4 text-sm font-bold text-white transition-all duration-300 hover:shadow-lg hover:shadow-rose-500/30 disabled:opacity-60"
                                 style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #be123c 100%)' }}>
-                                {/* Shine effect */}
                                 <span className="absolute inset-0 translate-x-[-100%] bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-[100%]" />
-                                {processing
-                                    ? <LoaderCircle className="h-4 w-4 animate-spin" />
-                                    : null
-                                }
+                                {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                                 {processing ? 'Нэвтэрж байна...' : 'Нэвтрэх'}
                             </button>
 
                         </form>
 
-                        {/* Footer */}
                         <p className="mt-8 text-center text-xs text-white/20">
-                            © {new Date().getFullYear()} Cuticul. Бүх эрх хуулиар хамгаалагдсан.
+                            © {new Date().getFullYear()} Кутикул. Бүх эрх хуулиар хамгаалагдсан.
                         </p>
 
                     </div>

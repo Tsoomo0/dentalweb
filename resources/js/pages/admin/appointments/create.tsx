@@ -6,7 +6,8 @@ import { type FormEvent, useMemo } from 'react';
 
 interface Doctor  { id: number; name: string; specialization: string | null; branch_id: number | null }
 interface Branch  { id: number; name: string }
-interface Props   { doctors: Doctor[]; branches: Branch[] }
+interface Prefill { patient_name?: string; patient_phone?: string; patient_email?: string; doctor_id?: number | null; branch_id?: number | null; service?: string; type?: string; notes?: string }
+interface Props   { doctors: Doctor[]; branches: Branch[]; prefill?: Prefill }
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Админ', href: '/admin/dashboard' },
@@ -22,7 +23,7 @@ const TIME_SLOTS = Array.from({ length: 19 }, (_, i) => {
 
 const SERVICES = ['Ерөнхий үзлэг', 'Эмчилгээний зөвлөгөө', 'Invisalign', 'Цайруулалт', 'Имплант', 'Брекет', 'Хүүхдийн шүдний эмчилгээ'];
 
-export default function AppointmentCreate({ doctors, branches }: Props) {
+export default function AppointmentCreate({ doctors, branches, prefill }: Props) {
     const { data, setData, post, processing, errors } = useForm<{
         patient_name: string;
         patient_phone: string;
@@ -37,17 +38,17 @@ export default function AppointmentCreate({ doctors, branches }: Props) {
         notes: string;
         admin_notes: string;
     }>({
-        patient_name: '',
-        patient_phone: '',
-        patient_email: '',
-        branch_id: '',
-        doctor_id: '',
-        service: '',
-        type: 'online',
+        patient_name:     prefill?.patient_name  ?? '',
+        patient_phone:    prefill?.patient_phone ?? '',
+        patient_email:    prefill?.patient_email ?? '',
+        branch_id:        prefill?.branch_id ? String(prefill.branch_id) : '',
+        doctor_id:        prefill?.doctor_id  ? String(prefill.doctor_id)  : '',
+        service:          prefill?.service    ?? '',
+        type:             (prefill?.type as 'online' | 'in_person') ?? 'in_person',
         appointment_date: '',
         appointment_time: '10:00',
         status: 'confirmed',
-        notes: '',
+        notes:       prefill?.notes ?? '',
         admin_notes: '',
     });
 
