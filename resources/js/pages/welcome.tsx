@@ -837,15 +837,15 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                         </div>
                     )}
 
-                    {/* ── Uniform card grid ── */}
+                    {/* ── Card grid — desktop 4, mobile 2 (max 4 нийт) ── */}
                     {cat && cat.treatments.length > 0 ? (
                         <div key={cat.id} style={{ animation: 'fadeSlideIn 0.3s ease forwards' }}
-                            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
 
-                            {cat.treatments.slice(0, 7).map(t => (
+                            {cat.treatments.slice(0, 4).map(t => (
                                 <button key={t.id}
                                     onClick={() => { setSelectedTreatment(t); setSelectedCatName(cat.name); }}
-                                    className="group text-left bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-red-200 hover:shadow-lg transition-all duration-300 flex flex-col w-full">
+                                    className="group text-left bg-white border border-gray-100 rounded-xl sm:rounded-2xl overflow-hidden hover:border-red-200 hover:shadow-lg transition-all duration-300 flex flex-col w-full">
 
                                     {/* Image */}
                                     <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-rose-50 to-red-50 flex-shrink-0">
@@ -854,29 +854,28 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
-                                                <ImageIcon className="w-8 h-8 text-red-200" />
+                                                <ImageIcon className="w-6 h-6 sm:w-8 sm:h-8 text-red-200" />
                                             </div>
                                         )}
-                                        {/* Hover badge */}
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <span className="absolute bottom-2.5 left-2.5 bg-white/95 backdrop-blur-sm text-gray-800 text-[10px] font-bold px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
-                                            Дэлгэрэнгүй харах →
+                                        <span className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-sm text-gray-800 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                                            Дэлгэрэнгүй →
                                         </span>
                                     </div>
 
                                     {/* Content */}
-                                    <div className="p-3.5 flex flex-col flex-1">
-                                        <h3 className="text-sm font-bold text-gray-900 group-hover:text-red-700 transition-colors leading-snug line-clamp-2 mb-1.5">
+                                    <div className="p-2.5 sm:p-3.5 flex flex-col flex-1">
+                                        <h3 className="text-xs sm:text-sm font-bold text-gray-900 group-hover:text-red-700 transition-colors leading-snug line-clamp-2 mb-1">
                                             {t.title}
                                         </h3>
                                         {t.description && (
-                                            <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-2 mb-3 flex-1">
+                                            <p className="hidden sm:block text-[11px] text-gray-400 leading-relaxed line-clamp-2 mb-2 flex-1">
                                                 {t.description}
                                             </p>
                                         )}
-                                        <div className="flex items-center justify-between mt-auto pt-2.5 border-t border-gray-50">
+                                        <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
                                             {(t.price_min || t.price_max) ? (
-                                                <span className="text-red-600 font-bold text-xs">
+                                                <span className="text-red-600 font-bold text-[10px] sm:text-xs">
                                                     {t.price_min ? `${Number(t.price_min).toLocaleString()}₮` : ''}
                                                     {t.price_min && t.price_max ? '–' : ''}
                                                     {t.price_max ? `${Number(t.price_max).toLocaleString()}₮` : ''}
@@ -885,7 +884,7 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                                                 <span className="text-gray-300 text-xs">—</span>
                                             )}
                                             {t.duration_min && (
-                                                <span className="text-[10px] text-gray-400 font-medium">
+                                                <span className="text-[9px] sm:text-[10px] text-gray-400 font-medium hidden sm:block">
                                                     {t.duration_min} мин
                                                 </span>
                                             )}
@@ -893,19 +892,6 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                                     </div>
                                 </button>
                             ))}
-
-                            {/* "See more" card */}
-                            {cat.treatments.length > 7 && (
-                                <Link href="/services"
-                                    className="group border-2 border-dashed border-gray-200 hover:border-red-300 bg-gray-50/50 hover:bg-red-50/50 rounded-2xl flex flex-col items-center justify-center gap-3 p-6 transition-all duration-300 min-h-[180px]">
-                                    <div className="w-10 h-10 rounded-full bg-gray-200 group-hover:bg-red-100 flex items-center justify-center transition-colors">
-                                        <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" />
-                                    </div>
-                                    <span className="text-xs font-semibold text-gray-500 group-hover:text-red-600 transition-colors text-center">
-                                        {cat.treatments.length - 7}+ үйлчилгээ
-                                    </span>
-                                </Link>
-                            )}
                         </div>
                     ) : (
                         <p className="text-center text-gray-400 py-12">Энэ ангилалд үйлчилгээ байхгүй байна.</p>
@@ -944,28 +930,51 @@ function FaqItem({ faq }: { faq: Faq }) {
     );
 }
 
-function GalleryCard({ item }: { item: GalleryItem }) {
-    const [after, setAfter] = useState(false);
+function MaskGalleryCard({ item, delay = 0 }: { item: GalleryItem; delay?: number }) {
+    const [showing, setShowing] = useState<'before' | 'after'>('before');
+
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval>;
+        const init = setTimeout(() => {
+            setShowing('after');
+            interval = setInterval(() => setShowing(s => s === 'before' ? 'after' : 'before'), 3500);
+        }, delay);
+        return () => { clearTimeout(init); clearInterval(interval); };
+    }, [delay]);
+
+    const hasImages = !!(item.before_url || item.after_url);
     return (
-        <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-sm group hover:shadow-md transition-all">
-            <div className="relative aspect-[4/3] bg-rose-50 overflow-hidden">
-                {(item.before_url||item.after_url) ? (
-                    <>
-                        <img src={after?(item.after_url??''):(item.before_url??'')} alt="" className="w-full h-full object-cover"/>
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                            <button onClick={() => setAfter(false)} className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all ${!after?'bg-gray-900 text-white':'bg-white/90 text-gray-600'}`}>Өмнө</button>
-                            <button onClick={() => setAfter(true)} className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all ${after?'bg-red-600 text-white':'bg-white/90 text-gray-600'}`}>Дараа</button>
+        <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-rose-50 shadow-sm">
+            {hasImages ? (
+                <>
+                    {item.before_url && (
+                        <img src={item.before_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    )}
+                    {item.after_url && (
+                        <div className="absolute inset-0 overflow-hidden"
+                            style={{
+                                clipPath: showing === 'after' ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)',
+                                transition: 'clip-path 1.1s cubic-bezier(0.4,0,0.2,1)',
+                            }}>
+                            <img src={item.after_url} alt="" className="w-full h-full object-cover" />
                         </div>
-                    </>
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center"><Smile className="w-12 h-12 text-red-200"/></div>
-                )}
-            </div>
-            {item.title && (
-                <div className="p-4">
-                    <p className="font-semibold text-gray-800 text-sm">{item.title}</p>
-                    {item.category_name && <p className="text-red-500 text-xs font-medium mt-0.5">{item.category_name}</p>}
-                </div>
+                    )}
+                    {/* Өмнө/Дараа badge */}
+                    <div className="absolute top-2 left-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wide text-white bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5 transition-opacity duration-300">
+                            {showing === 'before' ? 'Өмнө' : 'Дараа'}
+                        </span>
+                    </div>
+                    {/* Bottom gradient + title */}
+                    {(item.title || item.category_name) && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/65 to-transparent pt-8 pb-2.5 px-3">
+                            {item.title && <p className="text-white text-xs font-semibold truncate leading-snug">{item.title}</p>}
+                            {item.category_name && <p className="text-red-300 text-[10px] mt-0.5">{item.category_name}</p>}
+                        </div>
+                    )}
+                </>
+            ) : (
+                <div className="w-full h-full flex items-center justify-center"><Smile className="w-10 h-10 text-red-200"/></div>
             )}
         </div>
     );
@@ -1017,11 +1026,12 @@ export default function Welcome() {
                 <ServicesSection treatments={treatments} />
 
                 {/* DOCTORS */}
-                <section className="py-24 bg-[#F9F4F2]">
+                <section className="py-14 md:py-20 bg-[#F9F4F2]">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
                             <div>
-                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2 leading-tight">Эмч нар</h2>
+                                <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Баг</span>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 leading-tight">Эмч нар</h2>
                             </div>
                             <Link href="/doctors" className="flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
                                 Бүх эмчийг харах <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
@@ -1043,7 +1053,7 @@ export default function Welcome() {
                             </div>
                         )}
 
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
                             {(filteredDoctors.length > 0 ? filteredDoctors : [1,2,3,4].map(i => ({
                                 id: i, name: `Эмч ${i}`, specialization: 'Гажиг засалч', degree: null,
                                 experience_years: 5, description: null, phone: null, email: null,
@@ -1051,7 +1061,7 @@ export default function Welcome() {
                             } as Doctor))).map(doc => (
                                 <button key={doc.id} onClick={() => setSelectedDoctor(doc)}
                                     className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all group text-left">
-                                    <div className="aspect-[3/4] bg-gradient-to-br from-rose-50 to-red-100 overflow-hidden relative">
+                                    <div className="aspect-square sm:aspect-[3/4] bg-gradient-to-br from-rose-50 to-red-100 overflow-hidden relative">
                                         {doc.photo_url
                                             ? <img src={doc.photo_url} alt={doc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
                                             : <div className="w-full h-full flex items-center justify-center">
@@ -1067,17 +1077,12 @@ export default function Welcome() {
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="p-4">
-                                        <h3 className="font-bold text-gray-900 text-sm group-hover:text-red-700 transition-colors">{doc.name}</h3>
-                                        <p className="text-red-600 text-xs font-semibold mt-0.5">{doc.specialization ?? 'Шүдний эмч'}</p>
-                                        {doc.experience_years && <p className="text-gray-400 text-xs mt-1">{doc.experience_years} жилийн туршлага</p>}
-                                        {doc.branch_name && (
-                                            <div className="flex items-center gap-1 text-gray-400 text-xs mt-1">
-                                                <MapPin className="w-3 h-3"/>{doc.branch_name}
-                                            </div>
-                                        )}
-                                        <div className="mt-3 pt-2.5 border-t border-gray-50 flex items-center gap-1.5 text-xs font-semibold text-red-500">
-                                            <Calendar className="w-3.5 h-3.5"/> Цаг захиалах
+                                    <div className="p-2.5 sm:p-4">
+                                        <h3 className="font-bold text-gray-900 text-xs sm:text-sm group-hover:text-red-700 transition-colors leading-snug">{doc.name}</h3>
+                                        <p className="text-red-600 text-[10px] sm:text-xs font-semibold mt-0.5 line-clamp-1">{doc.specialization ?? 'Шүдний эмч'}</p>
+                                        {doc.experience_years && <p className="text-gray-400 text-[10px] mt-0.5 hidden sm:block">{doc.experience_years} жилийн туршлага</p>}
+                                        <div className="mt-2 sm:mt-3 pt-2 border-t border-gray-50 flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-red-500">
+                                            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5"/> Цаг захиалах
                                         </div>
                                     </div>
                                 </button>
@@ -1097,26 +1102,24 @@ export default function Welcome() {
                 )}
 
                 {/* GALLERY */}
-                <section className="py-24 bg-white">
+                <section className="py-16 md:py-20 bg-white">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+                        <div className="flex items-end justify-between gap-4 mb-8">
                             <div>
                                 <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Үр дүн</span>
-                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2">Бодит үр дүн</h2>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">Бодит үр дүн</h2>
                             </div>
-                            <Link href="/gallery" className="flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
-                                Бүгдийг харах <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
+                            <Link href="/gallery" className="flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
+                                Бүгдийг харах <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"/>
                             </Link>
                         </div>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                            {(gallery.length > 0 ? gallery.slice(0,4) : [1,2,3,4] as any[]).map((item: any, i: number) =>
-                                typeof item === 'object' && 'before_url' in item
-                                    ? <GalleryCard key={item.id} item={item}/>
-                                    : <div key={i} className="rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-sm">
-                                        <div className="aspect-[4/3] bg-rose-50 flex items-center justify-center"><Smile className="w-12 h-12 text-red-200"/></div>
-                                        <div className="p-4"><p className="font-semibold text-gray-700 text-sm">Засалтын үр дүн #{i+1}</p><p className="text-red-500 text-xs mt-0.5">Invisalign</p></div>
-                                      </div>
-                            )}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                            {(gallery.length > 0 ? gallery.slice(0, 4) : Array.from({length: 4}, (_, i) => ({
+                                id: i+1, title: `Үр дүн #${i+1}`, category_name: 'Invisalign',
+                                before_url: null, after_url: null,
+                            } as GalleryItem))).map((item, i) => (
+                                <MaskGalleryCard key={item.id} item={item} delay={i * 900} />
+                            ))}
                         </div>
                     </div>
                 </section>

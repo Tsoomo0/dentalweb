@@ -21,9 +21,12 @@ interface SiteSettings {
     site_favicon?: string;
 }
 
+interface FooterCategory { id: number; name: string; treatments: { id: number; title: string }[] }
+
 interface SharedData {
     auth: { user?: { name: string } };
     site_settings?: SiteSettings;
+    footer_services?: FooterCategory[];
     [key: string]: unknown;
 }
 
@@ -42,7 +45,7 @@ const NAV_LINKS = [
 const BOOKING_LINK = { label: 'Цаг авах', href: '/booking' };
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
-    const { auth, site_settings: s = {} } = usePage<SharedData>().props;
+    const { auth, site_settings: s = {}, footer_services = [] } = usePage<SharedData>().props;
 
     const siteName    = s.site_name     || '';
     const logoUrl     = s.site_logo     || '';
@@ -224,20 +227,40 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                             </ul>
                         </div>
 
-                        {/* Services */}
+                        {/* Services — категориор */}
                         <div>
                             <h4 className="text-white font-semibold mb-5 text-xs uppercase tracking-widest">Үйлчилгээ</h4>
-                            <ul className="flex flex-col gap-2.5">
-                                {['Invisalign', 'Металл брекет', 'Мэлмий брекет', 'Retainer', 'Хүүхдийн засал', 'Шүд авалт'].map((sv) => (
-                                    <li key={sv}>
-                                        <Link href="/services"
-                                            className="text-sm text-gray-500 hover:text-white transition-colors inline-flex items-center gap-1.5 group">
-                                            <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-4 group-hover:ml-0 transition-all" />
-                                            {sv}
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
+                            {footer_services.length > 0 ? (
+                                <div className="flex flex-col gap-4">
+                                    {footer_services.map(cat => (
+                                        <div key={cat.id}>
+                                            <p className="text-gray-300 text-[11px] font-bold uppercase tracking-wide mb-1.5">{cat.name}</p>
+                                            <ul className="flex flex-col gap-1.5">
+                                                {cat.treatments.slice(0, 3).map(t => (
+                                                    <li key={t.id}>
+                                                        <Link href="/services"
+                                                            className="text-xs text-gray-500 hover:text-white transition-colors inline-flex items-center gap-1.5 group">
+                                                            <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-4 group-hover:ml-0 transition-all" />
+                                                            {t.title}
+                                                        </Link>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <ul className="flex flex-col gap-2.5">
+                                    {['Invisalign', 'Металл брекет', 'Мэлмий брекет', 'Retainer', 'Хүүхдийн засал'].map(sv => (
+                                        <li key={sv}>
+                                            <Link href="/services" className="text-sm text-gray-500 hover:text-white transition-colors inline-flex items-center gap-1.5 group">
+                                                <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-4 group-hover:ml-0 transition-all" />
+                                                {sv}
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
 
                         {/* Contact — settings-оос */}

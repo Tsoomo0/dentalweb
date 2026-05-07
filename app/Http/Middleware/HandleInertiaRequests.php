@@ -70,6 +70,13 @@ class HandleInertiaRequests extends Middleware
                 ])->pluck('value', 'key')->toArray();
             }),
 
+            // ─── Footer үйлчилгээний ангилал (cache 1h) ──────────────────────
+            'footer_services' => fn () => Cache::remember('footer_services', 3600, fn () =>
+                \App\Models\TreatmentCategory::with([
+                    'treatments' => fn ($q) => $q->where('is_active', true)->orderBy('order')->select(['id', 'title', 'treatment_category_id']),
+                ])->where('is_active', true)->orderBy('order')->get(['id', 'name'])->toArray()
+            ),
+
             // ─── Admin notifications ──────────────────────────────────────────
             'pending_job_applications' => fn () => $request->user()
                 ? JobApplication::where('status', 'pending')->count()
