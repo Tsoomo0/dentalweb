@@ -801,41 +801,41 @@ function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
                     {/* ── Header ── */}
-                    <div className="flex items-end justify-between gap-4 mb-8">
-                        <div>
-                            <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Үйлчилгээ</span>
-                            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 leading-tight">
-                                Эмчилгээний төрлүүд
-                            </h2>
+                    <div className="mb-8 sm:mb-10">
+                        <div className="flex items-start sm:items-center justify-between gap-4">
+                            <div>
+                                <span className="flex items-center gap-2 text-red-500 text-[11px] font-bold tracking-[0.18em] uppercase mb-2.5">
+                                    <span className="w-5 h-px bg-red-500" />
+                                    Үйлчилгээ
+                                </span>
+                                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">
+                                    Эмчилгээний төрлүүд
+                                </h2>
+                            </div>
+                            <Link href="/services"
+                                className="hidden sm:flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-red-600 flex-shrink-0 group transition-colors">
+                                Бүгдийг харах
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                            </Link>
                         </div>
-                        <Link href="/services"
-                            className="flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
-                            Бүгдийг харах
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                        </Link>
-                    </div>
 
-                    {/* ── Category tabs ── */}
-                    {data.length > 1 && (
-                        <div className="flex flex-wrap gap-2 mb-8">
-                            {data.map((c, i) => (
-                                <button key={c.id} onClick={() => setActiveCat(i)}
-                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-                                        i === activeCat
-                                            ? 'bg-gray-900 text-white shadow-sm'
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800'
-                                    }`}>
-                                    {c.icon && <span className="text-base leading-none">{c.icon}</span>}
-                                    {c.name}
-                                    <span className={`text-[11px] font-bold tabular-nums ${
-                                        i === activeCat ? 'text-white/70' : 'text-gray-400'
-                                    }`}>
-                                        {c.treatments.length}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                        {/* ── Category tabs ── */}
+                        {data.length > 1 && (
+                            <div className="flex gap-2 mt-5 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+                                {data.map((c, i) => (
+                                    <button key={c.id} onClick={() => setActiveCat(i)}
+                                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                                            i === activeCat
+                                                ? 'bg-red-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                                        }`}>
+                                        {c.icon && <span className="text-base leading-none">{c.icon}</span>}
+                                        {c.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     {/* ── Card grid — desktop 4, mobile 2 (max 4 нийт) ── */}
                     {cat && cat.treatments.length > 0 ? (

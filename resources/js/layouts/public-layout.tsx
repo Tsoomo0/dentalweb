@@ -1,6 +1,6 @@
 import { ToastContainer } from '@/components/toast';
-import { Link, usePage } from '@inertiajs/react';
-import { useState, useEffect, type ReactNode } from 'react';
+import { Link, usePage, router } from '@inertiajs/react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import {
     Menu, X, Phone, Clock, ChevronRight, Calendar,
     Facebook, Instagram, Youtube, Mail, Smile, MapPin,
@@ -62,6 +62,22 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     const [scrolled, setScrolled] = useState(false);
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
 
+    const logoClickCount = useRef(0);
+    const logoClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleLogoClick = () => {
+        logoClickCount.current += 1;
+        if (logoClickTimer.current) clearTimeout(logoClickTimer.current);
+        if (logoClickCount.current >= 2) {
+            logoClickCount.current = 0;
+            router.visit('/login');
+        } else {
+            logoClickTimer.current = setTimeout(() => {
+                logoClickCount.current = 0;
+                router.visit('/');
+            }, 300);
+        }
+    };
+
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 40);
         window.addEventListener('scroll', onScroll, { passive: true });
@@ -93,7 +109,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                     <div className="flex items-center justify-between h-[68px]">
 
                         {/* Logo */}
-                        <Link href="/" className="flex items-center gap-2.5">
+                        <div onClick={handleLogoClick} className="flex items-center gap-2.5 cursor-pointer select-none">
                             <div className="w-20 h-20 rounded-xl flex-shrink-0 overflow-hidden">
                                 {logoUrl
                                     ? <img src={logoUrl} alt={siteName} className="w-full h-full object-contain" />
@@ -105,7 +121,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                             <span className={`text-sm font-semibold transition-colors ${scrolled ? 'text-gray-900' : 'text-white'}`}>
                                 {siteName}
                             </span>
-                        </Link>
+                        </div>
 
                         {/* Desktop nav */}
                         <nav className="hidden lg:flex items-center gap-0.5">
@@ -227,40 +243,23 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                             </ul>
                         </div>
 
-                        {/* Services — категориор */}
+                        {/* Services — ангилал л харагдана */}
                         <div>
                             <h4 className="text-white font-semibold mb-5 text-xs uppercase tracking-widest">Үйлчилгээ</h4>
-                            {footer_services.length > 0 ? (
-                                <div className="flex flex-col gap-4">
-                                    {footer_services.map(cat => (
-                                        <div key={cat.id}>
-                                            <p className="text-gray-300 text-[11px] font-bold uppercase tracking-wide mb-1.5">{cat.name}</p>
-                                            <ul className="flex flex-col gap-1.5">
-                                                {cat.treatments.slice(0, 3).map(t => (
-                                                    <li key={t.id}>
-                                                        <Link href="/services"
-                                                            className="text-xs text-gray-500 hover:text-white transition-colors inline-flex items-center gap-1.5 group">
-                                                            <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-4 group-hover:ml-0 transition-all" />
-                                                            {t.title}
-                                                        </Link>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <ul className="flex flex-col gap-2.5">
-                                    {['Invisalign', 'Металл брекет', 'Мэлмий брекет', 'Retainer', 'Хүүхдийн засал'].map(sv => (
-                                        <li key={sv}>
-                                            <Link href="/services" className="text-sm text-gray-500 hover:text-white transition-colors inline-flex items-center gap-1.5 group">
-                                                <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-4 group-hover:ml-0 transition-all" />
-                                                {sv}
-                                            </Link>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+                            <ul className="flex flex-col gap-2.5">
+                                {(footer_services.length > 0 ? footer_services : [
+                                    { id: 1, name: 'Invisalign' }, { id: 2, name: 'Металл брекет' },
+                                    { id: 3, name: 'Мэлмий брекет' }, { id: 4, name: 'Retainer' },
+                                    { id: 5, name: 'Хүүхдийн засал' },
+                                ]).map(cat => (
+                                    <li key={cat.id}>
+                                        <Link href="/services" className="text-sm text-gray-500 hover:text-white transition-colors inline-flex items-center gap-1.5 group">
+                                            <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -ml-4 group-hover:ml-0 transition-all" />
+                                            {cat.name}
+                                        </Link>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
 
                         {/* Contact — settings-оос */}
