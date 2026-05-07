@@ -86,7 +86,7 @@ export function NotificationBell() {
     useEffect(() => {
         if (!userId) return;
         poll();
-        const timer = setInterval(poll, 10_000);
+        const timer = setInterval(poll, 30_000);
         return () => clearInterval(timer);
     }, [userId, poll]);
 
