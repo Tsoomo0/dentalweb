@@ -254,6 +254,15 @@ class SettingSeeder extends Seeder
                 'type'        => 'boolean',
                 'is_sensitive'=> false,
             ],
+            [
+                'key'         => 'daily_sheet_code',
+                'value'       => '1234',
+                'group'       => 'system',
+                'label'       => 'Өдрийн тооцооны хамгаалалтын код',
+                'description' => 'Тооцоо устгах, нээхэд шаардагдах PIN код',
+                'type'        => 'password',
+                'is_sensitive'=> true,
+            ],
         ];
 
         foreach ($settings as $setting) {
