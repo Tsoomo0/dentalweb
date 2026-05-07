@@ -1019,25 +1019,6 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                         <X className="text-foreground" style={{ width:16, height:16 }} />
                                     </button>
                                 </div>
-                                {/* Toggle all */}
-                                <div style={{ padding:'10px 20px', borderBottom:'1px solid hsl(var(--border))' }}>
-                                    <button
-                                        onClick={() => {
-                                            if (filterDocs.size > 0) {
-                                                setFilterDocs(new Set());
-                                                try { localStorage.removeItem('cal_filter_docs'); } catch {}
-                                            } else {
-                                                const all = new Set(sidebarDoctors.map(d => d.id));
-                                                setFilterDocs(all);
-                                                try { localStorage.setItem('cal_filter_docs', JSON.stringify([...all])); } catch {}
-                                            }
-                                        }}
-                                        className="bg-muted hover:bg-muted/80 text-foreground transition-colors"
-                                        style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:10, border:'none', cursor:'pointer', width:'100%' }}>
-                                        <span style={{ fontSize:16, lineHeight:1 }}>≡</span>
-                                        <span style={{ fontSize:13, fontWeight:500 }}>Бүгдийг {filterDocs.size > 0 ? 'харуулах' : 'нуух'}</span>
-                                    </button>
-                                </div>
                                 {/* Doctor list */}
                                 <div style={{ overflowY:'auto', flex:1 }}>
                                     {sidebarDoctors.map(d => {
@@ -1725,13 +1706,15 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                     allDayApts.map(a => a.doctor_id).filter(id => id !== null)
                                 )] as number[];
 
-                                const dayDoctors = filterDocs.size > 0
-                                    ? doctors.filter(d => filterDocs.has(Number(d.id)))
-                                    : filterBranches.size > 0
-                                        ? doctors.filter(d => d.branch_id !== null && filterBranches.has(Number(d.branch_id)))
-                                        : dayDocIds.length > 0
-                                            ? doctors.filter(d => dayDocIds.includes(Number(d.id)))
-                                            : doctors;
+                                const dayDoctors = (filterDocs.size > 0 || filterBranches.size > 0)
+                                    ? doctors.filter(d => {
+                                        const inDocs   = filterDocs.size === 0   || filterDocs.has(Number(d.id));
+                                        const inBranch = filterBranches.size === 0 || (d.branch_id !== null && filterBranches.has(Number(d.branch_id)));
+                                        return inDocs && inBranch;
+                                    })
+                                    : dayDocIds.length > 0
+                                        ? doctors.filter(d => dayDocIds.includes(Number(d.id)))
+                                        : doctors;
 
                                 /* Helper: safe doctor match regardless of string/number */
                                 const sameDoc = (aptDocId: number | null, docId: number) =>
