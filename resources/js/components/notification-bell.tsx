@@ -98,6 +98,22 @@ export function NotificationBell() {
         };
     }, [userId]);
 
+    /* ---- Polling fallback (30s) ---- */
+    useEffect(() => {
+        if (!userId) return;
+
+        const poll = async () => {
+            try {
+                const res = await axios.get<NotificationsShared>('/notifications');
+                setItems(res.data.items);
+                setUnreadCount(res.data.unread_count);
+            } catch { /* silent */ }
+        };
+
+        const timer = setInterval(poll, 10_000);
+        return () => clearInterval(timer);
+    }, [userId]);
+
     /* ---- Click outside to close ---- */
     useEffect(() => {
         const handler = (e: MouseEvent) => {

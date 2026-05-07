@@ -421,21 +421,29 @@ export default function SeniorCalendar({ senior, appointments, stats }: Props) {
                                 {view === 'week' && (() => {
                                     const totalH  = (HOUR_END - HOUR_START) * HOUR_H;
                                     const COL_MIN = 110;
+                                    const APT_W   = 92;
+                                    const dayColWidths = weekDays.map(d => {
+                                        const ds = pad(d.getFullYear(), d.getMonth(), d.getDate());
+                                        const wc = computeColumns(aptByDate[ds] ?? []);
+                                        const mx = wc.length > 0 ? Math.max(...wc.map(x => x.totalCols)) : 1;
+                                        return Math.max(COL_MIN, mx * APT_W);
+                                    });
+                                    const weekGridW = 56 + dayColWidths.reduce((s, w) => s + w, 0);
                                     return (
                                         <div className="flex flex-1 flex-col overflow-hidden">
                                             <div ref={dayScrollRef} className="cal-scroll flex-1 overflow-auto">
-                                                <div style={{ minWidth: '100%', width: 56 + 7 * COL_MIN }}>
+                                                <div style={{ width: weekGridW }}>
                                                     <div className="sticky top-0 z-20 flex border-b bg-card shadow-sm">
                                                         <div className="w-14 shrink-0 border-r bg-card" />
-                                                        {weekDays.map(d => {
+                                                        {weekDays.map((d, idx) => {
                                                             const ds  = pad(d.getFullYear(), d.getMonth(), d.getDate());
                                                             const isT = ds === todayStr;
                                                             const cnt = (aptByDate[ds] ?? []).length;
                                                             return (
                                                                 <div key={ds}
                                                                     onClick={() => { setSelected(ds); setView('day'); }}
-                                                                    className="flex flex-1 cursor-pointer flex-col items-center border-r py-2 last:border-r-0 hover:bg-muted/30 transition-colors"
-                                                                    style={{ minWidth: COL_MIN }}>
+                                                                    className="flex shrink-0 cursor-pointer flex-col items-center border-r py-2 last:border-r-0 hover:bg-muted/30 transition-colors"
+                                                                    style={{ width: dayColWidths[idx] }}>
                                                                     <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{DAYS_MN[(d.getDay() + 6) % 7]}</p>
                                                                     <span className={`mt-1 flex size-8 items-center justify-center rounded-full text-sm font-bold ${isT ? 'bg-emerald-600 text-white' : 'text-foreground'}`}>
                                                                         {d.getDate()}
@@ -454,27 +462,29 @@ export default function SeniorCalendar({ senior, appointments, stats }: Props) {
                                                                 </div>
                                                             ))}
                                                         </div>
-                                                        {weekDays.map(d => {
+                                                        {weekDays.map((d, idx) => {
                                                             const ds    = pad(d.getFullYear(), d.getMonth(), d.getDate());
                                                             const isT   = ds === todayStr;
+                                                            const dayW  = dayColWidths[idx];
                                                             const wapts = (aptByDate[ds] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
                                                             return (
-                                                                <div key={ds} className="relative flex-1 border-r last:border-r-0"
-                                                                    style={{ minWidth: COL_MIN, height: totalH }}>
+                                                                <div key={ds} className="relative shrink-0 border-r last:border-r-0"
+                                                                    style={{ width: dayW, height: totalH }}>
                                                                     {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
                                                                         <div key={i} style={{ position:'absolute', left:0, right:0, top: i * HOUR_H, borderTop:'1px solid var(--cal-line-hour)' }} />
                                                                     ))}
                                                                     {computeColumns(wapts).map(({ apt: a, col, totalCols }) => {
-                                                                        const p2 = aptPal(a.type);
-                                                                        const h = Math.max(22, (aptEndMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
+                                                                        const p2  = aptPal(a.type);
+                                                                        const h   = Math.max(22, (aptEndMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
+                                                                        const colW = dayW / totalCols;
                                                                         return (
                                                                             <div key={a.id}
                                                                                 onClick={() => setDetail(a)}
                                                                                 className="absolute cursor-pointer overflow-hidden rounded px-1.5 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
                                                                                 style={{
                                                                                     top: aptTop(a.appointment_time), height: h,
-                                                                                    left: `calc(${col * 100 / totalCols}% + 1px)`,
-                                                                                    width: `calc(${100 / totalCols}% - 2px)`,
+                                                                                    left: col * colW + 1,
+                                                                                    width: colW - 2,
                                                                                     zIndex: col + 1,
                                                                                     background: p2.light,
                                                                                     border: `1px solid ${p2.border}50`,
@@ -510,9 +520,12 @@ export default function SeniorCalendar({ senior, appointments, stats }: Props) {
                                     const totalH = (HOUR_END - HOUR_START) * HOUR_H;
                                     const dapts  = (aptByDate[selDay] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
                                     const isToday = selDay === todayStr;
+                                    const dayViewCols = computeColumns(dapts);
+                                    const maxSimDay   = dayViewCols.length > 0 ? Math.max(...dayViewCols.map(x => x.totalCols)) : 1;
+                                    const dayContentW = Math.max(300, maxSimDay * 92);
                                     return (
                                         <div ref={dayScrollRef} className="cal-scroll flex-1 overflow-auto">
-                                            <div style={{ minHeight: totalH + 40 }}>
+                                            <div style={{ minWidth: 56 + dayContentW, minHeight: totalH + 40 }}>
                                                 <div className="relative flex" style={{ height: totalH }}>
                                                     <div className="relative w-14 shrink-0 border-r">
                                                         {Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => (
@@ -523,22 +536,23 @@ export default function SeniorCalendar({ senior, appointments, stats }: Props) {
                                                             </div>
                                                         ))}
                                                     </div>
-                                                    <div className="relative flex-1">
+                                                    <div className="relative shrink-0" style={{ width: dayContentW, height: totalH }}>
                                                         {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
                                                             <div key={i} style={{ position:'absolute', left:0, right:0, top: i * HOUR_H, borderTop:'1px solid var(--cal-line-hour)' }} />
                                                         ))}
-                                                        {computeColumns(dapts).map(({ apt: a, col, totalCols }) => {
-                                                            const p2 = aptPal(a.type);
+                                                        {dayViewCols.map(({ apt: a, col, totalCols }) => {
+                                                            const p2  = aptPal(a.type);
                                                             const top = aptTop(a.appointment_time);
-                                                            const h = Math.max(24, (aptEndMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
+                                                            const h   = Math.max(24, (aptEndMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
+                                                            const colW = dayContentW / totalCols;
                                                             return (
                                                                 <div key={a.id}
                                                                     onClick={() => setDetail(a)}
                                                                     className="absolute cursor-pointer overflow-hidden rounded px-1.5 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
                                                                     style={{
                                                                         top, height: h,
-                                                                        left: `calc(${col * 100 / totalCols}% + 1px)`,
-                                                                        width: `calc(${100 / totalCols}% - 2px)`,
+                                                                        left: col * colW + 1,
+                                                                        width: colW - 2,
                                                                         zIndex: col + 1,
                                                                         background: p2.light,
                                                                         border: `1px solid ${p2.border}50`,

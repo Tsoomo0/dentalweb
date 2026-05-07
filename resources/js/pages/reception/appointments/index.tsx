@@ -1556,16 +1556,24 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                             {view === 'week' && (() => {
                                 const wTotalH  = (HOUR_END - HOUR_START) * HOUR_H;
                                 const WCOL_MIN = 110;
+                                const APT_W    = 92;
+                                const dayColWidths = weekDays.map(d => {
+                                    const ds = pad(d.getFullYear(), d.getMonth(), d.getDate());
+                                    const wc = computeColumns(aptByDate[ds] ?? []);
+                                    const mx = wc.length > 0 ? Math.max(...wc.map(x => x.totalCols)) : 1;
+                                    return Math.max(WCOL_MIN, mx * APT_W);
+                                });
+                                const weekGridW = 56 + dayColWidths.reduce((s, w) => s + w, 0);
                                 return (
                                 <div className="flex flex-1 flex-col overflow-hidden">
                                     {/* Time grid — single scrollable area */}
                                     <div ref={dayScrollRef} className="cal-scroll flex-1 overflow-auto">
-                                        <div style={{ minWidth: '100%', width: 56 + 7 * WCOL_MIN }}>
+                                        <div style={{ width: weekGridW }}>
 
                                             {/* Sticky day headers */}
                                             <div className="sticky top-0 z-20 flex border-b bg-card shadow-sm">
                                                 <div className="w-14 shrink-0 border-r bg-card" />
-                                                {weekDays.map(d => {
+                                                {weekDays.map((d, idx) => {
                                                     const ds  = pad(d.getFullYear(), d.getMonth(), d.getDate());
                                                     const isT = ds === todayStr;
                                                     const isS = ds === selected;
@@ -1573,8 +1581,8 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                     return (
                                                         <div key={ds}
                                                             onClick={() => { changeSelected(ds); changeView('day'); }}
-                                                            className={`flex flex-1 cursor-pointer flex-col items-center border-r py-2 last:border-r-0 transition-colors hover:bg-muted/30 ${isS ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
-                                                            style={{ minWidth: WCOL_MIN }}>
+                                                            className={`flex shrink-0 cursor-pointer flex-col items-center border-r py-2 last:border-r-0 transition-colors hover:bg-muted/30 ${isS ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
+                                                            style={{ width: dayColWidths[idx] }}>
                                                             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{DAYS_MN[(d.getDay()+6)%7]}</p>
                                                             <span className={`mt-1 flex size-8 items-center justify-center rounded-full text-sm font-bold transition-colors ${
                                                                 isT ? 'bg-red-600 text-white' : 'text-foreground'
@@ -1623,14 +1631,15 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                 </div>
 
                                                 {/* Day columns */}
-                                                {weekDays.map(d => {
+                                                {weekDays.map((d, idx) => {
                                                     const ds     = pad(d.getFullYear(), d.getMonth(), d.getDate());
                                                     const isT    = ds === todayStr;
+                                                    const dayW   = dayColWidths[idx];
                                                     const wApts  = (aptByDate[ds] ?? []).sort((a,b) => a.appointment_time.localeCompare(b.appointment_time));
                                                     return (
                                                         <div key={ds}
-                                                            className="relative flex-1 border-r last:border-r-0 cursor-pointer"
-                                                            style={{ minWidth: WCOL_MIN, height: wTotalH }}
+                                                            className="relative shrink-0 border-r last:border-r-0 cursor-pointer"
+                                                            style={{ width: dayW, height: wTotalH }}
                                                             onClick={e => {
                                                                 const gridRect = (e.currentTarget as HTMLDivElement).parentElement!.getBoundingClientRect();
                                                                 const y = e.clientY - gridRect.top;
@@ -1639,11 +1648,12 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
 
                                                             {/* Appointments — column layout for overlaps */}
                                                             {computeColumns(wApts).map(({ apt: a, col, totalCols }) => {
-                                                                const top = aptTop(a.appointment_time);
-                                                                const h = Math.max(22, (endMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
-                                                                const p2 = a.doctor_id ? dayPalette(a.doctor_id) : DAY_PALETTE[0];
+                                                                const top  = aptTop(a.appointment_time);
+                                                                const h    = Math.max(22, (endMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
+                                                                const p2   = a.doctor_id ? dayPalette(a.doctor_id) : DAY_PALETTE[0];
                                                                 const isOnline = a.type === 'online';
-                                                                const ac = isOnline ? '#3b82f6' : p2.border;
+                                                                const ac   = isOnline ? '#3b82f6' : p2.border;
+                                                                const colW = dayW / totalCols;
                                                                 return (
                                                                     <div key={a.id}
                                                                         onClick={ev => { ev.stopPropagation(); openApt(a); }}
@@ -1651,8 +1661,8 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                         className="absolute cursor-pointer overflow-hidden rounded px-1 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
                                                                         style={{
                                                                             top, height: h,
-                                                                            left: `calc(${col * 100 / totalCols}% + 1px)`,
-                                                                            width: `calc(${100 / totalCols}% - 2px)`,
+                                                                            left: col * colW + 1,
+                                                                            width: colW - 2,
                                                                             zIndex: col + 1,
                                                                             background: p2.light,
                                                                             border: `1px solid ${ac}50`,
@@ -1709,22 +1719,33 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                 const sameDoc = (aptDocId: number | null, docId: number) =>
                                     aptDocId !== null && Number(aptDocId) === Number(docId);
 
+                                const APT_W        = 92;
+                                const docColWidths = dayDoctors.map(doc => {
+                                    const docApts = allDayApts
+                                        .filter(a => sameDoc(a.doctor_id, doc.id))
+                                        .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+                                    const wc = computeColumns(docApts);
+                                    const mx = wc.length > 0 ? Math.max(...wc.map(x => x.totalCols)) : 1;
+                                    return Math.max(COL_MIN, mx * APT_W);
+                                });
+                                const dayGridW = 56 + docColWidths.reduce((s, w) => s + w, 0);
+
                                 return (
                                     /* Single scrollable area — vertical + horizontal together */
                                     <div ref={dayScrollRef} className="cal-scroll flex-1 overflow-auto">
-                                        {/* Width: fills 100% when few doctors, grows wider when many */}
-                                        <div style={{ minWidth: '100%', width: 56 + dayDoctors.length * COL_MIN, minHeight: totalH + 90 }}>
+                                        {/* Width grows with doctor count and overlap density */}
+                                        <div style={{ width: dayGridW, minHeight: totalH + 90 }}>
 
                                             {/* Sticky column headers */}
                                             <div className="sticky top-0 z-20 flex border-b bg-card">
                                                 <div className="w-14 shrink-0 border-r bg-card" />
-                                                {dayDoctors.map(d => {
+                                                {dayDoctors.map((d, idx) => {
                                                     const pal   = dayPalette(d.id);
                                                     const count = allDayApts.filter(a => sameDoc(a.doctor_id, d.id)).length;
                                                     return (
                                                         <div key={d.id}
-                                                            className="flex flex-1 flex-col items-center border-r py-2 px-2 last:border-r-0 bg-card"
-                                                            style={{ minWidth: COL_MIN }}>
+                                                            className="flex shrink-0 flex-col items-center border-r py-2 px-2 last:border-r-0 bg-card"
+                                                            style={{ width: docColWidths[idx] }}>
                                                             {d.photo_url ? (
                                                                 <div className="size-9 shrink-0 overflow-hidden rounded-full"
                                                                     style={{ boxShadow: `0 0 0 2px ${pal.bg}` }}>
@@ -1786,15 +1807,16 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                 </div>
 
                                                 {/* Doctor columns */}
-                                                {dayDoctors.map(doc => {
+                                                {dayDoctors.map((doc, idx) => {
                                                     const docApts  = allDayApts
                                                         .filter(a => sameDoc(a.doctor_id, doc.id))
                                                         .sort((a,b) => a.appointment_time.localeCompare(b.appointment_time));
-                                                    const pal = dayPalette(doc.id);
+                                                    const pal     = dayPalette(doc.id);
+                                                    const docColW = docColWidths[idx];
                                                     return (
                                                         <div key={doc.id}
-                                                            className="relative flex-1 border-r last:border-r-0 cursor-pointer"
-                                                            style={{ minWidth: COL_MIN, height: totalH }}
+                                                            className="relative shrink-0 border-r last:border-r-0 cursor-pointer"
+                                                            style={{ width: docColW, height: totalH }}
                                                             onClick={e => {
                                                                 const gridRect = (e.currentTarget as HTMLDivElement)
                                                                     .parentElement!.getBoundingClientRect();
@@ -1803,10 +1825,11 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                             }}>
                                                             {/* Appointments — column layout for overlaps */}
                                                             {computeColumns(docApts).map(({ apt: a, col, totalCols }) => {
-                                                                const top = aptTop(a.appointment_time);
-                                                                const h = Math.max(24, (endMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
+                                                                const top  = aptTop(a.appointment_time);
+                                                                const h    = Math.max(24, (endMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
                                                                 const isOnline = a.type === 'online';
-                                                                const ac = isOnline ? '#3b82f6' : pal.border;
+                                                                const ac   = isOnline ? '#3b82f6' : pal.border;
+                                                                const colW = docColW / totalCols;
                                                                 return (
                                                                     <div key={a.id}
                                                                         onClick={ev => { ev.stopPropagation(); openApt(a); }}
@@ -1814,8 +1837,8 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                         className="absolute cursor-pointer overflow-hidden rounded px-1.5 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
                                                                         style={{
                                                                             top, height: h,
-                                                                            left: `calc(${col * 100 / totalCols}% + 1px)`,
-                                                                            width: `calc(${100 / totalCols}% - 2px)`,
+                                                                            left: col * colW + 1,
+                                                                            width: colW - 2,
                                                                             zIndex: col + 1,
                                                                             background: pal.light,
                                                                             border: `1px solid ${ac}50`,
