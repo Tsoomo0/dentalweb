@@ -68,7 +68,7 @@ Route::get('/contact',        [PublicController::class, 'contact'])->name('conta
 
 // ── Цаг захиалга ─────────────────────────────────────────────────────────────
 Route::get('/booking',                   [BookingController::class, 'index'])->name('booking');
-Route::post('/booking',                  [BookingController::class, 'store'])->middleware('throttle:8,1')->name('booking.store');
+Route::post('/booking',                  [BookingController::class, 'store'])->middleware('throttle:20,1')->name('booking.store');
 Route::get('/booking/patient-lookup',    [BookingController::class, 'patientLookup'])->middleware('throttle:30,1')->name('booking.patient-lookup');
 
 // ── Ажлын анкет ──────────────────────────────────────────────────────────────
