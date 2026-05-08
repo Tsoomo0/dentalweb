@@ -52,8 +52,10 @@ class Appointment extends Model
     /** APT-0001 форматтай дугаар үүсгэх */
     public static function generateNumber(): string
     {
-        $last = static::max('id') ?? 0;
-        return 'APT-' . str_pad($last + 1, 4, '0', STR_PAD_LEFT);
+        $max = static::withTrashed()
+            ->selectRaw("MAX(CAST(SUBSTRING(appointment_number, 5) AS UNSIGNED)) as n")
+            ->value('n') ?? 0;
+        return 'APT-' . str_pad($max + 1, 4, '0', STR_PAD_LEFT);
     }
 
     public function getFormattedDateAttribute(): string
