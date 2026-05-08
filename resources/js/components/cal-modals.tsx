@@ -2,7 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import {
     CalendarCheck2, CheckCircle2, Clock,
     Mail, Monitor, Pencil, Phone, Stethoscope,
-    Trash2, User, UserCheck, X, XCircle, Eye,
+    Trash2, User, UserCheck, X, XCircle,
     CalendarClock,
 } from 'lucide-react';
 import { type FormEvent, useEffect, useMemo, useRef } from 'react';
@@ -317,30 +317,24 @@ export function AptFormModal({
                     {/* Статус */}
                     <div>
                         <label className="block text-xs font-medium text-muted-foreground mb-1">Төлөв</label>
-                        {(data.status === 'cancelled' || data.status === 'completed') ? (
+                        {(data.status === 'confirmed' || data.status === 'cancelled' || data.status === 'completed') ? (
                             <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
-                                <span className={`size-2 rounded-full shrink-0 ${data.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-400'}`} />
+                                <span className={`size-2 rounded-full shrink-0 ${
+                                    data.status === 'confirmed' ? 'bg-green-500'
+                                    : data.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-400'
+                                }`} />
                                 <span className="text-xs font-semibold text-muted-foreground">
-                                    {data.status === 'cancelled' ? 'Цуцлагдсан' : 'Дууссан'} — өөрчлөх боломжгүй
+                                    {data.status === 'confirmed' ? 'Баталгаажсан'
+                                    : data.status === 'cancelled' ? 'Цуцлагдсан' : 'Дууссан'} — өөрчлөх боломжгүй
                                 </span>
                             </div>
                         ) : (
                             <div className="flex gap-1.5">
-                                {([
-                                    { v: 'pending',   label: 'Хүлээгдэж байна', dot: 'bg-yellow-400' },
-                                    { v: 'confirmed', label: 'Баталгаажсан',    dot: 'bg-green-500'  },
-                                ] as const).map(({ v, label, dot }) => (
-                                    <button key={v} type="button" onClick={() => setData('status', v)}
-                                        className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-[11px] font-semibold transition-colors ${
-                                            data.status === v
-                                                ? 'border-red-500 bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
-                                                : 'border-input bg-background text-muted-foreground hover:border-red-300'
-                                        }`}>
-                                        <span className={`size-1.5 rounded-full shrink-0 ${dot}`} />
-                                        <span className="hidden sm:inline">{label}</span>
-                                        <span className="sm:hidden">{label.split(' ')[0]}</span>
-                                    </button>
-                                ))}
+                                <button type="button" onClick={() => setData('status', 'confirmed')}
+                                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-[11px] font-semibold transition-colors border-input bg-background text-muted-foreground hover:border-green-400 hover:text-green-700">
+                                    <span className="size-1.5 rounded-full shrink-0 bg-green-500" />
+                                    Баталгаажуулах
+                                </button>
                             </div>
                         )}
                     </div>
@@ -528,7 +522,7 @@ export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit,
                                     <User className="size-3.5 text-muted-foreground shrink-0 mt-0.5" />
                                     <div>
                                         <p className="text-[9px] text-muted-foreground">Тэмдэглэл</p>
-                                        <p className="text-xs leading-relaxed">{apt.notes}</p>
+                                        <p className="text-xs leading-relaxed whitespace-pre-wrap">{apt.notes}</p>
                                     </div>
                                 </div>
                             )}
@@ -560,28 +554,23 @@ export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit,
                         </div>
                     )}
 
-                    {/* Төлөв өөрчлөх */}
-                    {!readonly && onStatusChange && (apt.status === 'pending' || apt.status === 'confirmed') && (
+                    {/* Төлөв өөрчлөх — зөвхөн pending байхад */}
+                    {!readonly && onStatusChange && apt.status === 'pending' && (
                         <div>
                             <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Төлөв өөрчлөх</p>
-                            <div className="flex gap-1.5">
-                                {([
-                                    { s: 'confirmed', label: 'Баталгаажуулах',   icon: CheckCircle2,   cls: 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400' },
-                                    { s: 'pending',   label: 'Хүлээгдэж байна',  icon: CalendarClock,  cls: 'border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-800 dark:bg-yellow-950/30' },
-                                ] as const).map(({ s, label, icon: Icon, cls }) => (
-                                    <button key={s} onClick={() => onStatusChange(apt.id, s)} disabled={apt.status === s}
-                                        className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all ${cls} ${apt.status === s ? 'opacity-40 cursor-default' : ''}`}>
-                                        <Icon className="size-3.5" /> {label}
-                                    </button>
-                                ))}
-                            </div>
+                            <button onClick={() => onStatusChange(apt.id, 'confirmed')}
+                                className="flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                                <CheckCircle2 className="size-3.5" /> Баталгаажуулах
+                            </button>
                         </div>
                     )}
-                    {(apt.status === 'cancelled' || apt.status === 'completed') && (
+                    {(apt.status === 'confirmed' || apt.status === 'cancelled' || apt.status === 'completed') && (
                         <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 py-2">
-                            <span className={`size-2 rounded-full shrink-0 ${apt.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-400'}`} />
+                            <span className={`size-2 rounded-full shrink-0 ${STATUS_DOT[apt.status]}`} />
                             <p className="text-[11px] text-muted-foreground">
-                                {apt.status === 'cancelled' ? 'Цуцлагдсан — төлөв өөрчлөх боломжгүй' : 'Дууссан — төлөв өөрчлөх боломжгүй'}
+                                {apt.status === 'confirmed' ? 'Баталгаажсан — төлөв өөрчлөх боломжгүй'
+                                : apt.status === 'cancelled' ? 'Цуцлагдсан — төлөв өөрчлөх боломжгүй'
+                                : 'Дууссан — төлөв өөрчлөх боломжгүй'}
                             </p>
                         </div>
                     )}
@@ -595,10 +584,6 @@ export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit,
                             <Pencil className="size-3.5" /> Засах
                         </button>
                     )}
-                    <a href={`${window.location.pathname.includes('/admin') ? '/admin' : window.location.pathname.includes('/doctor') ? '/doctor' : '/reception'}/appointments/${apt.id}`}
-                        className="flex items-center justify-center rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors">
-                        <Eye className="size-3.5" />
-                    </a>
                     {!readonly && onDelete && (
                         <button onClick={() => { onDelete(apt.id, apt.appointment_number); onClose(); }}
                             className="flex items-center justify-center rounded-lg border border-red-200 dark:border-red-900 px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
