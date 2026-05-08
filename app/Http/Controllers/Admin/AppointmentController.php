@@ -342,6 +342,7 @@ class AppointmentController extends Controller
                 'appointment_time'   => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
                 'doctor_name'        => $a->doctor?->name,
                 'type'               => $a->type,
+                'notes'              => $a->notes,
             ])
             ->values()
             ->all();
@@ -361,7 +362,7 @@ class AppointmentController extends Controller
 
         $allowed = [
             'pending'   => ['confirmed', 'cancelled'],
-            'confirmed' => ['pending', 'cancelled', 'completed'],
+            'confirmed' => ['cancelled', 'completed'],
             'cancelled' => [],
             'completed' => [],
         ];

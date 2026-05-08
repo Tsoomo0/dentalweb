@@ -182,7 +182,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
     const [searchDateTo,     setSearchDateTo]     = useState('');
 
     /* ---- Real-time polling notification ---- */
-    interface NewBooking { id: number; appointment_number: string; patient_name: string; patient_phone: string; patient_email: string | null; appointment_date: string; appointment_time: string; doctor_name: string | null; type: string }
+    interface NewBooking { id: number; appointment_number: string; patient_name: string; patient_phone: string; patient_email: string | null; appointment_date: string; appointment_time: string; doctor_name: string | null; type: string; notes: string | null }
     const [notifications,  setNotifications]  = useState<NewBooking[]>([]);
     const [notifPerm,      setNotifPerm]      = useState<NotificationPermission>(() =>
         typeof Notification !== 'undefined' ? Notification.permission : 'denied'
@@ -276,7 +276,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                 appointment_date: n.appointment_date, appointment_time: n.appointment_time,
                                 appointment_time_end: null,
                                 formatted_date: n.appointment_date, status: 'pending' as const,
-                                notes: null, admin_notes: null, created_by: null, confirmed_by: null,
+                                notes: n.notes ?? null, admin_notes: null, created_by: null, confirmed_by: null,
                             }));
                         return [...prev, ...toAdd];
                     });

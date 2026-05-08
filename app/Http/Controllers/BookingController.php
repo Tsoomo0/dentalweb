@@ -165,8 +165,7 @@ class BookingController extends Controller
         ]);
 
         $notes = collect([
-            $request->patient_address ? 'Хаяг: ' . $request->patient_address : null,
-            $request->reason          ? 'Шалтгаан: ' . $request->reason       : null,
+            $request->reason ? 'Шалтгаан: ' . $request->reason : null,
             $request->preferred_date
                 ? 'Хүссэн цаг: ' . $request->preferred_date . ($request->preferred_time ? ' ' . $request->preferred_time : '')
                 : null,

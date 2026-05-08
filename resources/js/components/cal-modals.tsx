@@ -117,7 +117,7 @@ export function AptFormModal({
         appointment_date:     apt?.appointment_date     ?? date,
         appointment_time:     initTime,
         appointment_time_end: initEnd,
-        status:               apt?.status               ?? 'confirmed',
+        status:               'confirmed' as const,
         notes:                apt?.notes                ?? '',
         admin_notes:          apt?.admin_notes          ?? '',
     });
@@ -314,30 +314,6 @@ export function AptFormModal({
                         </div>
                     </div>
 
-                    {/* Статус */}
-                    <div>
-                        <label className="block text-xs font-medium text-muted-foreground mb-1">Төлөв</label>
-                        {(data.status === 'confirmed' || data.status === 'cancelled' || data.status === 'completed') ? (
-                            <div className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2">
-                                <span className={`size-2 rounded-full shrink-0 ${
-                                    data.status === 'confirmed' ? 'bg-green-500'
-                                    : data.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-400'
-                                }`} />
-                                <span className="text-xs font-semibold text-muted-foreground">
-                                    {data.status === 'confirmed' ? 'Баталгаажсан'
-                                    : data.status === 'cancelled' ? 'Цуцлагдсан' : 'Дууссан'} — өөрчлөх боломжгүй
-                                </span>
-                            </div>
-                        ) : (
-                            <div className="flex gap-1.5">
-                                <button type="button" onClick={() => setData('status', 'confirmed')}
-                                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-[11px] font-semibold transition-colors border-input bg-background text-muted-foreground hover:border-green-400 hover:text-green-700">
-                                    <span className="size-1.5 rounded-full shrink-0 bg-green-500" />
-                                    Баталгаажуулах
-                                </button>
-                            </div>
-                        )}
-                    </div>
 
                     {/* Тэмдэглэл */}
                     <div className="grid grid-cols-2 gap-2">

@@ -784,16 +784,6 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                                 {ipErrors.patient_email && <p className="text-xs text-red-500 mt-1">{ipErrors.patient_email}</p>}
                                             </div>
 
-                                            <div>
-                                                <Label>Хаяг</Label>
-                                                <div className="relative">
-                                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                                                    <input type="text" value={ipData.patient_address}
-                                                        onChange={e => setIpData('patient_address', e.target.value)}
-                                                        placeholder="Дүүрэг, хороо, гудамж..."
-                                                        className={inputCls + " pl-9"}/>
-                                                </div>
-                                            </div>
                                         </div>
                                     </Card>
                                 )}
