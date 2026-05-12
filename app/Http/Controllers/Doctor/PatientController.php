@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
+use App\Models\Appointment;
 use App\Models\GeneralVisit;
 use App\Models\OrthoMedia;
 use App\Models\OrthoVisit;
@@ -26,6 +27,27 @@ class PatientController extends Controller
         $search        = $request->input('search');
         $appointmentId = $request->input('appointment_id');
 
+        // appointment_id өгсөн бол тухайн захиалгад patient_id байхгүй тохиолдолд автоматаар үүсгэж redirect хийнэ
+        if ($appointmentId) {
+            $apt = Appointment::find($appointmentId);
+            if ($apt && !$apt->patient_id) {
+                $nameParts = explode(' ', trim($apt->patient_name ?? ''), 2);
+                $patient = Patient::create([
+                    'patient_number' => Patient::generateNumber(),
+                    'last_name'      => $nameParts[0] ?? '',
+                    'first_name'     => $nameParts[1] ?? '',
+                    'phone'          => $apt->patient_phone ?? '',
+                    'email'          => $apt->patient_email,
+                    'created_by'     => null,
+                ]);
+                $apt->update(['patient_id' => $patient->id]);
+                return redirect("/doctor/patients/{$patient->id}?appointment_id={$appointmentId}");
+            }
+            if ($apt && $apt->patient_id) {
+                return redirect("/doctor/patients/{$apt->patient_id}?appointment_id={$appointmentId}");
+            }
+        }
+
         $patients = Patient::query()
             ->whereHas('appointments', fn($q) => $q->where('doctor_id', $doctor->id))
             ->when($search, function ($q) use ($search) {
@@ -38,9 +60,9 @@ class PatientController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        if ($search && $appointmentId && $patients->total() === 1) {
+        if ($search && $patients->total() === 1) {
             $patient = $patients->first();
-            return redirect("/doctor/patients/{$patient->id}?appointment_id={$appointmentId}");
+            return redirect("/doctor/patients/{$patient->id}");
         }
 
         return Inertia::render('doctor/patients/index', [
