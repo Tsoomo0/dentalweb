@@ -173,14 +173,14 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
     // ── In-person form ───────────────────────────────────────────────
     const { data: ipData, setData: setIpData, post: ipPost, processing: ipProcessing, errors: ipErrors, reset: ipReset } = useForm<{
         booking_type: BookingType;
-        branch_id: string;
+        branch_id: string; doctor_id: string;
         patient_name: string; patient_phone: string; patient_email: string;
         patient_address: string; reason: string; service: string;
         preferred_date: string; preferred_time: string;
         _hp: string;
     }>({
         booking_type: 'in_person',
-        branch_id: '',
+        branch_id: '', doctor_id: '',
         patient_name: '', patient_phone: '', patient_email: '',
         patient_address: '', reason: '', service: '',
         preferred_date: '', preferred_time: '',
@@ -742,9 +742,41 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                     )}
                                 </Card>
 
-                                {/* 2. Таны мэдээлэл — only after branch selected */}
+                                {/* 2. Эмч сонгох (optional) */}
+                                {ipData.branch_id && (() => {
+                                    const branchDoctors = doctors.filter(d => String(d.branch_id) === ipData.branch_id);
+                                    if (branchDoctors.length === 0) return null;
+                                    return (
+                                        <Card step={2} title="Эмч сонгох" icon={Stethoscope}>
+                                            <div className="grid gap-2 sm:grid-cols-2">
+                                                {branchDoctors.map(d => {
+                                                    const isSel = String(d.id) === ipData.doctor_id;
+                                                    return (
+                                                        <button key={d.id} type="button"
+                                                            onClick={() => setIpData('doctor_id', isSel ? '' : String(d.id))}
+                                                            className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${isSel ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-red-200 bg-white'}`}>
+                                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${isSel ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                                {d.name.charAt(0)}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-semibold text-gray-800 truncate">{d.name}</p>
+                                                                {d.specialization && <p className="text-[11px] text-gray-400 truncate">{d.specialization}</p>}
+                                                            </div>
+                                                            <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${isSel ? 'border-red-500 bg-red-500' : 'border-gray-300'}`}>
+                                                                {isSel && <div className="w-full h-full rounded-full flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full bg-white"/></div>}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-xs text-gray-400 mt-2">✦ Заавал биш — сонгоогүй бол ресепшн тохируулна.</p>
+                                        </Card>
+                                    );
+                                })()}
+
+                                {/* 3. Таны мэдээлэл — only after branch selected */}
                                 {ipData.branch_id && (
-                                    <Card step={2} title="Таны мэдээлэл" icon={User}>
+                                    <Card step={3} title="Таны мэдээлэл" icon={User}>
                                         <div className="flex flex-col gap-4">
                                             <div className="grid gap-4 sm:grid-cols-2">
                                                 <div>
@@ -788,9 +820,9 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                     </Card>
                                 )}
 
-                                {/* 3. Үзлэгийн мэдээлэл — only after branch + patient info entered */}
+                                {/* 4. Үзлэгийн мэдээлэл — only after branch + patient info entered */}
                                 {ipData.branch_id && (
-                                    <Card step={3} title="Үзлэгийн мэдээлэл" icon={Stethoscope}>
+                                    <Card step={4} title="Үзлэгийн мэдээлэл" icon={Stethoscope}>
                                         <div className="flex flex-col gap-4">
 
                                             <div>

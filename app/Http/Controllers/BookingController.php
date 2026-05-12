@@ -188,8 +188,20 @@ class BookingController extends Controller
             'patient_name'  => 'required|string|max:255',
             'patient_phone' => 'required|string|max:50',
             'patient_email' => 'nullable|email|max:255',
+            'doctor_id'     => 'nullable|exists:doctors,id',
             'service'       => 'nullable|string|max:255',
         ]);
+
+        $nameParts = explode(' ', trim($request->patient_name), 2);
+        $patient   = Patient::firstOrCreate(
+            ['phone' => $request->patient_phone],
+            [
+                'patient_number' => Patient::generateNumber(),
+                'last_name'      => $nameParts[0] ?? '',
+                'first_name'     => $nameParts[1] ?? '',
+                'email'          => $request->patient_email,
+            ]
+        );
 
         $notes = collect([
             $request->reason ? 'Шалтгаан: ' . $request->reason : null,
@@ -198,13 +210,18 @@ class BookingController extends Controller
                 : null,
         ])->filter()->implode("\n");
 
+        $doctor    = $request->doctor_id ? Doctor::find($request->doctor_id) : null;
+        $branchId  = $request->branch_id ?: $doctor?->branch_id ?: null;
+
         $appointment = Appointment::create([
             'appointment_number'   => Appointment::generateNumber(),
+            'patient_id'           => $patient->id,
             'patient_name'         => $request->patient_name,
             'patient_phone'        => $request->patient_phone,
             'patient_email'        => $request->patient_email,
-            'branch_id'            => $request->branch_id ?: null,
-            'service'              => $request->service ?: 'Биечлэн үзлэг',
+            'doctor_id'            => $doctor?->id,
+            'branch_id'            => $branchId,
+            'service'              => $request->service ?: null,
             'type'                 => 'in_person',
             'appointment_date'     => $request->preferred_date ?: null,
             'appointment_time'     => $request->preferred_time ?: null,
