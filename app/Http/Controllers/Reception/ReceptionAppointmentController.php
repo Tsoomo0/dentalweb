@@ -269,6 +269,19 @@ class ReceptionAppointmentController extends Controller
         if ($request->status === 'confirmed') {
             $updateData['confirmed_by']    = Auth::user()->name;
             $updateData['confirmed_by_id'] = Auth::id();
+
+            if (!$appointment->patient_id) {
+                $nameParts = explode(' ', trim($appointment->patient_name ?? ''), 2);
+                $patient   = Patient::create([
+                    'patient_number' => Patient::generateNumber(),
+                    'last_name'      => $nameParts[0] ?? '',
+                    'first_name'     => $nameParts[1] ?? '',
+                    'phone'          => $appointment->patient_phone ?? '',
+                    'email'          => $appointment->patient_email,
+                    'created_by'     => Auth::id(),
+                ]);
+                $updateData['patient_id'] = $patient->id;
+            }
         }
 
         $appointment->update($updateData);
