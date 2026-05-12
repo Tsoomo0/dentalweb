@@ -22,12 +22,29 @@ use Inertia\Response;
 
 class EmployeeController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $employees = Employee::with(['branch', 'position'])
-            ->orderBy('last_name')
-            ->get()
-            ->map(fn(Employee $e) => [
+        $query = Employee::with(['branch', 'position'])->orderBy('last_name');
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%$search%")
+                  ->orWhere('last_name', 'like', "%$search%")
+                  ->orWhere('employee_number', 'like', "%$search%")
+                  ->orWhereHas('position', fn($q) => $q->where('name', 'like', "%$search%"));
+            });
+        }
+
+        if ($status = $request->input('status')) {
+            $query->where('status', $status);
+        }
+
+        if ($branchId = $request->input('branch_id')) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $employees = $query->paginate(20)->withQueryString()
+            ->through(fn(Employee $e) => [
                 'id'              => $e->id,
                 'employee_number' => $e->employee_number,
                 'full_name'       => $e->full_name,
@@ -45,6 +62,7 @@ class EmployeeController extends Controller
         return Inertia::render('hr/employees/index', [
             'employees' => $employees,
             'branches'  => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'filters'   => $request->only(['search', 'status', 'branch_id']),
         ]);
     }
 

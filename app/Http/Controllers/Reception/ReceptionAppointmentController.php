@@ -94,7 +94,7 @@ class ReceptionAppointmentController extends Controller
         return Inertia::render('reception/appointments/index', [
             'appointments' => $appointments,
             'doctors'      => Doctor::where('is_active', true)
-                ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+                ->when($branchId, fn($q) => $q->whereHas('branches', fn($q2) => $q2->where('branches.id', $branchId)))
                 ->with('branches')
                 ->orderBy('name')
                 ->get()
@@ -145,13 +145,29 @@ class ReceptionAppointmentController extends Controller
             'admin_notes'          => 'nullable|string',
         ]);
 
+        $patientId = $request->patient_id;
+
+        if (!$patientId) {
+            $nameParts = explode(' ', trim($request->patient_name), 2);
+            $patient = Patient::create([
+                'patient_number' => Patient::generateNumber(),
+                'last_name'      => $nameParts[0] ?? '',
+                'first_name'     => $nameParts[1] ?? '',
+                'phone'          => $request->patient_phone,
+                'email'          => $request->patient_email,
+                'created_by'     => Auth::id(),
+            ]);
+            $patientId = $patient->id;
+        }
+
         $appointment = Appointment::create([
             'appointment_number' => Appointment::generateNumber(),
             'created_by'         => Auth::user()->name,
             'created_by_id'      => Auth::id(),
             'branch_id'          => $branchId ?? $request->branch_id,
+            'patient_id'         => $patientId,
             ...$request->only(
-                'patient_id', 'patient_name', 'patient_phone', 'patient_email',
+                'patient_name', 'patient_phone', 'patient_email',
                 'doctor_id', 'service', 'type',
                 'appointment_date', 'appointment_time', 'appointment_time_end',
                 'status', 'notes', 'admin_notes'

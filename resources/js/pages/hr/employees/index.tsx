@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
-    Baby, Briefcase, Building2, Download, Edit2, Eye,
+    Baby, Briefcase, Building2, ChevronLeft, ChevronRight, Download, Edit2, Eye,
     LayoutGrid, List, Phone, Plus, Search,
     Trash2, UserCheck, UserX, Users,
 } from 'lucide-react';
@@ -23,8 +23,20 @@ interface Employee {
     hired_date: string | null;
 }
 
+interface Paginated<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+    links: { url: string | null; label: string; active: boolean }[];
+}
+
 interface Branch { id: number; name: string }
-interface Props { employees: Employee[]; branches: Branch[] }
+interface Filters { search?: string; status?: string; branch_id?: string }
+interface Props { employees: Paginated<Employee>; branches: Branch[]; filters: Filters }
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'HR', href: '/hr/employees' },
@@ -62,27 +74,22 @@ function handleDelete(e: Employee) {
     }
 }
 
-export default function EmployeesIndex({ employees, branches }: Props) {
-    const [search, setSearch]             = useState('');
-    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-    const [branchFilter, setBranchFilter] = useState<number | null>(null);
-    const [view, setView]                 = useState<'card' | 'table'>('card');
+export default function EmployeesIndex({ employees, branches, filters }: Props) {
+    const [search, setSearch] = useState(filters.search ?? '');
+    const [view, setView]     = useState<'card' | 'table'>('card');
 
-    const filtered = employees.filter(e => {
-        const q = search.toLowerCase();
-        const matchSearch = e.full_name.toLowerCase().includes(q) ||
-            e.employee_number.toLowerCase().includes(q) ||
-            (e.position ?? '').toLowerCase().includes(q);
-        const matchStatus = statusFilter === 'all' || e.status === statusFilter;
-        const matchBranch = branchFilter === null || e.branch_id === branchFilter;
-        return matchSearch && matchStatus && matchBranch;
-    });
+    function applyFilter(params: Record<string, string | undefined>) {
+        router.get('/hr/employees', { ...filters, ...params }, { preserveState: true, replace: true });
+    }
 
-    const activeCount   = employees.filter(e => e.status === 'active').length;
-    const inactiveCount = employees.filter(e => e.status === 'inactive').length;
-    const maleCount     = employees.filter(e => e.gender === 'male').length;
-    const femaleCount   = employees.filter(e => e.gender === 'female').length;
-    const totalChildren = employees.reduce((s, e) => s + (e.children_count ?? 0), 0);
+    function doSearch(e: React.FormEvent) {
+        e.preventDefault();
+        applyFilter({ search, page: undefined });
+    }
+
+    const statusFilter  = filters.status ?? 'all';
+    const branchFilter  = filters.branch_id ? Number(filters.branch_id) : null;
+    const list          = employees.data;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -95,7 +102,7 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                     <div>
                         <h1 className="text-2xl font-black tracking-tight text-foreground">Ажилтнууд</h1>
                         <p className="mt-0.5 text-sm text-muted-foreground">
-                            Нийт <span className="font-semibold text-foreground">{employees.length}</span> ажилтан бүртгэлтэй
+                            Нийт <span className="font-semibold text-foreground">{employees.total}</span> ажилтан бүртгэлтэй
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -117,11 +124,11 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                 {/* ── Stat tiles ── */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {([
-                        { icon: Users,     label: 'Нийт',        value: employees.length,                   grad: 'from-slate-500 to-slate-700',   ring: 'ring-slate-200 dark:ring-slate-700' },
-                        { icon: UserCheck, label: 'Идэвхтэй',    value: activeCount,                        grad: 'from-emerald-500 to-emerald-700', ring: 'ring-emerald-200 dark:ring-emerald-800' },
-                        { icon: UserX,     label: 'Идэвхгүй',    value: inactiveCount,                      grad: 'from-zinc-400 to-zinc-600',       ring: 'ring-zinc-200 dark:ring-zinc-700' },
-                        { icon: Users,     label: 'Хүйс',        value: `${maleCount}♂ · ${femaleCount}♀`,  grad: 'from-blue-500 to-indigo-600',     ring: 'ring-blue-200 dark:ring-blue-800' },
-                        { icon: Baby,      label: 'Нийт хүүхэд', value: totalChildren,                      grad: 'from-amber-400 to-orange-500',    ring: 'ring-amber-200 dark:ring-amber-700' },
+                        { icon: Users,     label: 'Нийт',        value: employees.total,   grad: 'from-slate-500 to-slate-700',    ring: 'ring-slate-200 dark:ring-slate-700' },
+                        { icon: UserCheck, label: 'Идэвхтэй',    value: '—',               grad: 'from-emerald-500 to-emerald-700', ring: 'ring-emerald-200 dark:ring-emerald-800' },
+                        { icon: UserX,     label: 'Идэвхгүй',    value: '—',               grad: 'from-zinc-400 to-zinc-600',       ring: 'ring-zinc-200 dark:ring-zinc-700' },
+                        { icon: Users,     label: 'Хуудас',      value: `${employees.current_page}/${employees.last_page}`, grad: 'from-blue-500 to-indigo-600', ring: 'ring-blue-200 dark:ring-blue-800' },
+                        { icon: Baby,      label: 'Энэ хуудас',  value: list.length,       grad: 'from-amber-400 to-orange-500',    ring: 'ring-amber-200 dark:ring-amber-700' },
                     ] as const).map(s => (
                         <div key={s.label} className={`relative overflow-hidden rounded-2xl border bg-card p-4 shadow-sm ring-1 ${s.ring}`}>
                             <div className={`absolute right-0 top-0 size-20 -translate-y-4 translate-x-4 rounded-full bg-gradient-to-br ${s.grad} opacity-10`} />
@@ -136,20 +143,26 @@ export default function EmployeesIndex({ employees, branches }: Props) {
 
                 {/* ── Filter bar ── */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div className="relative flex-1">
-                        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Нэр, дугаар, тушаалаар хайх..."
-                            className="w-full rounded-xl border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
-                        />
-                    </div>
+                    <form onSubmit={doSearch} className="relative flex-1 flex gap-2">
+                        <div className="relative flex-1">
+                            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Нэр, дугаар, тушаалаар хайх..."
+                                className="w-full rounded-xl border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                            />
+                        </div>
+                        <button type="submit" className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 transition-colors">
+                            Хайх
+                        </button>
+                    </form>
 
                     {/* Status */}
                     <div className="flex overflow-hidden rounded-xl border bg-muted/40 p-1 text-sm font-semibold gap-1 shrink-0">
                         {([['all', 'Бүгд'], ['active', 'Идэвхтэй'], ['inactive', 'Идэвхгүй']] as const).map(([v, l]) => (
-                            <button key={v} onClick={() => setStatusFilter(v)}
+                            <button key={v}
+                                onClick={() => applyFilter({ status: v === 'all' ? undefined : v, page: undefined })}
                                 className={`rounded-lg px-3.5 py-1.5 transition-all ${statusFilter === v ? 'bg-red-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                                 {l}
                             </button>
@@ -173,7 +186,7 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                 {branches.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                         <button
-                            onClick={() => setBranchFilter(null)}
+                            onClick={() => applyFilter({ branch_id: undefined, page: undefined })}
                             className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
                                 branchFilter === null
                                     ? 'border-red-500 bg-red-600 text-white shadow-sm'
@@ -181,12 +194,10 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                             }`}
                         >
                             <Building2 className="size-3" /> Бүгд
-                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${branchFilter === null ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
-                                {employees.length}
-                            </span>
                         </button>
                         {branches.map(b => (
-                            <button key={b.id} onClick={() => setBranchFilter(b.id)}
+                            <button key={b.id}
+                                onClick={() => applyFilter({ branch_id: String(b.id), page: undefined })}
                                 className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
                                     branchFilter === b.id
                                         ? 'border-red-500 bg-red-600 text-white shadow-sm'
@@ -195,9 +206,6 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                             >
                                 <Building2 className="size-3" />
                                 {b.name}
-                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${branchFilter === b.id ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
-                                    {employees.filter(e => e.branch_id === b.id).length}
-                                </span>
                             </button>
                         ))}
                     </div>
@@ -205,11 +213,11 @@ export default function EmployeesIndex({ employees, branches }: Props) {
 
                 {/* ── Result count ── */}
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {filtered.length} ажилтан харагдаж байна
+                    {employees.from}–{employees.to} / {employees.total} ажилтан
                 </p>
 
                 {/* ── Empty ── */}
-                {filtered.length === 0 && (
+                {list.length === 0 && (
                     <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed py-20">
                         <div className="flex size-16 items-center justify-center rounded-2xl bg-muted">
                             <Users className="size-8 text-muted-foreground/40" />
@@ -224,12 +232,11 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                 {/* ══════════════════════════════════════════
                     CARD VIEW
                 ══════════════════════════════════════════ */}
-                {filtered.length > 0 && view === 'card' && (
+                {list.length > 0 && view === 'card' && (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {filtered.map(e => (
+                        {list.map(e => (
                             <div key={e.id}
                                 className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-                                {/* top accent line */}
                                 <div className={`absolute inset-x-0 top-0 h-0.5 ${e.status === 'active' ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
 
                                 <div className="flex flex-col items-center gap-3 px-5 pt-6 pb-4 text-center">
@@ -293,7 +300,7 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                 {/* ══════════════════════════════════════════
                     TABLE VIEW
                 ══════════════════════════════════════════ */}
-                {filtered.length > 0 && view === 'table' && (
+                {list.length > 0 && view === 'table' && (
                     <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
                         <table className="w-full text-sm">
                             <thead>
@@ -308,7 +315,7 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {filtered.map(e => (
+                                {list.map(e => (
                                     <tr key={e.id} className="group transition-colors hover:bg-muted/30">
                                         <td className="px-5 py-3.5">
                                             <div className="flex items-center gap-3">
@@ -370,6 +377,35 @@ export default function EmployeesIndex({ employees, branches }: Props) {
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                )}
+
+                {/* ── Pagination ── */}
+                {employees.last_page > 1 && (
+                    <div className="flex items-center justify-between text-sm">
+                        <p className="text-muted-foreground">
+                            {employees.from}–{employees.to} / {employees.total}
+                        </p>
+                        <div className="flex items-center gap-1">
+                            {employees.links.map((link, i) => (
+                                link.url ? (
+                                    <button
+                                        key={i}
+                                        onClick={() => router.get(link.url!)}
+                                        className={`flex size-8 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
+                                            link.active
+                                                ? 'bg-red-600 text-white'
+                                                : 'border hover:bg-muted text-muted-foreground'
+                                        }`}
+                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                    />
+                                ) : (
+                                    <span key={i} className="flex size-8 items-center justify-center rounded-lg text-xs text-muted-foreground/40">
+                                        {link.label.includes('&laquo;') ? <ChevronLeft className="size-3.5" /> : link.label.includes('&raquo;') ? <ChevronRight className="size-3.5" /> : link.label}
+                                    </span>
+                                )
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>

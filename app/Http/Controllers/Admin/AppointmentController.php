@@ -7,6 +7,7 @@ use App\Jobs\GenerateMeetLink;
 use App\Models\Appointment;
 use App\Models\Branch;
 use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\Treatment;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
@@ -135,10 +136,21 @@ class AppointmentController extends Controller
             'admin_notes'          => 'nullable|string',
         ]);
 
+        $nameParts = explode(' ', trim($request->patient_name), 2);
+        $patient = Patient::create([
+            'patient_number' => Patient::generateNumber(),
+            'last_name'      => $nameParts[0] ?? '',
+            'first_name'     => $nameParts[1] ?? '',
+            'phone'          => $request->patient_phone,
+            'email'          => $request->patient_email,
+            'created_by'     => Auth::id(),
+        ]);
+
         $appointment = Appointment::create([
             'appointment_number' => Appointment::generateNumber(),
             'created_by'         => Auth::user()?->name ?? 'Админ',
             'created_by_id'      => Auth::id(),
+            'patient_id'         => $patient->id,
             ...$request->only(
                 'patient_name', 'patient_phone', 'patient_email',
                 'doctor_id', 'branch_id', 'service', 'type',
