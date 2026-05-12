@@ -225,14 +225,15 @@ class EmployeeController extends Controller
             // 7. Эмчийн тушаалтай бол Doctor record автоматаар үүсгэх
             if ($position->portal === 'doctor') {
                 $doctor = Doctor::create([
-                    'employee_id' => $employee->id,
-                    'branch_id'   => $employee->branch_id,
-                    'name'        => $employee->full_name,
-                    'phone'       => $employee->phone,
-                    'email'       => $loginEmail,   // нэвтрэх имэйл (user-тай адил)
-                    'photo'       => $employee->photo,
-                    'is_active'   => true,
-                    'password'    => $hashedPassword, // нэвтрэх нууц үг (user-тай адил)
+                    'employee_id'    => $employee->id,
+                    'branch_id'      => $employee->branch_id,
+                    'name'           => $employee->full_name,
+                    'specialization' => $position->name,
+                    'phone'          => $employee->phone,
+                    'email'          => $loginEmail,
+                    'photo'          => $employee->photo,
+                    'is_active'      => true,
+                    'password'       => $hashedPassword,
                 ]);
                 if ($employee->branch_id) {
                     $doctor->branches()->sync([$employee->branch_id]);
@@ -375,10 +376,11 @@ class EmployeeController extends Controller
             $employee->refresh();
             if ($employee->doctor) {
                 $syncData = [
-                    'branch_id' => $employee->branch_id,
-                    'name'      => $employee->full_name,
-                    'phone'     => $employee->phone,
-                    'email'     => $employee->email,
+                    'branch_id'      => $employee->branch_id,
+                    'name'           => $employee->full_name,
+                    'specialization' => $employee->position?->name,
+                    'phone'          => $employee->phone,
+                    'email'          => $employee->email,
                 ];
                 if ($request->hasFile('photo')) {
                     $syncData['photo'] = $employee->photo;
