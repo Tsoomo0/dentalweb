@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     AlertTriangle, Bell, BookOpen, BriefcaseBusiness, CalendarClock,
     CalendarDays, CheckCheck, CheckCircle2, DollarSign, MessageSquare,
@@ -517,9 +518,23 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
         </div>
     );
 
+    const btnRef = useRef<HTMLDivElement>(null);
+
+    const dropdownStyle = useMemo(() => {
+        if (!btnRef.current) return {};
+        const rect = btnRef.current.getBoundingClientRect();
+        return {
+            position: 'fixed' as const,
+            top: rect.bottom + 8,
+            right: window.innerWidth - rect.right,
+            zIndex: 9999,
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+
     return (
         <div ref={ref} className="relative">
-            {bellBtn}
+            <div ref={btnRef}>{bellBtn}</div>
 
             {/* ══════════════════════════════════════════════════════════
                 MOBILE BOTTOM SHEET
@@ -626,8 +641,8 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
             {/* ══════════════════════════════════════════════════════════
                 DESKTOP DROPDOWN
             ══════════════════════════════════════════════════════════ */}
-            {open && !isMobile && (
-                <div className="absolute right-0 top-full mt-2 w-[400px] rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden">
+            {open && !isMobile && createPortal(
+                <div style={dropdownStyle} className="w-[400px] rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
 
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
@@ -650,7 +665,8 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
 
                     {/* List */}
                     <NotifList maxH="440px" />
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
