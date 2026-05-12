@@ -212,12 +212,27 @@ class ReceptionAppointmentController extends Controller
 
         $oldStatus = $appointment->status;
 
-        $appointment->update($request->only(
-            'patient_id', 'patient_name', 'patient_phone', 'patient_email',
+        $patientId = $request->patient_id ?? $appointment->patient_id;
+        if (!$patientId) {
+            $name      = $request->patient_name ?? $appointment->patient_name ?? '';
+            $nameParts = explode(' ', trim($name), 2);
+            $patient   = Patient::create([
+                'patient_number' => Patient::generateNumber(),
+                'last_name'      => $nameParts[0] ?? '',
+                'first_name'     => $nameParts[1] ?? '',
+                'phone'          => $request->patient_phone ?? $appointment->patient_phone ?? '',
+                'email'          => $request->patient_email ?? $appointment->patient_email,
+                'created_by'     => Auth::id(),
+            ]);
+            $patientId = $patient->id;
+        }
+
+        $appointment->update(array_merge($request->only(
+            'patient_name', 'patient_phone', 'patient_email',
             'doctor_id', 'branch_id', 'service', 'type',
             'appointment_date', 'appointment_time', 'appointment_time_end',
             'status', 'notes', 'admin_notes'
-        ));
+        ), ['patient_id' => $patientId]));
 
         // Статус confirmed болоход patient-д notification явуулна
         if ($oldStatus !== 'confirmed' && $appointment->status === 'confirmed') {
