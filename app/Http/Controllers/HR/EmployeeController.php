@@ -114,12 +114,13 @@ class EmployeeController extends Controller
             $loginEmail     = $request->email ?? $request->username . '@dental.mn';
 
             $user = User::create([
-                'name'     => $request->username,
-                'email'    => $loginEmail,
-                'password' => $hashedPassword,
-                'role_id'  => $role,
-                'phone'    => $request->phone,
-                'is_active'=> true,
+                'name'      => $request->username,
+                'email'     => $loginEmail,
+                'password'  => $hashedPassword,
+                'role_id'   => $role,
+                'phone'     => $request->phone,
+                'branch_id' => $request->branch_id,
+                'is_active' => true,
             ]);
 
             // 2. Зураг хадгалах
@@ -366,6 +367,9 @@ class EmployeeController extends Controller
                     ]);
                 }
             }
+
+            // Холбоотой User-ийн branch_id шинэчлэх
+            $employee->user?->update(['branch_id' => $request->branch_id]);
 
             // Холбоотой Doctor record шинэчлэх
             $employee->refresh();
