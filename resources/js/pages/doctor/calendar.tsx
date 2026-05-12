@@ -996,7 +996,7 @@ export default function DoctorDashboard({ doctor, appointments: initialApts, sen
                                                                 </span>
                                                                 {a.treatment_sent && (
                                                                     <span style={{ fontSize:10, fontWeight:700, borderRadius:99, padding:'3px 9px', background:'rgba(22,163,74,0.1)', color:'#16a34a' }}>
-                                                                        Эмчилгээ ✓
+                                                                        Үзлэг дууссан
                                                                     </span>
                                                                 )}
                                                             </div>
