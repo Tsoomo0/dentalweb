@@ -118,8 +118,11 @@ class PatientRegisterController extends Controller
             ]);
         }
 
-        Appointment::where('patient_email', $data['email'])
-            ->whereNull('patient_id')
+        Appointment::whereNull('patient_id')
+            ->where(fn($q) =>
+                $q->where('patient_email', $data['email'])
+                  ->orWhere('patient_phone', $data['phone'])
+            )
             ->update(['patient_id' => $patient->id]);
 
         Auth::login($user);
