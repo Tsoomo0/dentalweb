@@ -20,6 +20,7 @@ class DoctorPortalController extends Controller
 
         $todayAppointments = Appointment::where('doctor_id', $doctor->id)
             ->whereDate('appointment_date', $today)
+            ->with('treatmentRecord')
             ->orderBy('appointment_time')
             ->get()
             ->map(fn($a) => [
@@ -33,6 +34,7 @@ class DoctorPortalController extends Controller
                 'appointment_time'     => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
                 'appointment_time_end' => $a->appointment_time_end ? substr($a->appointment_time_end, 0, 5) : null,
                 'status'               => $a->status,
+                'treatment_sent'       => $a->treatmentRecord && in_array($a->treatmentRecord->payment_status, ['sent', 'partial', 'leasing', 'paid']),
             ]);
 
         $pendingAppointments = Appointment::where('doctor_id', $doctor->id)

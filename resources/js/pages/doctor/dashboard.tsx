@@ -18,6 +18,7 @@ interface TodayAppt {
     id: number; appointment_number: string; patient_name: string;
     patient_phone: string; appointment_time: string; appointment_time_end: string | null;
     service: string | null; type: 'online' | 'in_person'; status: string;
+    treatment_sent: boolean;
 }
 interface PendingAppt {
     id: number; appointment_number: string; patient_name: string;
@@ -91,7 +92,7 @@ function MobileDashboard({ stats, today_appointments, pending_appointments, week
     const dateShort    = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`;
     const greet        = greeting(now.getHours());
     const sortedToday  = [...today_appointments].sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-    const completedToday = sortedToday.filter(a => a.status === 'completed').length;
+    const completedToday = sortedToday.filter(a => a.status === 'completed' || a.treatment_sent).length;
     const progressPct    = sortedToday.length > 0 ? Math.round(completedToday / sortedToday.length * 100) : 0;
     const statusTotal    = Object.values(status_breakdown).reduce((s, v) => s + v, 0);
 
