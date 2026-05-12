@@ -212,18 +212,21 @@ class ReceptionAppointmentController extends Controller
 
         $oldStatus = $appointment->status;
 
-        $patientId = $request->patient_id ?? $appointment->patient_id;
+        $patientId = $request->filled('patient_id') ? (int) $request->patient_id : $appointment->patient_id;
         if (!$patientId) {
-            $name      = $request->patient_name ?? $appointment->patient_name ?? '';
+            $name      = $request->patient_name ?: $appointment->patient_name ?? '';
             $nameParts = explode(' ', trim($name), 2);
-            $patient   = Patient::create([
-                'patient_number' => Patient::generateNumber(),
-                'last_name'      => $nameParts[0] ?? '',
-                'first_name'     => $nameParts[1] ?? '',
-                'phone'          => $request->patient_phone ?? $appointment->patient_phone ?? '',
-                'email'          => $request->patient_email ?? $appointment->patient_email,
-                'created_by'     => Auth::id(),
-            ]);
+            $phone     = $request->patient_phone ?: $appointment->patient_phone ?? '';
+            $patient   = Patient::firstOrCreate(
+                ['phone' => $phone],
+                [
+                    'patient_number' => Patient::generateNumber(),
+                    'last_name'      => $nameParts[0] ?? '',
+                    'first_name'     => $nameParts[1] ?? '',
+                    'email'          => $request->patient_email ?: $appointment->patient_email,
+                    'created_by'     => Auth::id(),
+                ]
+            );
             $patientId = $patient->id;
         }
 
@@ -272,14 +275,16 @@ class ReceptionAppointmentController extends Controller
 
             if (!$appointment->patient_id) {
                 $nameParts = explode(' ', trim($appointment->patient_name ?? ''), 2);
-                $patient   = Patient::create([
-                    'patient_number' => Patient::generateNumber(),
-                    'last_name'      => $nameParts[0] ?? '',
-                    'first_name'     => $nameParts[1] ?? '',
-                    'phone'          => $appointment->patient_phone ?? '',
-                    'email'          => $appointment->patient_email,
-                    'created_by'     => Auth::id(),
-                ]);
+                $patient   = Patient::firstOrCreate(
+                    ['phone' => $appointment->patient_phone ?? ''],
+                    [
+                        'patient_number' => Patient::generateNumber(),
+                        'last_name'      => $nameParts[0] ?? '',
+                        'first_name'     => $nameParts[1] ?? '',
+                        'email'          => $appointment->patient_email,
+                        'created_by'     => Auth::id(),
+                    ]
+                );
                 $updateData['patient_id'] = $patient->id;
             }
         }
