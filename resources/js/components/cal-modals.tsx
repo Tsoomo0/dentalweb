@@ -114,7 +114,7 @@ export function AptFormModal({
         patient_email:        apt?.patient_email        ?? '',
         branch_id:            initBranch,
         doctor_id:            apt?.doctor_id ? String(apt.doctor_id) : initialDoctorId,
-        service:              apt?.service              ?? '',
+        service:              (apt?.service === 'Биечлэн үзлэг' ? '' : apt?.service) ?? '',
         type:                 apt?.type                 ?? 'in_person',
         appointment_date:     apt?.appointment_date     ?? date,
         appointment_time:     initTime,
