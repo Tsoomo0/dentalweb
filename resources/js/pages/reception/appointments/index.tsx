@@ -117,6 +117,7 @@ function computeColumns<T extends { appointment_time: string; appointment_time_e
     });
 }
 function doctorInitials(name: string)          { return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function shortDoctorName(name: string)         { const p = name.trim().split(/\s+/); return p.length >= 2 ? `${p[0][0]}.${p.slice(1).join(' ')}` : name; }
 
 
 /* ================================================================== */
@@ -1106,7 +1107,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                     }
                                                 </div>
                                                 <span className="text-foreground" style={{ flex:1, fontSize:14, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                                                    {d.name}
+                                                    {shortDoctorName(d.name)}
                                                 </span>
                                                 {dayCount > 0 && (
                                                     <span style={{
@@ -1229,7 +1230,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                 style={{ background: pal.bg }}>
                                                 {doctorInitials(d.name)}
                                             </div>
-                                            <span className="flex-1 truncate text-xs">{d.name}</span>
+                                            <span className="flex-1 truncate text-xs">{shortDoctorName(d.name)}</span>
                                             {count > 0 && (
                                                 <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
                                                     style={{ background: pal.light, color: pal.border }}>{count}</span>
@@ -1766,7 +1767,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                     {doctorInitials(d.name)}
                                                                 </div>
                                                             )}
-                                                            <p className="mt-1 w-full truncate text-center text-[11px] font-semibold">{d.name}</p>
+                                                            <p className="mt-1 w-full truncate text-center text-[11px] font-semibold">{shortDoctorName(d.name)}</p>
                                                             {d.specialization && <p className="w-full truncate text-center text-[10px] text-muted-foreground">{d.specialization}</p>}
                                                             {count > 0 && (
                                                                 <span className="mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-bold text-white"
