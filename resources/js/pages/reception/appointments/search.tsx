@@ -1,4 +1,4 @@
-import AppLayout from '@/layouts/app-layout';
+import ReceptionLayout from '@/layouts/reception-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
@@ -120,7 +120,7 @@ export default function ReceptionAppointmentsSearch({ appointments, creatorStats
     }
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <ReceptionLayout breadcrumbs={breadcrumbs}>
             <Head title="Цаг захиалга — Хайлт" />
 
             <div className="flex h-full flex-col gap-3 p-4">
@@ -435,6 +435,6 @@ export default function ReceptionAppointmentsSearch({ appointments, creatorStats
                     </div>
                 </div>
             </div>
-        </AppLayout>
+        </ReceptionLayout>
     );
 }
