@@ -325,7 +325,9 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
     useEffect(() => {
         if (isMobile) return;
         const h = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+            const inBtn      = ref.current?.contains(e.target as Node);
+            const inDropdown = dropdownRef.current?.contains(e.target as Node);
+            if (!inBtn && !inDropdown) setOpen(false);
         };
         document.addEventListener('mousedown', h);
         return () => document.removeEventListener('mousedown', h);
@@ -518,7 +520,8 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
         </div>
     );
 
-    const btnRef = useRef<HTMLDivElement>(null);
+    const btnRef      = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     const dropdownStyle = useMemo(() => {
         if (!btnRef.current) return {};
@@ -642,7 +645,7 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
                 DESKTOP DROPDOWN
             ══════════════════════════════════════════════════════════ */}
             {open && !isMobile && createPortal(
-                <div style={dropdownStyle} className="w-[400px] rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
+                <div ref={dropdownRef} style={dropdownStyle} className="w-[400px] rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
 
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
