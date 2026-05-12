@@ -1,0 +1,19 @@
+# .env файлдаа нэмэх утгууд
+# (yourdomain.mn-г өөрийн домэйнээр солино)
+
+BROADCAST_CONNECTION=reverb
+
+# Reverb server (server дотор хооронд)
+REVERB_APP_ID=dentalapp
+REVERB_APP_KEY=dental-reverb-key-2026
+REVERB_APP_SECRET=dental-reverb-secret-2026
+REVERB_HOST=127.0.0.1
+REVERB_PORT=8080
+REVERB_SCHEME=http
+
+# Vite (browser-с холбогдоход хэрэглэнэ)
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST=yourdomain.mn
+VITE_REVERB_PORT=443
+VITE_REVERB_SCHEME=https
+VITE_REVERB_WS_PORT=443

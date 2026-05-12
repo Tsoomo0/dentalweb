@@ -25,7 +25,7 @@ class SendAppointmentReminder implements ShouldQueue
 
     public function handle(): void
     {
-        $appointment = Appointment::with('doctor')->find($this->appointmentId);
+        $appointment = Appointment::with(['doctor', 'branch'])->find($this->appointmentId);
 
         if (! $appointment || ! $appointment->patient_email) {
             return;

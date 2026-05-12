@@ -12,6 +12,7 @@ interface PageProps {
     auth: { user?: { name: string } };
     gallery: GalleryItem[];
     categories: TreatmentCategory[];
+    [key: string]: unknown;
 }
 
 function GalleryCard({ item, delay = 0 }: { item: GalleryItem; delay?: number }) {

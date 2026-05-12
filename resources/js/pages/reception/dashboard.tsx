@@ -2,9 +2,10 @@ import ReceptionLayout from '@/layouts/reception-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
-    ArrowRight, Bell, Building2, CalendarCheck2, CalendarClock,
-    CheckCircle2, ChevronRight, Clock, MapPin, Phone,
-    Sparkles, TrendingUp, UserRound,
+    AlertCircle, ArrowRight, Banknote, Bell, Building2,
+    CalendarCheck2, CalendarClock, CheckCircle2, ChevronRight,
+    ClipboardList, Clock, CreditCard, MapPin, Phone,
+    Smartphone, Sparkles, TrendingUp, UserRound, Users, Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -21,7 +22,21 @@ interface PendingAppt {
     appointment_time: string; service: string | null; doctor_name: string | null;
 }
 interface Stats { today: number; pending: number; confirmed: number; total: number }
-interface Props { branch: BranchInfo | null; stats: Stats; today_appointments: TodayAppt[]; pending_appointments: PendingAppt[] }
+interface DailyStats {
+    today_revenue: number; today_outstanding: number;
+    today_cash: number; today_card: number; today_mobile: number; today_storepay: number;
+    today_patients: number; is_confirmed: boolean;
+    outstanding_total: number; outstanding_count: number;
+}
+interface TreatmentStats {
+    pending_count: number; partial_count: number; leasing_count: number; today_paid_amount: number;
+}
+interface PatientStats { total: number; new_this_month: number }
+interface Props {
+    branch: BranchInfo | null; stats: Stats;
+    today_appointments: TodayAppt[]; pending_appointments: PendingAppt[];
+    daily_stats: DailyStats; treatment_stats: TreatmentStats; patient_stats: PatientStats;
+}
 
 /* ─── Constants ──────────────────────────────────────── */
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Хяналтын самбар', href: '/reception/dashboard' }];
@@ -47,7 +62,7 @@ function hour(t: string) { return parseInt(t.split(':')[0], 10); }
 /* ════════════════════════════════════════════════════════
    Main component
 ════════════════════════════════════════════════════════ */
-export default function ReceptionDashboard({ branch, stats, today_appointments, pending_appointments }: Props) {
+export default function ReceptionDashboard({ branch, stats, today_appointments, pending_appointments, daily_stats, treatment_stats, patient_stats }: Props) {
     const { auth } = usePage<{ auth: { user: { name: string } | null } }>().props;
     const userName = auth.user?.name ?? '';
 
@@ -55,6 +70,14 @@ export default function ReceptionDashboard({ branch, stats, today_appointments, 
     const [now, setNow] = useState(() => new Date());
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(id);
+    }, []);
+
+    /* 15s data refresh */
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['stats', 'today_appointments', 'pending_appointments'] });
+        }, 15_000);
         return () => clearInterval(id);
     }, []);
 
@@ -361,9 +384,12 @@ export default function ReceptionDashboard({ branch, stats, today_appointments, 
                             </div>
                             <div className="p-3 space-y-1">
                                 {[
-                                    { label: 'Цаг захиалга нэмэх',     href: '/reception/appointments',                icon: CalendarClock,  color: 'text-blue-600 dark:text-blue-400',    bg: 'bg-blue-50 dark:bg-blue-950/30' },
-                                    { label: 'Өнөөдрийн захиалгууд',  href: `/reception/appointments?date=${todayDate}`, icon: CalendarCheck2, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
-                                    { label: 'Миний профайл',          href: '/reception/profile',                      icon: UserRound,      color: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-50 dark:bg-violet-950/30' },
+                                    { label: 'Цаг захиалга',          href: '/reception/appointments',                   icon: CalendarClock,  color: 'text-blue-600 dark:text-blue-400',      bg: 'bg-blue-50 dark:bg-blue-950/30' },
+                                    { label: 'Өнөөдрийн захиалга',    href: `/reception/appointments?date=${todayDate}`, icon: CalendarCheck2, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+                                    { label: 'Эмчилгээний төлбөр',    href: '/reception/treatment-payments',             icon: CreditCard,     color: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-50 dark:bg-amber-950/30' },
+                                    { label: 'Өвчтний карт',          href: '/reception/patients',                       icon: Users,          color: 'text-teal-600 dark:text-teal-400',      bg: 'bg-teal-50 dark:bg-teal-950/30' },
+                                    { label: 'Өдрийн тооцоо',         href: '/reception/daily-sheet',                    icon: ClipboardList,  color: 'text-indigo-600 dark:text-indigo-400',  bg: 'bg-indigo-50 dark:bg-indigo-950/30' },
+                                    { label: 'Миний профайл',         href: '/reception/profile',                        icon: UserRound,      color: 'text-violet-600 dark:text-violet-400',  bg: 'bg-violet-50 dark:bg-violet-950/30' },
                                 ].map(item => (
                                     <Link key={item.href} href={item.href}
                                         className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted/50 group">
@@ -377,6 +403,212 @@ export default function ReceptionDashboard({ branch, stats, today_appointments, 
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* ══ Bottom summary row ══════════════════════════════ */}
+                <div className="grid gap-5 lg:grid-cols-3">
+
+                    {/* ── Daily Sheet summary ── */}
+                    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-950/40">
+                                    <ClipboardList className="size-4 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold">Өдрийн тооцоо</p>
+                                    <p className="text-[11px] text-muted-foreground">Өнөөдрийн дүгнэлт</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {daily_stats.is_confirmed ? (
+                                    <span className="flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                                        <CheckCircle2 className="size-3" /> Баталгаажсан
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/30 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                                        <Clock className="size-3" /> Хүлээгдэж байна
+                                    </span>
+                                )}
+                                <Link href="/reception/daily-sheet"
+                                    className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors">
+                                    Нээх <ChevronRight className="size-3.5" />
+                                </Link>
+                            </div>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            {/* Revenue total */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Нийт орлого</span>
+                                <span className="text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">
+                                    {daily_stats.today_revenue.toLocaleString()}₮
+                                </span>
+                            </div>
+                            {/* Payment breakdown */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {[
+                                    { label: 'Мобайл',   value: daily_stats.today_mobile,   icon: Smartphone, color: 'text-blue-600 dark:text-blue-400',    bg: 'bg-blue-50 dark:bg-blue-950/20' },
+                                    { label: 'Карт',     value: daily_stats.today_card,     icon: CreditCard,  color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
+                                    { label: 'Бэлэн',    value: daily_stats.today_cash,     icon: Banknote,    color: 'text-teal-600 dark:text-teal-400',      bg: 'bg-teal-50 dark:bg-teal-950/20' },
+                                    { label: 'Storepay', value: daily_stats.today_storepay, icon: Wallet,      color: 'text-orange-600 dark:text-orange-400',  bg: 'bg-orange-50 dark:bg-orange-950/20' },
+                                ].map(item => (
+                                    <div key={item.label} className={`rounded-xl px-3 py-2 ${item.bg}`}>
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                            <item.icon className={`size-3 ${item.color}`} />
+                                            <span className="text-[10px] text-muted-foreground">{item.label}</span>
+                                        </div>
+                                        <p className={`text-sm font-bold tabular-nums ${item.color}`}>
+                                            {item.value > 0 ? item.value.toLocaleString() + '₮' : '—'}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                            {/* Outstanding */}
+                            {daily_stats.outstanding_count > 0 && (
+                                <div className="flex items-center gap-2 rounded-xl bg-yellow-50 dark:bg-yellow-950/20 px-3 py-2.5">
+                                    <AlertCircle className="size-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-300">Дутуу тооцоо</p>
+                                        <p className="text-[11px] text-yellow-600/70 dark:text-yellow-400/70">{daily_stats.outstanding_count} бичлэг</p>
+                                    </div>
+                                    <span className="text-sm font-black tabular-nums text-yellow-700 dark:text-yellow-400 shrink-0">
+                                        {daily_stats.outstanding_total.toLocaleString()}₮
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-3">
+                                <span>Өнөөдрийн үйлчлүүлэгч</span>
+                                <span className="font-semibold text-foreground">{daily_stats.today_patients} хүн</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Treatment payments summary ── */}
+                    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex size-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/40">
+                                    <CreditCard className="size-4 text-amber-600 dark:text-amber-400" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold">Эмчилгээний төлбөр</p>
+                                    <p className="text-[11px] text-muted-foreground">Төлбөрийн дүгнэлт</p>
+                                </div>
+                            </div>
+                            <Link href="/reception/treatment-payments"
+                                className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors">
+                                Нээх <ChevronRight className="size-3.5" />
+                            </Link>
+                        </div>
+                        <div className="p-5 space-y-3">
+                            {/* Today paid */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Өнөөдөр авсан</span>
+                                <span className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+                                    {treatment_stats.today_paid_amount > 0
+                                        ? treatment_stats.today_paid_amount.toLocaleString() + '₮'
+                                        : '—'}
+                                </span>
+                            </div>
+                            {/* Status breakdown */}
+                            <div className="space-y-2">
+                                {[
+                                    {
+                                        label: 'Хүлээгдэж буй',
+                                        value: treatment_stats.pending_count,
+                                        dot: 'bg-amber-400',
+                                        badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+                                        href: '/reception/treatment-payments',
+                                    },
+                                    {
+                                        label: 'Хэсэгчлэн төлсөн',
+                                        value: treatment_stats.partial_count,
+                                        dot: 'bg-blue-400',
+                                        badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+                                        href: '/reception/treatment-payments',
+                                    },
+                                    {
+                                        label: 'Хэсэгчилсэн төлөлт',
+                                        value: treatment_stats.leasing_count,
+                                        dot: 'bg-teal-400',
+                                        badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+                                        href: '/reception/treatment-payments',
+                                    },
+                                ].map(item => (
+                                    <Link key={item.label} href={item.href}
+                                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-muted/40 transition-colors group">
+                                        <div className={`size-2 rounded-full shrink-0 ${item.dot}`} />
+                                        <span className="flex-1 text-sm text-muted-foreground">{item.label}</span>
+                                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${item.badge}`}>
+                                            {item.value}
+                                        </span>
+                                    </Link>
+                                ))}
+                            </div>
+                            {treatment_stats.pending_count === 0 && treatment_stats.partial_count === 0 && treatment_stats.leasing_count === 0 && (
+                                <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+                                    <CheckCircle2 className="size-8 text-emerald-400/50" />
+                                    <p className="text-xs text-muted-foreground">Хүлээгдэж буй төлбөр байхгүй</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── Patient stats ── */}
+                    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex size-8 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-950/40">
+                                    <Users className="size-4 text-teal-600 dark:text-teal-400" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold">Өвчтний карт</p>
+                                    <p className="text-[11px] text-muted-foreground">Өвчтний статистик</p>
+                                </div>
+                            </div>
+                            <Link href="/reception/patients"
+                                className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors">
+                                Нээх <ChevronRight className="size-3.5" />
+                            </Link>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            {/* Total */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Нийт өвчтөн</span>
+                                <span className="text-3xl font-black tabular-nums text-teal-600 dark:text-teal-400">
+                                    {patient_stats.total.toLocaleString()}
+                                </span>
+                            </div>
+                            {/* New this month */}
+                            <div className="rounded-xl bg-teal-50 dark:bg-teal-950/20 px-4 py-3 flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-semibold text-teal-700 dark:text-teal-300">Энэ сард шинэ</p>
+                                    <p className="text-[11px] text-teal-600/70 dark:text-teal-400/70 mt-0.5">Бүртгэгдсэн өвчтөн</p>
+                                </div>
+                                <span className="text-2xl font-black tabular-nums text-teal-600 dark:text-teal-400">
+                                    +{patient_stats.new_this_month}
+                                </span>
+                            </div>
+                            {/* Actions */}
+                            <div className="space-y-1 border-t pt-3">
+                                {[
+                                    { label: 'Шинэ өвчтөн бүртгэх', href: '/reception/patients/create', icon: UserRound, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-950/30' },
+                                    { label: 'Бүх өвчтний жагсаалт', href: '/reception/patients',         icon: Users,     color: 'text-slate-600 dark:text-slate-400',  bg: 'bg-slate-50 dark:bg-slate-800/30' },
+                                    { label: 'Хэрэглэгч',            href: '/reception/patient-users',    icon: CheckCircle2, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/30' },
+                                ].map(item => (
+                                    <Link key={item.href} href={item.href}
+                                        className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 group">
+                                        <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${item.bg}`}>
+                                            <item.icon className={`size-3.5 ${item.color}`} />
+                                        </div>
+                                        <span className="text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</span>
+                                        <ChevronRight className="ml-auto size-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div className="h-2" />

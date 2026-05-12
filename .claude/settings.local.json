@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd c:\\\\Users\\\\Flawless\\\\Desktop\\\\dentalweb; $result = npx tsc --noEmit 2>&1; $result | Where-Object { $_ -match \"echo|daily-sheet\" })",
+      "Bash(mkdir \"c:\\\\Users\\\\Flawless\\\\Desktop\\\\dentalweb\\\\resources\\\\js\\\\pages\\\\hr\\\\exit-checklists\" 2>&1; echo done)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Flawless\\\\Desktop\\\\dentalweb\\\\app\\\\Models\" -File)",
+      "Bash(npx tsc *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Flawless\\Desktop\\dentalweb\\resources\\js\\pages\\hr"
+    ]
+  }
+}

@@ -5,6 +5,7 @@ import {
     CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
     Clock, Lock, Plus, Trash2, TrendingUp, Video, X, Zap,
 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { FormEvent, useMemo, useState } from 'react';
 
 /* ─── Types ─────────────────────────────────────────── */
@@ -171,6 +172,8 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
         return `${first.d.getDate()} ${MONTHS_MN[first.d.getMonth()]} – ${last.d.getDate()} ${MONTHS_MN[last.d.getMonth()]}`;
     })();
 
+    const isMobile = useIsMobile();
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Хяналтын самбар', href: '/doctor/dashboard' },
         { title: 'Онлайн цаг',      href: '/doctor/online-slots' },
@@ -190,6 +193,395 @@ export default function OnlineSlots({ slots, hasAccess }: Props) {
                             Танд онлайн цаг захиалга хэсэгт нэвтрэх эрх олгогдоогүй байна.
                             Дэлгэрэнгүй мэдээллийг системийн администраторт хандана уу.
                         </p>
+                    </div>
+                </div>
+            </DoctorLayout>
+        );
+    }
+
+    /* ══════════════════ MOBILE ══════════════════ */
+    if (isMobile) {
+        const RED = '#dc2626';
+        const inpStyle: React.CSSProperties = { width: '100%', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--background)', padding: '10px 12px', fontSize: 13, color: 'var(--foreground)', outline: 'none', boxSizing: 'border-box' };
+        return (
+            <DoctorLayout breadcrumbs={breadcrumbs}>
+                <Head title="Онлайн цаг" />
+
+                {/* ── Appointment detail modal (shared) ── */}
+                {activeSlot && (
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }} onClick={() => setActiveSlot(null)}>
+                        <div style={{ width: '100%', background: 'var(--card)', borderRadius: '28px 28px 0 0', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)', boxShadow: '0 -4px 40px rgba(0,0,0,0.2)', maxHeight: '85svh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ width: 40, height: 5, background: 'var(--border)', borderRadius: 99, margin: '12px auto 0' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px 12px', borderBottom: '1px solid var(--border)' }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 13, background: 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Clock style={{ width: 18, height: 18, color: '#f59e0b' }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>Захиалгын дэлгэрэнгүй</p>
+                                    <p style={{ margin: 0, fontSize: 11, color: 'var(--muted-foreground)' }}>{activeSlot.date} · {activeSlot.start_time}–{activeSlot.end_time}</p>
+                                </div>
+                                <button onClick={() => setActiveSlot(null)} style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <X style={{ width: 15, height: 15, color: 'var(--muted-foreground)' }} />
+                                </button>
+                            </div>
+                            <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                {activeSlot.appointment ? (
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--muted)', borderRadius: 12, padding: '10px 13px' }}>
+                                            <span style={{ fontSize: 12, color: 'var(--muted-foreground)', fontWeight: 500 }}>Захиалгын дугаар</span>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', fontFamily: 'monospace' }}>{activeSlot.appointment.appointment_number}</span>
+                                        </div>
+                                        <div style={{ background: 'var(--card)', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                            <p style={{ margin: 0, padding: '8px 13px', fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)' }}>Үйлчлүүлэгч</p>
+                                            {[
+                                                { label: 'Нэр', value: activeSlot.appointment.patient_name, link: null },
+                                                { label: 'Утас', value: activeSlot.appointment.patient_phone, link: `tel:${activeSlot.appointment.patient_phone}` },
+                                                ...(activeSlot.appointment.patient_email ? [{ label: 'И-мэйл', value: activeSlot.appointment.patient_email, link: null }] : []),
+                                            ].map((row, i, arr) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 13px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                                    <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{row.label}</span>
+                                                    {row.link ? <a href={row.link} style={{ fontSize: 13, fontWeight: 600, color: '#3b82f6', textDecoration: 'none' }}>{row.value}</a>
+                                                        : <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>{row.value}</span>}
+                                                </div>
+                                            ))}
+                                            {activeSlot.appointment.notes && (
+                                                <div style={{ padding: '11px 13px', borderTop: '1px solid var(--border)' }}>
+                                                    <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Тэмдэглэл</p>
+                                                    <p style={{ margin: 0, fontSize: 13, color: 'var(--foreground)' }}>{activeSlot.appointment.notes}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {activeSlot.appointment.meet_link ? (
+                                            <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 16, padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                                                <Video style={{ width: 28, height: 28, color: '#3b82f6' }} />
+                                                <a href={activeSlot.appointment.meet_link} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#2563eb', color: 'white', borderRadius: 14, padding: '12px 22px', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
+                                                    <Video style={{ width: 16, height: 16 }} /> Meet-д орох
+                                                </a>
+                                                <p style={{ margin: 0, fontSize: 11, color: '#3b82f6', wordBreak: 'break-all', textAlign: 'center' }}>{activeSlot.appointment.meet_link}</p>
+                                            </div>
+                                        ) : (
+                                            <div style={{ borderRadius: 12, border: '1px dashed var(--border)', padding: '12px', textAlign: 'center' }}>
+                                                <p style={{ margin: 0, fontSize: 12, color: 'var(--muted-foreground)' }}>Meet линк үүсгэгдээгүй байна{activeSlot.appointment.payment_status !== 'paid' ? ' (төлбөр төлөгдөөгүй)' : ''}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : <p style={{ textAlign: 'center', color: 'var(--muted-foreground)', fontSize: 13 }}>Мэдээлэл олдсонгүй</p>}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100svh', background: 'var(--background)' }}>
+
+                    {/* ══ HERO ══ */}
+                    <div style={{ background: 'linear-gradient(155deg,#0f172a 0%,#450a0a 55%,#0f172a 100%)', padding: '18px 16px 20px', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
+                        <div style={{ position: 'absolute', top: -30, right: -30, width: 130, height: 130, borderRadius: '50%', background: 'rgba(220,38,38,0.12)' }} />
+                        <div style={{ position: 'absolute', bottom: -20, left: -20, width: 90, height: 90, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+                        <div style={{ position: 'absolute', top: 20, left: '40%', width: 60, height: 60, borderRadius: '50%', background: 'rgba(220,38,38,0.08)' }} />
+
+                        {/* Title + add button */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, position: 'relative', zIndex: 1 }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                    <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(220,38,38,0.25)', border: '1px solid rgba(220,38,38,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Video style={{ width: 15, height: 15, color: '#fca5a5' }} />
+                                    </div>
+                                    <h1 style={{ margin: 0, color: 'white', fontSize: 20, fontWeight: 800, lineHeight: 1 }}>Онлайн цаг</h1>
+                                </div>
+                                <p style={{ margin: 0, color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>Онлайн зөвлөгөөний цагийн хуваарь</p>
+                            </div>
+                            <button onClick={() => setShowForm(v => !v)} style={{ background: showForm ? 'rgba(255,255,255,0.12)' : RED, color: 'white', border: showForm ? '1px solid rgba(255,255,255,0.2)' : 'none', borderRadius: 14, padding: '9px 15px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: showForm ? 'none' : '0 4px 18px rgba(220,38,38,0.45)', flexShrink: 0 }}>
+                                {showForm ? <X style={{ width: 15, height: 15 }} /> : <Plus style={{ width: 15, height: 15 }} />}
+                                {showForm ? 'Болих' : 'Нэмэх'}
+                            </button>
+                        </div>
+
+                        {/* Stat pills */}
+                        <div style={{ display: 'flex', gap: 8, position: 'relative', zIndex: 1 }}>
+                            {([
+                                { label: 'Нийт цаг', value: totalUpcoming, c: '#60a5fa', bg: 'rgba(96,165,250,0.14)', border: 'rgba(96,165,250,0.25)' },
+                                { label: 'Захиалагдсан', value: totalBooked, c: '#fbbf24', bg: 'rgba(251,191,36,0.14)', border: 'rgba(251,191,36,0.25)' },
+                                { label: 'Чөлөөтэй', value: totalFree, c: '#34d399', bg: 'rgba(52,211,153,0.14)', border: 'rgba(52,211,153,0.25)' },
+                            ] as const).map((s, i) => (
+                                <div key={i} style={{ flex: 1, background: s.bg, borderRadius: 16, padding: '11px 12px', border: `1px solid ${s.border}` }}>
+                                    <p style={{ margin: 0, fontSize: 22, fontWeight: 900, color: s.c, lineHeight: 1 }}>{s.value}</p>
+                                    <p style={{ margin: '4px 0 0', fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: 500, lineHeight: 1.2 }}>{s.label}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ══ WEEK STRIP ══ */}
+                    <div style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px 4px' }}>
+                            <button onClick={() => setWeekOffset(v => v - 1)} style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ChevronLeft style={{ width: 16, height: 16, color: 'var(--muted-foreground)' }} />
+                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{weekLabel}</span>
+                                {weekOffset !== 0 && (
+                                    <button onClick={() => setWeekOffset(0)} style={{ background: 'rgba(220,38,38,0.1)', color: RED, border: 'none', borderRadius: 8, padding: '3px 9px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Өнөөдөр</button>
+                                )}
+                            </div>
+                            <button onClick={() => setWeekOffset(v => v + 1)} style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ChevronRight style={{ width: 16, height: 16, color: 'var(--muted-foreground)' }} />
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', padding: '4px 10px 12px' }}>
+                            {weekDays.map(({ iso, day, dow, cnt, booked, isToday }) => {
+                                const free = cnt - booked;
+                                const isPast = iso < today;
+                                return (
+                                    <div key={iso} onClick={() => { if (!isPast && cnt === 0) { setShowForm(true); setData('date', iso); } }} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, opacity: isPast ? 0.35 : 1, cursor: !isPast && cnt === 0 ? 'pointer' : 'default' }}>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' as const }}>{dow}</span>
+                                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: isToday ? RED : cnt > 0 ? 'rgba(59,130,246,0.1)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: isToday ? 'white' : cnt > 0 ? '#3b82f6' : 'var(--foreground)', boxShadow: isToday ? '0 4px 14px rgba(220,38,38,0.4)' : 'none', transition: 'all 0.15s' }}>
+                                            {day}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, height: 10 }}>
+                                            {booked > 0 && <div style={{ width: 18, height: 3, borderRadius: 99, background: '#f59e0b' }} />}
+                                            {free > 0 && <div style={{ width: 18, height: 3, borderRadius: 99, background: '#10b981' }} />}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* ══ SCROLLABLE CONTENT ══ */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '14px', paddingBottom: 'calc(96px + env(safe-area-inset-bottom,0px))', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                        {/* ── ADD FORM ── */}
+                        {showForm && (
+                            <div style={{ background: 'var(--card)', borderRadius: 20, border: `2px solid rgba(220,38,38,0.2)`, padding: 16, display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 4px 20px rgba(220,38,38,0.08)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(220,38,38,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Plus style={{ width: 16, height: 16, color: RED }} />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>Шинэ онлайн цаг</p>
+                                        <p style={{ margin: 0, fontSize: 11, color: 'var(--muted-foreground)' }}>Огноо болон цагийг оруулна уу</p>
+                                    </div>
+                                    <button onClick={() => { setShowForm(false); reset(); }} style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <X style={{ width: 14, height: 14, color: 'var(--muted-foreground)' }} />
+                                    </button>
+                                </div>
+
+                                {/* Date */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Огноо <span style={{ color: RED }}>*</span></label>
+                                    <input type="date" value={data.date} min={today} onChange={e => setData('date', e.target.value)} style={inpStyle} />
+                                    {errors.date && <p style={{ margin: '4px 0 0', fontSize: 11, color: RED }}>{errors.date}</p>}
+                                </div>
+
+                                {/* Time inputs side-by-side */}
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Эхлэх цаг <span style={{ color: RED }}>*</span></label>
+                                        <input type="time" value={data.start_time} onChange={e => setData('start_time', e.target.value)} style={inpStyle} />
+                                        {errors.start_time && <p style={{ margin: '4px 0 0', fontSize: 11, color: RED }}>{errors.start_time}</p>}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>Дуусах цаг <span style={{ color: RED }}>*</span></label>
+                                        <input type="time" value={data.end_time} onChange={e => setData('end_time', e.target.value)} style={inpStyle} />
+                                        {errors.end_time && <p style={{ margin: '4px 0 0', fontSize: 11, color: RED }}>{errors.end_time}</p>}
+                                    </div>
+                                </div>
+
+                                {/* Quick presets */}
+                                <div>
+                                    <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' as const, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                        <Zap style={{ width: 12, height: 12 }} /> Хурдан сонголт
+                                    </p>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                                        {PRESETS.map(p => (
+                                            <button key={p.mins} type="button" onClick={() => applyPreset(p.mins)} disabled={!data.start_time} style={{ background: 'var(--muted)', color: 'var(--muted-foreground)', border: '1px solid var(--border)', borderRadius: 10, padding: '7px 13px', fontSize: 12, fontWeight: 700, cursor: data.start_time ? 'pointer' : 'not-allowed', opacity: data.start_time ? 1 : 0.4, transition: 'all 0.15s' }}>
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Duration preview */}
+                                {data.start_time && data.end_time && (() => {
+                                    const { text, mins } = duration(data.start_time, data.end_time);
+                                    const startF = timeFraction(data.start_time);
+                                    const endF   = timeFraction(data.end_time);
+                                    if (mins <= 0) return null;
+                                    return (
+                                        <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                                    <Clock style={{ width: 15, height: 15, color: '#3b82f6' }} />
+                                                    <span style={{ fontSize: 14, fontWeight: 800, color: '#3b82f6' }}>{data.start_time} – {data.end_time}</span>
+                                                </div>
+                                                <span style={{ background: 'rgba(59,130,246,0.12)', color: '#3b82f6', borderRadius: 999, padding: '4px 10px', fontSize: 12, fontWeight: 800 }}>{text}</span>
+                                            </div>
+                                            <div style={{ height: 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden', position: 'relative' }}>
+                                                <div style={{ position: 'absolute', top: 0, height: '100%', borderRadius: 99, background: 'linear-gradient(90deg,#3b82f6,#6366f1)', left: `${startF * 100}%`, width: `${Math.max(1, (endF - startF) * 100)}%` }} />
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--muted-foreground)' }}>
+                                                <span>07:00</span><span>14:30</span><span>22:00</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Submit */}
+                                <div style={{ display: 'flex', gap: 8, paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+                                    <button type="button" onClick={(e) => submit(e as unknown as FormEvent)} disabled={processing} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: RED, color: 'white', border: 'none', borderRadius: 14, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: processing ? 0.6 : 1, boxShadow: '0 4px 14px rgba(220,38,38,0.35)' }}>
+                                        {processing ? <span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /> : <Plus style={{ width: 16, height: 16 }} />}
+                                        {processing ? 'Хадгалж байна…' : 'Нэмэх'}
+                                    </button>
+                                    <button type="button" onClick={() => { setShowForm(false); reset(); }} style={{ flex: 1, background: 'var(--muted)', color: 'var(--muted-foreground)', border: 'none', borderRadius: 14, padding: '13px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Болих</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── UPCOMING SLOTS ── */}
+                        {upcoming.length > 0 ? (
+                            <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <CalendarDays style={{ width: 15, height: 15, color: RED }} />
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>Ирэх цагуудын хуваарь</span>
+                                    <span style={{ marginLeft: 'auto', background: 'rgba(220,38,38,0.1)', color: RED, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{totalUpcoming} цаг · {upcoming.length} өдөр</span>
+                                </div>
+                                {upcoming.map(([date, daySlots]) => {
+                                    const fd      = formatFull(date);
+                                    const sorted  = [...daySlots].sort((a, b) => a.start_time.localeCompare(b.start_time));
+                                    const dayBook = daySlots.filter(s => s.is_booked).length;
+                                    const dayFree = daySlots.length - dayBook;
+                                    const fillPct = daySlots.length > 0 ? Math.round(dayBook / daySlots.length * 100) : 0;
+                                    return (
+                                        <div key={date} style={{ background: 'var(--card)', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                                            {/* Day header */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderBottom: '1px solid var(--border)', background: 'var(--muted)' }}>
+                                                <div style={{ width: 46, height: 46, borderRadius: 14, background: 'linear-gradient(145deg,#ef4444,#b91c1c)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(220,38,38,0.3)' }}>
+                                                    <span style={{ fontSize: 7, fontWeight: 800, color: 'rgba(255,200,200,0.85)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{fd.weekday.slice(0,3)}</span>
+                                                    <span style={{ fontSize: 19, fontWeight: 900, color: 'white', lineHeight: 1 }}>{fd.day}</span>
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>{fd.weekday}, {fd.day} {fd.month}</p>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5 }}>
+                                                        <div style={{ flex: 1, height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}>
+                                                            <div style={{ height: '100%', width: `${fillPct}%`, background: 'linear-gradient(90deg,#f59e0b,#f97316)', borderRadius: 99, transition: 'width 0.3s ease' }} />
+                                                        </div>
+                                                        <span style={{ fontSize: 11, color: 'var(--muted-foreground)', fontWeight: 600, flexShrink: 0 }}>{fillPct}%</span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                                                    {dayBook > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(245,158,11,0.12)', color: '#d97706', borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 700 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />{dayBook}</span>}
+                                                    {dayFree > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(16,185,129,0.1)', color: '#059669', borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 700 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />{dayFree}</span>}
+                                                </div>
+                                            </div>
+                                            {/* Slot rows */}
+                                            <div>
+                                                {sorted.map((slot, idx) => {
+                                                    const { text: durText, mins: durMins } = duration(slot.start_time, slot.end_time);
+                                                    const startF = timeFraction(slot.start_time);
+                                                    const endF   = timeFraction(slot.end_time);
+                                                    const isBooked = slot.is_booked;
+                                                    const accentColor = isBooked ? '#f59e0b' : '#10b981';
+                                                    return (
+                                                        <div key={slot.id} onClick={() => isBooked && setActiveSlot(slot)} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 15px', borderBottom: idx < sorted.length - 1 ? '1px solid var(--border)' : 'none', position: 'relative', cursor: isBooked ? 'pointer' : 'default', background: isBooked ? 'rgba(245,158,11,0.02)' : 'transparent' }}>
+                                                            {/* left accent */}
+                                                            <div style={{ position: 'absolute', left: 0, top: 10, bottom: 10, width: 4, borderRadius: 99, background: accentColor }} />
+                                                            {/* icon */}
+                                                            <div style={{ width: 42, height: 42, borderRadius: 13, background: isBooked ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)', border: `1px solid ${accentColor}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                <Clock style={{ width: 18, height: 18, color: accentColor }} />
+                                                            </div>
+                                                            {/* time info */}
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <p style={{ margin: 0, fontSize: 17, fontWeight: 900, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums' }}>
+                                                                    {slot.start_time} <span style={{ color: 'var(--muted-foreground)', fontWeight: 300 }}>–</span> {slot.end_time}
+                                                                </p>
+                                                                {durText && (
+                                                                    <div style={{ marginTop: 5 }}>
+                                                                        <div style={{ height: 3, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden', marginBottom: 3 }}>
+                                                                            <div style={{ height: '100%', background: accentColor, borderRadius: 99, marginLeft: `${startF * 100}%`, width: `${Math.max(2, (endF - startF) * 100)}%` }} />
+                                                                        </div>
+                                                                        <span style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{durText}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {/* right side */}
+                                                            {isBooked ? (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 999, padding: '6px 11px', flexShrink: 0 }}>
+                                                                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b' }} />
+                                                                    <span style={{ fontSize: 11, fontWeight: 700, color: '#d97706' }}>Захиалагдсан</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 999, padding: '6px 10px' }}>
+                                                                        <CheckCircle2 style={{ width: 12, height: 12, color: '#10b981' }} />
+                                                                        <span style={{ fontSize: 11, fontWeight: 700, color: '#059669' }}>Чөлөөтэй</span>
+                                                                    </div>
+                                                                    <button onClick={e => { e.stopPropagation(); deleteSlot(slot.id); }} disabled={deletingId === slot.id} style={{ width: 34, height: 34, borderRadius: 11, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: deletingId === slot.id ? 0.5 : 1 }}>
+                                                                        {deletingId === slot.id
+                                                                            ? <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(239,68,68,0.3)', borderTopColor: '#ef4444', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                                                                            : <Trash2 style={{ width: 14, height: 14, color: '#ef4444' }} />}
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </>
+                        ) : (
+                            /* ── Empty state ── */
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--card)', borderRadius: 24, border: '2px dashed var(--border)', padding: '48px 24px', textAlign: 'center' }}>
+                                <div style={{ width: 72, height: 72, borderRadius: 24, background: 'linear-gradient(135deg,rgba(59,130,246,0.12),rgba(99,102,241,0.12))', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                                    <Video style={{ width: 32, height: 32, color: '#3b82f6' }} />
+                                </div>
+                                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>Онлайн цаг байхгүй байна</p>
+                                <p style={{ margin: '6px 0 20px', fontSize: 13, color: 'var(--muted-foreground)', lineHeight: 1.5, maxWidth: 260 }}>Өвчтөнүүдэд онлайн зөвлөгөө авах боломж олгохын тулд цагаа нэмэх хэрэгтэй</p>
+                                <button onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: RED, color: 'white', border: 'none', borderRadius: 14, padding: '13px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(220,38,38,0.35)' }}>
+                                    <Plus style={{ width: 16, height: 16 }} /> Эхний цагаа нэмэх
+                                </button>
+                            </div>
+                        )}
+
+                        {/* ── PAST SLOTS ── */}
+                        {past.length > 0 && (
+                            <div style={{ background: 'var(--card)', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                <button onClick={() => setShowPast(v => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--muted-foreground)' }}>
+                                        <Clock style={{ width: 15, height: 15 }} />
+                                        Өнгөрсөн цагуудын түүх
+                                        <span style={{ background: 'var(--muted)', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{past.reduce((s, [, a]) => s + a.length, 0)}</span>
+                                    </span>
+                                    <ChevronDown style={{ width: 16, height: 16, color: 'var(--muted-foreground)', transform: showPast ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                                </button>
+                                {showPast && (
+                                    <div style={{ borderTop: '1px solid var(--border)' }}>
+                                        {past.map(([date, daySlots]) => {
+                                            const fd = formatFull(date);
+                                            return (
+                                                <div key={date} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', background: 'var(--muted)' }}>
+                                                        <div style={{ width: 28, height: 28, borderRadius: 9, background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: 'var(--muted-foreground)', flexShrink: 0 }}>{fd.day}</div>
+                                                        <p style={{ margin: 0, flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--muted-foreground)' }}>{fd.weekday}, {fd.day} {fd.month}</p>
+                                                        <span style={{ background: 'var(--background)', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)' }}>{daySlots.length} цаг</span>
+                                                    </div>
+                                                    <div style={{ opacity: 0.5 }}>
+                                                        {[...daySlots].sort((a, b) => a.start_time.localeCompare(b.start_time)).map((slot, i, arr) => (
+                                                            <div key={slot.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderTop: '1px solid var(--border)' }}>
+                                                                <Clock style={{ width: 13, height: 13, color: 'var(--muted-foreground)', flexShrink: 0 }} />
+                                                                <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{slot.start_time} – {slot.end_time}</span>
+                                                                <span style={{ fontSize: 11, fontWeight: 600, color: slot.is_booked ? '#d97706' : 'var(--muted-foreground)' }}>{slot.is_booked ? 'Захиалагдсан' : 'Хэрэглэгдээгүй'}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </DoctorLayout>

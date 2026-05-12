@@ -159,9 +159,9 @@ export default function AppointmentsSearch({ appointments, creatorStats, doctors
                             {props.flash.success}
                         </span>
                     )}
-                    {appointments.length > 0 && (
+                    {appointments.data.length > 0 && (
                         <span className="ml-auto rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                            {appointments.length} үр дүн
+                            {appointments.total} үр дүн
                         </span>
                     )}
                 </div>

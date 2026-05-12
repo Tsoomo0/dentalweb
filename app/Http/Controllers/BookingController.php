@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\Branch;
 use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\Setting;
 use App\Models\Treatment;
 use App\Models\User;
@@ -54,18 +55,34 @@ class BookingController extends Controller
             return response()->json([]);
         }
 
+        // Эхлээд Patient хүснэгтээс хайна — patient_id авах боломжтой
+        $patient = Patient::where('phone', $phone)
+            ->orWhere('phone2', $phone)
+            ->orderByDesc('created_at')
+            ->first(['id', 'last_name', 'first_name', 'email']);
+
+        if ($patient) {
+            return response()->json([
+                'patient_id' => $patient->id,
+                'name'       => $patient->last_name . ' ' . $patient->first_name,
+                'email'      => $patient->email ?? '',
+            ]);
+        }
+
+        // Patient олдохгүй бол appointment хүснэгтээс нэр/имэйл авна
         $apt = Appointment::where('patient_phone', $phone)
             ->whereNotNull('patient_name')
             ->orderByDesc('created_at')
-            ->first(['patient_name', 'patient_email']);
+            ->first(['patient_name', 'patient_email', 'patient_id']);
 
         if (!$apt) {
             return response()->json([]);
         }
 
         return response()->json([
-            'name'  => $apt->patient_name,
-            'email' => $apt->patient_email ?? '',
+            'patient_id' => $apt->patient_id,
+            'name'       => $apt->patient_name,
+            'email'      => $apt->patient_email ?? '',
         ]);
     }
 
@@ -129,11 +146,21 @@ class BookingController extends Controller
             $doctor->update(['online_slots' => $slots]);
         }
 
+        // Email-тай portal хэрэглэгч байвал patient_id-г урьдчилан тодорхойлно
+        $linkedPatientId = null;
+        $portalUser = User::where('email', $request->patient_email)
+            ->whereHas('role', fn($q) => $q->where('name', 'patient'))
+            ->first();
+        if ($portalUser) {
+            $linkedPatientId = $portalUser->patient?->id;
+        }
+
         $appointment = Appointment::create([
             'appointment_number'   => Appointment::generateNumber(),
             'patient_name'         => $request->patient_name,
             'patient_phone'        => $request->patient_phone,
             'patient_email'        => $request->patient_email,
+            'patient_id'           => $linkedPatientId,
             'doctor_id'            => $request->doctor_id,
             'branch_id'            => $request->branch_id ?: $doctor?->branch_id,
             'service'              => 'Онлайн зөвлөгөө',

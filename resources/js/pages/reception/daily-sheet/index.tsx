@@ -14,6 +14,7 @@ interface AuthUser  { id: number; name: string }
 interface Entry {
     id?: number;
     is_mine: boolean;
+    source?: string | null;
     receptionist_name: string | null;
     patient_name: string;
     gender: string;
@@ -26,6 +27,7 @@ interface Entry {
     storepay_amount: number;
     total_amount: number;
     outstanding_amount: number;
+    outstanding_paid_at?: string | null;
     doctor_id: number | null;
     doctor_name?: string | null;
 }
@@ -78,8 +80,8 @@ function blank(authUser: AuthUser): Entry {
         storepay_amount: 0, total_amount: 0, outstanding_amount: 0, doctor_id: null,
     };
 }
-function calcTotal(e: Pick<Entry,'mobile_amount'|'card_amount'|'cash_amount'|'storepay_amount'|'discount'>): number {
-    return Math.max(0, e.mobile_amount + e.card_amount + e.cash_amount + e.storepay_amount - e.discount);
+function calcTotal(e: Pick<Entry,'mobile_amount'|'card_amount'|'cash_amount'|'storepay_amount'>): number {
+    return e.mobile_amount + e.card_amount + e.cash_amount + e.storepay_amount;
 }
 function parseNum(s: string) {
     const v = parseInt(s.replace(/[^0-9]/g, ''), 10);
@@ -100,6 +102,13 @@ function matchesSearch(e: Entry, q: string): boolean {
     const lq = q.toLowerCase();
     return [e.patient_name, e.diagnosis, e.appointment_number, e.doctor_name, e.receptionist_name]
         .some(v => v?.toLowerCase().includes(lq));
+}
+
+function shortDoctorName(name: string | null | undefined): string {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    return parts[0][0] + '.' + parts.slice(1).join(' ');
 }
 
 /* ------------------------------------------------------------------ */
@@ -346,15 +355,21 @@ function Row({
             <td className={`${B} p-0 bg-blue-50/40 dark:bg-blue-900/10`}>
                 <NumCell value={entry.total_amount} readOnly cls="text-blue-700 dark:text-blue-400 font-semibold" />
             </td>
-            <td className={`${B} p-0 bg-yellow-50/50 dark:bg-yellow-900/10`}>
-                <NumCell value={entry.outstanding_amount} readOnly={!editable}
-                    cls="text-yellow-700 dark:text-yellow-400 font-semibold"
-                    onChange={v => upd({ outstanding_amount: v })} />
+            <td className={`${B} p-0 ${entry.outstanding_paid_at ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-yellow-50/50 dark:bg-yellow-900/10'}`}>
+                {entry.outstanding_paid_at ? (
+                    <div className="w-full h-8 flex items-center justify-end px-1.5 text-xs tabular-nums text-green-600 dark:text-green-400 font-semibold line-through opacity-60">
+                        {entry.outstanding_amount > 0 ? entry.outstanding_amount.toLocaleString() : ''}
+                    </div>
+                ) : (
+                    <NumCell value={entry.outstanding_amount} readOnly={!editable}
+                        cls="text-yellow-700 dark:text-yellow-400 font-semibold"
+                        onChange={v => upd({ outstanding_amount: v })} />
+                )}
             </td>
             <td className={`${B} p-0`}>
                 {!editable
                     ? <div className="h-8 flex items-center px-1.5 text-xs text-gray-700 dark:text-gray-300 overflow-hidden">
-                        <span className="truncate">{entry.doctor_name ?? (doctors.find(d => d.id === entry.doctor_id)?.name ?? '')}</span>
+                        <span className="truncate">{shortDoctorName(entry.doctor_name ?? doctors.find(d => d.id === entry.doctor_id)?.name)}</span>
                       </div>
                     : <select value={entry.doctor_id ?? ''}
                         onChange={e => {
@@ -363,7 +378,7 @@ function Row({
                         }}
                         className="w-full h-8 text-xs px-1 bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20 dark:bg-gray-900 cursor-pointer">
                         <option value="">—</option>
-                        {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        {doctors.map(d => <option key={d.id} value={d.id}>{shortDoctorName(d.name)}</option>)}
                       </select>
                 }
             </td>
@@ -392,11 +407,12 @@ export default function DailySheetIndex({ sheet, date, doctors, treatments, auth
     const isConfirmed = sheet?.is_confirmed ?? false;
 
     const [myRows, setMyRows] = useState<Entry[]>(() => {
-        const saved = sheet?.entries.filter(e => e.is_mine) ?? [];
+        const saved = sheet?.entries.filter(e => e.is_mine && !e.source) ?? [];
         return saved.length ? saved.map(e => ({ ...e })) : [blank(auth_user)];
     });
 
-    const otherRows: Entry[] = sheet?.entries.filter(e => !e.is_mine) ?? [];
+    const otherRows: Entry[] = sheet?.entries.filter(e => !e.is_mine && !e.source) ?? [];
+    const sourceRows: Entry[] = sheet?.entries.filter(e => !!e.source) ?? [];
 
     useEffect(() => {
         if (isConfirmed) return;
@@ -468,7 +484,7 @@ export default function DailySheetIndex({ sheet, date, doctors, treatments, auth
     const isSearching = searchQuery.trim().length > 0;
 
     /* ── Totals (always from full rows, not filtered) ── */
-    const allRows = [...myRows, ...otherRows];
+    const allRows = [...myRows, ...otherRows, ...sourceRows];
     const T = {
         discount:    allRows.reduce((s,e)=>s+e.discount,0),
         mobile:      allRows.reduce((s,e)=>s+e.mobile_amount,0),
@@ -486,16 +502,6 @@ export default function DailySheetIndex({ sheet, date, doctors, treatments, auth
         setConfirming(true);
         router.post('/reception/daily-sheet/submit', { date },
             { onFinish: () => setConfirming(false), preserveScroll: true });
-    };
-
-    /* ── Pay outstanding ── */
-    const [payingId, setPayingId] = useState<number | null>(null);
-    const handlePayOutstanding = (id: number) => {
-        setPayingId(id);
-        router.post(`/reception/daily-sheet/pay-outstanding/${id}`, {}, {
-            preserveScroll: true,
-            onFinish: () => setPayingId(null),
-        });
     };
 
     /* ── 7 хоног хэтэрсэн анхааруулга ── */
@@ -529,8 +535,8 @@ export default function DailySheetIndex({ sheet, date, doctors, treatments, auth
                     <AlertCircle className="size-4 text-red-500 mt-0.5 shrink-0" />
                     <div className="flex-1 text-sm text-red-700 dark:text-red-300">
                         <span className="font-semibold">Анхааруулга:</span>{' '}
-                        Дутуу тооцоо байгаа тул гүйцээж авна уу.{' '}
-                        {overdueMyEntries.length} үйлчлүүлэгчийн тооцоо 7 хоногоос дээш хугацаанд хэтэрсэн байна.
+                        {overdueMyEntries.length} үйлчлүүлэгчийн тооцоо 7 хоногоос дээш хугацаанд хэтэрсэн байна.{' '}
+                        <a href="/reception/outstanding" className="underline font-semibold hover:opacity-80">Дутуу тооцоо харах →</a>
                     </div>
                     <button onClick={() => {
                             setShowOverdueNotif(false);
@@ -604,7 +610,7 @@ export default function DailySheetIndex({ sheet, date, doctors, treatments, auth
                             <col />                              {/* Үйлчлүүлэгч — уян */}
                             <col style={{ width: 50 }} />        {/* Хүйс */}
                             <col />                              {/* Оношилгоо/Эмчилгээ — уян */}
-                            <col style={{ width: 64 }} />        {/* Дугаар */}
+                            <col style={{ width: 96 }} />        {/* Дугаар */}
                             <col style={{ width: 78 }} />        {/* Хөнгөлөлт */}
                             <col style={{ width: 82 }} />        {/* Мобайл */}
                             <col style={{ width: 82 }} />        {/* Карт */}
@@ -662,6 +668,18 @@ export default function DailySheetIndex({ sheet, date, doctors, treatments, auth
                                     isLast={false}
                                 />
                             ))}
+                            {/* Дутуу тооцоо авсан мөрүүд — read-only, auto-generated */}
+                            {sourceRows.map((e, i) => (
+                                <Row key={`src${i}`}
+                                    entry={{ ...e, is_mine: false }}
+                                    rowNum={filteredMyRows.length + filteredOtherRows.length + i + 1}
+                                    editIdx={i}
+                                    doctors={doctors}
+                                    authUser={auth_user}
+                                    isConfirmed={true}
+                                    isLast={false}
+                                />
+                            ))}
                             {isSearching && filteredMyRows.length === 0 && filteredOtherRows.length === 0 && (
                                 <tr>
                                     <td colSpan={15} className="border border-gray-200 dark:border-gray-700 px-4 py-6 text-center text-gray-400 text-xs">
@@ -713,73 +731,6 @@ export default function DailySheetIndex({ sheet, date, doctors, treatments, auth
                     ))}
                 </div>
 
-                {/* Дутуу тооцооны жагсаалт */}
-                {outstanding_entries.length > 0 && (
-                    <div className="mt-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Дутуу тооцоо</h3>
-                            <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700 px-2 py-0.5 rounded-full font-medium">
-                                {outstanding_entries.length} бичлэг
-                            </span>
-                            {overdueMyEntries.length > 0 && (
-                                <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 px-2 py-0.5 rounded-full font-medium">
-                                    {overdueMyEntries.length} хэтэрсэн
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="overflow-x-auto rounded-lg border border-yellow-200 dark:border-yellow-800 shadow-sm">
-                            <table className="w-full text-xs border-collapse" style={{ minWidth: 700 }}>
-                                <thead>
-                                    <tr className="bg-yellow-50 dark:bg-yellow-900/20 text-gray-700 dark:text-gray-300">
-                                        <th className="border border-yellow-200 dark:border-yellow-800 px-2 py-2 text-left" style={{ minWidth: 90 }}>Огноо</th>
-                                        <th className="border border-yellow-200 dark:border-yellow-800 px-2 py-2 text-left" style={{ minWidth: 110 }}>Үйлчлүүлэгч</th>
-                                        <th className="border border-yellow-200 dark:border-yellow-800 px-2 py-2 text-left" style={{ minWidth: 120 }}>Оношилгоо/Эмчилгээ</th>
-                                        <th className="border border-yellow-200 dark:border-yellow-800 px-2 py-2 text-right" style={{ minWidth: 90 }}>Дутуу дүн</th>
-                                        <th className="border border-yellow-200 dark:border-yellow-800 px-2 py-2 text-center" style={{ minWidth: 60 }}>Хоног</th>
-                                        <th className="border border-yellow-200 dark:border-yellow-800 px-2 py-2 text-left" style={{ minWidth: 80 }}>Ресепшн</th>
-                                        <th className="border border-yellow-200 dark:border-yellow-800 px-2 py-2 text-left" style={{ minWidth: 80 }}>Эмч</th>
-                                        <th className="border border-yellow-200 dark:border-yellow-800 px-2 py-2 text-center" style={{ minWidth: 80 }}>Төлөлт</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {outstanding_entries.map((e, idx) => {
-                                        const overdue = e.days_since >= 7;
-                                        const rowBg  = overdue
-                                            ? 'bg-red-50 dark:bg-red-900/10'
-                                            : idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-yellow-50/40 dark:bg-yellow-900/5';
-                                        const cellText = overdue ? 'text-red-700 dark:text-red-400' : 'text-gray-700 dark:text-gray-300';
-                                        const BO = `border ${overdue ? 'border-red-200 dark:border-red-800' : 'border-yellow-200 dark:border-yellow-800'}`;
-                                        return (
-                                            <tr key={e.id} className={rowBg}>
-                                                <td className={`${BO} px-2 py-1.5 ${cellText} ${overdue ? 'font-semibold' : ''}`}>{e.date}</td>
-                                                <td className={`${BO} px-2 py-1.5 ${cellText}`}>{e.patient_name ?? '—'}</td>
-                                                <td className={`${BO} px-2 py-1.5 text-gray-500 dark:text-gray-400`}>{e.diagnosis ?? '—'}</td>
-                                                <td className={`${BO} px-2 py-1.5 text-right font-semibold tabular-nums ${overdue ? 'text-red-600 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
-                                                    {e.outstanding_amount.toLocaleString()}₮
-                                                </td>
-                                                <td className={`${BO} px-2 py-1.5 text-center font-semibold ${overdue ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
-                                                    {e.days_since}
-                                                </td>
-                                                <td className={`${BO} px-2 py-1.5 text-gray-500 dark:text-gray-400`}>{e.receptionist_name ?? '—'}</td>
-                                                <td className={`${BO} px-2 py-1.5 text-gray-500 dark:text-gray-400`}>{e.doctor_name ?? '—'}</td>
-                                                <td className={`${BO} px-2 py-1.5 text-center`}>
-                                                    <button
-                                                        onClick={() => handlePayOutstanding(e.id)}
-                                                        disabled={payingId === e.id}
-                                                        className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                                                        <CheckCircle2 className="size-3" />
-                                                        {payingId === e.id ? '...' : 'Төлсөн'}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
             </div>
         </ReceptionLayout>
     );

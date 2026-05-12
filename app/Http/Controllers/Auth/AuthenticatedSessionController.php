@@ -4,10 +4,11 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Services\AuditService;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -25,50 +26,61 @@ class AuthenticatedSessionController extends Controller
 
     public function store(LoginRequest $request): RedirectResponse
     {
-        // Эхлээд doctor guard-аар нэвтрэх оролдлого
-        if (Auth::guard('doctor')->attempt(['email' => $request->email, 'password' => $request->password], $request->boolean('remember'))) {
+        // Rate limit шалгах
+        $request->ensureIsNotRateLimited();
+
+        $credentials = ['email' => $request->email, 'password' => $request->password];
+
+        // ── Doctor guard ──────────────────────────────────────────────────────
+        if (Auth::guard('doctor')->validate($credentials)) {
+            RateLimiter::clear($request->throttleKey());
+            RateLimiter::clear($request->ipThrottleKey());
+
+            $doctor = Auth::guard('doctor')->getLastAttempted();
+            Auth::guard('doctor')->login($doctor, $request->boolean('remember'));
             $request->session()->regenerate();
-            AuditService::log('login', Auth::guard('doctor')->user(), null, null, 'Эмч нэвтэрсэн');
-            return redirect()->route('doctor.dashboard');
+            return $doctor->employee_id
+                ? redirect()->route('portal.select')
+                : redirect()->route('doctor.dashboard');
         }
 
-        // User байгаа эсэхийг шалгах
-        $user = \App\Models\User::where('email', $request->email)->first();
+        // ── Web guard ─────────────────────────────────────────────────────────
+        if (! Auth::guard('web')->validate($credentials)) {
+            RateLimiter::hit($request->throttleKey(), 900);
+            RateLimiter::hit($request->ipThrottleKey(), 60);
 
-        if (!$user) {
+            $user = User::where('email', $request->email)->first();
+            if ($user) {
+                $request->sendFailedLoginWarning($user->email);
+            }
+
             throw ValidationException::withMessages([
-                'email' => ['Бүртгэлгүй мэйл хаяг байна.'],
+                'email' => [! $user ? 'Бүртгэлгүй мэйл хаяг байна.' : 'Имэйл эсвэл нууц үг буруу байна.'],
             ]);
         }
 
-        // Admin нэвтрэх
-        $request->authenticate();
+        RateLimiter::clear($request->throttleKey());
+        RateLimiter::clear($request->ipThrottleKey());
+
+        $user = Auth::guard('web')->getLastAttempted();
+        Auth::guard('web')->login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 
-        AuditService::log('login', Auth::user(), null, null, 'Нэвтэрсэн');
-
-        if (Auth::user()->isAdmin()) {
-            return redirect()->route('admin.dashboard');
-        }
-
-        if (Auth::user()->isReceptionist()) {
-            return redirect()->route('reception.dashboard');
-        }
-
-        return redirect()->intended('/');
+        if ($user->isAdmin())   return redirect()->route('admin.dashboard');
+        if ($user->isPatient()) return redirect()->route('patient.dashboard');
+        return redirect()->route('portal.select');
     }
 
     public function destroy(Request $request): RedirectResponse
     {
-        // Doctor guard-аас гарах
-        if (Auth::guard('doctor')->check()) {
-            Auth::guard('doctor')->logout();
+        if (\Illuminate\Support\Facades\Auth::guard('doctor')->check()) {
+            \Illuminate\Support\Facades\Auth::guard('doctor')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
             return redirect('/');
         }
 
-        Auth::guard('web')->logout();
+        \Illuminate\Support\Facades\Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

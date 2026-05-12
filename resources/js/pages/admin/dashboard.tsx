@@ -1,6 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useEffect } from 'react';
 import {
     ArrowDownRight,
     ArrowRight,
@@ -189,7 +190,7 @@ function WeeklyChart({ data }: { data: WeeklyPoint[] }) {
                 <XAxis dataKey="day" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                 <Tooltip
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(var(--border))' }}
-                    formatter={(v: number) => [v + ' захиалга', '']}
+                    formatter={((v: number | undefined) => [(v ?? 0) + ' захиалга', '']) as any}
                     labelFormatter={(l) => l}
                 />
                 <Line
@@ -220,7 +221,7 @@ function RevenueChart({ data }: { data: MonthlyRevenue[] }) {
                 />
                 <Tooltip
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(var(--border))' }}
-                    formatter={(v: number) => ['₮' + v.toLocaleString('mn-MN'), 'Орлого']}
+                    formatter={((v: number | undefined) => ['₮' + (v ?? 0).toLocaleString('mn-MN'), 'Орлого']) as any}
                     cursor={{ fill: 'hsl(var(--muted))' }}
                 />
                 <Bar dataKey="revenue" fill="#ef4444" radius={[6, 6, 0, 0]} maxBarSize={48} />
@@ -249,6 +250,13 @@ export default function AdminDashboard({
     recent_jobs,
     recent_audit_logs,
 }: Props) {
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['stats', 'today_appointments', 'recent_appointments', 'recent_jobs', 'recent_audit_logs'] });
+        }, 15_000);
+        return () => clearInterval(id);
+    }, []);
+
     const today = new Date();
     const dateStr = today.toLocaleDateString('mn-MN', {
         year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',

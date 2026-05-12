@@ -37,10 +37,6 @@ export default function DoctorCreate({ branches, doctors }: Props) {
         experience_years: string;
         experiences: Experience[];
         description: string;
-        phone: string;
-        email: string;
-        password: string;
-        password_confirmation: string;
         is_active: boolean;
         has_online_booking: boolean;
         senior_doctor_ids: number[];
@@ -54,10 +50,6 @@ export default function DoctorCreate({ branches, doctors }: Props) {
         experience_years: '0',
         experiences: [],
         description: '',
-        phone: '',
-        email: '',
-        password: '',
-        password_confirmation: '',
         is_active: true,
         has_online_booking: true,
         senior_doctor_ids: [],
@@ -193,46 +185,6 @@ export default function DoctorCreate({ branches, doctors }: Props) {
                                 <textarea value={data.description} onChange={(e) => setData('description', e.target.value)}
                                     rows={3} placeholder="Эмчийн тухай товч мэдээлэл..."
                                     className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
-                            </div>
-
-                            {/* Phone + Email */}
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium">Утас</label>
-                                    <input type="text" value={data.phone} onChange={(e) => setData('phone', e.target.value)}
-                                        placeholder="+976 9911 2233"
-                                        className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-medium">И-мэйл *</label>
-                                    <input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)}
-                                        placeholder="doctor@cuticul.mn"
-                                        className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
-                                    {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
-                                </div>
-                            </div>
-
-                            {/* Password */}
-                            <div className="rounded-xl border p-4 space-y-4">
-                                <div>
-                                    <h3 className="text-sm font-semibold">Нэвтрэх эрх</h3>
-                                    <p className="text-xs text-muted-foreground mt-0.5">Эмч өөрийн порталд нэвтрэхэд ашиглана</p>
-                                </div>
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium">Нууц үг</label>
-                                        <input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)}
-                                            placeholder="Доод тал нь 8 тэмдэгт"
-                                            className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
-                                        {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium">Нууц үг давтах</label>
-                                        <input type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)}
-                                            placeholder="Нууц үгийг давтана уу"
-                                            className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
-                                    </div>
-                                </div>
                             </div>
 
                             {/* Active + Online booking */}

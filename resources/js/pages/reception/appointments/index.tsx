@@ -16,6 +16,7 @@ interface Branch { id: number; name: string }
 interface Appointment {
     id: number;
     appointment_number: string;
+    patient_id: number | null;
     patient_name: string;
     patient_phone: string;
     patient_email: string | null;
@@ -36,6 +37,7 @@ interface Appointment {
     admin_notes: string | null;
     created_by: string | null;
     confirmed_by: string | null;
+    treatment_sent: boolean;
 }
 interface Treatment { id: number; title: string }
 interface Stats { total: number; pending: number; confirmed: number; today: number; cancelled: number }
@@ -248,6 +250,27 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
         setNotifPerm(perm);
     }
 
+    /* Status poll every 15 seconds — merges updated appointments into local state */
+    const serverTimeRef = useRef<number>(Math.floor(Date.now() / 1000));
+    useEffect(() => {
+        const poll = async () => {
+            try {
+                const res = await fetch(`/reception/appointments/status-poll?since=${serverTimeRef.current}`, { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const data = await res.json() as { updated: Appointment[]; server_time: number };
+                serverTimeRef.current = data.server_time;
+                if (data.updated.length === 0) return;
+                setApts(prev => {
+                    const map = new Map(prev.map(a => [a.id, a]));
+                    data.updated.forEach(u => { if (map.has(u.id)) map.set(u.id, u); });
+                    return Array.from(map.values());
+                });
+            } catch { /* silent */ }
+        };
+        const id = setInterval(poll, 15_000);
+        return () => clearInterval(id);
+    }, []);
+
     /* Poll every 10 seconds */
     useEffect(() => {
         async function poll() {
@@ -270,12 +293,13 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                             .map(n => ({
                                 id: n.id, appointment_number: n.appointment_number,
                                 patient_name: n.patient_name, patient_phone: n.patient_phone,
-                                patient_email: n.patient_email, doctor_id: null, doctor_name: n.doctor_name,
+                                patient_id: null, patient_email: n.patient_email, doctor_id: null, doctor_name: n.doctor_name,
                                 doctor_spec: null, branch_id: null, branch_name: null, service: null,
                                 type: n.type as 'online' | 'in_person',
                                 appointment_date: n.appointment_date, appointment_time: n.appointment_time,
                                 appointment_time_end: null,
                                 formatted_date: n.appointment_date, status: 'pending' as const,
+                                payment_status: null, treatment_sent: false,
                                 notes: n.notes ?? null, admin_notes: null, created_by: null, confirmed_by: null,
                             }));
                         return [...prev, ...toAdd];
@@ -453,6 +477,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
     const CAL_END_MINS   = 20 * 60 + 50; // 20:50
     const SLOT_MINS      = 10;            // 10-min slots
     const PX_PER_MIN     = HOUR_H / 60;  // px per minute
+    const CARD_H         = 40;           // нэг жигд картын өндөр (px)
 
     function timeFromY(y: number): string {
         const rawMins = HOUR_START * 60 + Math.max(0, (y / HOUR_H) * 60);
@@ -483,7 +508,8 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
             {detailApt && (
                 <AptDetailModal apt={detailApt as ModalAppt} onClose={() => setDetailApt(null)}
                     onStatusChange={changeStatus} onDelete={deleteApt}
-                    onEdit={a => { setDetailApt(null); setEditApt(a as Appointment); }} />
+                    onEdit={a => { setDetailApt(null); setEditApt(a as Appointment); }}
+                    patientUrlPrefix="/reception/patients" />
             )}
             {editApt && (
                 <AptFormModal routePrefix="/reception/appointments"
@@ -731,8 +757,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                     {cols.map(({ apt: a, col, totalCols }) => {
                                                         const pal2 = a.doctor_id ? dayPalette(a.doctor_id) : DAY_PALETTE[0];
                                                         const top = aptTop(a.appointment_time);
-                                                        const durMins = endMins(a) - toMins(a.appointment_time);
-                                                        const h = Math.max(26, Math.round(durMins * PX_PER_MIN));
+                                                        const h = CARD_H;
                                                         const colW = `calc((100% - 6px) / ${totalCols})`;
                                                         const colL = `calc(${col} * (100% - 6px) / ${totalCols} + 3px)`;
                                                         const compact = h < 46;
@@ -754,6 +779,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                     padding: compact ? '0 6px' : '6px 8px 5px',
                                                                     backdropFilter: compact ? undefined : 'blur(4px)',
                                                                 }}>
+                                                                {a.treatment_sent && <span style={{ position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 0 1.5px white' }} />}
                                                                 {!compact && (
                                                                     <div style={{
                                                                         width:24, height:24, borderRadius:'50%', flexShrink:0,
@@ -906,6 +932,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                     {a.service && ` · ${a.service}`}
                                                                 </p>
                                                             </div>
+                                                            {a.treatment_sent && <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#16a34a', flexShrink: 0 }} />}
                                                         </button>
                                                     );
                                                 })}
@@ -954,7 +981,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                     const [sh, sm] = a.appointment_time.split(':').map(Number);
                                                                     return (eh * 60 + em) - (sh * 60 + sm);
                                                                 })();
-                                                                const h3 = endM3 && endM3 > 10 ? Math.max(28, endM3 * PX_PER_MIN) : 28;
+                                                                const h3 = CARD_H;
                                                                 return (
                                                                     <div key={a.id} onClick={() => { changeSelected(ds); openApt(a); }}
                                                                         style={{
@@ -968,6 +995,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                             borderRadius:6, cursor:'pointer', overflow:'hidden',
                                                                             padding:'3px 5px',
                                                                         }}>
+                                                                        {a.treatment_sent && <span style={{ position: 'absolute', top: 3, right: 3, width: 6, height: 6, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 0 1px white' }} />}
                                                                         <p style={{ fontSize:9, fontWeight:700, color: pal2.border, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1.3 }}>
                                                                             {a.patient_name.split(' ')[0]}
                                                                         </p>
@@ -1533,6 +1561,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                             </span>
                                                                             <span className="truncate" style={{ color: accentColor }}>{a.patient_name}</span>
                                                                             {isOnline && <span className="shrink-0 opacity-70" style={{ fontSize: 9 }}>💻</span>}
+                                                                            {a.treatment_sent && <span className="shrink-0 rounded-full" style={{ width: 6, height: 6, background: '#16a34a', display: 'inline-block', flexShrink: 0 }} />}
                                                                         </div>
                                                                     );
                                                                 })}
@@ -1640,7 +1669,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                             {/* Appointments — column layout for overlaps */}
                                                             {computeColumns(wApts).map(({ apt: a, col, totalCols }) => {
                                                                 const top  = aptTop(a.appointment_time);
-                                                                const h    = Math.max(22, (endMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
+                                                                const h    = CARD_H;
                                                                 const p2   = a.doctor_id ? dayPalette(a.doctor_id) : DAY_PALETTE[0];
                                                                 const isOnline = a.type === 'online';
                                                                 const ac   = isOnline ? '#3b82f6' : p2.border;
@@ -1659,6 +1688,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                             borderLeftWidth: 3,
                                                                             borderLeftColor: ac,
                                                                         }}>
+                                                                        {a.treatment_sent && <span style={{ position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 0 1.5px white', flexShrink: 0 }} />}
                                                                         <p className="font-bold tabular-nums truncate leading-tight" style={{ fontSize: 9, color: ac }}>
                                                                             {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}{isOnline ? ' 💻' : ''}
                                                                         </p>
@@ -1804,7 +1834,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                             {/* Appointments — column layout for overlaps */}
                                                             {computeColumns(docApts).map(({ apt: a, col, totalCols }) => {
                                                                 const top  = aptTop(a.appointment_time);
-                                                                const h    = Math.max(24, (endMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
+                                                                const h    = CARD_H;
                                                                 const isOnline = a.type === 'online';
                                                                 const ac   = isOnline ? '#3b82f6' : pal.border;
                                                                 return (
@@ -1823,6 +1853,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                             borderLeftColor: ac,
                                                                             color: ac,
                                                                         }}>
+                                                                        {a.treatment_sent && <span style={{ position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 0 1.5px white', flexShrink: 0 }} />}
                                                                         <p className="font-bold tabular-nums truncate leading-tight" style={{ fontSize: 9 }}>
                                                                             {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}{isOnline ? ' 💻' : ''}
                                                                         </p>

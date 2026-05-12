@@ -42,7 +42,7 @@ export default function UserCreate({ branches, roles }: Props) {
         password_confirmation: '',
         role_id:               roles[0]?.id ?? '' as number | string,
         branch_id:             '' as number | string,
-        is_active:             true,
+        is_active:             true as boolean,
     });
 
     const selectedRole = roles.find(r => r.id === Number(data.role_id));

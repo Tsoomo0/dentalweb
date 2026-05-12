@@ -16,6 +16,7 @@ interface Branch { id: number; name: string }
 interface Appointment {
     id: number;
     appointment_number: string;
+    patient_id: number | null;
     patient_name: string;
     patient_phone: string;
     patient_email: string | null;
@@ -266,13 +267,14 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                             .filter(n => !existingIds.has(n.id))
                             .map(n => ({
                                 id: n.id, appointment_number: n.appointment_number,
-                                patient_name: n.patient_name, patient_phone: n.patient_phone,
+                                patient_id: null, patient_name: n.patient_name, patient_phone: n.patient_phone,
                                 patient_email: n.patient_email, doctor_id: null, doctor_name: n.doctor_name,
                                 doctor_spec: null, branch_id: null, branch_name: null, service: null,
                                 type: n.type as 'online' | 'in_person',
                                 appointment_date: n.appointment_date, appointment_time: n.appointment_time,
                                 appointment_time_end: null,
                                 formatted_date: n.appointment_date, status: 'pending' as const,
+                                payment_status: null,
                                 notes: n.notes ?? null, admin_notes: null, created_by: null, confirmed_by: null,
                             }));
                         return [...prev, ...toAdd];

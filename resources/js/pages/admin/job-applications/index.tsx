@@ -6,7 +6,7 @@ import {
     Clock, Star, XCircle, Users,
     Phone, Mail, Calendar, ArrowRight,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Application {
     id: number;
@@ -53,6 +53,13 @@ const STATUS_META: Record<string, {
 export default function JobApplicationsIndex({ applications, stats, filters }: Props) {
     const [tab, setTab]       = useState<Tab>((filters.status as Tab) || 'all');
     const [search, setSearch] = useState(filters.search || '');
+
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['applications', 'stats'] });
+        }, 15_000);
+        return () => clearInterval(id);
+    }, []);
 
     const filtered = tab === 'all' ? applications : applications.filter(a => a.status === tab);
 

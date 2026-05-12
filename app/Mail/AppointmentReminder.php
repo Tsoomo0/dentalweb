@@ -21,8 +21,17 @@ class AppointmentReminder extends Mailable
     public function envelope(): Envelope
     {
         $number = $this->appointment->appointment_number;
-        $label  = $this->type === '24h' ? '24 цагийн' : '2 цагийн';
-        return new Envelope(subject: "⏰ Цаг захиалгын сануулга ({$label} үлдлээ) — {$number}");
+
+        if ($this->appointment->type === 'in_person') {
+            $subject = $this->type === '24h'
+                ? "🦷 Таны үзүүлэх цаг маргааш болно — #{$number}"
+                : "🦷 Таны үзүүлэх цаг удахгүй болно — #{$number}";
+        } else {
+            $label   = $this->type === '24h' ? '24 цагийн' : '2 цагийн';
+            $subject = "⏰ Онлайн зөвлөгөөний сануулга ({$label} үлдлээ) — #{$number}";
+        }
+
+        return new Envelope(subject: $subject);
     }
 
     public function content(): Content

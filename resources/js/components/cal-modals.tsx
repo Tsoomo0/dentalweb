@@ -3,7 +3,7 @@ import {
     CalendarCheck2, CheckCircle2, Clock,
     Mail, Monitor, Pencil, Phone, Stethoscope,
     Trash2, User, UserCheck, X, XCircle,
-    CalendarClock,
+    CalendarClock, FileText,
 } from 'lucide-react';
 import { type FormEvent, useEffect, useMemo, useRef } from 'react';
 
@@ -13,6 +13,7 @@ export interface ModalBranch   { id: number; name: string }
 export interface ModalTreatment { id: number; title: string }
 export interface ModalAppt {
     id: number; appointment_number: string;
+    patient_id: number | null;
     patient_name: string; patient_phone: string; patient_email: string | null;
     doctor_id: number | null; doctor_name: string | null; doctor_spec: string | null;
     branch_id: number | null; branch_name: string | null;
@@ -100,13 +101,14 @@ export function AptFormModal({
     const initEnd  = apt?.appointment_time_end ?? addMins(initTime, 20);
 
     const { data, setData, post, put, processing, errors, reset } = useForm<{
-        patient_name: string; patient_phone: string; patient_email: string;
+        patient_id: string; patient_name: string; patient_phone: string; patient_email: string;
         branch_id: string; doctor_id: string; service: string;
         type: 'online' | 'in_person';
         appointment_date: string; appointment_time: string; appointment_time_end: string;
         status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
         notes: string; admin_notes: string;
     }>({
+        patient_id:           apt?.patient_id ? String(apt.patient_id) : '',
         patient_name:         apt?.patient_name         ?? '',
         patient_phone:        apt?.patient_phone        ?? '',
         patient_email:        apt?.patient_email        ?? '',
@@ -117,7 +119,7 @@ export function AptFormModal({
         appointment_date:     apt?.appointment_date     ?? date,
         appointment_time:     initTime,
         appointment_time_end: initEnd,
-        status:               'confirmed' as const,
+        status:               apt?.status ?? 'confirmed',
         notes:                apt?.notes                ?? '',
         admin_notes:          apt?.admin_notes          ?? '',
     });
@@ -138,7 +140,7 @@ export function AptFormModal({
     const phoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     function handlePhoneChange(phone: string) {
-        setData('patient_phone', phone);
+        setData(prev => ({ ...prev, patient_phone: phone, patient_id: '' }));
         if (isEdit) return;
         if (phoneTimerRef.current) clearTimeout(phoneTimerRef.current);
         if (phone.replace(/\D/g, '').length < 8) return;
@@ -147,9 +149,13 @@ export function AptFormModal({
                 const r = await fetch(`/booking/patient-lookup?phone=${encodeURIComponent(phone)}`);
                 if (r.ok) {
                     const p = await r.json();
-                    if (p?.name && !nameRef.current) {
-                        setData('patient_name', p.name);
-                        if (p.email) setData('patient_email', p.email);
+                    if (p?.name) {
+                        setData(prev => ({
+                            ...prev,
+                            patient_id:   p.patient_id ? String(p.patient_id) : prev.patient_id,
+                            patient_name: prev.patient_name || p.name,
+                            patient_email: prev.patient_email || (p.email ?? ''),
+                        }));
                     }
                 }
             } catch {}
@@ -368,8 +374,9 @@ interface DetailModalProps {
     onDelete?: (id: number, num: string) => void;
     onEdit?: (apt: ModalAppt) => void;
     readonly?: boolean;
+    patientUrlPrefix?: string;
 }
-export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit, readonly }: DetailModalProps) {
+export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit, readonly, patientUrlPrefix }: DetailModalProps) {
     useEffect(() => {
         const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
         window.addEventListener('keydown', fn);
@@ -566,9 +573,27 @@ export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit,
                             <Trash2 className="size-3.5" />
                         </button>
                     )}
+                    {!readonly && patientUrlPrefix && apt.patient_id && (
+                        <a href={`${patientUrlPrefix}/${apt.patient_id}`}
+                            className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-semibold transition-colors">
+                            <FileText className="size-3.5" /> Карт
+                        </a>
+                    )}
+                    {readonly && apt.patient_id && (
+                        <a href={`/doctor/patients/${apt.patient_id}?appointment_id=${apt.id}`}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white py-2 text-sm font-semibold transition-colors">
+                            <FileText className="size-3.5" /> Карт харах
+                        </a>
+                    )}
+                    {readonly && !apt.patient_id && apt.patient_phone && (
+                        <a href={`/doctor/patients?search=${encodeURIComponent(apt.patient_phone)}&appointment_id=${apt.id}`}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white py-2 text-sm font-semibold transition-colors">
+                            <FileText className="size-3.5" /> Карт хайх
+                        </a>
+                    )}
                     {readonly && (
                         <button onClick={onClose}
-                            className="flex-1 rounded-lg border py-2 text-sm font-medium hover:bg-muted transition-colors">
+                            className={`rounded-lg border py-2 text-sm font-medium hover:bg-muted transition-colors ${apt.patient_id || apt.patient_phone ? 'px-4' : 'flex-1'}`}>
                             Хаах
                         </button>
                     )}

@@ -3,9 +3,12 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\HR\Employee;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Patient;
 
 class User extends Authenticatable
 {
@@ -69,8 +72,23 @@ class User extends Authenticatable
         return $this->role?->name === 'receptionist';
     }
 
+    public function isPatient(): bool
+    {
+        return $this->role?->name === 'patient';
+    }
+
     public function isStaff(): bool
     {
         return $this->isAdmin() || $this->isReceptionist();
+    }
+
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class, 'user_id');
+    }
+
+    public function patient(): HasOne
+    {
+        return $this->hasOne(Patient::class, 'user_id');
     }
 }

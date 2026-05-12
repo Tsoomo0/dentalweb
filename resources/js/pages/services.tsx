@@ -18,6 +18,7 @@ interface TreatmentCategory {
 interface PageProps {
     auth: { user?: { name: string } };
     treatments: TreatmentCategory[];
+    [key: string]: unknown;
 }
 
 // ── Modal base ────────────────────────────────────────────────────────────────

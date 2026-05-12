@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\HR\Employee;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -13,7 +14,7 @@ class Doctor extends Authenticatable
     use Notifiable, SoftDeletes;
 
     protected $fillable = [
-        'branch_id', 'name', 'specialization', 'degree',
+        'employee_id', 'branch_id', 'name', 'specialization', 'degree',
         'experience_years', 'experiences', 'photo',
         'description', 'phone', 'email', 'password',
         'online_slots', 'has_online_booking', 'is_active', 'order',
@@ -38,6 +39,11 @@ class Doctor extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'employee_id');
+    }
+
     /** Энэ эмчийн ахлах эмч нар (pivot: doctor_senior) */
     public function seniorDoctors(): BelongsToMany
     {
@@ -59,26 +65,28 @@ class Doctor extends Authenticatable
     protected static function booted(): void
     {
         static::created(function ($doctor) {
-            if ($doctor->branch) {
-                $doctor->branch->updateDoctorCount();
+            if ($doctor->branch_id) {
+                $doctor->branches()->syncWithoutDetaching([$doctor->branch_id]);
+                $doctor->branch?->updateDoctorCount();
             }
         });
 
         static::updated(function ($doctor) {
+            if ($doctor->isDirty('branch_id')) {
+                // Шинэ үндсэн салбарыг pivot-д нэмнэ (хуучныг устгахгүй)
+                if ($doctor->branch_id) {
+                    $doctor->branches()->syncWithoutDetaching([$doctor->branch_id]);
+                }
+                Branch::find($doctor->getOriginal('branch_id'))?->updateDoctorCount();
+            }
+
             if ($doctor->isDirty('is_active') || $doctor->isDirty('branch_id')) {
-                if ($doctor->branch) {
-                    $doctor->branch->updateDoctorCount();
-                }
-                if ($doctor->isDirty('branch_id')) {
-                    Branch::find($doctor->getOriginal('branch_id'))?->updateDoctorCount();
-                }
+                $doctor->branch?->updateDoctorCount();
             }
         });
 
         static::deleted(function ($doctor) {
-            if ($doctor->branch) {
-                $doctor->branch->updateDoctorCount();
-            }
+            $doctor->branch?->updateDoctorCount();
         });
     }
 }

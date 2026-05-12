@@ -210,6 +210,13 @@ export default function PaymentsIndex({ payments, stats, filters }: Props) {
     const [statusFilter, setStatusFilter] = useState(filters.payment_status ?? '');
     const [detail, setDetail] = useState<Payment | null>(null);
 
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['payments', 'stats'] });
+        }, 15_000);
+        return () => clearInterval(id);
+    }, []);
+
     function applyFilter() {
         router.get('/admin/payments', {
             ...(search       ? { search }                           : {}),

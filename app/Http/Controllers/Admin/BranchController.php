@@ -42,9 +42,12 @@ class BranchController extends Controller
             'doctor_count' => 'nullable|integer|min:0',
             'is_featured'  => 'boolean',
             'is_active'    => 'boolean',
+            'lat'          => 'nullable|numeric|between:-90,90',
+            'lng'          => 'nullable|numeric|between:-180,180',
+            'radius_m'     => 'nullable|integer|min:50|max:1000',
         ]);
 
-        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active');
+        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active', 'lat', 'lng', 'radius_m');
         $data['order'] = Branch::max('order') + 1;
 
         if ($request->hasFile('image')) {
@@ -76,9 +79,12 @@ class BranchController extends Controller
             'doctor_count' => 'nullable|integer|min:0',
             'is_featured'  => 'boolean',
             'is_active'    => 'boolean',
+            'lat'          => 'nullable|numeric|between:-90,90',
+            'lng'          => 'nullable|numeric|between:-180,180',
+            'radius_m'     => 'nullable|integer|min:50|max:1000',
         ]);
 
-        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active');
+        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active', 'lat', 'lng', 'radius_m');
 
         if ($request->hasFile('image')) {
             if ($branch->image) Storage::disk('public')->delete($branch->image);

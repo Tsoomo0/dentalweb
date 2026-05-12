@@ -10,12 +10,15 @@ class Branch extends Model
     protected $fillable = [
         'name', 'type', 'address', 'phone', 'image',
         'description', 'doctor_count', 'is_featured',
-        'is_active', 'order',
+        'is_active', 'order', 'lat', 'lng', 'radius_m',
     ];
 
     protected $casts = [
         'is_featured' => 'boolean',
         'is_active'   => 'boolean',
+        'lat'         => 'float',
+        'lng'         => 'float',
+        'radius_m'    => 'integer',
     ];
 
     /**

@@ -44,6 +44,7 @@ class AppointmentController extends Controller
         $appointments = $query->get()->map(fn($a) => [
             'id'                 => $a->id,
             'appointment_number' => $a->appointment_number,
+            'patient_id'         => $a->patient_id,
             'patient_name'       => $a->patient_name,
             'patient_phone'      => $a->patient_phone,
             'patient_email'      => $a->patient_email,
@@ -137,6 +138,7 @@ class AppointmentController extends Controller
         $appointment = Appointment::create([
             'appointment_number' => Appointment::generateNumber(),
             'created_by'         => Auth::user()?->name ?? 'Админ',
+            'created_by_id'      => Auth::id(),
             ...$request->only(
                 'patient_name', 'patient_phone', 'patient_email',
                 'doctor_id', 'branch_id', 'service', 'type',
@@ -372,7 +374,8 @@ class AppointmentController extends Controller
 
         $updateData = ['status' => $request->status];
         if ($request->status === 'confirmed') {
-            $updateData['confirmed_by'] = Auth::user()?->name ?? 'Админ';
+            $updateData['confirmed_by']    = Auth::user()?->name ?? 'Админ';
+            $updateData['confirmed_by_id'] = Auth::id();
         }
 
         $oldStatus = $appointment->status;

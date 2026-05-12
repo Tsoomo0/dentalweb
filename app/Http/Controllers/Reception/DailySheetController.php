@@ -107,7 +107,8 @@ class DailySheetController extends Controller
                 return;
             }
 
-            $sheet->entries()->where('user_id', $userId)->delete();
+            // source='treatment' тэмдэглэгдсэн auto-added мөрүүдийг устгахгүй
+            $sheet->entries()->where('user_id', $userId)->whereNull('source')->delete();
 
             $rowIdx = 0;
             foreach ($request->input('entries', []) as $row) {
@@ -123,6 +124,11 @@ class DailySheetController extends Controller
                     continue;
                 }
 
+                $aptNumber = trim($row['appointment_number'] ?? '') ?: null;
+                $aptId     = $aptNumber
+                    ? \App\Models\Appointment::where('appointment_number', $aptNumber)->value('id')
+                    : null;
+
                 DailySheetEntry::create([
                     'daily_sheet_id'     => $sheet->id,
                     'user_id'            => $userId,
@@ -130,13 +136,14 @@ class DailySheetController extends Controller
                     'patient_name'       => $name ?: null,
                     'gender'             => $row['gender'] ?? null,
                     'diagnosis'          => trim($row['diagnosis'] ?? '') ?: null,
-                    'appointment_number' => trim($row['appointment_number'] ?? '') ?: null,
+                    'appointment_number' => $aptNumber,
+                    'appointment_id'     => $aptId,
                     'discount'           => $discount,
                     'mobile_amount'      => $mobile,
                     'card_amount'        => $card,
                     'cash_amount'        => $cash,
                     'storepay_amount'    => $storepay,
-                    'total_amount'       => max(0, $sum - $discount),
+                    'total_amount'       => $sum,
                     'outstanding_amount' => (int) ($row['outstanding_amount'] ?? 0),
                     'doctor_id'          => $row['doctor_id'] ?? null,
                 ]);
@@ -187,9 +194,60 @@ class DailySheetController extends Controller
         return back()->with('success', 'Өдрийн тооцоо баталгаажлаа.');
     }
 
+    public function outstanding(Request $request): Response
+    {
+        $branchId = $this->branchId();
+        $userId   = Auth::id();
+        $mode     = $request->get('mode', 'day');   // day | week | month | all
+        $date     = $request->get('date', today()->toDateString());
+        $month    = $request->get('month', today()->format('Y-m'));
+
+        [$year, $mon] = explode('-', $month);
+
+        $entries = DailySheetEntry::whereHas('dailySheet', fn($q) => $q->where('branch_id', $branchId))
+            ->where('outstanding_amount', '>', 0)
+            ->with(['dailySheet', 'doctor', 'user'])
+            ->when($mode === 'day',   fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereDate('date', $date)))
+            ->when($mode === 'week',  fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereBetween('date', [
+                now()->parse($date)->subDays(6)->toDateString(), $date
+            ])))
+            ->when($mode === 'month', fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereYear('date', $year)->whereMonth('date', $mon)))
+            ->orderByRaw('outstanding_paid_at IS NOT NULL')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn($e) => [
+                'id'                      => $e->id,
+                'patient_name'            => $e->patient_name,
+                'gender'                  => $e->gender,
+                'diagnosis'               => $e->diagnosis,
+                'appointment_number'      => $e->appointment_number,
+                'outstanding_amount'      => $e->outstanding_amount,
+                'date'                    => $e->dailySheet->date->toDateString(),
+                'receptionist_name'       => $e->user?->name,
+                'doctor_name'             => $e->doctor?->name,
+                'days_since'              => (int) max(0,
+                    (strtotime(today()->toDateString()) - strtotime($e->dailySheet->date->toDateString())) / 86400
+                ),
+                'is_mine'                 => $e->user_id === $userId,
+                'is_paid'                 => $e->outstanding_paid_at !== null,
+                'outstanding_paid_at'     => $e->outstanding_paid_at?->toDateString(),
+                'outstanding_paid_receipt'=> $e->outstanding_paid_receipt,
+                'outstanding_paid_method' => $e->outstanding_paid_method,
+                'outstanding_paid_amount' => $e->outstanding_paid_amount,
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('reception/outstanding/index', [
+            'entries' => $entries,
+            'filters' => compact('mode', 'date', 'month'),
+        ]);
+    }
+
     public function payOutstanding(Request $request, DailySheetEntry $entry): RedirectResponse
     {
         $branchId = $this->branchId();
+        $userId   = Auth::id();
 
         if ($entry->dailySheet->branch_id !== $branchId) {
             abort(403);
@@ -199,22 +257,77 @@ class DailySheetController extends Controller
             return back()->with('info', 'Аль хэдийн төлсөн гэж тэмдэглэгдсэн байна.');
         }
 
-        $entry->update(['outstanding_paid_at' => now()]);
+        $validated = $request->validate([
+            'paid_amount'  => 'required|integer|min:1',
+            'paid_method'  => 'required|in:mobile,card,cash,storepay',
+            'paid_receipt' => 'nullable|string|max:100',
+        ]);
 
-        // Бүх admin-д notification илгээнэ
+        // Дутуу тооцоог төлөгдсөн гэж тэмдэглэнэ
+        $entry->update([
+            'outstanding_paid_at'     => now(),
+            'outstanding_paid_receipt'=> $validated['paid_receipt'] ?? null,
+            'outstanding_paid_method' => $validated['paid_method'],
+            'outstanding_paid_amount' => $validated['paid_amount'],
+        ]);
+
+        // Өнөөдрийн daily sheet-д шинэ мөр нэмнэ (balance)
+        $sheet = DailySheet::firstOrCreate(
+            ['branch_id' => $branchId, 'date' => today()->toDateString()],
+            ['status' => 'submitted']
+        );
+
+        if ($sheet->submitted_at === null) {
+            $method  = $validated['paid_method'];
+            $amount  = $validated['paid_amount'];
+            $apptNum = $validated['paid_receipt'] ?: $this->nextAppointmentNumber($entry->appointment_number);
+            $apptId  = $apptNum
+                ? \App\Models\Appointment::where('appointment_number', $apptNum)->value('id')
+                : null;
+            DailySheetEntry::create([
+                'daily_sheet_id'     => $sheet->id,
+                'user_id'            => $userId,
+                'source'             => 'outstanding',
+                'row_order'          => 999,
+                'patient_name'       => $entry->patient_name,
+                'gender'             => $entry->gender,
+                'diagnosis'          => $entry->diagnosis,
+                'appointment_number' => $apptNum,
+                'appointment_id'     => $apptId,
+                'mobile_amount'      => $method === 'mobile'   ? $amount : 0,
+                'card_amount'        => $method === 'card'     ? $amount : 0,
+                'cash_amount'        => $method === 'cash'     ? $amount : 0,
+                'storepay_amount'    => $method === 'storepay' ? $amount : 0,
+                'total_amount'       => $amount,
+                'outstanding_amount' => 0,
+                'discount'           => 0,
+                'doctor_id'          => $entry->doctor_id,
+            ]);
+        }
+
+        // Admin-д notification
         $entry->load(['dailySheet.branch']);
         $admins = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->get();
         if ($admins->isNotEmpty()) {
             Notification::send($admins, new OutstandingPaid(
                 patientName:      $entry->patient_name ?? '—',
-                amount:           $entry->outstanding_amount,
+                amount:           $validated['paid_amount'],
                 branchName:       $entry->dailySheet->branch?->name ?? '—',
                 date:             $entry->dailySheet->date->toDateString(),
                 receptionistName: Auth::user()->name,
             ));
         }
 
-        return back()->with('success', 'Дутуу тооцоо төлөгдлөө.');
+        return redirect('/reception/outstanding?mode=all')->with('success', 'Дутуу тооцоо төлөгдлөө.');
+    }
+
+    private function nextAppointmentNumber(?string $current): ?string
+    {
+        if (!$current) return null;
+        if (preg_match('/^(.*?)(\d+)$/', $current, $m)) {
+            return $m[1] . str_pad((int) $m[2] + 1, strlen($m[2]), '0', STR_PAD_LEFT);
+        }
+        return $current;
     }
 
     private function mapSheet(DailySheet $sheet, int $currentUserId): array
@@ -231,6 +344,7 @@ class DailySheetController extends Controller
                 ->map(fn($e) => [
                     'id'                 => $e->id,
                     'is_mine'            => $e->user_id === $currentUserId,
+                    'source'             => $e->source,
                     'receptionist_name'  => $e->user?->name,
                     'patient_name'       => $e->patient_name,
                     'gender'             => $e->gender,
@@ -242,9 +356,10 @@ class DailySheetController extends Controller
                     'cash_amount'        => $e->cash_amount,
                     'storepay_amount'    => $e->storepay_amount,
                     'total_amount'       => $e->total_amount,
-                    'outstanding_amount' => $e->outstanding_amount,
-                    'doctor_id'          => $e->doctor_id,
-                    'doctor_name'        => $e->doctor?->name,
+                    'outstanding_amount'  => $e->outstanding_amount,
+                    'outstanding_paid_at' => $e->outstanding_paid_at?->toDateString(),
+                    'doctor_id'           => $e->doctor_id,
+                    'doctor_name'         => $e->doctor?->name,
                 ])->all(),
         ];
     }

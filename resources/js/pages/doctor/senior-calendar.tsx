@@ -1,7 +1,7 @@
 import { AptDetailModal, type ModalAppt } from '@/components/cal-modals';
 import DoctorLayout from '@/layouts/doctor-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     CalendarCheck2, CalendarClock, ChevronLeft, ChevronRight,
     Eye, User,
@@ -76,6 +76,14 @@ export default function SeniorCalendar({ senior, appointments, stats }: Props) {
     const [nowTime, setNowTime] = useState(() => new Date());
     useEffect(() => {
         const id = setInterval(() => setNowTime(new Date()), 60_000);
+        return () => clearInterval(id);
+    }, []);
+
+    /* 15s data refresh */
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['appointments', 'stats'] });
+        }, 15_000);
         return () => clearInterval(id);
     }, []);
 

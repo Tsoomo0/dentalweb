@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, ClipboardList, Eye, Filter, Search, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface AuditLog {
     id: number;
@@ -88,6 +88,13 @@ export default function AuditLogsIndex({ logs, filters, events }: Props) {
     const [date,      setDate]      = useState(filters.date       ?? '');
     const [expanded,  setExpanded]  = useState<number | null>(null);
 
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['logs'] });
+        }, 15_000);
+        return () => clearInterval(id);
+    }, []);
+
     function doSearch(overrides?: Record<string, string>) {
         const params: Record<string, string> = {};
         if (event)     params.event      = event;
@@ -95,7 +102,7 @@ export default function AuditLogsIndex({ logs, filters, events }: Props) {
         if (date)      params.date       = date;
         Object.assign(params, overrides);
         Object.keys(params).forEach(k => { if (!params[k]) delete params[k]; });
-        router.get('/admin/audit-logs', params, { preserveState: true, preserveScroll: true });
+        router.get('/admin/audit-logs', params, { preserveState: true });
     }
 
     function clearAll() {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Appointment extends Model
@@ -12,6 +13,7 @@ class Appointment extends Model
 
     protected $fillable = [
         'appointment_number',
+        'patient_id',
         'patient_name',
         'patient_phone',
         'patient_email',
@@ -32,12 +34,19 @@ class Appointment extends Model
         'meet_link',
         'created_by',
         'confirmed_by',
+        'created_by_id',
+        'confirmed_by_id',
     ];
 
     protected $casts = [
         'appointment_date'  => 'date:Y-m-d',
         'payment_amount'    => 'integer',
     ];
+
+    public function patient(): BelongsTo
+    {
+        return $this->belongsTo(Patient::class);
+    }
 
     public function doctor(): BelongsTo
     {
@@ -47,6 +56,21 @@ class Appointment extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function treatmentRecord(): HasOne
+    {
+        return $this->hasOne(TreatmentRecord::class);
+    }
+
+    public function createdBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by_id');
+    }
+
+    public function confirmedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'confirmed_by_id');
     }
 
     /** APT-0001 форматтай дугаар үүсгэх */
@@ -61,5 +85,30 @@ class Appointment extends Model
     public function getFormattedDateAttribute(): string
     {
         return $this->appointment_date?->format('Y оны m сарын d') ?? '—';
+    }
+
+    /**
+     * patient_id байвал patient-аас patient_name/phone/email автоматаар синк хийнэ.
+     * Ингэснээр appointments дахь өгөгдөл үргэлж patients хүснэгттэй нийцнэ.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Appointment $appointment) {
+            if (! $appointment->patient_id) {
+                return;
+            }
+
+            $patient = $appointment->relationLoaded('patient')
+                ? $appointment->patient
+                : Patient::find($appointment->patient_id);
+
+            if (! $patient) {
+                return;
+            }
+
+            $appointment->patient_name  = $patient->full_name;
+            $appointment->patient_phone = $patient->phone;
+            $appointment->patient_email = $patient->email;
+        });
     }
 }

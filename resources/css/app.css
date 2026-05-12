@@ -77,45 +77,77 @@
     }
 }
 
+/* ── My Portal theme variables ───────────────────────────────────────── */
 :root {
-    --background: hsl(0, 0%, 100%);
-    --foreground: hsl(0, 0%, 3.9%);
+    --my-page-bg:     #f2f2f7;
+    --my-card-bg:     #ffffff;
+    --my-card-border: rgba(0,0,0,0.04);
+    --my-shadow:      0 1px 6px rgba(0,0,0,0.07);
+    --my-divider:     #f0f0f5;
+    --my-text:        #1c1c1e;
+    --my-muted:       #6b7280;
+    --my-faint:       #9ca3af;
+    --my-pill-bg:     rgba(0,0,0,0.06);
+    --my-input-text:  #111111;
+    --my-sheet-bg:    #f2f2f7;
+}
+
+/* ── My Portal row divider helper ────────────────────────────────────── */
+.my-row + .my-row { border-top: 1px solid var(--my-divider); }
+
+:root {
+    --background: hsl(0, 25%, 97%);
+    --foreground: hsl(0, 20%, 12%);
     --card: hsl(0, 0%, 100%);
-    --card-foreground: hsl(0, 0%, 3.9%);
+    --card-foreground: hsl(0, 20%, 12%);
     --popover: hsl(0, 0%, 100%);
-    --popover-foreground: hsl(0, 0%, 3.9%);
-    --primary: hsl(0, 0%, 9%);
+    --popover-foreground: hsl(0, 20%, 12%);
+    --primary: hsl(0, 72%, 45%);
     --primary-foreground: hsl(0, 0%, 98%);
-    --secondary: hsl(0, 0%, 96.1%);
-    --secondary-foreground: hsl(0, 0%, 9%);
-    --muted: hsl(0, 0%, 96.1%);
-    --muted-foreground: hsl(0, 0%, 45.1%);
-    --accent: hsl(0, 0%, 96.1%);
-    --accent-foreground: hsl(0, 0%, 9%);
+    --secondary: hsl(0, 20%, 93%);
+    --secondary-foreground: hsl(0, 20%, 12%);
+    --muted: hsl(0, 15%, 93%);
+    --muted-foreground: hsl(0, 10%, 46%);
+    --accent: hsl(0, 50%, 92%);
+    --accent-foreground: hsl(0, 72%, 32%);
     --destructive: hsl(0, 84.2%, 60.2%);
     --destructive-foreground: hsl(0, 0%, 98%);
-    --border: hsl(0, 0%, 92.8%);
-    --input: hsl(0, 0%, 89.8%);
-    --ring: hsl(0, 0%, 3.9%);
-    --chart-1: hsl(12, 76%, 61%);
+    --border: hsl(0, 15%, 88%);
+    --input: hsl(0, 15%, 88%);
+    --ring: hsl(0, 72%, 45%);
+    --chart-1: hsl(0, 72%, 45%);
     --chart-2: hsl(173, 58%, 39%);
-    --chart-3: hsl(197, 37%, 24%);
-    --chart-4: hsl(43, 74%, 66%);
-    --chart-5: hsl(27, 87%, 67%);
+    --chart-3: hsl(30, 80%, 55%);
+    --chart-4: hsl(280, 60%, 58%);
+    --chart-5: hsl(43, 74%, 50%);
     --radius: 0.5rem;
-    --sidebar-background: hsl(0, 0%, 98%);
-    --sidebar-foreground: hsl(240, 5.3%, 30%);
-    --sidebar-primary: hsl(0, 0%, 10%);
+    --sidebar-background: hsl(0, 30%, 97%);
+    --sidebar-foreground: hsl(0, 20%, 28%);
+    --sidebar-primary: hsl(0, 72%, 45%);
     --sidebar-primary-foreground: hsl(0, 0%, 98%);
-    --sidebar-accent: hsl(0, 0%, 94%);
-    --sidebar-accent-foreground: hsl(0, 0%, 30%);
-    --sidebar-border: hsl(0, 0%, 91%);
-    --sidebar-ring: hsl(217.2, 91.2%, 59.8%);
+    --sidebar-accent: hsl(0, 25%, 93%);
+    --sidebar-accent-foreground: hsl(0, 20%, 20%);
+    --sidebar-border: hsl(0, 20%, 90%);
+    --sidebar-ring: hsl(0, 72%, 45%);
 
     /* Calendar time-grid lines */
-    --cal-line-hour: rgba(0, 0, 0, 0.08);
-    --cal-line-half: rgba(0, 0, 0, 0.035);
-    --cal-line-sub:  rgba(0, 0, 0, 0.018);
+    --cal-line-hour: rgba(0, 0, 0, 0.07);
+    --cal-line-half: rgba(0, 0, 0, 0.03);
+    --cal-line-sub:  rgba(0, 0, 0, 0.015);
+}
+
+.dark {
+    --my-page-bg:     #000000;
+    --my-card-bg:     #1c1c1e;
+    --my-card-border: rgba(255,255,255,0.07);
+    --my-shadow:      0 1px 6px rgba(0,0,0,0.4);
+    --my-divider:     #2c2c2e;
+    --my-text:        #f2f2f7;
+    --my-muted:       #8e8e93;
+    --my-faint:       #636366;
+    --my-pill-bg:     rgba(255,255,255,0.1);
+    --my-input-text:  #f2f2f7;
+    --my-sheet-bg:    #1c1c1e;
 }
 
 .dark {
@@ -171,6 +203,34 @@
     }
 }
 
+/* ── Sidebar scrollbar ─────────────────────────────────────────────── */
+[data-sidebar="content"]::-webkit-scrollbar {
+    width: 3px;
+}
+[data-sidebar="content"]::-webkit-scrollbar-track {
+    background: transparent;
+}
+[data-sidebar="content"]::-webkit-scrollbar-thumb {
+    background: hsl(0 15% 80%);
+    border-radius: 99px;
+}
+[data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 20% 65%);
+}
+.dark [data-sidebar="content"]::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 22%);
+}
+.dark [data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 35%);
+}
+[data-sidebar="content"] {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(0 15% 80%) transparent;
+}
+.dark [data-sidebar="content"] {
+    scrollbar-color: hsl(0 0% 22%) transparent;
+}
+
 /* ── Custom scrollbar ──────────────────────────────────────────────── */
 .cal-scroll::-webkit-scrollbar {
     width: 5px;
@@ -198,4 +258,33 @@
 }
 .dark .cal-scroll {
     scrollbar-color: hsl(0 0% 28%) transparent;
+}
+
+/* ── Notification scroll ───────────────────────────────────────────── */
+.notif-scroll::-webkit-scrollbar {
+    width: 3px;
+}
+.notif-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+}
+.notif-scroll::-webkit-scrollbar-thumb {
+    background: hsl(0 10% 82%);
+    border-radius: 99px;
+}
+.notif-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 10% 65%);
+}
+.dark .notif-scroll::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 22%);
+}
+.dark .notif-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 35%);
+}
+.notif-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(0 10% 82%) transparent;
+}
+.dark .notif-scroll {
+    scrollbar-color: hsl(0 0% 22%) transparent;
 }

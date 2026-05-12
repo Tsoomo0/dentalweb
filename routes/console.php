@@ -26,3 +26,9 @@ Schedule::call(fn () => \App\Models\AuditLog::where('created_at', '<', now()->su
     ->daily()
     ->name('audit-logs:prune')
     ->description('Audit log 25 хоноос хуучин бичлэгийг устгах');
+
+// HR — ажилтны гэрээ, лиценз, туршилтын хугацааг өдөр бүр өглөө шалгах
+Schedule::command('hr:check-expiry')
+    ->dailyAt('08:00')
+    ->name('hr:check-expiry')
+    ->description('Ажилтны гэрээ болон лицензийн дуусах хугацааг шалгах');

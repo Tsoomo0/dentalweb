@@ -155,7 +155,7 @@ class PaymentController extends Controller
             'patient_name'         => $appointment->patient_name,
             'patient_email'        => $appointment->patient_email,
             'doctor_name'          => $appointment->doctor?->name,
-            'appointment_date'     => $appointment->appointment_date->format('Y.m.d'),
+            'appointment_date'     => $appointment->appointment_date?->format('Y.m.d') ?? '—',
             'appointment_time'     => $appointment->appointment_time,
             'appointment_time_end' => $appointment->appointment_time_end,
             'payment_status'       => $appointment->payment_status,

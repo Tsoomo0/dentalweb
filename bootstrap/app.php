@@ -2,7 +2,9 @@
 
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\DoctorMiddleware;
+use App\Http\Middleware\HrMiddleware;
 use App\Http\Middleware\MaintenanceMiddleware;
+use App\Http\Middleware\PatientMiddleware;
 use App\Http\Middleware\ReceptionMiddleware;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -25,14 +27,18 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'admin'     => AdminMiddleware::class,
-            'doctor'    => DoctorMiddleware::class,
-            'reception' => ReceptionMiddleware::class,
+            'admin'      => AdminMiddleware::class,
+            'hr'         => HrMiddleware::class,
+            'doctor'     => DoctorMiddleware::class,
+            'reception'  => ReceptionMiddleware::class,
+            'patient'    => PatientMiddleware::class,
+            'either.auth'=> \App\Http\Middleware\EitherAuthMiddleware::class,
         ]);
 
         // QPay callback — гадны сервер дуудах тул CSRF-аас чөлөөлөх
         $middleware->validateCsrfTokens(except: [
             'payment/callback/*',
+            'patient/leasing/callback/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

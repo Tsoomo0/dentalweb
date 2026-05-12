@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Branch;
 use App\Models\Doctor;
+use App\Models\Patient;
 use App\Models\Treatment;
+use App\Notifications\AppointmentBookedPatient;
+use App\Notifications\AppointmentConfirmedPatient;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -27,7 +31,7 @@ class ReceptionAppointmentController extends Controller
     {
         $branchId = $this->branchId();
 
-        $query = Appointment::with(['doctor', 'branch'])
+        $query = Appointment::with(['doctor', 'branch', 'treatmentRecord'])
             ->when($branchId, fn($q) => $q->where(function ($q2) use ($branchId) {
                 $q2->where('branch_id', $branchId)->orWhereNull('branch_id');
             }))
@@ -51,6 +55,7 @@ class ReceptionAppointmentController extends Controller
         $appointments = $query->get()->map(fn($a) => [
             'id'                   => $a->id,
             'appointment_number'   => $a->appointment_number,
+            'patient_id'           => $a->patient_id,
             'patient_name'         => $a->patient_name,
             'patient_phone'        => $a->patient_phone,
             'patient_email'        => $a->patient_email,
@@ -71,6 +76,7 @@ class ReceptionAppointmentController extends Controller
             'admin_notes'          => $a->admin_notes,
             'created_by'           => $a->created_by,
             'confirmed_by'         => $a->confirmed_by,
+            'treatment_sent'       => $a->treatmentRecord && in_array($a->treatmentRecord->payment_status, ['sent', 'partial', 'leasing', 'paid']),
         ]);
 
         $today = now()->toDateString();
@@ -119,6 +125,7 @@ class ReceptionAppointmentController extends Controller
         $branchId = $this->branchId();
 
         $request->validate([
+            'patient_id'           => 'nullable|exists:patients,id',
             'patient_name'         => 'required|string|max:255',
             'patient_phone'        => 'required|string|max:50',
             'patient_email'        => 'nullable|email|max:255',
@@ -141,9 +148,10 @@ class ReceptionAppointmentController extends Controller
         $appointment = Appointment::create([
             'appointment_number' => Appointment::generateNumber(),
             'created_by'         => Auth::user()->name,
+            'created_by_id'      => Auth::id(),
             'branch_id'          => $branchId ?? $request->branch_id,
             ...$request->only(
-                'patient_name', 'patient_phone', 'patient_email',
+                'patient_id', 'patient_name', 'patient_phone', 'patient_email',
                 'doctor_id', 'service', 'type',
                 'appointment_date', 'appointment_time', 'appointment_time_end',
                 'status', 'notes', 'admin_notes'
@@ -151,6 +159,10 @@ class ReceptionAppointmentController extends Controller
         ]);
 
         AuditService::log('created', $appointment, null, ['patient_name' => $appointment->patient_name, 'appointment_number' => $appointment->appointment_number], "Ресепшн цаг захиалга үүсгэв: {$appointment->appointment_number}");
+
+        // Patient-д notification + email
+        $appointment->load('doctor', 'branch');
+        $this->notifyPatient($appointment, 'booked');
 
         return back()->with('success', 'Цаг захиалга амжилттай нэмэгдлээ.');
     }
@@ -162,6 +174,7 @@ class ReceptionAppointmentController extends Controller
         }
 
         $request->validate([
+            'patient_id'           => 'nullable|exists:patients,id',
             'patient_name'         => 'required|string|max:255',
             'patient_phone'        => 'required|string|max:50',
             'patient_email'        => 'nullable|email|max:255',
@@ -181,12 +194,20 @@ class ReceptionAppointmentController extends Controller
             'admin_notes'          => 'nullable|string',
         ]);
 
+        $oldStatus = $appointment->status;
+
         $appointment->update($request->only(
-            'patient_name', 'patient_phone', 'patient_email',
+            'patient_id', 'patient_name', 'patient_phone', 'patient_email',
             'doctor_id', 'branch_id', 'service', 'type',
             'appointment_date', 'appointment_time', 'appointment_time_end',
             'status', 'notes', 'admin_notes'
         ));
+
+        // Статус confirmed болоход patient-д notification явуулна
+        if ($oldStatus !== 'confirmed' && $appointment->status === 'confirmed') {
+            $appointment->load('doctor', 'branch');
+            $this->notifyPatient($appointment, 'confirmed');
+        }
 
         AuditService::log('updated', $appointment, null, ['patient_name' => $appointment->patient_name, 'status' => $appointment->status], "Ресепшн захиалга шинэчлэв: {$appointment->appointment_number}");
 
@@ -215,10 +236,17 @@ class ReceptionAppointmentController extends Controller
 
         $updateData = ['status' => $request->status];
         if ($request->status === 'confirmed') {
-            $updateData['confirmed_by'] = Auth::user()->name;
+            $updateData['confirmed_by']    = Auth::user()->name;
+            $updateData['confirmed_by_id'] = Auth::id();
         }
 
         $appointment->update($updateData);
+
+        // Цаг баталгаажихад patient-д notification явуулна
+        if ($request->status === 'confirmed') {
+            $appointment->load('doctor', 'branch');
+            $this->notifyPatient($appointment, 'confirmed');
+        }
 
         $labels = [
             'confirmed' => 'Баталгаажлаа',
@@ -378,5 +406,89 @@ class ReceptionAppointmentController extends Controller
             'latest_id' => $latestId,
             'new_items' => $newItems,
         ]);
+    }
+
+    public function statusPoll(Request $request): JsonResponse
+    {
+        $branchId = $this->branchId();
+        $since    = $request->integer('since', 0);
+        $sinceAt  = $since > 0 ? now()->setTimestamp($since) : now()->subMinutes(1);
+
+        $updated = Appointment::with(['doctor', 'branch', 'treatmentRecord'])
+            ->where('updated_at', '>', $sinceAt)
+            ->when($branchId, fn($q) => $q->where(function ($q2) use ($branchId) {
+                $q2->where('branch_id', $branchId)->orWhereNull('branch_id');
+            }))
+            ->get()
+            ->map(fn($a) => [
+                'id'                   => $a->id,
+                'appointment_number'   => $a->appointment_number,
+                'patient_id'           => $a->patient_id,
+                'patient_name'         => $a->patient_name,
+                'patient_phone'        => $a->patient_phone,
+                'patient_email'        => $a->patient_email,
+                'doctor_id'            => $a->doctor_id,
+                'doctor_name'          => $a->doctor?->name,
+                'doctor_spec'          => $a->doctor?->specialization,
+                'branch_id'            => $a->branch_id,
+                'branch_name'          => $a->branch?->name,
+                'service'              => $a->service,
+                'type'                 => $a->type,
+                'appointment_date'     => $a->appointment_date?->format('Y-m-d') ?? '',
+                'appointment_time'     => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
+                'appointment_time_end' => $a->appointment_time_end ? substr($a->appointment_time_end, 0, 5) : null,
+                'formatted_date'       => $a->appointment_date?->format('Y.m.d') ?? '—',
+                'status'               => $a->status,
+                'payment_status'       => $a->payment_status,
+                'notes'                => $a->notes,
+                'admin_notes'          => $a->admin_notes,
+                'created_by'           => $a->created_by,
+                'confirmed_by'         => $a->confirmed_by,
+                'treatment_sent'       => $a->treatmentRecord && in_array($a->treatmentRecord->payment_status, ['sent', 'partial', 'leasing', 'paid']),
+            ]);
+
+        return response()->json([
+            'updated'     => $updated,
+            'server_time' => now()->timestamp,
+        ]);
+    }
+
+    private function notifyPatient(Appointment $appointment, string $event): void
+    {
+        if (!$appointment->patient_email) return;
+
+        // email-аар patient хэрэглэгч хайна
+        $patientUser = \App\Models\User::where('email', $appointment->patient_email)
+            ->whereHas('role', fn($q) => $q->where('name', 'patient'))
+            ->first();
+
+        // patient_id-аар хайна (email тохирохгүй байвал)
+        if (!$patientUser && $appointment->patient_id) {
+            $patientUser = \App\Models\Patient::find($appointment->patient_id)?->user;
+        }
+
+        if (!$patientUser) return;
+
+        $date = $appointment->appointment_date?->format('Y-m-d') ?? '';
+        $time = $appointment->appointment_time ? substr($appointment->appointment_time, 0, 5) : '';
+
+        if ($event === 'confirmed') {
+            $patientUser->notify(new AppointmentConfirmedPatient(
+                appointmentNumber: $appointment->appointment_number,
+                appointmentDate:   $date,
+                appointmentTime:   $time,
+                doctorName:        $appointment->doctor?->name,
+                branchName:        $appointment->branch?->name,
+            ));
+        } else {
+            $patientUser->notify(new AppointmentBookedPatient(
+                appointmentNumber: $appointment->appointment_number,
+                appointmentDate:   $date,
+                appointmentTime:   $time,
+                doctorName:        $appointment->doctor?->name,
+                branchName:        $appointment->branch?->name,
+                status:            $appointment->status,
+            ));
+        }
     }
 }

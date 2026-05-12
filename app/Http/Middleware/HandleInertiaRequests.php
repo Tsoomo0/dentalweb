@@ -27,6 +27,16 @@ class HandleInertiaRequests extends Middleware
      *
      * @see https://inertiajs.com/asset-versioning
      */
+    public static function portalNotifTypes(string $path): ?array
+    {
+        if (str_starts_with($path, 'doctor/'))    return ['PayrollSlipSent','ReceptionBonusSent','NurseBonusSent','LeaveRequestDecision','VacationRequestDecision','BookRentalDecision','EquipmentAssigned','EquipmentReturnedByAdmin','FeedbackResponded','WarningIssued','OrthoVisitSigned','GeneralVisitSigned'];
+        if (str_starts_with($path, 'hr/'))        return ['NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged'];
+        if (str_starts_with($path, 'reception/')) return ['NewAppointment','DailySheetConfirmed','OutstandingPaid','TreatmentSentToReception','ConsentFormSigned','PatientAppointmentRequested'];
+        if (str_starts_with($path, 'patient/'))   return ['ConsentRequestSent','AppointmentBookedPatient','AppointmentConfirmedPatient','OrthoSignatureRequested','GeneralVisitSignatureRequested'];
+        if (str_starts_with($path, 'my/'))        return ['PayrollSlipSent','ReceptionBonusSent','NurseBonusSent','LeaveRequestDecision','VacationRequestDecision','BookRentalDecision','EquipmentAssigned','EquipmentReturnedByAdmin','FeedbackResponded','WarningIssued'];
+        return null; // admin sees all
+    }
+
     public function version(Request $request): ?string
     {
         return parent::version($request);
@@ -43,7 +53,7 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
-        return array_merge(parent::share($request), [
+        return [
             ...parent::share($request),
             'name'  => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
@@ -82,25 +92,60 @@ class HandleInertiaRequests extends Middleware
                 ? JobApplication::where('status', 'pending')->count()
                 : 0,
 
-            'notifications' => fn () => ($request->user()?->isAdmin() || $request->user()?->isReceptionist()) ? [
-                'unread_count' => $request->user()->unreadNotifications()->count(),
-                'items'        => $request->user()->notifications()->latest()->take(15)->get()
-                    ->map(fn ($n) => [
+            // ─── Ресепшн: эмчилгээний хүлээгдэж буй төлбөр ──────────────────
+            'pending_treatment_payments' => fn () => $request->user()
+                ? \App\Models\TreatmentRecord::where('payment_status', 'sent')
+                    ->when($request->user()->branch_id, fn($q) =>
+                        $q->whereHas('doctor', fn($d) => $d->where('branch_id', $request->user()->branch_id))
+                    )->count()
+                : 0,
+
+            'notifications' => function () use ($request) {
+                // Web guard (admin, receptionist, HR employee)
+                $user = $request->user();
+
+                // Doctor guard → find linked employee's user account
+                if (!$user && Auth::guard('doctor')->check()) {
+                    $doctor = Auth::guard('doctor')->user();
+                    if ($doctor->employee_id) {
+                        $emp  = \App\Models\HR\Employee::with('user')->find($doctor->employee_id);
+                        $user = $emp?->user;
+                    }
+                }
+
+                if (!$user) return null;
+
+                $allowed     = self::portalNotifTypes($request->path());
+                $typeClasses = $allowed
+                    ? collect($allowed)->map(fn($t) => "App\\Notifications\\{$t}")->toArray()
+                    : null;
+
+                $query = $user->notifications()->latest();
+                if ($typeClasses) {
+                    $query->whereIn('type', $typeClasses);
+                }
+
+                return [
+                    'unread_count' => $typeClasses
+                        ? $user->unreadNotifications()->whereIn('type', $typeClasses)->count()
+                        : $user->unreadNotifications()->count(),
+                    'items' => $query->take(15)->get()->map(fn ($n) => [
                         'id'         => $n->id,
                         'notif_type' => class_basename($n->type),
                         'data'       => $n->data,
                         'read_at'    => $n->read_at?->toIso8601String(),
                         'created_at' => $n->created_at->diffForHumans(),
                     ])->all(),
-            ] : null,
+                ];
+            },
 
             // ─── Auth ─────────────────────────────────────────────────────────
             'auth' => [
                 'user'   => $request->user(),
-                'doctor' => Auth::guard('doctor')->check()
+                'doctor' => fn () => Auth::guard('doctor')->check()
                     ? (function () {
                         $d = Auth::guard('doctor')->user();
-                        return array_merge($d->only(['id', 'name', 'email', 'specialization', 'has_online_booking']), [
+                        return array_merge($d->only(['id', 'name', 'email', 'specialization', 'has_online_booking', 'employee_id']), [
                             'photo_url'      => $d->photo ? Storage::url($d->photo) : null,
                             'senior_doctors' => $d->seniorDoctors()->get(['doctors.id', 'doctors.name'])
                                 ->map(fn($s) => ['id' => $s->id, 'name' => $s->name])
@@ -108,7 +153,26 @@ class HandleInertiaRequests extends Middleware
                         ]);
                     })()
                     : null,
+                'employee' => fn () => (function () use ($request) {
+                    if (Auth::guard('doctor')->check()) {
+                        $doctor = Auth::guard('doctor')->user();
+                        if (!$doctor->employee_id) return null;
+                        $emp = \App\Models\HR\Employee::with('position')->find($doctor->employee_id);
+                    } elseif ($request->user()) {
+                        $emp = \App\Models\HR\Employee::with('position')
+                            ->where('user_id', $request->user()->id)->first();
+                    } else {
+                        return null;
+                    }
+                    if (!$emp) return null;
+                    return [
+                        'full_name' => $emp->full_name,
+                        'photo_url' => $emp->photo_url,
+                        'position'  => $emp->position?->name,
+                        'portal'    => $emp->position?->portal,
+                    ];
+                })(),
             ],
-        ]);
+        ];
     }
 }

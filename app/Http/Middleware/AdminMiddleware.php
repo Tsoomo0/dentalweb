@@ -16,7 +16,7 @@ class AdminMiddleware
         }
         else
         {
-            return redirect('/')->with('status', 'YOU ARE NOT ADMIN');
+            return redirect('/')->with('error', 'Та админ эрхтэй байх ёстой.');
         }
     }
 }

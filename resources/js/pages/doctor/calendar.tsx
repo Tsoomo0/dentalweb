@@ -1,4 +1,4 @@
-import { AptDetailModal, type ModalAppt } from '@/components/cal-modals';
+﻿import { AptDetailModal, type ModalAppt } from '@/components/cal-modals';
 import DoctorLayout from '@/layouts/doctor-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
@@ -19,12 +19,14 @@ interface Doctor {
 }
 interface Appt {
     id: number; appointment_number: string;
+    patient_id: number | null;
     patient_name: string; patient_phone: string; patient_email: string | null;
     service: string | null; type: 'online' | 'in_person';
     appointment_date: string; appointment_time: string;
     appointment_time_end: string | null; formatted_date: string;
     status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
     payment_status: string | null;
+    treatment_sent: boolean;
     notes: string | null; branch_name: string | null;
     _senior_name?: string;
     _senior_color?: string;
@@ -109,9 +111,27 @@ function getDays(y: number, m: number) { return new Date(y, m + 1, 0).getDate();
 function getFirstDow(y: number, m: number) { return (new Date(y, m, 1).getDay() + 6) % 7; }
 
 /* ─── Main ─── */
-export default function DoctorDashboard({ doctor, appointments, senior_doctors, stats }: Props) {
+export default function DoctorDashboard({ doctor, appointments: initialApts, senior_doctors: initialSeniors, stats }: Props) {
     const today    = new Date();
     const todayStr = pad(today.getFullYear(), today.getMonth(), today.getDate());
+
+    const [apts, setApts]           = useState<Appt[]>(initialApts);
+    const [seniorsData, setSeniorsData] = useState<SeniorDoctorProp[]>(initialSeniors);
+
+    /* 15-second poll: refresh appointments and senior data */
+    useEffect(() => {
+        const poll = async () => {
+            try {
+                const res = await fetch('/doctor/poll', { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const data = await res.json() as { appointments: Appt[]; senior_doctors: SeniorDoctorProp[] };
+                setApts(data.appointments);
+                setSeniorsData(data.senior_doctors);
+            } catch { /* silent */ }
+        };
+        const id = setInterval(poll, 15_000);
+        return () => clearInterval(id);
+    }, []);
 
     const [nowTime, setNowTime] = useState(() => new Date());
     useEffect(() => {
@@ -133,9 +153,9 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
 
     const seniorColorMap = useMemo(() => {
         const map: Record<number, string> = {};
-        senior_doctors.forEach((s, i) => { map[s.id] = seniorPal(i).bg; });
+        seniorsData.forEach((s, i) => { map[s.id] = seniorPal(i).bg; });
         return map;
-    }, [senior_doctors]);
+    }, [seniorsData]);
 
     /* ── Mobile: always day view ── */
     const [isMobile, setIsMobile] = useState(() =>
@@ -148,10 +168,10 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
     }, []);
     const selDay = selected ?? todayStr;
 
-    /* ── Scroll day view to current hour ── */
+    /* ── Scroll day/week view to current hour ── */
     useEffect(() => {
-        if (view === 'day' && dayScrollRef.current) {
-            dayScrollRef.current.scrollTop = Math.max(0, (today.getHours() - 8) * 120 - 32);
+        if ((view === 'day' || view === 'week') && dayScrollRef.current) {
+            dayScrollRef.current.scrollTop = Math.max(0, (today.getHours() - 8) * 120 - 60);
         }
     }, [view, selected]);
 
@@ -190,15 +210,15 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
 
     /* ── Calendar data ── */
     const allApts = useMemo(() => {
-        const own = appointments.filter(a => a.status === 'confirmed');
+        const own = apts.filter(a => a.status === 'confirmed');
         const senior = checkedSeniors.flatMap(id => {
-            const s = senior_doctors.find(x => x.id === id);
+            const s = seniorsData.find(x => x.id === id);
             if (!s) return [];
             const color = seniorColorMap[id];
             return s.appointments.map(a => ({ ...a, _senior_name: s.name, _senior_color: color }));
         });
         return [...own, ...senior];
-    }, [appointments, checkedSeniors, senior_doctors, seniorColorMap]);
+    }, [apts, checkedSeniors, seniorsData, seniorColorMap]);
 
     const aptByDate = useMemo(() => {
         const map: Record<string, Appt[]> = {};
@@ -223,6 +243,7 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
     const HOUR_START = 8;
     const HOUR_END   = 21;
     const HOUR_H     = 120;
+    const CARD_H     = 40;
     const PX_PER_MIN = HOUR_H / 60;
     const nowTop = ((nowTime.getHours() * 60 + nowTime.getMinutes() - HOUR_START * 60) / 60) * HOUR_H;
 
@@ -250,7 +271,7 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
         <DoctorLayout breadcrumbs={breadcrumbs}>
             <Head title="Календарь" />
 
-            {detail && <AptDetailModal apt={{ ...detail, doctor_id: null, doctor_name: null, doctor_spec: null, branch_id: null, admin_notes: null, created_by: null, confirmed_by: null } as unknown as ModalAppt} onClose={() => setDetail(null)} readonly />}
+            {detail && <AptDetailModal apt={{ ...detail, patient_id: detail.patient_id ?? null, doctor_id: null, doctor_name: null, doctor_spec: null, branch_id: null, admin_notes: null, created_by: null, confirmed_by: null } as unknown as ModalAppt} onClose={() => setDetail(null)} readonly />}
 
             {/* ── Desktop layout: full-height calendar ── */}
             {isDesktop ? (
@@ -325,7 +346,7 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
 
 
                             {/* Senior doctors filter */}
-                            {senior_doctors.length > 0 && (
+                            {seniorsData.length > 0 && (
                                 <>
                                     <div className="border-t" />
                                     <div>
@@ -341,7 +362,7 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                                             )}
                                         </div>
                                         <div className="space-y-0.5">
-                                            {senior_doctors.map((s, i) => {
+                                            {seniorsData.map((s, i) => {
                                                 const pal     = seniorPal(i);
                                                 const checked = checkedSeniors.includes(s.id);
                                                 const count   = (() => {
@@ -480,6 +501,7 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                                                                                 style={{ background: p2.light, borderLeft: `3px solid ${ac}` }}>
                                                                                 <span className="shrink-0 tabular-nums" style={{ color: ac }}>{a.appointment_time}</span>
                                                                                 <span className="truncate" style={{ color: ac }}>{a._senior_name ? `[${a._senior_name.split(' ')[0]}] ` : ''}{a.patient_name}</span>
+                                                                                {a.treatment_sent && <span className="shrink-0 rounded-full" style={{ width: 6, height: 6, background: '#16a34a', display: 'inline-block', flexShrink: 0 }} />}
                                                                             </div>
                                                                         );
                                                                     })}
@@ -498,91 +520,96 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
 
                                 {/* ── Week view ── */}
                                 {view === 'week' && (() => {
-                                    const totalH  = (HOUR_END - HOUR_START) * HOUR_H;
-                                    const COL_MIN = 110;
-                                    const APT_W   = 92;
-                                    const dayColWidths = weekDays.map(d => {
-                                        const ds = pad(d.getFullYear(), d.getMonth(), d.getDate());
-                                        const wc = computeColumns(aptByDate[ds] ?? []);
-                                        const mx = wc.length > 0 ? Math.max(...wc.map(x => x.totalCols)) : 1;
-                                        return Math.max(COL_MIN, mx * APT_W);
-                                    });
-                                    const weekGridW = 56 + dayColWidths.reduce((s, w) => s + w, 0);
+                                    const wTotalH = (HOUR_END - HOUR_START) * HOUR_H;
+                                    const WCOL_MIN = 110;
                                     return (
                                         <div className="flex flex-1 flex-col overflow-hidden">
                                             <div ref={dayScrollRef} className="cal-scroll flex-1 overflow-auto">
-                                                <div style={{ width: weekGridW }}>
+                                                <div style={{ minWidth: '100%', width: 56 + 7 * WCOL_MIN }}>
+                                                    {/* Sticky day headers */}
                                                     <div className="sticky top-0 z-20 flex border-b bg-card shadow-sm">
                                                         <div className="w-14 shrink-0 border-r bg-card" />
-                                                        {weekDays.map((d, idx) => {
+                                                        {weekDays.map(d => {
                                                             const ds  = pad(d.getFullYear(), d.getMonth(), d.getDate());
                                                             const isT = ds === todayStr;
+                                                            const isS = ds === selected;
                                                             const cnt = (aptByDate[ds] ?? []).length;
                                                             return (
                                                                 <div key={ds}
                                                                     onClick={() => { setSelected(ds); setView('day'); }}
-                                                                    className="flex shrink-0 cursor-pointer flex-col items-center border-r py-2 last:border-r-0 hover:bg-muted/30 transition-colors"
-                                                                    style={{ width: dayColWidths[idx] }}>
+                                                                    className={`flex flex-1 cursor-pointer flex-col items-center border-r py-2 last:border-r-0 transition-colors hover:bg-muted/30 ${isS ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
+                                                                    style={{ minWidth: WCOL_MIN }}>
                                                                     <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{DAYS_MN[(d.getDay() + 6) % 7]}</p>
-                                                                    <span className={`mt-1 flex size-8 items-center justify-center rounded-full text-sm font-bold ${isT ? 'bg-red-600 text-white' : 'text-foreground'}`}>
+                                                                    <span className={`mt-1 flex size-8 items-center justify-center rounded-full text-sm font-bold transition-colors ${isT ? 'bg-red-600 text-white' : 'text-foreground'}`}>
                                                                         {d.getDate()}
                                                                     </span>
-                                                                    {cnt > 0 && <span className="mt-0.5 text-[9px] font-medium text-red-500">{cnt} цаг</span>}
+                                                                    {cnt > 0 && <span className="mt-0.5 text-[9px] font-medium text-red-500">{cnt} захиалга</span>}
                                                                 </div>
                                                             );
                                                         })}
                                                     </div>
-                                                    <div className="relative flex" style={{ height: totalH }}>
+                                                    {/* Grid body */}
+                                                    <div className="relative flex" style={{ height: wTotalH }}>
+                                                        {/* Shared grid lines */}
+                                                        <div className="pointer-events-none absolute inset-0">
+                                                            {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
+                                                                <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: i * HOUR_H, borderTop: '1px solid var(--cal-line-hour)' }} />
+                                                            ))}
+                                                            {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
+                                                                <div key={`h${i}`} style={{ position: 'absolute', left: 0, right: 0, top: i * HOUR_H + HOUR_H / 2, borderTop: '1px solid var(--cal-line-half)' }} />
+                                                            ))}
+                                                        </div>
+                                                        {/* Time gutter */}
                                                         <div className="relative w-14 shrink-0 border-r">
                                                             {Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => (
-                                                                <div key={i} className="absolute right-2 text-[10px] font-medium text-muted-foreground select-none"
-                                                                    style={{ top: i * HOUR_H - 7 }}>
-                                                                    {String(HOUR_START + i).padStart(2, '0')}:00
+                                                                <div key={i}>
+                                                                    <div className="absolute right-2 text-[10px] font-medium text-muted-foreground select-none" style={{ top: i * HOUR_H - 7 }}>
+                                                                        {String(HOUR_START + i).padStart(2, '0')}:00
+                                                                    </div>
+                                                                    {i < HOUR_END - HOUR_START && (
+                                                                        <div className="absolute right-2 text-[9px] text-muted-foreground/40 select-none" style={{ top: i * HOUR_H + HOUR_H / 2 - 6 }}>
+                                                                            :30
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             ))}
                                                         </div>
-                                                        {weekDays.map((d, idx) => {
+                                                        {/* Day columns */}
+                                                        {weekDays.map(d => {
                                                             const ds    = pad(d.getFullYear(), d.getMonth(), d.getDate());
                                                             const isT   = ds === todayStr;
                                                             const wapts = (aptByDate[ds] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-                                                            const dayW  = dayColWidths[idx];
                                                             return (
-                                                                <div key={ds} className="relative shrink-0 border-r last:border-r-0"
-                                                                    style={{ width: dayW, height: totalH }}>
-                                                                    {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
-                                                                        <div key={i} style={{ position:'absolute', left:0, right:0, top: i * HOUR_H, borderTop:'1px solid var(--cal-line-hour)' }} />
-                                                                    ))}
+                                                                <div key={ds} className="relative flex-1 border-r last:border-r-0"
+                                                                    style={{ minWidth: WCOL_MIN, height: wTotalH }}>
                                                                     {computeColumns(wapts).map(({ apt: a, col, totalCols }) => {
-                                                                        const p2   = aptColorForAppt(a);
-                                                                        const ac   = p2.border;
-                                                                        const h    = Math.max(22, (aptEndMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
-                                                                        const colW = dayW / totalCols;
+                                                                        const p2 = aptColorForAppt(a);
+                                                                        const ac = p2.border;
+                                                                        const h  = CARD_H;
                                                                         return (
                                                                             <div key={`${a.id}-${a._senior_name ?? ''}`}
                                                                                 onClick={() => setDetail(a)}
                                                                                 title={`${a.appointment_time}${a.appointment_time_end ? '–' + a.appointment_time_end : ''} · ${a.patient_name}${a._senior_name ? ` (${a._senior_name})` : ''}`}
-                                                                                className="absolute cursor-pointer overflow-hidden rounded px-1.5 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
+                                                                                className="absolute cursor-pointer overflow-hidden rounded px-1 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
                                                                                 style={{
                                                                                     top: aptTop(a.appointment_time), height: h,
-                                                                                    left: col * colW + 1,
-                                                                                    width: colW - 2,
+                                                                                    left: `calc(${col * 100 / totalCols}% + 1px)`,
+                                                                                    width: `calc(${100 / totalCols}% - 2px)`,
                                                                                     zIndex: col + 1,
                                                                                     background: p2.light,
                                                                                     border: `1px solid ${ac}50`,
                                                                                     borderLeftWidth: 3,
                                                                                     borderLeftColor: ac,
-                                                                                    color: ac,
                                                                                 }}>
-                                                                                <p className="font-bold tabular-nums truncate leading-tight" style={{ fontSize: 9 }}>
+                                                                                {a.treatment_sent && <span style={{ position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 0 1.5px white' }} />}
+                                                                                <p className="font-bold tabular-nums truncate leading-tight" style={{ fontSize: 9, color: ac }}>
                                                                                     {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}{a.type === 'online' ? ' 💻' : ''}
                                                                                 </p>
-                                                                                {h > 30 && <p className="truncate font-semibold leading-tight" style={{ fontSize: 10 }}>{a.patient_name}</p>}
-                                                                                {h > 46 && a._senior_name && <p className="truncate opacity-70 leading-tight" style={{ fontSize: 9 }}>👤 {a._senior_name}</p>}
-                                                                                {h > 46 && !a._senior_name && a.service && <p className="truncate opacity-70 leading-tight" style={{ fontSize: 9 }}>{a.service}</p>}
+                                                                                {h > 30 && <p className="truncate font-semibold leading-tight" style={{ fontSize: 10, color: ac }}>{a.patient_name}</p>}
                                                                             </div>
                                                                         );
                                                                     })}
-                                                                    {isT && nowTop >= 0 && nowTop <= totalH && (
+                                                                    {isT && nowTop >= 0 && nowTop <= wTotalH && (
                                                                         <div className="pointer-events-none absolute left-0 right-0 z-10 flex items-center" style={{ top: nowTop }}>
                                                                             <div className="size-2 shrink-0 rounded-full bg-red-500 -ml-1" />
                                                                             <div className="flex-1 border-t-2 border-red-500" />
@@ -600,16 +627,49 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
 
                                 {/* ── Day view (desktop) ── */}
                                 {view === 'day' && (() => {
-                                    const totalH = (HOUR_END - HOUR_START) * HOUR_H;
-                                    const dapts  = (aptByDate[selDay] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+                                    const totalH  = (HOUR_END - HOUR_START) * HOUR_H;
+                                    const dapts   = (aptByDate[selDay] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
                                     const isToday = selDay === todayStr;
                                     const dayViewCols = computeColumns(dapts);
-                                    const maxSimDay = dayViewCols.length > 0 ? Math.max(...dayViewCols.map(x => x.totalCols)) : 1;
-                                    const dayContentW = Math.max(300, maxSimDay * 92);
+                                    const maxSimDay   = dayViewCols.length > 0 ? Math.max(...dayViewCols.map(x => x.totalCols)) : 1;
+                                    const COL_MIN_DAY = 130;
                                     return (
                                         <div ref={dayScrollRef} className="cal-scroll flex-1 overflow-auto">
-                                            <div style={{ minWidth: 56 + dayContentW, minHeight: totalH + 40 }}>
+                                            <div style={{ minWidth: '100%', width: 56 + Math.max(COL_MIN_DAY, maxSimDay * 92), minHeight: totalH + 90 }}>
+                                                {/* Sticky date header */}
+                                                <div className="sticky top-0 z-20 flex border-b bg-card shadow-sm">
+                                                    <div className="w-14 shrink-0 border-r bg-card" />
+                                                    <div className="flex flex-1 flex-col items-center border-r py-2 px-2 bg-card">
+                                                        {(() => {
+                                                            const dObj = new Date(selDay + 'T00:00');
+                                                            return (
+                                                                <>
+                                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{DAYS_MN[(dObj.getDay() + 6) % 7]}</p>
+                                                                    <span className={`mt-1 flex size-8 items-center justify-center rounded-full text-sm font-bold ${isToday ? 'bg-red-600 text-white' : 'text-foreground'}`}>
+                                                                        {dObj.getDate()}
+                                                                    </span>
+                                                                    {dapts.length > 0 && (
+                                                                        <span className="mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-bold text-white" style={{ background: '#8b5cf6' }}>
+                                                                            {dapts.length} захиалга
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                                {/* Grid body */}
                                                 <div className="relative flex" style={{ height: totalH }}>
+                                                    {/* Shared grid lines */}
+                                                    <div className="pointer-events-none absolute inset-0">
+                                                        {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
+                                                            <div key={i} style={{ position: 'absolute', left: 0, right: 0, top: i * HOUR_H, borderTop: '1px solid var(--cal-line-hour)' }} />
+                                                        ))}
+                                                        {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
+                                                            <div key={`h${i}`} style={{ position: 'absolute', left: 0, right: 0, top: i * HOUR_H + HOUR_H / 2, borderTop: '1px solid var(--cal-line-half)' }} />
+                                                        ))}
+                                                    </div>
+                                                    {/* Time gutter */}
                                                     <div className="relative w-14 shrink-0 border-r">
                                                         {Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => (
                                                             <div key={i}>
@@ -624,20 +684,13 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                                                             </div>
                                                         ))}
                                                     </div>
-                                                    <div className="relative shrink-0" style={{ width: dayContentW, height: totalH }}>
-                                                        {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
-                                                            <div key={i} style={{ position:'absolute', left:0, right:0, top: i * HOUR_H, borderTop:'1px solid var(--cal-line-hour)' }} />
-                                                        ))}
-                                                        {Array.from({ length: (HOUR_END - HOUR_START) * 2 }, (_, i) => {
-                                                            if (i % 2 === 0) return null;
-                                                            return <div key={`h${i}`} style={{ position:'absolute', left:0, right:0, top: i * (HOUR_H / 2), borderTop:'1px solid var(--cal-line-half)' }} />;
-                                                        })}
+                                                    {/* Appointment column */}
+                                                    <div className="relative flex-1 border-r" style={{ height: totalH }}>
                                                         {dayViewCols.map(({ apt: a, col, totalCols }) => {
                                                             const p2 = aptColorForAppt(a);
                                                             const ac = p2.border;
                                                             const top = aptTop(a.appointment_time);
                                                             const h = Math.max(24, (aptEndMins(a) - toMins(a.appointment_time)) * PX_PER_MIN);
-                                                            const colW = dayContentW / totalCols;
                                                             return (
                                                                 <div key={`${a.id}-${a._senior_name ?? ''}`}
                                                                     onClick={() => setDetail(a)}
@@ -645,8 +698,8 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                                                                     className="absolute cursor-pointer overflow-hidden rounded px-1.5 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
                                                                     style={{
                                                                         top, height: h,
-                                                                        left: col * colW + 1,
-                                                                        width: colW - 2,
+                                                                        left: `calc(${col * 100 / totalCols}% + 1px)`,
+                                                                        width: `calc(${100 / totalCols}% - 2px)`,
                                                                         zIndex: col + 1,
                                                                         background: p2.light,
                                                                         border: `1px solid ${ac}50`,
@@ -654,6 +707,7 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                                                                         borderLeftColor: ac,
                                                                         color: ac,
                                                                     }}>
+                                                                    {a.treatment_sent && <span style={{ position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 0 1.5px white' }} />}
                                                                     <p className="font-bold tabular-nums truncate leading-tight" style={{ fontSize: 9 }}>
                                                                         {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}{a.type === 'online' ? ' 💻' : ''}
                                                                     </p>
@@ -665,7 +719,7 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                                                         })}
                                                         {isToday && nowTop >= 0 && nowTop <= totalH && (
                                                             <div className="pointer-events-none absolute left-0 right-0 z-20 flex items-center" style={{ top: nowTop }}>
-                                                                <div className="size-3 shrink-0 rounded-full bg-red-500 -ml-1.5" />
+                                                                <div className="size-2.5 shrink-0 rounded-full bg-red-500 -ml-1.5" />
                                                                 <div className="flex-1 border-t-2 border-red-500" />
                                                             </div>
                                                         )}
@@ -690,466 +744,328 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                     </div>
                 </div>
             ) : (
-                /* ── Mobile — Dark calendar (Сар / 7х / Өдөр views) ── */
-                <div className="bg-background text-foreground" style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+                /* ══════════════ MOBILE ══════════════ */
+                <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden', background:'var(--background)' }}>
 
-                    {/* ── HEADER ── */}
-                    <div className="bg-background border-b border-border" style={{ flexShrink:0, padding:'10px 16px 0', userSelect:'none' }}>
-                        {/* Top row: menu · date · view toggle */}
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-                            {senior_doctors.length > 0 ? (
-                                <button onClick={() => setDoctorPanelOpen(true)}
-                                    className="bg-muted hover:bg-muted/80 transition-colors"
-                                    style={{ width:36, height:36, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer', position:'relative', flexShrink:0 }}>
-                                    <Menu className="text-foreground" style={{ width:18, height:18 }} />
-                                    {checkedSeniors.length > 0 && (
-                                        <span style={{ position:'absolute', top:4, right:4, width:7, height:7, borderRadius:'50%', background:'#22c55e', border:'1.5px solid hsl(var(--card))' }} />
-                                    )}
-                                </button>
-                            ) : (
-                                <button onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); setSelected(todayStr); setView('day'); }}
-                                    className="bg-muted hover:bg-muted/80 transition-colors"
-                                    style={{ padding:'6px 10px', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer', fontSize:11, fontWeight:700, color:'hsl(var(--foreground))' }}>
-                                    Өнөөдөр
-                                </button>
-                            )}
-                            <button onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); setSelected(todayStr); }}
-                                style={{ textAlign:'center', background:'none', border:'none', cursor:'pointer' }}>
-                                <div className="text-muted-foreground" style={{ fontSize:11, fontWeight:500 }}>{year} · {MONTHS_MN[month]}</div>
-                                <div className="text-foreground" style={{ fontSize:17, fontWeight:700 }}>
-                                    {new Date(selDay + 'T00:00').getDate()}-ны өдөр
-                                </div>
+                    {/* ══ HERO ══ */}
+                    <div style={{
+                        flexShrink:0,
+                        background:'linear-gradient(160deg,#0f172a 0%,#3b0000 45%,#1e1b4b 100%)',
+                        position:'relative', overflow:'hidden',
+                    }}>
+                        {/* Blobs */}
+                        <div style={{ position:'absolute', width:260, height:260, borderRadius:'50%', background:'rgba(239,68,68,0.13)', top:-90, right:-80, pointerEvents:'none' }} />
+                        <div style={{ position:'absolute', width:160, height:160, borderRadius:'50%', background:'rgba(99,102,241,0.1)', bottom:-60, left:-40, pointerEvents:'none' }} />
+                        <div style={{ position:'absolute', inset:0, opacity:0.035, backgroundImage:'radial-gradient(circle,white 1px,transparent 1px)', backgroundSize:'22px 22px', pointerEvents:'none' }} />
+
+                        {/* Month nav */}
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 16px 8px', position:'relative' }}>
+                            <button onClick={prevMonth} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                <ChevronLeft style={{ width:18, height:18, color:'white' }} />
                             </button>
-                            <div className="bg-muted" style={{ display:'flex', borderRadius:10, padding:2, gap:1 }}>
-                                {(['month','week','day'] as const).map((v, vi) => (
-                                    <button key={v} onClick={() => { setView(v); if (v === 'day' && !selected) setSelected(todayStr); }}
-                                        style={{
-                                            padding:'4px 9px', borderRadius:8, fontSize:11, fontWeight:700, border:'none', cursor:'pointer',
-                                            background: view === v ? '#22c55e' : 'transparent',
-                                            color: view === v ? 'white' : 'hsl(var(--muted-foreground))',
-                                        }}>
-                                        {['Сар','7х','Өдөр'][vi]}
-                                    </button>
-                                ))}
+                            <div style={{ textAlign:'center' }}>
+                                <p style={{ margin:0, fontSize:10, color:'rgba(255,255,255,0.45)', fontWeight:700, letterSpacing:1.5, textTransform:'uppercase' }}>{year}</p>
+                                <p style={{ margin:'2px 0 0', fontSize:22, fontWeight:900, color:'white', lineHeight:1, letterSpacing:-0.3 }}>{MONTHS_MN[month]}</p>
                             </div>
+                            <button onClick={nextMonth} style={{ width:36, height:36, borderRadius:12, background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                <ChevronRight style={{ width:18, height:18, color:'white' }} />
+                            </button>
                         </div>
 
-                        {/* Week strip (Sun→Sat) */}
+                        {/* Week strip */}
                         {(() => {
-                            const selDate = new Date(selDay + 'T00:00');
-                            const dow = selDate.getDay();
+                            const selDate = new Date(selDay+'T00:00');
                             const weekSun = new Date(selDate);
-                            weekSun.setDate(selDate.getDate() - dow);
+                            weekSun.setDate(selDate.getDate() - selDate.getDay());
                             return (
-                                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', paddingBottom:8 }}>
-                                    {['Ня','Да','Мя','Лх','Пу','Ба','Бя'].map((dn, i) => {
-                                        const d = new Date(weekSun); d.setDate(weekSun.getDate() + i);
-                                        const ds = pad(d.getFullYear(), d.getMonth(), d.getDate());
-                                        const isT = ds === todayStr;
-                                        const isSel = ds === selDay;
+                                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'4px 10px 16px' }}>
+                                    {['Ня','Да','Мя','Лх','Пу','Ба','Бя'].map((dn,i) => {
+                                        const d   = new Date(weekSun); d.setDate(weekSun.getDate()+i);
+                                        const ds  = pad(d.getFullYear(), d.getMonth(), d.getDate());
+                                        const isT = ds===todayStr, isSel=ds===selDay;
                                         const cnt = aptByDate[ds]?.length ?? 0;
                                         return (
                                             <button key={ds} onClick={() => { setSelected(ds); setYear(d.getFullYear()); setMonth(d.getMonth()); }}
-                                                style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, background:'none', border:'none', cursor:'pointer', padding:'2px 0' }}>
-                                                <span style={{ fontSize:9, color:'hsl(var(--muted-foreground))', fontWeight:600, textTransform:'uppercase' }}>{dn}</span>
+                                                style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, background:'none', border:'none', cursor:'pointer', padding:'2px 0' }}>
+                                                <span style={{ fontSize:9, fontWeight:700, letterSpacing:0.5, textTransform:'uppercase',
+                                                    color: isSel ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.38)' }}>
+                                                    {dn}
+                                                </span>
                                                 <span style={{
-                                                    width:30, height:30, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
-                                                    fontSize:14, fontWeight: isSel || isT ? 700 : 400,
-                                                    background: isSel ? '#22c55e' : 'transparent',
-                                                    color: isSel ? 'white' : isT ? '#22c55e' : 'hsl(var(--foreground))',
-                                                }}>{d.getDate()}</span>
-                                                <span style={{ width:5, height:5, borderRadius:'50%', background: cnt > 0 ? (isSel ? 'white' : '#22c55e') : 'transparent' }} />
+                                                    width:34, height:34, borderRadius:'50%',
+                                                    display:'flex', alignItems:'center', justifyContent:'center',
+                                                    fontSize:15, fontWeight: isSel||isT ? 800 : 400,
+                                                    background: isSel
+                                                        ? 'linear-gradient(135deg,#ef4444,#e11d48)'
+                                                        : isT ? 'rgba(239,68,68,0.2)' : 'transparent',
+                                                    color: isSel ? 'white' : isT ? '#fca5a5' : 'rgba(255,255,255,0.8)',
+                                                    boxShadow: isSel ? '0 4px 14px rgba(239,68,68,0.5)' : 'none',
+                                                }}>
+                                                    {d.getDate()}
+                                                </span>
+                                                {cnt>0
+                                                    ? <span style={{ display:'flex', gap:2 }}>
+                                                        {Array.from({length:Math.min(cnt,3)},(_,ci)=>(
+                                                            <span key={ci} style={{ width:4, height:4, borderRadius:'50%', background: isSel ? 'rgba(255,255,255,0.8)' : '#ef4444' }} />
+                                                        ))}
+                                                      </span>
+                                                    : <span style={{ width:4, height:4 }} />
+                                                }
                                             </button>
                                         );
                                     })}
                                 </div>
                             );
                         })()}
-
                     </div>
 
-                    {/* ── CONTENT AREA ── */}
-                    <div style={{ flex:1, overflow:'hidden', position:'relative' }}>
-
-                        {/* ── DAY VIEW ── */}
-                        {view === 'day' && (
-                            <div ref={dayScrollRef} style={{ height:'100%', overflowY:'auto' }}>
-                                {(() => {
-                                    const dapts = (aptByDate[selDay] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-                                    const totalH = (HOUR_END - HOUR_START) * HOUR_H;
-                                    const isToday = selDay === todayStr;
-                                    const cols = computeColumns(dapts);
-                                    return (
-                                        <div style={{ minHeight: totalH + 48 }}>
-                                            <div style={{ position:'relative', display:'flex', height: totalH }}>
-                                                <div style={{ width:52, flexShrink:0, position:'relative' }}>
-                                                    {Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => (
-                                                        <div key={i} style={{ position:'absolute', right:8, top: i * HOUR_H - 7, fontSize:10, color:'hsl(var(--muted-foreground))', fontWeight:500, userSelect:'none' }}>
-                                                            {String(HOUR_START + i).padStart(2,'0')}:00
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <div style={{ flex:1, position:'relative', borderLeft:'1px solid var(--cal-line-hour)' }}>
-                                                    {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
-                                                        <div key={i} style={{ position:'absolute', left:0, right:0, top: i * HOUR_H, borderTop:'1px solid var(--cal-line-hour)' }} />
-                                                    ))}
-                                                    {Array.from({ length: (HOUR_END - HOUR_START) * 2 }, (_, i) => {
-                                                        if (i % 2 === 0) return null;
-                                                        return <div key={`hh${i}`} style={{ position:'absolute', left:0, right:0, top: i * (HOUR_H / 2), borderTop:'1px solid var(--cal-line-half)' }} />;
-                                                    })}
-                                                    {cols.map(({ apt: a, col, totalCols }) => {
-                                                        const pal2 = aptColorForAppt(a);
-                                                        const top = aptTop(a.appointment_time);
-                                                        const durMins = aptEndMins(a) - toMins(a.appointment_time);
-                                                        const h = Math.max(26, Math.round(durMins * PX_PER_MIN));
-                                                        const colW = `calc((100% - 6px) / ${totalCols})`;
-                                                        const colL = `calc(${col} * (100% - 6px) / ${totalCols} + 3px)`;
-                                                        const compact = h < 46;
-                                                        return (
-                                                            <div key={`${a.id}-${a._senior_name ?? ''}`} onClick={() => setDetail(a)}
-                                                                style={{
-                                                                    position:'absolute', top, height: h, width: colW, left: colL,
-                                                                    zIndex: col + 1,
-                                                                    background: compact
-                                                                        ? `${pal2.bg}28`
-                                                                        : `linear-gradient(145deg, ${pal2.bg}55, ${pal2.bg}33)`,
-                                                                    borderTop: `1px solid ${pal2.bg}40`,
-                                                                    borderRight: `1px solid ${pal2.bg}40`,
-                                                                    borderBottom: `1px solid ${pal2.bg}40`,
-                                                                    borderLeft: `3px solid ${pal2.bg}`,
-                                                                    borderRadius: compact ? 6 : 10,
-                                                                    cursor:'pointer', overflow:'hidden',
-                                                                    display:'flex',
-                                                                    alignItems: compact ? 'center' : 'flex-start',
-                                                                    gap: compact ? 4 : 7,
-                                                                    padding: compact ? '0 6px' : '6px 8px 5px',
-                                                                    backdropFilter: compact ? undefined : 'blur(4px)',
-                                                                }}>
-                                                                {!compact && (
-                                                                    <div style={{
-                                                                        width:24, height:24, borderRadius:'50%', flexShrink:0,
-                                                                        background: pal2.bg, overflow:'hidden',
-                                                                        display:'flex', alignItems:'center', justifyContent:'center',
-                                                                        fontSize:13, marginTop:1,
-                                                                    }}>
-                                                                        {a._senior_name ? '👤' : a.type === 'online' ? '💻' : '🏥'}
-                                                                    </div>
-                                                                )}
-                                                                <div style={{ flex:1, minWidth:0 }}>
-                                                                    {compact ? (
-                                                                        <p style={{ fontSize:10, fontWeight:700, color: pal2.bg, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1 }}>
-                                                                            {a.appointment_time} {a.patient_name.split(' ')[0]}
-                                                                        </p>
-                                                                    ) : (
-                                                                        <>
-                                                                            <p style={{ fontSize:12, fontWeight:700, color:'hsl(var(--foreground))', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3, marginBottom:2 }}>
-                                                                                {a.patient_name}
-                                                                            </p>
-                                                                            <p style={{ fontSize:10, color: pal2.bg, fontWeight:600, lineHeight:1.2 }}>
-                                                                                {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}
-                                                                            </p>
-                                                                            {h > 80 && a._senior_name && (
-                                                                                <span style={{
-                                                                                    display:'inline-block', marginTop:3,
-                                                                                    padding:'1px 7px', borderRadius:99,
-                                                                                    fontSize:9, fontWeight:700,
-                                                                                    background:`${pal2.bg}35`, color: pal2.bg,
-                                                                                }}>👤 {a._senior_name}</span>
-                                                                            )}
-                                                                            {h > 80 && !a._senior_name && a.service && (
-                                                                                <span style={{
-                                                                                    display:'inline-block', marginTop:3,
-                                                                                    padding:'1px 7px', borderRadius:99,
-                                                                                    fontSize:9, fontWeight:700,
-                                                                                    background:`${pal2.bg}35`, color: pal2.bg,
-                                                                                }}>{a.service}</span>
-                                                                            )}
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {isToday && nowTop >= 0 && nowTop <= totalH && (
-                                                        <div style={{ position:'absolute', left:0, right:0, top: nowTop, zIndex:20, display:'flex', alignItems:'center', pointerEvents:'none' }}>
-                                                            <div style={{ width:10, height:10, borderRadius:'50%', background:'#ef4444', marginLeft:-5, flexShrink:0 }} />
-                                                            <div style={{ flex:1, borderTop:'2px solid #ef4444' }} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {dapts.length === 0 && (
-                                                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, padding:'80px 0', color:'hsl(var(--muted-foreground))' }}>
-                                                    <CalendarClock style={{ width:40, height:40, opacity:0.25 }} />
-                                                    <p style={{ fontSize:14 }}>Энэ өдөр захиалга байхгүй</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        )}
-
-                        {/* ── MONTH VIEW ── */}
-                        {view === 'month' && (
-                            <div style={{ height:'100%', overflowY:'auto', display:'flex', flexDirection:'column' }}>
-                                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 16px 4px', flexShrink:0 }}>
-                                    <button onClick={prevMonth} style={{ padding:6, borderRadius:8, background:'hsl(var(--muted))', border:'none', cursor:'pointer' }}>
-                                        <ChevronLeft style={{ width:18, height:18, color:'hsl(var(--foreground))' }} />
-                                    </button>
-                                    <button onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); setSelected(todayStr); }}
-                                        style={{ fontSize:14, fontWeight:700, color:'hsl(var(--foreground))', background:'none', border:'none', cursor:'pointer' }}>
-                                        {year} · {MONTHS_MN[month]}
-                                    </button>
-                                    <button onClick={nextMonth} style={{ padding:6, borderRadius:8, background:'hsl(var(--muted))', border:'none', cursor:'pointer' }}>
-                                        <ChevronRight style={{ width:18, height:18, color:'hsl(var(--foreground))' }} />
-                                    </button>
+                    {/* ══ STAT STRIP ══ */}
+                    <div style={{ flexShrink:0, background:'var(--card)', borderBottom:'1px solid var(--border)' }}>
+                        <div style={{ display:'flex', overflowX:'auto', padding:'10px 14px', gap:8 }}>
+                            {([
+                                { label:'Өнөөдөр',      value:stats.today,    c:'#ef4444', bg:'rgba(239,68,68,0.08)',   icon:'📅' },
+                                { label:'Баталгаажсан', value:stats.upcoming, c:'#22c55e', bg:'rgba(34,197,94,0.08)',   icon:'✅' },
+                                { label:'Хүлээгдэж',    value:stats.pending,  c:'#f59e0b', bg:'rgba(245,158,11,0.08)',  icon:'⏳' },
+                                { label:'Нийт',          value:stats.total,    c:'#8b5cf6', bg:'rgba(139,92,246,0.08)', icon:'📊' },
+                            ] as const).map(s=>(
+                                <div key={s.label} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:8, background:s.bg, borderRadius:14, padding:'8px 14px', border:`1px solid ${s.c}22` }}>
+                                    <span style={{ fontSize:16 }}>{s.icon}</span>
+                                    <div>
+                                        <p style={{ margin:0, fontSize:17, fontWeight:900, color:s.c, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>{s.value}</p>
+                                        <p style={{ margin:'1px 0 0', fontSize:9, fontWeight:700, color:s.c, opacity:0.7, whiteSpace:'nowrap', letterSpacing:0.2 }}>{s.label}</p>
+                                    </div>
                                 </div>
-                                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'0 12px', flexShrink:0 }}>
-                                    {['Ня','Да','Мя','Лх','Пу','Ба','Бя'].map(dn => (
-                                        <div key={dn} style={{ textAlign:'center', fontSize:10, fontWeight:700, color:'hsl(var(--muted-foreground))', padding:'4px 0', textTransform:'uppercase' }}>{dn}</div>
-                                    ))}
+                            ))}
+                            {seniorsData.length>0 && (
+                                <button onClick={()=>setDoctorPanelOpen(true)}
+                                    style={{ flexShrink:0, display:'flex', alignItems:'center', gap:7, background:'rgba(99,102,241,0.08)', borderRadius:14, padding:'8px 14px', border:'1px solid rgba(99,102,241,0.2)', cursor:'pointer' }}>
+                                    <Menu style={{ width:15, height:15, color:'#6366f1' }} />
+                                    <div>
+                                        <p style={{ margin:0, fontSize:17, fontWeight:900, color:'#6366f1', lineHeight:1 }}>{seniorsData.length}</p>
+                                        <p style={{ margin:'1px 0 0', fontSize:9, fontWeight:700, color:'#6366f1', opacity:0.7, whiteSpace:'nowrap' }}>Эмч нар</p>
+                                    </div>
+                                    {checkedSeniors.length>0 && <span style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e', flexShrink:0, boxShadow:'0 0 0 2px rgba(34,197,94,0.25)' }} />}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ══ DAY HEADER ══ */}
+                    <div style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px 8px', background:'var(--background)' }}>
+                        <button onClick={prevDay} style={{ width:36, height:36, borderRadius:12, background:'var(--card)', border:'1px solid var(--border)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+                            <ChevronLeft style={{ width:16, height:16, color:'var(--muted-foreground)' }} />
+                        </button>
+                        {(() => {
+                            const d = new Date(selDay+'T00:00');
+                            const isToday = selDay===todayStr;
+                            const dayApts = aptByDate[selDay]?.length ?? 0;
+                            return (
+                                <div style={{ textAlign:'center' }}>
+                                    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                                        <p style={{ margin:0, fontSize:15, fontWeight:800, color:'var(--foreground)', lineHeight:1 }}>
+                                            {DAYS_MN[(d.getDay()+6)%7]}, {d.getDate()} {MONTHS_MN[d.getMonth()]}
+                                        </p>
+                                        {isToday && (
+                                            <span style={{ fontSize:9, fontWeight:800, background:'#ef4444', color:'white', borderRadius:99, padding:'2px 7px', letterSpacing:0.5 }}>ӨНӨӨДӨР</span>
+                                        )}
+                                    </div>
+                                    {dayApts>0 && (
+                                        <p style={{ margin:'3px 0 0', fontSize:11, color:'var(--muted-foreground)', fontWeight:500 }}>
+                                            {dayApts} захиалга
+                                        </p>
+                                    )}
                                 </div>
-                                {(() => {
-                                    const firstDowSun = new Date(year, month, 1).getDay();
-                                    const daysInMo = getDays(year, month);
-                                    const totalCellsMo = Math.ceil((firstDowSun + daysInMo) / 7) * 7;
-                                    return (
-                                        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', padding:'0 12px 4px', flexShrink:0 }}>
-                                            {Array.from({ length: totalCellsMo }, (_, idx) => {
-                                                const dayNum = idx - firstDowSun + 1;
-                                                const inMonth = dayNum >= 1 && dayNum <= daysInMo;
-                                                const dateStr = inMonth ? pad(year, month, dayNum) : '';
-                                                const isT2 = dateStr === todayStr;
-                                                const isSel2 = dateStr === selDay;
-                                                const cnt = dateStr ? (aptByDate[dateStr]?.length ?? 0) : 0;
-                                                return (
-                                                    <button key={idx} disabled={!inMonth}
-                                                        onClick={() => inMonth && setSelected(dateStr)}
-                                                        style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'3px 1px', gap:2, background:'none', border:'none', borderTop: idx >= 7 ? '1px solid var(--cal-line-hour)' : undefined, borderRight: (idx % 7) < 6 ? '1px solid var(--cal-line-half)' : undefined, cursor: inMonth ? 'pointer' : 'default', opacity: inMonth ? 1 : 0 }}>
-                                                        <span style={{
-                                                            width:30, height:30, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
-                                                            fontSize:13, fontWeight: isSel2 || isT2 ? 700 : 400,
-                                                            background: isSel2 ? '#22c55e' : 'transparent',
-                                                            color: isSel2 ? 'white' : isT2 ? '#22c55e' : 'hsl(var(--foreground))',
-                                                        }}>{dayNum}</span>
-                                                        <div style={{ display:'flex', gap:2, minHeight:5 }}>
-                                                            {Array.from({ length: Math.min(cnt, 3) }, (_, j) => (
-                                                                <span key={j} style={{ width:4, height:4, borderRadius:'50%', background: isSel2 ? 'rgba(255,255,255,0.7)' : '#22c55e' }} />
-                                                            ))}
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    );
-                                })()}
-                                <div style={{ flex:1, borderTop:'1px solid hsl(var(--border))', padding:'10px 16px 16px', overflowY:'auto' }}>
-                                    <p style={{ fontSize:11, fontWeight:700, color:'hsl(var(--muted-foreground))', textTransform:'uppercase', letterSpacing:1, marginBottom:8 }}>
-                                        {MONTHS_MN[new Date(selDay+'T00:00').getMonth()]} {new Date(selDay+'T00:00').getDate()}
-                                    </p>
-                                    {(() => {
-                                        const dapts = (aptByDate[selDay] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-                                        if (dapts.length === 0) return <p style={{ fontSize:13, color:'hsl(var(--muted-foreground))', fontStyle:'italic' }}>Захиалга байхгүй</p>;
+                            );
+                        })()}
+                        <button onClick={nextDay} style={{ width:36, height:36, borderRadius:12, background:'var(--card)', border:'1px solid var(--border)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+                            <ChevronRight style={{ width:16, height:16, color:'var(--muted-foreground)' }} />
+                        </button>
+                    </div>
+
+                    {/* ══ TIMELINE LIST ══ */}
+                    <div style={{ flex:1, overflowY:'auto', padding:'4px 16px', paddingBottom:'calc(90px + env(safe-area-inset-bottom,0px))' }}>
+                        {(() => {
+                            const dapts = (aptByDate[selDay]??[]).sort((a,b)=>a.appointment_time.localeCompare(b.appointment_time));
+
+                            if (dapts.length===0) return (
+                                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:50, gap:16 }}>
+                                    <div style={{
+                                        width:80, height:80, borderRadius:24,
+                                        background:'linear-gradient(135deg,rgba(239,68,68,0.08),rgba(99,102,241,0.08))',
+                                        border:'1px solid var(--border)',
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                    }}>
+                                        <CalendarClock style={{ width:36, height:36, color:'var(--muted-foreground)', opacity:0.35 }} />
+                                    </div>
+                                    <div style={{ textAlign:'center' }}>
+                                        <p style={{ margin:0, fontSize:15, fontWeight:800, color:'var(--foreground)' }}>Захиалга байхгүй</p>
+                                        <p style={{ margin:'4px 0 0', fontSize:12, color:'var(--muted-foreground)' }}>Энэ өдөр хуваарь хоосон байна</p>
+                                    </div>
+                                </div>
+                            );
+
+                            const firstConfirmedIdx = dapts.findIndex(a=>a.status==='confirmed');
+
+                            return (
+                                <div style={{ position:'relative', paddingLeft:56 }}>
+                                    {/* Vertical timeline line */}
+                                    <div style={{ position:'absolute', left:26, top:8, bottom:8, width:2, background:'var(--border)', borderRadius:99 }} />
+
+                                    {dapts.map((a, idx) => {
+                                        const pal2   = aptColorForAppt(a);
+                                        const sl     = STATUS_LABEL[a.status];
+                                        const isNext = idx === firstConfirmedIdx;
+                                        const statusColor = a.status==='confirmed' ? '#22c55e' : a.status==='pending' ? '#f59e0b' : a.status==='completed' ? '#3b82f6' : '#ef4444';
+                                        const statusBg    = a.status==='confirmed' ? 'rgba(34,197,94,0.1)' : a.status==='pending' ? 'rgba(245,158,11,0.1)' : a.status==='completed' ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)';
+
                                         return (
-                                            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                                                {dapts.map(a => {
-                                                    const pal = aptColorForAppt(a);
-                                                    return (
-                                                        <button key={`${a.id}-${a._senior_name ?? ''}`} onClick={() => setDetail(a)}
-                                                            style={{
-                                                                width:'100%', display:'flex', alignItems:'center', gap:12,
-                                                                padding:'10px 12px',
-                                                                borderTop: `1px solid ${pal.bg}30`,
-                                                                borderRight: `1px solid ${pal.bg}30`,
-                                                                borderBottom: `1px solid ${pal.bg}30`,
-                                                                borderLeft: `3px solid ${pal.bg}`,
-                                                                borderRadius:12,
-                                                                background: `${pal.bg}0d`,
-                                                                textAlign:'left', cursor:'pointer',
-                                                            }}>
-                                                            <span style={{ fontSize:13, fontWeight:700, color: pal.bg, width:40, flexShrink:0 }}>
-                                                                {a.appointment_time}
-                                                            </span>
-                                                            <div style={{ flex:1, minWidth:0 }}>
-                                                                <p className="text-foreground" style={{ fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>
-                                                                    {a.patient_name}
-                                                                </p>
-                                                                <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
-                                                                    {a._senior_name
-                                                                        ? <span style={{ color: pal.bg }}>👤 {a._senior_name}</span>
-                                                                        : <><span style={{ color: pal.bg }}>{a.type === 'online' ? 'Онлайн' : 'Биечлэн'}</span>{a.service && ` · ${a.service}`}</>
-                                                                    }
-                                                                </p>
+                                            <div key={`${a.id}-${a._senior_name??''}`} style={{ position:'relative', marginBottom:12 }}>
+                                                {/* Timeline dot */}
+                                                <div style={{
+                                                    position:'absolute', left:-30, top:16,
+                                                    width:16, height:16, borderRadius:'50%',
+                                                    background: isNext ? pal2.bg : 'var(--card)',
+                                                    border:`2.5px solid ${isNext ? pal2.bg : 'var(--border)'}`,
+                                                    boxShadow: isNext ? `0 0 0 4px ${pal2.bg}25` : 'none',
+                                                    display:'flex', alignItems:'center', justifyContent:'center',
+                                                    zIndex:2,
+                                                }}>
+                                                    {isNext && <div style={{ width:6, height:6, borderRadius:'50%', background:'white' }} />}
+                                                </div>
+
+                                                {/* Time label */}
+                                                <div style={{ position:'absolute', left:-56, top:14, width:20, textAlign:'right' }}>
+                                                    <span style={{ fontSize:10, fontWeight:700, color: isNext ? pal2.bg : 'var(--muted-foreground)', lineHeight:1 }}>
+                                                        {a.appointment_time.slice(0,5)}
+                                                    </span>
+                                                </div>
+
+                                                {/* Card */}
+                                                <button onClick={()=>setDetail(a)}
+                                                    style={{
+                                                        width:'100%', textAlign:'left', cursor:'pointer',
+                                                        borderRadius:20, overflow:'hidden', position:'relative',
+                                                        background: isNext
+                                                            ? `linear-gradient(135deg, ${pal2.bg}14, ${pal2.bg}08)`
+                                                            : 'var(--card)',
+                                                        boxShadow: isNext
+                                                            ? `0 4px 20px ${pal2.bg}22, 0 1px 4px rgba(0,0,0,0.06)`
+                                                            : '0 1px 6px rgba(0,0,0,0.06)',
+                                                        border: isNext ? `1px solid ${pal2.bg}35` : '1px solid var(--border)',
+                                                        padding:0,
+                                                    }}>
+                                                    {/* Top accent stripe */}
+                                                    {isNext && (
+                                                        <div style={{ height:3, background:`linear-gradient(90deg, ${pal2.bg}, ${pal2.bg}88)` }} />
+                                                    )}
+
+                                                    <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', gap:12 }}>
+                                                        {/* Avatar */}
+                                                        <div style={{
+                                                            width:46, height:46, borderRadius:15, flexShrink:0,
+                                                            background: isNext
+                                                                ? `linear-gradient(135deg, ${pal2.bg}cc, ${pal2.bg}88)`
+                                                                : pal2.light,
+                                                            display:'flex', alignItems:'center', justifyContent:'center',
+                                                            fontSize:16, fontWeight:900,
+                                                            color: isNext ? 'white' : pal2.bg,
+                                                            boxShadow: isNext ? `0 4px 12px ${pal2.bg}35` : 'none',
+                                                        }}>
+                                                            {initials(a.patient_name)}
+                                                        </div>
+
+                                                        {/* Info */}
+                                                        <div style={{ flex:1, minWidth:0 }}>
+                                                            <p style={{ margin:0, fontSize:14, fontWeight:700, color:'var(--foreground)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                                                {a.patient_name}
+                                                            </p>
+                                                            <p style={{ margin:'2px 0 0', fontSize:11, color:'var(--muted-foreground)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                                                {a._senior_name
+                                                                    ? `👤 ${a._senior_name}`
+                                                                    : `${a.type==='online' ? '💻 Онлайн' : '🏥 Биечлэн'}${a.service ? ' · '+a.service : ''}`
+                                                                }
+                                                            </p>
+                                                            <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:5, marginTop:7 }}>
+                                                                {/* Time pill */}
+                                                                <span style={{ fontSize:10, fontWeight:700, background:'var(--muted)', color:'var(--muted-foreground)', borderRadius:99, padding:'3px 9px', fontVariantNumeric:'tabular-nums' }}>
+                                                                    {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}
+                                                                </span>
+                                                                {/* Status pill */}
+                                                                <span style={{ fontSize:10, fontWeight:700, borderRadius:99, padding:'3px 9px', background:statusBg, color:statusColor }}>
+                                                                    {sl}
+                                                                </span>
+                                                                {a.treatment_sent && (
+                                                                    <span style={{ fontSize:10, fontWeight:700, borderRadius:99, padding:'3px 9px', background:'rgba(22,163,74,0.1)', color:'#16a34a' }}>
+                                                                        Эмчилгээ ✓
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                        </button>
-                                                    );
-                                                })}
+                                                        </div>
+
+                                                        <ChevronRight style={{ width:16, height:16, color: isNext ? pal2.bg : 'var(--muted-foreground)', opacity: isNext ? 0.7 : 0.35, flexShrink:0 }} />
+                                                    </div>
+                                                </button>
                                             </div>
                                         );
-                                    })()}
+                                    })}
                                 </div>
-                            </div>
-                        )}
-
-                        {/* ── WEEK VIEW (7х) ── */}
-                        {view === 'week' && (
-                            <div style={{ height:'100%', overflowY:'auto', overflowX:'hidden' }}>
-                                {(() => {
-                                    const selDate = new Date(selDay + 'T00:00');
-                                    const dow = selDate.getDay();
-                                    const weekSun2 = new Date(selDate);
-                                    weekSun2.setDate(selDate.getDate() - dow);
-                                    const wdays = Array.from({ length: 7 }, (_, i) => { const d = new Date(weekSun2); d.setDate(weekSun2.getDate() + i); return d; });
-                                    const totalH = (HOUR_END - HOUR_START) * HOUR_H;
-                                    return (
-                                        <>
-                                            <div style={{ position:'relative', display:'flex', height: totalH }}>
-                                                <div style={{ width:36, flexShrink:0, position:'relative' }}>
-                                                    {Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => (
-                                                        <div key={i} style={{ position:'absolute', right:4, top: i * HOUR_H - 7, fontSize:9, color:'hsl(var(--muted-foreground))', fontWeight:500, userSelect:'none' }}>
-                                                            {String(HOUR_START + i).padStart(2,'00')}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                {wdays.map((d) => {
-                                                    const ds = pad(d.getFullYear(), d.getMonth(), d.getDate());
-                                                    const isT = ds === todayStr;
-                                                    const colApts = (aptByDate[ds] ?? []).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-                                                    return (
-                                                        <div key={ds} style={{ flex:1, position:'relative', borderLeft:'1px solid var(--cal-line-hour)' }}>
-                                                            {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
-                                                                <div key={i} style={{ position:'absolute', left:0, right:0, top: i * HOUR_H, borderTop:'1px solid var(--cal-line-hour)' }} />
-                                                            ))}
-                                                            {computeColumns(colApts).map(({ apt: a, col, totalCols }) => {
-                                                                const pal2 = aptColorForAppt(a);
-                                                                const top2 = aptTop(a.appointment_time);
-                                                                const endM3 = (() => {
-                                                                    if (!a.appointment_time_end) return null;
-                                                                    const [eh, em] = a.appointment_time_end.split(':').map(Number);
-                                                                    const [sh, sm] = a.appointment_time.split(':').map(Number);
-                                                                    return (eh * 60 + em) - (sh * 60 + sm);
-                                                                })();
-                                                                const h3 = endM3 && endM3 > 10 ? Math.max(28, endM3 * PX_PER_MIN) : 28;
-                                                                return (
-                                                                    <div key={`${a.id}-${a._senior_name ?? ''}`} onClick={() => { setSelected(ds); setDetail(a); }}
-                                                                        style={{
-                                                                            position:'absolute',
-                                                                            left: `calc(${col} * 100% / ${totalCols} + 1px)`,
-                                                                            right: `calc(${totalCols - col - 1} * 100% / ${totalCols} + 1px)`,
-                                                                            top: top2, height: h3,
-                                                                            zIndex: col + 1,
-                                                                            background: pal2.light,
-                                                                            borderTop: `1px solid ${pal2.bg}40`,
-                                                                            borderRight: `1px solid ${pal2.bg}40`,
-                                                                            borderBottom: `1px solid ${pal2.bg}40`,
-                                                                            borderLeft: `3px solid ${pal2.bg}`,
-                                                                            borderRadius:6, cursor:'pointer', overflow:'hidden',
-                                                                            padding:'3px 5px',
-                                                                        }}>
-                                                                        <p style={{ fontSize:9, fontWeight:700, color: pal2.border, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1.3 }}>
-                                                                            {a.patient_name.split(' ')[0]}
-                                                                        </p>
-                                                                        {h3 > 40 && (
-                                                                            <p style={{ fontSize:8, color: pal2.border, opacity:0.75, lineHeight:1.2 }}>{a.appointment_time}</p>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                            {isT && nowTop >= 0 && nowTop <= totalH && (
-                                                                <div style={{ position:'absolute', left:0, right:0, top: nowTop, zIndex:20, borderTop:'1.5px solid #ef4444', pointerEvents:'none' }} />
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </>
-                                    );
-                                })()}
-                            </div>
-                        )}
+                            );
+                        })()}
                     </div>
 
-                    {/* ── DOCTOR PANEL (bottom drawer) ── */}
-                    {doctorPanelOpen && senior_doctors.length > 0 && (
-                        <div style={{ position:'fixed', inset:0, zIndex:60 }} onClick={() => setDoctorPanelOpen(false)}>
-                            <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.55)' }} />
-                            <div className="bg-card" style={{
+                    {/* ══ DOCTOR PANEL ══ */}
+                    {doctorPanelOpen && seniorsData.length>0 && (
+                        <div style={{ position:'fixed', inset:0, zIndex:60 }} onClick={()=>setDoctorPanelOpen(false)}>
+                            <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(6px)', WebkitBackdropFilter:'blur(6px)' }} />
+                            <div style={{
                                 position:'absolute', bottom:0, left:0, right:0,
-                                borderRadius:'20px 20px 0 0',
-                                maxHeight:'80vh', display:'flex', flexDirection:'column', overflow:'hidden',
-                            }} onClick={e => e.stopPropagation()}>
-                                {/* Header */}
-                                <div className="border-b border-border" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px 12px' }}>
+                                background:'var(--card)', borderRadius:'28px 28px 0 0',
+                                maxHeight:'78vh', display:'flex', flexDirection:'column', overflow:'hidden',
+                                boxShadow:'0 -8px 50px rgba(0,0,0,0.22)',
+                                paddingBottom:'calc(env(safe-area-inset-bottom,0px) + 12px)',
+                            }} onClick={e=>e.stopPropagation()}>
+                                <div style={{ width:44, height:5, background:'var(--border)', borderRadius:99, margin:'14px auto 0' }} />
+                                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px 12px' }}>
                                     <div>
-                                        <p className="text-muted-foreground" style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:1, marginBottom:2 }}>Харагдах</p>
-                                        <p className="text-foreground" style={{ fontSize:18, fontWeight:700 }}>Ахлах эмч нар</p>
+                                        <p style={{ margin:0, fontSize:11, fontWeight:700, color:'var(--muted-foreground)', letterSpacing:0.5, textTransform:'uppercase' }}>Харагдах</p>
+                                        <p style={{ margin:'2px 0 0', fontSize:18, fontWeight:800, color:'var(--foreground)' }}>Ахлах эмч нар</p>
                                     </div>
-                                    <button onClick={() => setDoctorPanelOpen(false)}
-                                        className="bg-muted hover:bg-muted/80 transition-colors"
-                                        style={{ width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer' }}>
-                                        <X className="text-foreground" style={{ width:16, height:16 }} />
+                                    <button onClick={()=>setDoctorPanelOpen(false)} style={{ width:34, height:34, borderRadius:'50%', background:'var(--muted)', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                        <X style={{ width:15, height:15, color:'var(--muted-foreground)' }} />
                                     </button>
                                 </div>
-                                {/* Toggle all */}
-                                <div style={{ padding:'10px 20px', borderBottom:'1px solid hsl(var(--border))' }}>
-                                    <button
-                                        onClick={() => setCheckedSeniors(
-                                            checkedSeniors.length > 0 ? [] : senior_doctors.map(s => s.id)
-                                        )}
-                                        className="bg-muted hover:bg-muted/80 text-foreground transition-colors"
-                                        style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:10, border:'none', cursor:'pointer', width:'100%' }}>
-                                        <span style={{ fontSize:16, lineHeight:1 }}>≡</span>
-                                        <span style={{ fontSize:13, fontWeight:500 }}>
-                                            Бүгдийг {checkedSeniors.length > 0 ? 'харуулах' : 'нуух'}
+                                <div style={{ padding:'0 16px 10px' }}>
+                                    <button onClick={()=>setCheckedSeniors(checkedSeniors.length>0 ? [] : seniorsData.map(s=>s.id))}
+                                        style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px', background:'var(--muted)', borderRadius:14, border:'none', cursor:'pointer' }}>
+                                        <span style={{ fontSize:13, fontWeight:700, color:'var(--foreground)' }}>
+                                            {checkedSeniors.length>0 ? 'Бүгдийг нуух' : 'Бүгдийг харуулах'}
                                         </span>
                                     </button>
                                 </div>
-                                {/* Doctor list */}
-                                <div style={{ overflowY:'auto', flex:1 }}>
-                                    {senior_doctors.map((s, i) => {
+                                <div style={{ overflowY:'auto', flex:1, padding:'0 16px' }}>
+                                    {seniorsData.map((s,i)=>{
                                         const pal     = seniorPal(i);
                                         const checked = checkedSeniors.includes(s.id);
-                                        const dayCount = (aptByDate[selDay] ?? []).filter(a => a._senior_name === s.name).length;
+                                        const cnt     = (aptByDate[selDay]??[]).filter(a=>a._senior_name===s.name).length;
                                         return (
-                                            <button key={s.id} onClick={() => toggleSenior(s.id)}
+                                            <button key={s.id} onClick={()=>toggleSenior(s.id)}
                                                 style={{
                                                     width:'100%', display:'flex', alignItems:'center', gap:12,
-                                                    padding:'11px 20px', border:'none', cursor:'pointer',
-                                                    background: checked ? pal.bg + '22' : 'transparent',
-                                                    borderBottom:'1px solid hsl(var(--border))',
-                                                    textAlign:'left',
+                                                    padding:'12px 14px', cursor:'pointer',
+                                                    background: checked ? pal.bg+'15' : 'transparent',
+                                                    borderRadius:16, marginBottom:6, textAlign:'left',
+                                                    border: checked ? `1px solid ${pal.bg}30` : '1px solid transparent',
                                                 }}>
-                                                {/* Custom checkbox */}
-                                                <div style={{
-                                                    width:20, height:20, borderRadius:5,
-                                                    border:`2px solid ${checked ? pal.bg : 'hsl(var(--border))'}`,
-                                                    background: checked ? pal.bg : 'transparent', flexShrink:0,
-                                                    display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s',
-                                                }}>
-                                                    {checked && <span style={{ color:'white', fontSize:11, fontWeight:900, lineHeight:1 }}>✓</span>}
+                                                <div style={{ width:22, height:22, borderRadius:7, border:`2px solid ${checked ? pal.bg : 'var(--border)'}`, background: checked ? pal.bg : 'transparent', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}>
+                                                    {checked && <span style={{ color:'white', fontSize:12, fontWeight:900, lineHeight:1 }}>✓</span>}
                                                 </div>
-                                                {/* Avatar */}
-                                                <div style={{
-                                                    width:36, height:36, borderRadius:'50%', flexShrink:0,
-                                                    background: pal.bg, overflow:'hidden',
-                                                    display:'flex', alignItems:'center', justifyContent:'center',
-                                                    fontSize:13, fontWeight:800, color:'white',
-                                                }}>
+                                                <div style={{ width:42, height:42, borderRadius:14, background:`linear-gradient(135deg,${pal.bg},${pal.bg}bb)`, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:800, color:'white', boxShadow:`0 4px 10px ${pal.bg}30` }}>
                                                     {initials(s.name)}
                                                 </div>
-                                                {/* Name */}
-                                                <span className="text-foreground" style={{ flex:1, fontSize:14, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                                                    {s.name}
-                                                </span>
-                                                {/* Count */}
-                                                {dayCount > 0 && (
-                                                    <span style={{
-                                                        flexShrink:0, borderRadius:99, padding:'3px 8px',
-                                                        background: pal.light, color: pal.border,
-                                                        fontSize:11, fontWeight:700,
-                                                    }}>
-                                                        {dayCount} цаг
+                                                <span style={{ flex:1, fontSize:14, fontWeight:600, color:'var(--foreground)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</span>
+                                                {cnt>0 && (
+                                                    <span style={{ flexShrink:0, borderRadius:99, padding:'4px 12px', background:pal.light, color:pal.border, fontSize:11, fontWeight:700 }}>
+                                                        {cnt} цаг
                                                     </span>
                                                 )}
                                             </button>
@@ -1159,7 +1075,6 @@ export default function DoctorDashboard({ doctor, appointments, senior_doctors, 
                             </div>
                         </div>
                     )}
-
                 </div>
             )}
         </DoctorLayout>

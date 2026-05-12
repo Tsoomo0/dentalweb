@@ -132,6 +132,115 @@ class DailySheetAdminController extends Controller
         ]);
     }
 
+    public function outstanding(Request $request): Response
+    {
+        $branchId = $request->get('branchId') ?: null;
+        $status   = $request->get('status', 'all');
+        $mode     = $request->get('mode', 'day');   // day | week | month | all
+        $date     = $request->get('date', today()->toDateString());
+        $month    = $request->get('month', today()->format('Y-m'));
+
+        [$year, $mon] = explode('-', $month);
+
+        $entries = DailySheetEntry::with(['dailySheet.branch', 'doctor', 'user'])
+            ->where('outstanding_amount', '>', 0)
+            ->when($branchId, fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->where('branch_id', $branchId)))
+            ->when($status === 'unpaid', fn($q) => $q->whereNull('outstanding_paid_at'))
+            ->when($status === 'paid',   fn($q) => $q->whereNotNull('outstanding_paid_at'))
+            ->when($mode === 'day',   fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereDate('date', $date)))
+            ->when($mode === 'week',  fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereBetween('date', [
+                now()->parse($date)->subDays(6)->toDateString(), $date
+            ])))
+            ->when($mode === 'month', fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereYear('date', $year)->whereMonth('date', $mon)))
+            ->orderByRaw('outstanding_paid_at IS NOT NULL')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn($e) => [
+                'id'                       => $e->id,
+                'date'                     => $e->dailySheet->date->toDateString(),
+                'branch'                   => $e->dailySheet->branch?->name,
+                'patient_name'             => $e->patient_name,
+                'diagnosis'                => $e->diagnosis,
+                'appointment_number'       => $e->appointment_number,
+                'outstanding_amount'       => $e->outstanding_amount,
+                'doctor_name'              => $e->doctor?->name,
+                'receptionist_name'        => $e->user?->name,
+                'days_since'               => (int) max(0,
+                    (strtotime(today()->toDateString()) - strtotime($e->dailySheet->date->toDateString())) / 86400
+                ),
+                'is_paid'                  => $e->outstanding_paid_at !== null,
+                'outstanding_paid_at'      => $e->outstanding_paid_at?->toDateString(),
+                'outstanding_paid_method'  => $e->outstanding_paid_method,
+                'outstanding_paid_receipt' => $e->outstanding_paid_receipt,
+                'outstanding_paid_amount'  => $e->outstanding_paid_amount,
+            ])
+            ->values()
+            ->all();
+
+        $branches = Branch::orderBy('name')->get(['id', 'name']);
+
+        return Inertia::render('admin/outstanding/index', [
+            'entries'  => $entries,
+            'branches' => $branches,
+            'filters'  => compact('branchId', 'status', 'mode', 'date', 'month'),
+        ]);
+    }
+
+    public function exportOutstanding(Request $request): StreamedResponse
+    {
+        $branchId = $request->get('branchId') ?: null;
+        $status   = $request->get('status', 'all');
+        $mode     = $request->get('mode', 'day');
+        $date     = $request->get('date', today()->toDateString());
+        $month    = $request->get('month', today()->format('Y-m'));
+
+        [$year, $mon] = explode('-', $month);
+
+        $entries = DailySheetEntry::with(['dailySheet.branch', 'doctor', 'user'])
+            ->where('outstanding_amount', '>', 0)
+            ->when($branchId, fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->where('branch_id', $branchId)))
+            ->when($status === 'unpaid', fn($q) => $q->whereNull('outstanding_paid_at'))
+            ->when($status === 'paid',   fn($q) => $q->whereNotNull('outstanding_paid_at'))
+            ->when($mode === 'day',   fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereDate('date', $date)))
+            ->when($mode === 'week',  fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereBetween('date', [
+                now()->parse($date)->subDays(6)->toDateString(), $date
+            ])))
+            ->when($mode === 'month', fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereYear('date', $year)->whereMonth('date', $mon)))
+            ->orderByRaw('outstanding_paid_at IS NOT NULL')
+            ->orderByDesc('id')
+            ->get();
+
+        $filename = 'outstanding-' . now()->format('Y-m-d') . '.csv';
+
+        return response()->streamDownload(function () use ($entries) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, [
+                'Огноо', 'Салбар', 'Үйлчлүүлэгч', 'Оношилгоо', 'Баримт №',
+                'Дутуу дүн', 'Эмч', 'Ресепшн', 'Статус',
+                'Төлсөн дүн', 'Хэлбэр', 'Баримтын дугаар', 'Төлсөн огноо',
+            ]);
+            foreach ($entries as $e) {
+                fputcsv($handle, [
+                    $e->dailySheet->date->format('Y-m-d'),
+                    $e->dailySheet->branch?->name ?? '',
+                    $e->patient_name ?? '',
+                    $e->diagnosis ?? '',
+                    $e->appointment_number ?? '',
+                    $e->outstanding_amount,
+                    $e->doctor?->name ?? '',
+                    $e->user?->name ?? '',
+                    $e->outstanding_paid_at ? 'Төлөгдсөн' : 'Дутуу',
+                    $e->outstanding_paid_amount ?? '',
+                    $e->outstanding_paid_method ?? '',
+                    $e->outstanding_paid_receipt ?? '',
+                    $e->outstanding_paid_at?->format('Y-m-d') ?? '',
+                ]);
+            }
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function destroy(Request $request, DailySheet $sheet): RedirectResponse
     {
         $request->validate(['code' => 'required|string']);

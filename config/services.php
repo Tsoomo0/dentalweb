@@ -50,4 +50,9 @@ return [
         'refresh_token' => env('GOOGLE_REFRESH_TOKEN'),
     ],
 
+    'turnstile' => [
+        'site_key' => env('TURNSTILE_SITE_KEY'),
+        'secret'   => env('TURNSTILE_SECRET_KEY'),
+    ],
+
 ];

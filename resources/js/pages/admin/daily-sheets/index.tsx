@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Download, Printer, CheckCircle, Clock, Trash2, LockOpen, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -238,6 +238,13 @@ export default function DailySheetsIndex({
     const [expanded, setExpanded]       = useState<Set<number>>(new Set());
     const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
     const [expandedRec, setExpandedRec] = useState<Set<number>>(new Set());
+
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['sheets', 'grandTotals', 'outstandingEntries', 'receptionRegistry'] });
+        }, 15_000);
+        return () => clearInterval(id);
+    }, []);
 
     type ModalAction = 'delete' | 'unlock';
     const [actionTarget, setActionTarget] = useState<{ type: ModalAction; id: number } | null>(null);

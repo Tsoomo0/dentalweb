@@ -80,6 +80,35 @@ class QPayService
     }
 
     /**
+     * Лизингийн сарын төлбөрт зориулсан invoice үүсгэх
+     */
+    public function createLeasingInvoice(
+        string $invoiceNo,
+        string $description,
+        int    $amount,
+        string $callbackUrl
+    ): array {
+        $token = $this->getToken();
+
+        $response = Http::withToken($token)
+            ->post("{$this->baseUrl}/invoice", [
+                'invoice_code'          => $this->invoiceCode,
+                'sender_invoice_no'     => $invoiceNo,
+                'invoice_receiver_code' => 'terminal',
+                'invoice_description'   => $description,
+                'amount'                => $amount,
+                'callback_url'          => $callbackUrl,
+            ]);
+
+        if (!$response->successful()) {
+            Log::error('QPay createLeasingInvoice error', ['body' => $response->body()]);
+            throw new \RuntimeException('QPay invoice creation failed: ' . $response->body());
+        }
+
+        return $response->json();
+    }
+
+    /**
      * Төлбөр хийгдсэн эсэхийг шалгах
      */
     public function checkPayment(string $invoiceId): bool

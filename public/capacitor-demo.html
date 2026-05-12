@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Capacitor App Demo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%); min-height: 100vh; font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 32px 16px; }
+
+/* Phone frame */
+.phone {
+  width: 375px;
+  height: 780px;
+  background: #000;
+  border-radius: 50px;
+  padding: 12px;
+  box-shadow: 0 0 0 2px #333, 0 0 0 4px #1a1a1a, 0 40px 80px rgba(0,0,0,.8), inset 0 0 0 1px #444;
+  position: relative;
+  flex-shrink: 0;
+}
+.phone-screen {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  border-radius: 40px;
+  overflow: hidden;
+  position: relative;
+}
+/* Notch */
+.notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 34px;
+  background: #000;
+  border-radius: 0 0 20px 20px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.notch-cam { width: 10px; height: 10px; border-radius: 50%; background: #1a1a1a; border: 1px solid #333; }
+.notch-speaker { width: 50px; height: 5px; border-radius: 99px; background: #1a1a1a; }
+
+/* Status bar */
+.status-bar {
+  height: 44px;
+  padding: 14px 24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 50;
+}
+.status-time { font-size: 15px; font-weight: 700; color: #0f172a; }
+.status-icons { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #0f172a; }
+
+/* Screens */
+.app-screen { position: absolute; inset: 0; display: none; flex-direction: column; background: #f8fafc; }
+.app-screen.active { display: flex; }
+
+/* Bottom nav */
+.bottom-nav {
+  height: 72px;
+  background: white;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  position: relative;
+  z-index: 50;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 4px;
+  border: none;
+  background: none;
+}
+.nav-icon { font-size: 22px; line-height: 1; }
+.nav-label { font-size: 10px; font-weight: 600; color: #94a3b8; }
+.nav-item.active .nav-label { color: #dc2626; }
+.home-indicator { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); width: 120px; height: 4px; background: #0f172a; border-radius: 99px; opacity: .2; }
+
+/* Cards */
+.m-card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.scroll-area { flex: 1; overflow-y: auto; padding: 12px 16px; -webkit-overflow-scrolling: touch; }
+.scroll-area::-webkit-scrollbar { display: none; }
+
+/* Splash */
+.splash { position: absolute; inset: 0; background: #dc2626; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; transition: opacity .5s, transform .5s; }
+.splash.hide { opacity: 0; pointer-events: none; transform: scale(1.05); }
+
+/* Slide transition */
+.slide-in { animation: slideIn .3s ease forwards; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Toast */
+.toast {
+  position: absolute;
+  bottom: 90px;
+  left: 16px;
+  right: 16px;
+  background: #0f172a;
+  color: white;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 300;
+  display: none;
+  align-items: center;
+  gap: 10px;
+}
+.toast.show { display: flex; animation: toastIn .3s ease; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Modal bottom sheet */
+.bottom-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  display: none;
+}
+.bottom-sheet.open { display: block; }
+.sheet-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+.sheet-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 24px 24px 0 0;
+  padding: 8px 0 0;
+  max-height: 85%;
+  overflow-y: auto;
+}
+.sheet-handle { width: 36px; height: 4px; background: #e2e8f0; border-radius: 99px; margin: 0 auto 16px; }
+
+/* Ripple effect */
+.ripple { position: relative; overflow: hidden; }
+.ripple:active::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.08); border-radius: inherit; }
+
+/* App icon on homescreen */
+.app-icon { width: 72px; height: 72px; border-radius: 18px; background: linear-gradient(145deg, #ef4444, #b91c1c); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(220,38,38,.5); font-size: 30px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div style="text-align:center; margin-bottom:28px;">
+  <div style="color:white; font-size:24px; font-weight:800; margin-bottom:6px;">Capacitor апп яаж харагдах вэ</div>
+  <div style="color:#94a3b8; font-size:13px;">Таны вэб сайт → Яг ийм апп болно</div>
+</div>
+
+<!-- Phones row -->
+<div style="display:flex; gap:32px; align-items:flex-start; flex-wrap:wrap; justify-content:center;">
+
+  <!-- Phone 1: Home screen -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+    <div style="color:#94a3b8; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px;">Утасны дэлгэц</div>
+    <div class="phone" style="height:680px;">
+      <div class="phone-screen">
+        <div class="notch"><div class="notch-speaker"></div><div class="notch-cam"></div></div>
+        <!-- Homescreen wallpaper -->
+        <div style="position:absolute; inset:0; background:linear-gradient(160deg,#1e3a5f,#0f172a); display:flex; flex-direction:column;">
+          <div class="status-bar" style="z-index:10;">
+            <span style="color:white; font-size:15px; font-weight:700;">9:41</span>
+            <div style="display:flex; gap:5px; color:white; font-size:12px;">
+              <span>●●●●</span><span>WiFi</span><span>🔋</span>
+            </div>
+          </div>
+          <!-- App icons grid -->
+          <div style="flex:1; padding:20px 16px; display:flex; flex-direction:column; gap:24px;">
+            <!-- Row 1 -->
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+              <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                <div style="width:60px; height:60px; border-radius:14px; background:linear-gradient(145deg,#34d399,#059669); display:flex; align-items:center; justify-content:center; font-size:26px;">📱</div>
+                <span style="color:white; font-size:10px; text-shadow:0 1px 2px rgba(0,0,0,.5);">Утас</span>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                <div style="width:60px; height:60px; border-radius:14px; background:linear-gradient(145deg,#60a5fa,#2563eb); display:flex; align-items:center; justify-content:center; font-size:26px;">💬</div>
+                <span style="color:white; font-size:10px; text-shadow:0 1px 2px rgba(0,0,0,.5);">Мессеж</span>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                <div style="width:60px; height:60px; border-radius:14px; background:linear-gradient(145deg,#f472b6,#db2777); display:flex; align-items:center; justify-content:center; font-size:26px;">📷</div>
+                <span style="color:white; font-size:10px; text-shadow:0 1px 2px rgba(0,0,0,.5);">Камер</span>
+              </div>
+              <!-- DENTAL APP ICON -->
+              <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                <div style="width:60px; height:60px; border-radius:14px; background:linear-gradient(145deg,#ef4444,#b91c1c); display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:0 4px 12px rgba(220,38,38,.6);">🦷</div>
+                <span style="color:white; font-size:10px; text-shadow:0 1px 2px rgba(0,0,0,.5); font-weight:700;">Dental</span>
+              </div>
+            </div>
+            <!-- Row 2 -->
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">
+              <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                <div style="width:60px; height:60px; border-radius:14px; background:linear-gradient(145deg,#fbbf24,#d97706); display:flex; align-items:center; justify-content:center; font-size:26px;">⚙️</div>
+                <span style="color:white; font-size:10px;">Тохиргоо</span>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                <div style="width:60px; height:60px; border-radius:14px; background:linear-gradient(145deg,#a78bfa,#7c3aed); display:flex; align-items:center; justify-content:center; font-size:26px;">🗺️</div>
+                <span style="color:white; font-size:10px;">Газрын зураг</span>
+              </div>
+            </div>
+          </div>
+          <!-- Dock -->
+          <div style="margin:0 12px 20px; background:rgba(255,255,255,.15); border-radius:22px; padding:10px; display:flex; justify-content:space-around; backdrop-filter:blur(20px);">
+            <div style="width:52px; height:52px; border-radius:12px; background:linear-gradient(145deg,#34d399,#059669); display:flex; align-items:center; justify-content:center; font-size:22px;">📞</div>
+            <div style="width:52px; height:52px; border-radius:12px; background:linear-gradient(145deg,#60a5fa,#2563eb); display:flex; align-items:center; justify-content:center; font-size:22px;">🔍</div>
+            <div style="width:52px; height:52px; border-radius:12px; background:linear-gradient(145deg,#f87171,#dc2626); display:flex; align-items:center; justify-content:center; font-size:22px;">📧</div>
+            <div style="width:52px; height:52px; border-radius:12px; background:linear-gradient(145deg,#818cf8,#4f46e5); display:flex; align-items:center; justify-content:center; font-size:22px;">🎵</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="color:#64748b; font-size:11px; text-align:center;">🦷 Dental апп icon<br/>дэлгэц дээр байрлана</div>
+  </div>
+
+  <!-- Phone 2: App running (Patient portal) -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+    <div style="color:#94a3b8; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px;">Өвчтний портал</div>
+    <div class="phone">
+      <div class="phone-screen" id="patient-phone">
+        <div class="notch"><div class="notch-speaker"></div><div class="notch-cam"></div></div>
+
+        <!-- Splash screen -->
+        <div class="splash" id="splash1">
+          <div style="font-size:60px; margin-bottom:16px;">🦷</div>
+          <div style="color:white; font-size:24px; font-weight:800;">Dental</div>
+          <div style="color:rgba(255,255,255,.7); font-size:13px; margin-top:4px;">Таны эрүүл мэнд</div>
+          <div style="margin-top:40px; display:flex; gap:8px;">
+            <div style="width:8px; height:8px; background:rgba(255,255,255,.4); border-radius:50%;"></div>
+            <div style="width:24px; height:8px; background:white; border-radius:99px;"></div>
+            <div style="width:8px; height:8px; background:rgba(255,255,255,.4); border-radius:50%;"></div>
+          </div>
+        </div>
+
+        <!-- App screens -->
+        <!-- HOME -->
+        <div class="app-screen active" id="p-home">
+          <div class="status-bar" style="background:white; flex-shrink:0;"><span class="status-time">9:41</span><div class="status-icons"><span>●●●●</span><span>🔋</span></div></div>
+          <!-- Header -->
+          <div style="background:white; padding:12px 16px 14px; flex-shrink:0;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <div style="font-size:13px; color:#64748b;">Сайн байна уу 👋</div>
+                <div style="font-size:20px; font-weight:800; color:#0f172a;">Нарантуяа</div>
+              </div>
+              <div style="width:40px; height:40px; border-radius:50%; background:#dc2626; display:flex; align-items:center; justify-content:center; color:white; font-weight:800; position:relative;">
+                НБ
+                <div style="position:absolute; top:-2px; right:-2px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid white;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="scroll-area">
+            <!-- Payment alert -->
+            <div style="background:linear-gradient(135deg,#dc2626,#b91c1c); border-radius:16px; padding:16px; margin-bottom:14px;" onclick="patNav('pay')">
+              <div style="color:rgba(255,255,255,.8); font-size:11px; font-weight:700; margin-bottom:4px;">⚡ АНХААРУУЛГА</div>
+              <div style="color:white; font-size:15px; font-weight:800; margin-bottom:2px;">Төлбөр хүлээгдэж байна</div>
+              <div style="color:rgba(255,255,255,.85); font-size:12px; margin-bottom:12px;">Шүд авах · 285,000₮</div>
+              <div style="background:white; border-radius:10px; padding:8px 14px; display:inline-block; font-size:12px; font-weight:800; color:#dc2626; cursor:pointer;">Төлбөр төлөх →</div>
+            </div>
+            <!-- Next appointment -->
+            <div class="m-card" style="padding:14px; margin-bottom:14px;">
+              <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px;">Ирэх захиалга</div>
+              <div style="display:flex; gap:12px; align-items:center;">
+                <div style="background:#fef2f2; border-radius:12px; padding:10px 12px; text-align:center; flex-shrink:0;">
+                  <div style="font-size:22px; font-weight:800; color:#dc2626; line-height:1;">8</div>
+                  <div style="font-size:9px; color:#dc2626; font-weight:700;">МАЙ</div>
+                </div>
+                <div>
+                  <div style="font-size:14px; font-weight:700; color:#0f172a;">Шүд авах</div>
+                  <div style="font-size:12px; color:#64748b;">10:30 · Хан-Уул салбар</div>
+                  <div style="font-size:11px; color:#64748b;">Эм. Болд-Эрдэнэ</div>
+                </div>
+              </div>
+            </div>
+            <!-- Stats -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+              <div class="m-card" style="padding:14px; text-align:center;">
+                <div style="font-size:26px; font-weight:800; color:#0f172a;">6</div>
+                <div style="font-size:11px; color:#64748b;">Нийт захиалга</div>
+              </div>
+              <div class="m-card" style="padding:14px; text-align:center;">
+                <div style="font-size:26px; font-weight:800; color:#16a34a;">5</div>
+                <div style="font-size:11px; color:#64748b;">Дууссан</div>
+              </div>
+            </div>
+            <!-- Quick actions -->
+            <div class="m-card" style="padding:14px;">
+              <div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:10px; text-transform:uppercase; letter-spacing:.5px;">Хурдан үйлдэл</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <button style="background:#fef2f2; border:none; border-radius:12px; padding:12px 8px; font-size:12px; font-weight:700; color:#dc2626; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;">
+                  <span style="font-size:22px;">📅</span> Цаг захиалах
+                </button>
+                <button style="background:#eff6ff; border:none; border-radius:12px; padding:12px 8px; font-size:12px; font-weight:700; color:#2563eb; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;">
+                  <span style="font-size:22px;">📋</span> Түүх харах
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- Bottom nav -->
+          <div class="bottom-nav">
+            <button class="nav-item active" onclick="patNav('home')"><span class="nav-icon">🏠</span><span class="nav-label" style="color:#dc2626;">Нүүр</span></button>
+            <button class="nav-item" onclick="patNav('apts')"><span class="nav-icon">📅</span><span class="nav-label">Захиалга</span></button>
+            <button class="nav-item" onclick="patNav('pay')" style="position:relative;"><span class="nav-icon">💳</span><span class="nav-label">Төлбөр</span><span style="position:absolute;top:2px;right:14px;background:#ef4444;color:white;border-radius:99px;padding:1px 5px;font-size:9px;font-weight:800;">1</span></button>
+            <button class="nav-item" onclick="patNav('profile')"><span class="nav-icon">👤</span><span class="nav-label">Профайл</span></button>
+          </div>
+          <div class="home-indicator"></div>
+        </div>
+
+        <!-- PAYMENT screen -->
+        <div class="app-screen" id="p-pay">
+          <div class="status-bar" style="background:white; flex-shrink:0;"><span class="status-time">9:41</span><div class="status-icons"><span>●●●●</span><span>🔋</span></div></div>
+          <div style="background:white; padding:12px 16px 14px; display:flex; align-items:center; gap:12px; flex-shrink:0; border-bottom:1px solid #f1f5f9;">
+            <button onclick="patNav('home')" style="border:none; background:#f8fafc; border-radius:50%; width:34px; height:34px; cursor:pointer; font-size:16px;">←</button>
+            <div style="font-size:17px; font-weight:800;">Төлбөр</div>
+          </div>
+          <div class="scroll-area">
+            <!-- Invoice card -->
+            <div class="m-card" style="padding:16px; margin-bottom:14px;">
+              <div style="text-align:center; margin-bottom:16px;">
+                <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Нийт төлөх дүн</div>
+                <div style="font-size:36px; font-weight:800; color:#dc2626;">285,000₮</div>
+                <div style="font-size:12px; color:#64748b;">2026.05.08 · Шүд авах</div>
+              </div>
+              <!-- Treatment breakdown -->
+              <div style="background:#f8fafc; border-radius:12px; padding:12px; margin-bottom:14px;">
+                <div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:8px;">ДЭЛГЭРЭНГҮЙ</div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span style="color:#374151;">Шүд авах</span><span style="font-weight:700;">150,000₮</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span style="color:#374151;">Рентген (2ш)</span><span style="font-weight:700;">60,000₮</span></div>
+                <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:1px solid #e2e8f0; font-size:13px;"><span style="color:#374151;">Эм, боолт</span><span style="font-weight:700;">75,000₮</span></div>
+              </div>
+              <!-- QPay button -->
+              <button onclick="openQpaySheet()" style="width:100%; padding:16px; background:#0f172a; border:none; border-radius:14px; color:white; font-size:15px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px;">
+                <span style="font-size:22px;">⬛</span> QPay-аар төлөх
+              </button>
+              <div style="text-align:center; font-size:11px; color:#94a3b8;">Эмнэлэгт биечлэн ирж бас төлж болно</div>
+            </div>
+          </div>
+          <!-- Bottom nav -->
+          <div class="bottom-nav">
+            <button class="nav-item" onclick="patNav('home')"><span class="nav-icon">🏠</span><span class="nav-label">Нүүр</span></button>
+            <button class="nav-item" onclick="patNav('apts')"><span class="nav-icon">📅</span><span class="nav-label">Захиалга</span></button>
+            <button class="nav-item active" onclick="patNav('pay')"><span class="nav-icon">💳</span><span class="nav-label" style="color:#dc2626;">Төлбөр</span></button>
+            <button class="nav-item" onclick="patNav('profile')"><span class="nav-icon">👤</span><span class="nav-label">Профайл</span></button>
+          </div>
+          <div class="home-indicator"></div>
+
+          <!-- QPay bottom sheet -->
+          <div class="bottom-sheet" id="qpay-sheet">
+            <div class="sheet-overlay" onclick="closeQpaySheet()"></div>
+            <div class="sheet-content" style="padding-bottom:34px;">
+              <div class="sheet-handle"></div>
+              <div style="padding:0 20px 20px; text-align:center;">
+                <div style="font-size:17px; font-weight:800; margin-bottom:4px;">QPay QR код</div>
+                <div style="font-size:13px; color:#64748b; margin-bottom:20px;">285,000₮ · Нарантуяа Б.</div>
+                <!-- QR visual -->
+                <div style="display:inline-block; background:#0f172a; border-radius:20px; padding:14px; margin-bottom:16px;">
+                  <div style="background:white; width:180px; height:180px; border-radius:8px; display:grid; place-items:center; font-size:80px;">⬛</div>
+                </div>
+                <div style="background:#f0fdf4; border-radius:12px; padding:12px; margin-bottom:16px;">
+                  <div style="font-size:13px; font-weight:700; color:#16a34a;">QPay апп-аа нээгээд уншуулна уу</div>
+                  <div style="font-size:11px; color:#64748b; margin-top:2px;">Авто шалгаж байна...</div>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:center; gap:8px; color:#64748b; font-size:12px; margin-bottom:16px;">
+                  <div style="width:8px; height:8px; background:#22c55e; border-radius:50; animation:pulse 1s infinite;"></div>
+                  Хүлээж байна
+                </div>
+                <button onclick="simulatePatientPay()" style="width:100%; padding:14px; background:#dc2626; border:none; border-radius:12px; color:white; font-size:14px; font-weight:700; cursor:pointer;">
+                  ▶ Төлсөн гэж дүрслэх
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- APPOINTMENTS screen -->
+        <div class="app-screen" id="p-apts">
+          <div class="status-bar" style="background:white; flex-shrink:0;"><span class="status-time">9:41</span><div class="status-icons"><span>●●●●</span><span>🔋</span></div></div>
+          <div style="background:white; padding:12px 16px 14px; flex-shrink:0; border-bottom:1px solid #f1f5f9;">
+            <div style="font-size:20px; font-weight:800;">Захиалгууд</div>
+          </div>
+          <div class="scroll-area">
+            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px;">2026 · 5-р сар</div>
+            <!-- Apt items -->
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div class="m-card" style="padding:14px; border-left:4px solid #f59e0b;">
+                <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:6px;">
+                  <div style="font-size:14px; font-weight:700;">Шүд авах</div>
+                  <span style="font-size:10px; background:#fef9c3; color:#854d0e; padding:2px 8px; border-radius:99px; font-weight:700;">Ирэх</span>
+                </div>
+                <div style="font-size:12px; color:#64748b;">2026.05.08 · 10:30</div>
+                <div style="font-size:12px; color:#64748b;">Эм. Болд-Эрдэнэ · Хан-Уул</div>
+                <div style="margin-top:8px; font-size:12px; color:#dc2626; font-weight:700;">💳 Төлбөр хүлээгдэж байна</div>
+              </div>
+              <div class="m-card" style="padding:14px; border-left:4px solid #22c55e;">
+                <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:6px;">
+                  <div style="font-size:14px; font-weight:700;">Шүд цэвэрлэгээ</div>
+                  <span style="font-size:10px; background:#dcfce7; color:#166534; padding:2px 8px; border-radius:99px; font-weight:700;">✓ Дууссан</span>
+                </div>
+                <div style="font-size:12px; color:#64748b;">2026.03.15 · 09:00</div>
+                <div style="font-size:12px; color:#64748b;">Эм. Болд-Эрдэнэ · Хан-Уул</div>
+                <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                  <span style="font-size:12px; color:#64748b;">90,000₮</span>
+                  <span style="font-size:11px; color:#2563eb; font-weight:600;">Нэхэмжлэх ↓</span>
+                </div>
+              </div>
+              <div class="m-card" style="padding:14px; border-left:4px solid #22c55e;">
+                <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:6px;">
+                  <div style="font-size:14px; font-weight:700;">Пломб тавих</div>
+                  <span style="font-size:10px; background:#dcfce7; color:#166534; padding:2px 8px; border-radius:99px; font-weight:700;">✓ Дууссан</span>
+                </div>
+                <div style="font-size:12px; color:#64748b;">2026.01.20 · 14:00</div>
+                <div style="font-size:12px; color:#64748b;">Эм. Болд-Эрдэнэ · Хан-Уул</div>
+                <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                  <span style="font-size:12px; color:#64748b;">180,000₮</span>
+                  <span style="font-size:11px; color:#2563eb; font-weight:600;">Нэхэмжлэх ↓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bottom-nav">
+            <button class="nav-item" onclick="patNav('home')"><span class="nav-icon">🏠</span><span class="nav-label">Нүүр</span></button>
+            <button class="nav-item active" onclick="patNav('apts')"><span class="nav-icon">📅</span><span class="nav-label" style="color:#dc2626;">Захиалга</span></button>
+            <button class="nav-item" onclick="patNav('pay')" style="position:relative;"><span class="nav-icon">💳</span><span class="nav-label">Төлбөр</span><span style="position:absolute;top:2px;right:14px;background:#ef4444;color:white;border-radius:99px;padding:1px 5px;font-size:9px;font-weight:800;">1</span></button>
+            <button class="nav-item" onclick="patNav('profile')"><span class="nav-icon">👤</span><span class="nav-label">Профайл</span></button>
+          </div>
+          <div class="home-indicator"></div>
+        </div>
+
+        <!-- PROFILE screen -->
+        <div class="app-screen" id="p-profile">
+          <div class="status-bar" style="background:#dc2626; flex-shrink:0;"><span class="status-time" style="color:white;">9:41</span><div class="status-icons" style="color:white;"><span>●●●●</span><span>🔋</span></div></div>
+          <div style="background:linear-gradient(160deg,#dc2626,#b91c1c); padding:20px 16px 28px; flex-shrink:0; text-align:center;">
+            <div style="width:72px; height:72px; border-radius:50%; background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; color:white; font-size:26px; font-weight:800; margin:0 auto 10px;">НБ</div>
+            <div style="font-size:18px; font-weight:800; color:white;">Нарантуяа Батбаяр</div>
+            <div style="font-size:12px; color:rgba(255,255,255,.8);">Гишүүн · 2025.11.20-аас</div>
+          </div>
+          <div class="scroll-area" style="margin-top:-14px; border-radius:16px 16px 0 0; background:#f8fafc; padding-top:20px;">
+            <div class="m-card" style="padding:16px; margin-bottom:12px;">
+              <div style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:12px; text-transform:uppercase; letter-spacing:.5px;">Хувийн мэдээлэл</div>
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                <div style="display:flex; justify-content:space-between;"><span style="font-size:13px; color:#64748b;">Утас</span><span style="font-size:13px; font-weight:600;">99887766</span></div>
+                <div style="display:flex; justify-content:space-between;"><span style="font-size:13px; color:#64748b;">Регистр</span><span style="font-size:13px; font-weight:600;">ЦО88112345</span></div>
+                <div style="display:flex; justify-content:space-between;"><span style="font-size:13px; color:#64748b;">Төрсөн огноо</span><span style="font-size:13px; font-weight:600;">1988.11.20</span></div>
+              </div>
+            </div>
+            <div class="m-card" style="padding:0; overflow:hidden; margin-bottom:12px;">
+              <button style="width:100%; padding:14px 16px; border:none; background:none; cursor:pointer; display:flex; align-items:center; gap:12px; border-bottom:1px solid #f1f5f9;">
+                <span style="font-size:20px;">🔔</span>
+                <span style="font-size:14px; font-weight:600; flex:1; text-align:left;">Мэдэгдэл тохиргоо</span>
+                <span style="color:#94a3b8;">›</span>
+              </button>
+              <button style="width:100%; padding:14px 16px; border:none; background:none; cursor:pointer; display:flex; align-items:center; gap:12px;">
+                <span style="font-size:20px;">🔒</span>
+                <span style="font-size:14px; font-weight:600; flex:1; text-align:left;">Нууц үг солих</span>
+                <span style="color:#94a3b8;">›</span>
+              </button>
+            </div>
+            <button style="width:100%; padding:14px; background:white; border:1px solid #fecaca; border-radius:12px; color:#dc2626; font-size:14px; font-weight:700; cursor:pointer;">Гарах</button>
+          </div>
+          <div class="bottom-nav">
+            <button class="nav-item" onclick="patNav('home')"><span class="nav-icon">🏠</span><span class="nav-label">Нүүр</span></button>
+            <button class="nav-item" onclick="patNav('apts')"><span class="nav-icon">📅</span><span class="nav-label">Захиалга</span></button>
+            <button class="nav-item" onclick="patNav('pay')" style="position:relative;"><span class="nav-icon">💳</span><span class="nav-label">Төлбөр</span><span style="position:absolute;top:2px;right:14px;background:#ef4444;color:white;border-radius:99px;padding:1px 5px;font-size:9px;font-weight:800;">1</span></button>
+            <button class="nav-item active" onclick="patNav('profile')"><span class="nav-icon">👤</span><span class="nav-label" style="color:#dc2626;">Профайл</span></button>
+          </div>
+          <div class="home-indicator"></div>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="patient-toast">
+          <span style="font-size:20px;">✅</span>
+          <span>285,000₮ амжилттай төлөгдлөө!</span>
+        </div>
+      </div>
+    </div>
+    <div style="color:#64748b; font-size:11px; text-align:center;">Товч дарж навигаци хийнэ үү</div>
+  </div>
+
+  <!-- Phone 3: Doctor app -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+    <div style="color:#94a3b8; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px;">Эмчийн портал</div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="notch"><div class="notch-speaker"></div><div class="notch-cam"></div></div>
+
+        <div class="app-screen active" id="d-cal" style="background:#f8fafc;">
+          <div class="status-bar" style="background:white; flex-shrink:0;"><span class="status-time">9:41</span><div class="status-icons"><span>●●●●</span><span>🔋</span></div></div>
+          <div style="background:white; padding:12px 16px 14px; flex-shrink:0; border-bottom:1px solid #f1f5f9;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <div style="font-size:13px; color:#64748b;">Эм. Болд-Эрдэнэ</div>
+                <div style="font-size:18px; font-weight:800;">Өнөөдрийн цаг</div>
+              </div>
+              <div style="background:#fef2f2; border-radius:10px; padding:6px 12px; text-align:center;">
+                <div style="font-size:20px; font-weight:800; color:#dc2626;">5</div>
+                <div style="font-size:9px; color:#dc2626; font-weight:700;">захиалга</div>
+              </div>
+            </div>
+          </div>
+          <!-- Week strip -->
+          <div style="background:white; padding:8px 12px 10px; flex-shrink:0; border-bottom:1px solid #f1f5f9;">
+            <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center;">
+              <div style="font-size:9px; color:#94a3b8; font-weight:700; padding:2px;">Да</div>
+              <div style="font-size:9px; color:#94a3b8; font-weight:700; padding:2px;">Мя</div>
+              <div style="font-size:9px; color:#94a3b8; font-weight:700; padding:2px;">Лх</div>
+              <div style="font-size:9px; color:#94a3b8; font-weight:700; padding:2px;">Пү</div>
+              <div style="font-size:9px; color:#94a3b8; font-weight:700; padding:2px;">Ба</div>
+              <div style="font-size:9px; color:#94a3b8; font-weight:700; padding:2px;">Бя</div>
+              <div style="font-size:9px; color:#94a3b8; font-weight:700; padding:2px;">Ня</div>
+              <div style="font-size:11px; padding:4px;">5</div>
+              <div style="font-size:11px; padding:4px;">6</div>
+              <div style="font-size:11px; padding:4px; background:#dc2626; color:white; border-radius:50%; font-weight:700; width:26px; height:26px; display:flex; align-items:center; justify-content:center; margin:auto;">7</div>
+              <div style="font-size:11px; padding:4px; background:#fef2f2; color:#dc2626; border-radius:50%; font-weight:700; width:26px; height:26px; display:flex; align-items:center; justify-content:center; margin:auto;">8</div>
+              <div style="font-size:11px; padding:4px;">9</div>
+              <div style="font-size:11px; padding:4px;">10</div>
+              <div style="font-size:11px; padding:4px;">11</div>
+            </div>
+          </div>
+          <!-- Appointments list -->
+          <div class="scroll-area">
+            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px;">5-р сарын 8, Лхагва</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <!-- Apt 1 - done -->
+              <div class="m-card" style="padding:12px 14px; border-left:4px solid #7c3aed; display:flex; align-items:center; gap:12px;">
+                <div style="text-align:center; width:40px; flex-shrink:0;">
+                  <div style="font-size:13px; font-weight:800; color:#7c3aed;">09:00</div>
+                  <div style="font-size:9px; color:#94a3b8;">30 мин</div>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:700;">Батболд Г.</div>
+                  <div style="font-size:11px; color:#64748b;">Шүд цэвэрлэгээ</div>
+                </div>
+                <span style="font-size:9px; background:#dcfce7; color:#166534; padding:2px 7px; border-radius:99px; font-weight:700; flex-shrink:0;">✓ Дууссан</span>
+              </div>
+              <!-- Apt 2 - active -->
+              <div class="m-card" onclick="openDoctorSheet()" style="padding:12px 14px; border-left:4px solid #2563eb; display:flex; align-items:center; gap:12px; box-shadow:0 0 0 2px #2563eb30; cursor:pointer;">
+                <div style="text-align:center; width:40px; flex-shrink:0;">
+                  <div style="font-size:13px; font-weight:800; color:#2563eb;">10:30</div>
+                  <div style="font-size:9px; color:#94a3b8;">45 мин</div>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:700;">Нарантуяа Б.</div>
+                  <div style="font-size:11px; color:#64748b;">Шүд авах</div>
+                </div>
+                <span style="font-size:9px; background:#dbeafe; color:#1d4ed8; padding:2px 7px; border-radius:99px; font-weight:700; flex-shrink:0;">Баталгаажсан</span>
+              </div>
+              <!-- Apt 3 -->
+              <div class="m-card" style="padding:12px 14px; border-left:4px solid #16a34a; display:flex; align-items:center; gap:12px;">
+                <div style="text-align:center; width:40px; flex-shrink:0;">
+                  <div style="font-size:13px; font-weight:800; color:#16a34a;">12:00</div>
+                  <div style="font-size:9px; color:#94a3b8;">30 мин</div>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:700;">Мөнхбаяр Д.</div>
+                  <div style="font-size:11px; color:#64748b;">Эмчилгээ</div>
+                </div>
+                <span style="font-size:9px; background:#dbeafe; color:#1d4ed8; padding:2px 7px; border-radius:99px; font-weight:700; flex-shrink:0;">Баталгаажсан</span>
+              </div>
+              <!-- Apt 4 -->
+              <div class="m-card" style="padding:12px 14px; border-left:4px solid #f59e0b; display:flex; align-items:center; gap:12px;">
+                <div style="text-align:center; width:40px; flex-shrink:0;">
+                  <div style="font-size:13px; font-weight:800; color:#d97706;">14:00</div>
+                  <div style="font-size:9px; color:#94a3b8;">30 мин</div>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:700;">Ундрах Н.</div>
+                  <div style="font-size:11px; color:#64748b;">Шалгалт</div>
+                </div>
+                <span style="font-size:9px; background:#fef9c3; color:#854d0e; padding:2px 7px; border-radius:99px; font-weight:700; flex-shrink:0;">Хүлээгдэж буй</span>
+              </div>
+            </div>
+          </div>
+          <!-- Bottom nav -->
+          <div class="bottom-nav">
+            <button class="nav-item active"><span class="nav-icon">📅</span><span class="nav-label" style="color:#dc2626;">Цаг</span></button>
+            <button class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Өвчтнүүд</span></button>
+            <button class="nav-item"><span class="nav-icon">🕐</span><span class="nav-label">Онлайн</span></button>
+            <button class="nav-item"><span class="nav-icon">👤</span><span class="nav-label">Профайл</span></button>
+          </div>
+          <div class="home-indicator"></div>
+
+          <!-- Doctor bottom sheet -->
+          <div class="bottom-sheet" id="doctor-sheet">
+            <div class="sheet-overlay" onclick="closeDoctorSheet()"></div>
+            <div class="sheet-content" style="padding-bottom:34px;">
+              <div class="sheet-handle"></div>
+              <div style="padding:0 20px;">
+                <div style="font-size:17px; font-weight:800; margin-bottom:2px;">Нарантуяа Б.</div>
+                <div style="font-size:12px; color:#64748b; margin-bottom:16px;">10:30 – 11:15 · Шүд авах</div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+                  <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:#64748b;">Утас</span><span style="font-weight:600;">99887766</span></div>
+                  <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:#64748b;">Төрөл</span><span style="font-weight:600;">💻 Онлайн</span></div>
+                  <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:#64748b;">Салбар</span><span style="font-weight:600;">Хан-Уул</span></div>
+                </div>
+                <div style="background:#f8fafc; border-radius:12px; padding:12px; margin-bottom:16px; font-size:13px; color:#374151;">
+                  <span style="font-weight:700; color:#64748b; font-size:11px;">Тэмдэглэл: </span>Баруун доод шүдэнд өвдөлт. Рентген авах шаардлагатай.
+                </div>
+                <button onclick="openTreatmentSheetFromDoctor()" style="width:100%; padding:16px; background:#16a34a; border:none; border-radius:14px; color:white; font-size:15px; font-weight:800; cursor:pointer; margin-bottom:8px;">
+                  ✅ Үзлэг дуусав
+                </button>
+                <button onclick="closeDoctorSheet()" style="width:100%; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; color:#374151; font-size:14px; font-weight:600; cursor:pointer;">
+                  Хаах
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Treatment sheet -->
+          <div class="bottom-sheet" id="treatment-sheet">
+            <div class="sheet-overlay" onclick="closeTreatmentSheet()"></div>
+            <div class="sheet-content" style="padding-bottom:34px; max-height:92%;">
+              <div class="sheet-handle"></div>
+              <div style="padding:0 20px;">
+                <div style="font-size:17px; font-weight:800; margin-bottom:2px;">Эмчилгээ оруулах</div>
+                <div style="font-size:12px; color:#64748b; margin-bottom:16px;">Нарантуяа Б. · 10:30</div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+                  <div style="background:#f8fafc; border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px;">Шүд авах</span>
+                    <span style="font-size:13px; font-weight:700; color:#0f172a;">150,000₮</span>
+                  </div>
+                  <div style="background:#f8fafc; border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px;">Рентген зураг</span>
+                    <span style="font-size:13px; font-weight:700; color:#0f172a;">60,000₮</span>
+                  </div>
+                  <div style="background:#f8fafc; border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px;">Эм, боолт</span>
+                    <span style="font-size:13px; font-weight:700; color:#0f172a;">75,000₮</span>
+                  </div>
+                  <button style="width:100%; padding:10px; border:2px dashed #e2e8f0; border-radius:10px; background:none; color:#64748b; font-size:13px; font-weight:600; cursor:pointer;">+ Нэмэх</button>
+                </div>
+                <div style="background:#0f172a; border-radius:12px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                  <span style="color:white; font-size:14px; font-weight:700;">Нийт</span>
+                  <span style="color:white; font-size:20px; font-weight:800;">285,000₮</span>
+                </div>
+                <button onclick="confirmDoctorTreatment()" style="width:100%; padding:16px; background:#16a34a; border:none; border-radius:14px; color:white; font-size:15px; font-weight:800; cursor:pointer;">
+                  ✅ Ресепшнд илгээх
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Toast -->
+          <div class="toast" id="doctor-toast">
+            <span style="font-size:20px;">🔔</span>
+            <span>Ресепшнд амжилттай илгээлээ!</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="color:#64748b; font-size:11px; text-align:center;">Захиалга дарж "Үзлэг дуусав"<br/>товчийг туршина уу</div>
+  </div>
+</div>
+
+<!-- Note -->
+<div style="margin-top:32px; text-align:center; color:#94a3b8; font-size:12px; max-width:600px; line-height:1.8;">
+  ⬆️ Дээрх утасны дэлгэц <strong style="color:#e2e8f0;">яг Capacitor апп шиг харагдана</strong><br/>
+  Вэбийг Capacitor-д оруулахад <strong style="color:#e2e8f0;">ямар ч өөрчлөлтгүйгээр</strong> ийм харагдана · App Store болон Play Store-д гаргаж болно
+</div>
+
+<script>
+// Splash dismiss
+setTimeout(() => {
+  const s = document.getElementById('splash1');
+  if(s) s.classList.add('hide');
+}, 2000);
+
+// Patient nav
+function patNav(tab) {
+  ['home','pay','apts','profile'].forEach(t => {
+    const el = document.getElementById('p-' + t);
+    if(el) el.classList.toggle('active', t === tab);
+  });
+}
+
+// QPay sheet
+function openQpaySheet() {
+  document.getElementById('qpay-sheet').classList.add('open');
+}
+function closeQpaySheet() {
+  document.getElementById('qpay-sheet').classList.remove('open');
+}
+function simulatePatientPay() {
+  closeQpaySheet();
+  const toast = document.getElementById('patient-toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+  setTimeout(() => patNav('home'), 800);
+}
+
+// Doctor sheets
+function openDoctorSheet() {
+  document.getElementById('doctor-sheet').classList.add('open');
+}
+function closeDoctorSheet() {
+  document.getElementById('doctor-sheet').classList.remove('open');
+}
+function openTreatmentSheetFromDoctor() {
+  closeDoctorSheet();
+  setTimeout(() => {
+    document.getElementById('treatment-sheet').classList.add('open');
+  }, 300);
+}
+function closeTreatmentSheet() {
+  document.getElementById('treatment-sheet').classList.remove('open');
+}
+function confirmDoctorTreatment() {
+  closeTreatmentSheet();
+  const toast = document.getElementById('doctor-toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
