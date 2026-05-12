@@ -119,7 +119,7 @@ export function AptFormModal({
         appointment_date:     apt?.appointment_date     ?? date,
         appointment_time:     initTime,
         appointment_time_end: initEnd,
-        status:               apt?.status ?? 'confirmed',
+        status:               (apt?.status === 'pending' ? 'confirmed' : apt?.status) ?? 'confirmed',
         notes:                apt?.notes                ?? '',
         admin_notes:          apt?.admin_notes          ?? '',
     });
