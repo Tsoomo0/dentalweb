@@ -11,7 +11,7 @@ class OrthoApplianceRecord extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'doctor_id', 'archive_code', 'card_number', 'register_number',
+        'doctor_id', 'appliance_type', 'archive_code', 'card_number', 'register_number',
         'last_name', 'first_name', 'phone',
         'attached_date', 'removed_date', 'notes', 'created_by',
     ];

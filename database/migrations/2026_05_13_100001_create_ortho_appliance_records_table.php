@@ -8,6 +8,7 @@ return new class extends Migration {
         Schema::create('ortho_appliance_records', function (Blueprint $table) {
             $table->id();
             $table->foreignId('doctor_id')->constrained('doctors')->cascadeOnDelete();
+            $table->enum('appliance_type', ['removable', 'fixed'])->default('fixed');
             $table->string('archive_code')->nullable();
             $table->string('card_number')->nullable();
             $table->string('register_number')->nullable();

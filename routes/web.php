@@ -278,6 +278,8 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     Route::post('/ortho-appliances',                               [OrthoApplianceController::class, 'store'])->name('ortho-appliances.store');
     Route::put('/ortho-appliances/{record}',                       [OrthoApplianceController::class, 'update'])->name('ortho-appliances.update');
     Route::delete('/ortho-appliances/{record}',                    [OrthoApplianceController::class, 'destroy'])->name('ortho-appliances.destroy');
+    Route::get('/ortho-appliances/export',                         [OrthoApplianceController::class, 'export'])->name('ortho-appliances.export');
+    Route::post('/ortho-appliances/import',                        [OrthoApplianceController::class, 'import'])->name('ortho-appliances.import');
 
     Route::get('/appointments/pending-poll', [ReceptionAppointmentController::class, 'pendingPoll'])->name('appointments.pending-poll');
     Route::get('/appointments/status-poll', [ReceptionAppointmentController::class, 'statusPoll'])->middleware('throttle:60,1')->name('appointments.status-poll');
