@@ -24,6 +24,7 @@ use App\Http\Controllers\Reception\DailySheetController;
 use App\Http\Controllers\Reception\TreatmentPaymentController;
 use App\Http\Controllers\Reception\PatientController as ReceptionPatientController;
 use App\Http\Controllers\Reception\PatientUserController;
+use App\Http\Controllers\Reception\OrthoApplianceController;
 use App\Http\Controllers\Patient\PatientPortalController;
 use App\Http\Controllers\Auth\PatientRegisterController;
 use App\Http\Controllers\Admin\DailySheetAdminController;
@@ -228,6 +229,9 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Notification
     Route::patch('notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('notifications/read-all',   [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+
+    // Ортодонт аппарат бүртгэл (read-only admin view)
+    Route::get('ortho-appliances', [OrthoApplianceController::class, 'adminIndex'])->name('ortho-appliances.index');
 });
 
 // ── Reception portal ─────────────────────────────────────────────────────────
@@ -268,6 +272,12 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     Route::get('/patient-users',                                    [PatientUserController::class, 'index'])->name('patient-users.index');
     Route::post('/patient-users/{patient}/grant-access',            [PatientUserController::class, 'grantAccess'])->name('patient-users.grant');
     Route::delete('/patient-users/{patient}/revoke-access',         [PatientUserController::class, 'revokeAccess'])->name('patient-users.revoke');
+
+    // Ортодонтийн аппарат бүртгэл
+    Route::get('/ortho-appliances',                                [OrthoApplianceController::class, 'index'])->name('ortho-appliances.index');
+    Route::post('/ortho-appliances',                               [OrthoApplianceController::class, 'store'])->name('ortho-appliances.store');
+    Route::put('/ortho-appliances/{record}',                       [OrthoApplianceController::class, 'update'])->name('ortho-appliances.update');
+    Route::delete('/ortho-appliances/{record}',                    [OrthoApplianceController::class, 'destroy'])->name('ortho-appliances.destroy');
 
     Route::get('/appointments/pending-poll', [ReceptionAppointmentController::class, 'pendingPoll'])->name('appointments.pending-poll');
     Route::get('/appointments/status-poll', [ReceptionAppointmentController::class, 'statusPoll'])->middleware('throttle:60,1')->name('appointments.status-poll');

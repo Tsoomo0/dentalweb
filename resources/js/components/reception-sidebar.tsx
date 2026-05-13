@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAppearance } from '@/hooks/use-appearance';
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, KeyRound, LayoutGrid, Monitor, Moon, Sun, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
+import { AlertCircle, Braces, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, KeyRound, LayoutGrid, Monitor, Moon, Sun, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import AppLogo from './app-logo';
 
@@ -15,6 +15,7 @@ const navItems = [
     { title: 'Цаг захиалга',       url: '/reception/appointments',        icon: CalendarClock, badge: null },
     { title: 'Эмчилгээний төлбөр', url: '/reception/treatment-payments',  icon: CreditCard,   badge: 'pending_treatment_payments' },
     { title: 'Өвчтний карт',       url: '/reception/patients',            icon: Users,        badge: null },
+    { title: 'Ортодонт бүртгэл',  url: '/reception/ortho-appliances',    icon: Braces,       badge: null },
     { title: 'Хэрэглэгч',         url: '/reception/patient-users',       icon: UserCheck,    badge: null },
     { title: 'Өдрийн тооцоо',      url: '/reception/daily-sheet',        icon: ClipboardList, badge: null },
     { title: 'Дутуу тооцоо',       url: '/reception/outstanding',         icon: AlertCircle,  badge: null },

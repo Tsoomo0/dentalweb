@@ -7,6 +7,7 @@ import {
     AlertCircle,
     AlertTriangle,
     BookOpen,
+    Braces,
     FileText,
     Briefcase,
     Building2,
@@ -92,6 +93,11 @@ const schedulingItems: NavItem[] = [
         title: 'Өвчтнүүд',
         url: '/admin/patients',
         icon: Users,
+    },
+    {
+        title: 'Ортодонт бүртгэл',
+        url: '/admin/ortho-appliances',
+        icon: Braces,
     },
     {
         title: 'Төлбөр',
