@@ -73,17 +73,24 @@ class AuthenticatedSessionController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
-        if (\Illuminate\Support\Facades\Auth::guard('doctor')->check()) {
-            \Illuminate\Support\Facades\Auth::guard('doctor')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-            return redirect('/');
+        // Бүх guard-аас зэрэг гаргах + remember cookie арилгах
+        foreach (['web', 'doctor'] as $guard) {
+            if (\Illuminate\Support\Facades\Auth::guard($guard)->check()) {
+                \Illuminate\Support\Facades\Auth::guard($guard)->logout();
+            }
         }
 
-        \Illuminate\Support\Facades\Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        // Remember-me cookie-уудыг устгах
+        $response = redirect('/');
+        foreach ($request->cookies->all() as $name => $value) {
+            if (str_starts_with($name, 'remember_')) {
+                $response->withCookie(\Illuminate\Support\Facades\Cookie::forget($name));
+            }
+        }
+
+        return $response;
     }
 }

@@ -152,8 +152,8 @@ const hrItems: NavItem[] = [
         url: '/hr/vacation-requests',
         icon: Umbrella,
         children: [
-            { title: 'Хүсэлт',          url: '/hr/vacation-requests',         icon: CalendarClock },
-            { title: 'Үлдэгдэл хоног',  url: '/hr/vacation-balance',          icon: Umbrella },
+            { title: 'Ээлжийн амралтын хүсэлт', url: '/hr/vacation-requests', icon: CalendarClock },
+            { title: 'Үлдэгдэл хоног',          url: '/hr/vacation-balance',   icon: Umbrella },
         ],
     },
     { title: 'Цалингийн тооцоо',      url: '/hr/payroll',          icon: DollarSign },

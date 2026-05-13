@@ -649,7 +649,7 @@ function DesktopHome({ employee, today_schedule, week_days, stats, attendance }:
                         {[
                             { label: 'Ажлын хуваарь',    Icon: CalendarCheck, href: '/my/work-schedule',    color: 'text-blue-600' },
                             { label: 'Чөлөөний хүсэлт',  Icon: CalendarDays,  href: '/my/leave-requests',   color: 'text-red-600' },
-                            { label: 'Ваканцын хүсэлт',  Icon: Umbrella,      href: '/my/vacation-requests', color: 'text-emerald-600' },
+                            { label: 'Ээлжийн амралтын хүсэлт', Icon: Umbrella, href: '/my/vacation-requests', color: 'text-emerald-600' },
                             { label: 'Цалингийн задаргаа',Icon: DollarSign,   href: '/my/payroll',           color: 'text-emerald-600' },
                             { label: 'Номын сан',          Icon: BookOpen,      href: '/my/book-rentals',     color: 'text-purple-600' },
                             { label: 'Тоног төхөөрөмж',   Icon: Package,       href: '/my/equipment',        color: 'text-cyan-600' },

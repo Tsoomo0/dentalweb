@@ -12,7 +12,7 @@ import {
     CalendarCheck, CalendarDays, ChevronRight, DollarSign,
     Eye, EyeOff, FileText, Home, KeyRound,
     LayoutGrid, LogOut, MessageSquare, Monitor, Moon,
-    Package, Sun, Umbrella, UserCircle2, X,
+    Package, Smile, Stethoscope, Sun, Umbrella, UserCircle2, X,
 } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 
@@ -31,7 +31,7 @@ const RED = '#dc2626';
 const MORE_ITEMS = [
     { label: 'Ажлын хуваарь',   Icon: CalendarCheck, href: '/my/work-schedule',    color: '#2563eb', bg: '#eff6ff' },
     { label: 'Чөлөөний хүсэлт', Icon: CalendarDays,  href: '/my/leave-requests',   color: RED,       bg: '#fef2f2' },
-    { label: 'Ваканцын хүсэлт', Icon: Umbrella,      href: '/my/vacation-requests', color: '#059669', bg: '#f0fdf4' },
+    { label: 'Ээлжийн амралтын хүсэлт', Icon: Umbrella, href: '/my/vacation-requests', color: '#059669', bg: '#f0fdf4' },
     { label: 'Цалингийн задаргаа', Icon: DollarSign, href: '/my/payroll',           color: '#059669', bg: '#f0fdf4' },
     { label: 'Номын сан',        Icon: BookOpen,      href: '/my/book-rentals',     color: '#7c3aed', bg: '#faf5ff' },
     { label: 'Тоног төхөөрөмж', Icon: Package,       href: '/my/equipment',        color: '#0891b2', bg: '#ecfeff' },
@@ -41,7 +41,17 @@ const MORE_ITEMS = [
 ];
 
 export default function MyLayout({ children, breadcrumbs = [] }: Props) {
-    const { url } = usePage<PageProps>();
+    const page = usePage<PageProps>();
+    const { url } = page;
+    const employee   = page.props.auth?.employee;
+    const isReception = (employee?.position ?? '').toLowerCase().includes('ресепш');
+    const isNurse     = (employee?.position ?? '').toLowerCase().includes('сувилагч');
+    const moreItems = [
+        ...MORE_ITEMS.slice(0, 4), // ажлын хуваарь, чөлөө, амралт, цалин
+        ...(isReception ? [{ label: 'Ресепшний урамшуулал', Icon: Smile,        href: '/my/reception-bonus', color: '#ec4899', bg: '#fdf2f8' }] : []),
+        ...(isNurse     ? [{ label: 'Сувилагчийн урамшуулал', Icon: Stethoscope, href: '/my/nurse-bonus',    color: '#0d9488', bg: '#f0fdfa' }] : []),
+        ...MORE_ITEMS.slice(4), // номын сан, тоног, санал, сануулга, баримт
+    ];
     const { appearance, updateAppearance } = useAppearance();
 
     const [isMobile, setIsMobile] = useState(() =>
@@ -211,7 +221,7 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
 
                                 {/* Grid of menu items */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, padding: '0 16px 14px' }}>
-                                    {MORE_ITEMS.map(({ label, Icon: I, href, color, bg }) => (
+                                    {moreItems.map(({ label, Icon: I, href, color, bg }) => (
                                         <Link key={href} href={href} onClick={() => setShowMore(false)} style={{ textDecoration: 'none' }}>
                                             <div style={{ background: 'var(--my-card-bg)', borderRadius: 20, padding: '16px 10px 13px', boxShadow: '0 2px 10px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9 }}>
                                                 <div style={{ width: 46, height: 46, borderRadius: 16, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

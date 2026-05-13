@@ -660,8 +660,8 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                             </div>
                         )}
 
-                        {/* Week strip (Sun→Sat) */}
-                        {(() => {
+                        {/* Week strip (Sun→Sat) — month view-д давхцал гарахгүй гэж нуусан */}
+                        {view !== 'month' && (() => {
                             const selDate = new Date(selDay + 'T00:00');
                             const dow = selDate.getDay(); // 0=Sun
                             const weekSun = new Date(selDate);
