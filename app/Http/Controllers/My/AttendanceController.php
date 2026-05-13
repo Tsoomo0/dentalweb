@@ -24,7 +24,12 @@ class AttendanceController extends Controller
         $lat = $request->input('lat');
         $lng = $request->input('lng');
 
-        if ($branch && $branch->lat && $branch->lng && $lat !== null && $lng !== null) {
+        if ($branch && $branch->lat && $branch->lng) {
+            if ($lat === null || $lng === null) {
+                return redirect()->back()->withErrors([
+                    'geofence' => 'Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.',
+                ]);
+            }
             $distance = $this->haversine($lat, $lng, $branch->lat, $branch->lng);
             $radius   = $branch->radius_m ?? 100;
 
@@ -65,7 +70,12 @@ class AttendanceController extends Controller
         $lat = $request->input('lat');
         $lng = $request->input('lng');
 
-        if ($branch && $branch->lat && $branch->lng && $lat !== null && $lng !== null) {
+        if ($branch && $branch->lat && $branch->lng) {
+            if ($lat === null || $lng === null) {
+                return redirect()->back()->withErrors([
+                    'geofence' => 'Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.',
+                ]);
+            }
             $distance = $this->haversine($lat, $lng, $branch->lat, $branch->lng);
             $radius   = $branch->radius_m ?? 100;
 

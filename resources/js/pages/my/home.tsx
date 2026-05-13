@@ -96,7 +96,7 @@ function MobileHome({ employee, today_schedule, week_days, stats, today, attenda
             navigator.geolocation.getCurrentPosition(
                 (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
                 () => resolve(null),
-                { timeout: 8000, maximumAge: 0, enableHighAccuracy: true },
+                { timeout: 10000, maximumAge: 0, enableHighAccuracy: true },
             );
         });
     }
@@ -105,7 +105,12 @@ function MobileHome({ employee, today_schedule, week_days, stats, today, attenda
         setLoading('in');
         setGeoError(null);
         getLocation().then((loc) => {
-            router.post('/my/attendance/check-in', loc ?? {}, {
+            if (!loc) {
+                setGeoError('Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.');
+                setLoading(null);
+                return;
+            }
+            router.post('/my/attendance/check-in', loc, {
                 preserveScroll: true,
                 onError: (errs) => { if (errs.geofence) setGeoError(errs.geofence); },
                 onFinish: () => setLoading(null),
@@ -116,7 +121,12 @@ function MobileHome({ employee, today_schedule, week_days, stats, today, attenda
         setLoading('out');
         setGeoError(null);
         getLocation().then((loc) => {
-            router.post('/my/attendance/check-out', loc ?? {}, {
+            if (!loc) {
+                setGeoError('Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.');
+                setLoading(null);
+                return;
+            }
+            router.post('/my/attendance/check-out', loc, {
                 preserveScroll: true,
                 onError: (errs) => { if (errs.geofence) setGeoError(errs.geofence); },
                 onFinish: () => setLoading(null),
@@ -435,7 +445,7 @@ function DesktopHome({ employee, today_schedule, week_days, stats, attendance }:
             navigator.geolocation.getCurrentPosition(
                 (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
                 () => resolve(null),
-                { timeout: 8000, maximumAge: 0, enableHighAccuracy: true },
+                { timeout: 10000, maximumAge: 0, enableHighAccuracy: true },
             );
         });
     }
@@ -444,7 +454,12 @@ function DesktopHome({ employee, today_schedule, week_days, stats, attendance }:
         setLoading('in');
         setGeoError(null);
         getLocation().then((loc) => {
-            router.post('/my/attendance/check-in', loc ?? {}, {
+            if (!loc) {
+                setGeoError('Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.');
+                setLoading(null);
+                return;
+            }
+            router.post('/my/attendance/check-in', loc, {
                 preserveScroll: true,
                 onError: (errs) => { if (errs.geofence) setGeoError(errs.geofence); },
                 onFinish: () => setLoading(null),
@@ -455,7 +470,12 @@ function DesktopHome({ employee, today_schedule, week_days, stats, attendance }:
         setLoading('out');
         setGeoError(null);
         getLocation().then((loc) => {
-            router.post('/my/attendance/check-out', loc ?? {}, {
+            if (!loc) {
+                setGeoError('Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.');
+                setLoading(null);
+                return;
+            }
+            router.post('/my/attendance/check-out', loc, {
                 preserveScroll: true,
                 onError: (errs) => { if (errs.geofence) setGeoError(errs.geofence); },
                 onFinish: () => setLoading(null),

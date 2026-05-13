@@ -6,8 +6,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void {
         Schema::table('branches', function (Blueprint $table) {
-            $table->decimal('lat', 10, 7)->nullable()->after('order');
-            $table->decimal('lng', 10, 7)->nullable()->after('lat');
+            $table->double('lat')->nullable()->after('order');
+            $table->double('lng')->nullable()->after('lat');
             $table->unsignedInteger('radius_m')->nullable()->after('lng');
         });
     }
