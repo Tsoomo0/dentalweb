@@ -1,7 +1,7 @@
 {
-    "name": "Dental Web",
-    "short_name": "Dental",
-    "description": "Шүдний эмнэлгийн менежментийн систем",
+    "name": "Cuticul Dental",
+    "short_name": "Cuticul",
+    "description": "Cuticul Dental — Шүдний эмнэлгийн менежментийн систем",
     "lang": "mn",
     "start_url": "/",
     "scope": "/",
