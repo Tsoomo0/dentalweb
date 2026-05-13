@@ -24,9 +24,10 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta name="apple-mobile-web-app-title" content="Кутикул">
         <meta name="mobile-web-app-capable" content="yes">
-        <link rel="apple-touch-icon" href="/img/icon-192.png">
-        <link rel="apple-touch-icon" sizes="192x192" href="/img/icon-192.png">
-        <link rel="apple-touch-icon" sizes="512x512" href="/img/icon-512.png">
+        <link rel="apple-touch-icon" href="/img/apple-touch-icon-180.png">
+        <link rel="apple-touch-icon" sizes="120x120" href="/img/apple-touch-icon-120.png">
+        <link rel="apple-touch-icon" sizes="152x152" href="/img/apple-touch-icon-152.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon-180.png">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />

@@ -1,4 +1,4 @@
-import { Download, X } from 'lucide-react';
+import { Download, Share2, Smartphone, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -7,7 +7,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const DISMISS_KEY = 'pwa_install_dismissed_at';
-const DISMISS_DAYS = 7;
+const DISMISS_DAYS = 3;
 
 export function PwaInstallPrompt() {
     const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
@@ -29,14 +29,16 @@ export function PwaInstallPrompt() {
         const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
         if (iOS) {
             setIsIOS(true);
-            setVisible(true);
-            return;
+            // Show iOS prompt with a 1.5s delay so user sees the page first
+            const timer = setTimeout(() => setVisible(true), 1500);
+            return () => clearTimeout(timer);
         }
 
-        // Android / Chrome / Edge
+        // Android / Chrome / Edge — listen for beforeinstallprompt
         const handler = (e: Event) => {
             e.preventDefault();
             setDeferred(e as BeforeInstallPromptEvent);
+            // Show immediately when browser indicates the site can be installed
             setVisible(true);
         };
         window.addEventListener('beforeinstallprompt', handler);
@@ -46,7 +48,10 @@ export function PwaInstallPrompt() {
     function install() {
         if (!deferred) return;
         deferred.prompt();
-        deferred.userChoice.then(() => {
+        deferred.userChoice.then((choice) => {
+            if (choice.outcome === 'accepted') {
+                localStorage.setItem(DISMISS_KEY, String(Date.now()));
+            }
             setDeferred(null);
             setVisible(false);
         });
@@ -59,42 +64,93 @@ export function PwaInstallPrompt() {
 
     if (!visible) return null;
 
-    return (
-        <div className="fixed bottom-4 left-4 right-4 z-[60] md:left-auto md:right-4 md:max-w-sm">
-            <div className="rounded-2xl border bg-white shadow-2xl dark:bg-zinc-900 dark:border-zinc-700 overflow-hidden">
-                <div className="flex items-start gap-3 p-4">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white">
-                        <Download className="size-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-foreground">Аппликейшн суулгах</p>
-                        {isIOS ? (
-                            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                                Доорхи <span className="inline-block px-1 font-semibold">⎘</span> "Share" товчийг дараад,
-                                <strong> "Add to Home Screen"</strong> сонгоно уу.
-                            </p>
-                        ) : (
-                            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                                Энэ системийг утсан дээр аппликейшн шиг ашиглах боломжтой — хурдан нээгдэнэ, бүтэн дэлгэцээр харагдана.
-                            </p>
-                        )}
-                        {!isIOS && (
-                            <div className="mt-3 flex items-center gap-2">
-                                <button onClick={install}
-                                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors">
-                                    Суулгах
-                                </button>
-                                <button onClick={dismiss}
-                                    className="rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
-                                    Дараа
-                                </button>
+    /* iOS prompt — full-screen overlay with clear visual instructions */
+    if (isIOS) {
+        return (
+            <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div className="w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-slide-up">
+                    <div className="relative bg-gradient-to-br from-red-500 to-red-700 p-6 text-white">
+                        <button onClick={dismiss}
+                            className="absolute top-3 right-3 rounded-full p-1.5 bg-white/20 hover:bg-white/30 transition-colors">
+                            <X className="size-4" />
+                        </button>
+                        <div className="flex items-center gap-3">
+                            <div className="size-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                                <Smartphone className="size-7" />
                             </div>
-                        )}
+                            <div>
+                                <p className="text-lg font-bold">Утсан дээрээ суулга</p>
+                                <p className="text-xs opacity-90 mt-0.5">Кутикул Дентал апп</p>
+                            </div>
+                        </div>
                     </div>
+                    <div className="p-5 space-y-4">
+                        <div className="flex items-start gap-3">
+                            <div className="size-7 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm flex-shrink-0">1</div>
+                            <p className="text-sm text-foreground leading-relaxed">
+                                Доорх <Share2 className="inline size-4 mx-1 text-blue-500" />
+                                <span className="font-semibold">Share</span> товчийг дарна
+                            </p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="size-7 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm flex-shrink-0">2</div>
+                            <p className="text-sm text-foreground leading-relaxed">
+                                Доош scroll хийгээд <span className="font-semibold">"Add to Home Screen"</span> сонгоно
+                            </p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="size-7 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm flex-shrink-0">3</div>
+                            <p className="text-sm text-foreground leading-relaxed">
+                                <span className="font-semibold">"Add"</span> товчоор баталгаажуулна
+                            </p>
+                        </div>
+                        <button onClick={dismiss}
+                            className="w-full rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+                            Дараа суулгана
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    /* Android/Chrome prompt — bottom sheet with single-tap install */
+    return (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm p-4 sm:items-center"
+             onClick={dismiss}>
+            <div onClick={e => e.stopPropagation()}
+                 className="w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-slide-up">
+                <div className="relative bg-gradient-to-br from-red-500 to-red-700 p-6 text-white">
                     <button onClick={dismiss}
-                        className="rounded-lg p-1 text-muted-foreground hover:bg-muted transition-colors">
+                        className="absolute top-3 right-3 rounded-full p-1.5 bg-white/20 hover:bg-white/30 transition-colors">
                         <X className="size-4" />
                     </button>
+                    <div className="flex items-center gap-3">
+                        <div className="size-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                            <Download className="size-7" />
+                        </div>
+                        <div>
+                            <p className="text-lg font-bold">Аппликейшн суулга</p>
+                            <p className="text-xs opacity-90 mt-0.5">Кутикул Дентал</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="p-5 space-y-4">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                        Энэ системийг утсан дээрээ <strong>аппликейшн шиг</strong> ашиглах боломжтой —
+                        илүү хурдан нээгдэнэ, бүтэн дэлгэцээр харагдана, offline ч ажиллана.
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button onClick={install}
+                            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-500/30">
+                            <Download className="size-4" />
+                            Суулгах
+                        </button>
+                        <button onClick={dismiss}
+                            className="rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+                            Дараа
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

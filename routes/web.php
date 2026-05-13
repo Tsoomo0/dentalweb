@@ -152,9 +152,15 @@ Route::middleware(['either.auth'])->group(function () {
     Route::post('/portal/verify-switch', [\App\Http\Controllers\PortalController::class, 'verifyAndSwitch'])->name('portal.verify-switch');
 });
 
-// ── Dashboard redirect ────────────────────────────────────────────────────────
+// ── Dashboard redirect — хэрэглэгчийн рольоор зөв portal руу чиглүүлнэ ──────
 Route::middleware(['auth'])->group(function () {
-    Route::get('dashboard', fn() => redirect()->route('admin.dashboard'))->name('dashboard');
+    Route::get('dashboard', function () {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user->isAdmin())   return redirect()->route('admin.dashboard');
+        if ($user->isPatient()) return redirect()->route('patient.dashboard');
+        // HR, Reception гэх мэт олон portal-той хэрэглэгч — portal сонгох
+        return redirect()->route('portal.select');
+    })->name('dashboard');
 });
 
 // ✅ Admin route
