@@ -19,10 +19,10 @@
         {{-- PWA tags --}}
         <link rel="manifest" href="/manifest.webmanifest">
         <meta name="theme-color" content="#dc2626">
-        <meta name="application-name" content="Dental">
+        <meta name="application-name" content="Кутикул">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
-        <meta name="apple-mobile-web-app-title" content="Dental">
+        <meta name="apple-mobile-web-app-title" content="Кутикул">
         <meta name="mobile-web-app-capable" content="yes">
         <link rel="apple-touch-icon" href="/img/icon-192.png">
         <link rel="apple-touch-icon" sizes="192x192" href="/img/icon-192.png">
