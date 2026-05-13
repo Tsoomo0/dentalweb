@@ -288,3 +288,25 @@
 .dark .notif-scroll {
     scrollbar-color: hsl(0 0% 22%) transparent;
 }
+
+/* iOS-н "автомат zoom" асуудлыг таслах:
+   iOS Safari нь input font-size < 16px бол focus хийхэд zoom хийдэг.
+   Mobile дээр бүх input-ыг 16px болгож, харин харагдах хэмжээг transform-аар буцааж жижигрүүлдэг.
+   Mobile-д л үйлчилнэ, desktop-д нөлөөгүй. */
+@media (max-width: 768px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="search"],
+    input[type="url"],
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"],
+    input:not([type]),
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
