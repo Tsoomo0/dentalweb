@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import {
@@ -143,7 +144,7 @@ function DetailModal({ payment, onClose }: { payment: Payment; onClose: () => vo
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Цаг захиалга</p>
                         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                             <span className="text-muted-foreground">Эмч</span>
-                            <span className="font-medium text-right">{payment.doctor_name ?? '—'}</span>
+                            <span className="font-medium text-right">{payment.doctor_name ? shortDoctorName(payment.doctor_name) : '—'}</span>
                             <span className="text-muted-foreground">Огноо</span>
                             <span className="font-medium text-right">{payment.appointment_date}</span>
                             <span className="text-muted-foreground">Цаг</span>

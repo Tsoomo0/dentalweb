@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Download, Printer, CheckCircle, Clock, Trash2, LockOpen, X } from 'lucide-react';
@@ -205,7 +206,7 @@ function EntriesTable({ sheet }: { sheet: Sheet }) {
                             <td className={`border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right bg-yellow-50/60 dark:bg-yellow-900/10 ${e.outstanding_amount > 0 ? 'text-yellow-700 dark:text-yellow-400 font-semibold' : ''}`}>
                                 {fmt(e.outstanding_amount)}
                             </td>
-                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.doctor_name ?? '—'}</td>
+                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-gray-500">{e.receptionist_name ?? '—'}</td>
                         </tr>
                     ))}
@@ -775,7 +776,7 @@ export default function DailySheetsIndex({
                                                     <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2 text-right font-semibold text-yellow-700 dark:text-yellow-400">
                                                         {e.outstanding_amount.toLocaleString()}₮
                                                     </td>
-                                                    <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2">{e.doctor_name ?? '—'}</td>
+                                                    <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
                                                     <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2 text-gray-500">{e.receptionist_name ?? '—'}</td>
                                                     <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2 text-center">
                                                         {e.outstanding_paid_at ? (
@@ -884,7 +885,7 @@ export default function DailySheetsIndex({
                                                                 <td className={`border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right bg-yellow-50/60 dark:bg-yellow-900/10 ${e.outstanding_amount > 0 ? 'text-yellow-700 dark:text-yellow-400 font-semibold' : ''}`}>
                                                                     {fmt(e.outstanding_amount)}
                                                                 </td>
-                                                                <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.doctor_name ?? '—'}</td>
+                                                                <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>

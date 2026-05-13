@@ -1,4 +1,5 @@
 import ReceptionLayout from '@/layouts/reception-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
@@ -272,7 +273,7 @@ export default function ReceptionDashboard({ branch, stats, today_appointments, 
                                                     {a.doctor_name && (
                                                         <span className="flex items-center gap-1">
                                                             <UserRound className="size-3 shrink-0" />
-                                                            {a.doctor_name}
+                                                            {shortDoctorName(a.doctor_name)}
                                                         </span>
                                                     )}
                                                     {a.service && <span className="truncate">{a.service}</span>}
@@ -334,7 +335,7 @@ export default function ReceptionDashboard({ branch, stats, today_appointments, 
                                                     <span className="truncate">{a.formatted_date} {a.appointment_time}</span>
                                                 </div>
                                                 {a.doctor_name && (
-                                                    <p className="text-[11px] text-muted-foreground truncate">{a.doctor_name}</p>
+                                                    <p className="text-[11px] text-muted-foreground truncate">{shortDoctorName(a.doctor_name)}</p>
                                                 )}
                                             </div>
                                             <button onClick={() => confirm(a.id)}

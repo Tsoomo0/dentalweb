@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, CopyPlus, Mail, Monitor, Phone } from 'lucide-react';
@@ -160,7 +161,7 @@ export default function AppointmentShow({ appointment, doctors, branches }: Prop
                                         {data.type === 'online' ? 'Онлайн' : 'Биечлэн'}
                                     </span>
                                     {appointment.doctor_name && (
-                                        <p className="text-xs text-muted-foreground">Д-р {appointment.doctor_name}</p>
+                                        <p className="text-xs text-muted-foreground">Д-р {shortDoctorName(appointment.doctor_name)}</p>
                                     )}
                                 </div>
                             </div>

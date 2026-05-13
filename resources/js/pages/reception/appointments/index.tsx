@@ -1,5 +1,6 @@
 import { AptDetailModal, AptFormModal, DayMoreModal as AptDayMoreModal, type ModalAppt } from '@/components/cal-modals';
 import ReceptionLayout from '@/layouts/reception-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
@@ -117,7 +118,6 @@ function computeColumns<T extends { appointment_time: string; appointment_time_e
     });
 }
 function doctorInitials(name: string)          { return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
-function shortDoctorName(name: string)         { const p = name.trim().split(/\s+/); return p.length >= 2 ? `${p[0][0]}.${p.slice(1).join(' ')}` : name; }
 
 
 /* ================================================================== */
@@ -566,7 +566,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                     {n.type === 'in_person' && <span className="ml-1">🏥</span>}
                                 </p>
                                 {n.doctor_name && (
-                                    <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">{n.doctor_name}</p>
+                                    <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">{shortDoctorName(n.doctor_name)}</p>
                                 )}
                             </div>
                             {/* Close */}
@@ -720,7 +720,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                     <p style={{ fontSize:14, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))', marginBottom:2 }}>{a.patient_name}</p>
                                                     <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
                                                         {a.appointment_date} · {a.appointment_time}
-                                                        {a.doctor_name && <span style={{ color: pal.bg }}> · {a.doctor_name.split(' ')[0]}</span>}
+                                                        {a.doctor_name && <span style={{ color: pal.bg }}> · {shortDoctorName(a.doctor_name)}</span>}
                                                     </p>
                                                 </div>
                                                 <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:99, background: pal.light, color: pal.border, flexShrink:0 }}>
@@ -938,7 +938,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                     {a.patient_name}
                                                                 </p>
                                                                 <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
-                                                                    {a.doctor_name && <span style={{ color: pal.bg }}>{a.doctor_name.split(' ')[0]}</span>}
+                                                                    {a.doctor_name && <span style={{ color: pal.bg }}>{shortDoctorName(a.doctor_name)}</span>}
                                                                     {a.service && ` · ${a.service}`}
                                                                 </p>
                                                             </div>
@@ -1285,7 +1285,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                             ? <>{a.appointment_time}{a.type === 'online' ? ' 💻' : ''}</>
                                                             : <span className="italic">Цаг тохироогүй</span>
                                                         }
-                                                        {a.doctor_name && <span className="ml-1 opacity-60">· {a.doctor_name.split(' ')[0]}</span>}
+                                                        {a.doctor_name && <span className="ml-1 opacity-60">· {shortDoctorName(a.doctor_name)}</span>}
                                                     </p>
                                                 </div>
                                                 {/* Arrow indicator */}
@@ -1406,7 +1406,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                         </p>
                                                         <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
                                                             {a.appointment_date}&nbsp;&nbsp;{a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}
-                                                            {a.doctor_name && <span className="ml-2 opacity-70">{a.doctor_name}</span>}
+                                                            {a.doctor_name && <span className="ml-2 opacity-70">{shortDoctorName(a.doctor_name)}</span>}
                                                         </p>
                                                     </div>
                                                     <div className="shrink-0 flex flex-col items-end gap-1">

@@ -1,5 +1,6 @@
 import ReceptionLayout from '@/layouts/reception-layout';
 import SignaturePad, { type SignaturePadRef } from '@/components/signature-pad';
+import { shortDoctorName } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -184,11 +185,6 @@ function calcAge(dob: string | null): string | null {
     return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25)) + ' нас';
 }
 
-function shortDoctorName(name: string): string {
-    const parts = name.trim().split(/\s+/);
-    if (parts.length < 2) return name;
-    return parts[0][0] + '.' + parts.slice(1).join(' ');
-}
 
 /* ── Medical history condition labels ── */
 const CONDITIONS: { key: string; label: string }[] = [
@@ -542,7 +538,7 @@ export default function PatientShow({ patient, templates, signedIds, pendingIds 
                                                 {appt.doctor?.name && (
                                                     <span className="flex items-center gap-1">
                                                         <Stethoscope className="size-3" />
-                                                        <span className="font-medium text-foreground">{appt.doctor.name}</span>
+                                                        <span className="font-medium text-foreground">{shortDoctorName(appt.doctor.name)}</span>
                                                     </span>
                                                 )}
                                                 {appt.service && (

@@ -1,4 +1,5 @@
 import ReceptionLayout from '@/layouts/reception-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
@@ -189,7 +190,7 @@ function PayModal({ entry, onClose }: { entry: OutstandingEntry; onClose: () => 
                             <h3 className="text-base font-bold text-foreground">Дутуу тооцоо төлөх</h3>
                             <p className="text-xs text-muted-foreground mt-0.5">
                                 {entry.patient_name ?? '—'} · {entry.date}
-                                {entry.doctor_name ? ` · ${entry.doctor_name}` : ''}
+                                {entry.doctor_name ? ` · ${shortDoctorName(entry.doctor_name)}` : ''}
                             </p>
                         </div>
                         <button onClick={onClose}
@@ -426,7 +427,7 @@ export default function OutstandingIndex({ entries, filters }: Props) {
                                                     <DaysBadge days={e.days_since} />
                                                 </td>
                                                 <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.receptionist_name ?? '—'}</td>
-                                                <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.doctor_name ?? '—'}</td>
+                                                <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
                                                 <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-center">
                                                     <button onClick={() => setModal(e)}
                                                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-green-600 hover:bg-green-700 active:scale-95 text-white transition-all shadow-sm">
@@ -494,7 +495,7 @@ export default function OutstandingIndex({ entries, filters }: Props) {
                                                 <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 font-mono text-gray-500">{e.outstanding_paid_receipt ?? '—'}</td>
                                                 <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500 whitespace-nowrap">{e.outstanding_paid_at ?? '—'}</td>
                                                 <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.receptionist_name ?? '—'}</td>
-                                                <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.doctor_name ?? '—'}</td>
+                                                <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
                                             </tr>
                                         ))}
                                     </tbody>

@@ -1,5 +1,6 @@
 ﻿import { AptDetailModal, type ModalAppt } from '@/components/cal-modals';
 import DoctorLayout from '@/layouts/doctor-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import {
@@ -388,7 +389,7 @@ export default function DoctorDashboard({ doctor, appointments: initialApts, sen
                                                             style={{ background: pal.bg }}>
                                                             {initials(s.name)}
                                                         </div>
-                                                        <span className="flex-1 truncate text-xs">{s.name}</span>
+                                                        <span className="flex-1 truncate text-xs">{shortDoctorName(s.name)}</span>
                                                         {count > 0 && (
                                                             <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
                                                                 style={{ background: pal.light, color: pal.border }}>
@@ -500,7 +501,7 @@ export default function DoctorDashboard({ doctor, appointments: initialApts, sen
                                                                                 className="flex items-center gap-1 rounded-sm py-0.5 pl-1.5 pr-1 text-[10px] font-semibold cursor-pointer overflow-hidden hover:opacity-75 transition-opacity"
                                                                                 style={{ background: p2.light, borderLeft: `3px solid ${ac}` }}>
                                                                                 <span className="shrink-0 tabular-nums" style={{ color: ac }}>{a.appointment_time}</span>
-                                                                                <span className="truncate" style={{ color: ac }}>{a._senior_name ? `[${a._senior_name.split(' ')[0]}] ` : ''}{a.patient_name}</span>
+                                                                                <span className="truncate" style={{ color: ac }}>{a._senior_name ? `[${shortDoctorName(a._senior_name)}] ` : ''}{a.patient_name}</span>
                                                                                 {a.treatment_sent && <span className="shrink-0 rounded-full" style={{ width: 6, height: 6, background: '#16a34a', display: 'inline-block', flexShrink: 0 }} />}
                                                                             </div>
                                                                         );
@@ -712,7 +713,7 @@ export default function DoctorDashboard({ doctor, appointments: initialApts, sen
                                                                         {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}{a.type === 'online' ? ' 💻' : ''}
                                                                     </p>
                                                                     {h > 30 && <p className="truncate font-semibold leading-tight" style={{ fontSize: 10 }}>{a.patient_name}</p>}
-                                                                    {h > 46 && a._senior_name && <p className="truncate opacity-70 leading-tight" style={{ fontSize: 9 }}>👤 {a._senior_name}</p>}
+                                                                    {h > 46 && a._senior_name && <p className="truncate opacity-70 leading-tight" style={{ fontSize: 9 }}>👤 {shortDoctorName(a._senior_name)}</p>}
                                                                     {h > 46 && !a._senior_name && a.service && <p className="truncate opacity-70 leading-tight" style={{ fontSize: 9 }}>{a.service}</p>}
                                                                 </div>
                                                             );
@@ -981,7 +982,7 @@ export default function DoctorDashboard({ doctor, appointments: initialApts, sen
                                                             </p>
                                                             <p style={{ margin:'2px 0 0', fontSize:11, color:'var(--muted-foreground)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                                                                 {a._senior_name
-                                                                    ? `👤 ${a._senior_name}`
+                                                                    ? `👤 ${shortDoctorName(a._senior_name)}`
                                                                     : `${a.type==='online' ? '💻 Онлайн' : '🏥 Биечлэн'}${a.service ? ' · '+a.service : ''}`
                                                                 }
                                                             </p>
@@ -1062,7 +1063,7 @@ export default function DoctorDashboard({ doctor, appointments: initialApts, sen
                                                 <div style={{ width:42, height:42, borderRadius:14, background:`linear-gradient(135deg,${pal.bg},${pal.bg}bb)`, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:800, color:'white', boxShadow:`0 4px 10px ${pal.bg}30` }}>
                                                     {initials(s.name)}
                                                 </div>
-                                                <span style={{ flex:1, fontSize:14, fontWeight:600, color:'var(--foreground)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</span>
+                                                <span style={{ flex:1, fontSize:14, fontWeight:600, color:'var(--foreground)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{shortDoctorName(s.name)}</span>
                                                 {cnt>0 && (
                                                     <span style={{ flexShrink:0, borderRadius:99, padding:'4px 12px', background:pal.light, color:pal.border, fontSize:11, fontWeight:700 }}>
                                                         {cnt} цаг

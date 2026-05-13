@@ -1,3 +1,4 @@
+import { shortDoctorName } from '@/lib/utils';
 import { router, useForm } from '@inertiajs/react';
 import {
     CalendarCheck2, CheckCircle2, Clock,
@@ -482,7 +483,7 @@ export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit,
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-[9px] text-muted-foreground">Эмч</p>
-                                <p className="text-xs font-bold truncate">{apt.doctor_name}</p>
+                                <p className="text-xs font-bold truncate">{shortDoctorName(apt.doctor_name!)}</p>
                                 {apt.doctor_spec && <p className="text-[10px] text-muted-foreground truncate">{apt.doctor_spec}</p>}
                             </div>
                             {apt.branch_name && <p className="text-[10px] text-muted-foreground shrink-0">{apt.branch_name}</p>}
@@ -653,7 +654,7 @@ export function DayMoreModal({ dateStr, apts, onClose, onSelect, onAdd }: DayMor
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold truncate">{a.patient_name}</p>
-                                <p className="text-[11px] text-muted-foreground truncate">{a.doctor_name ?? (a.service ?? '—')}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{a.doctor_name ? shortDoctorName(a.doctor_name) : (a.service ?? '—')}</p>
                             </div>
                             <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium shrink-0 ${STATUS_CHIP[a.status]}`}>
                                 {STATUS_LABEL[a.status].split(' ')[0]}

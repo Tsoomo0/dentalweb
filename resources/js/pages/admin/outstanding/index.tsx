@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
@@ -396,7 +397,7 @@ export default function AdminOutstandingIndex({ entries, branches, filters }: Pr
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.doctor_name ?? '—'}</td>
+                                                <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
                                                 <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 text-gray-500">{e.receptionist_name ?? '—'}</td>
                                                 <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-2.5">
                                                     {e.is_paid ? (

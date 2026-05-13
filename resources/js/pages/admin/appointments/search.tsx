@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
@@ -319,7 +320,7 @@ export default function AppointmentsSearch({ appointments, creatorStats, doctors
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     {a.doctor_name
-                                                        ? <><p className="font-medium text-foreground truncate max-w-[130px]">{a.doctor_name}</p>
+                                                        ? <><p className="font-medium text-foreground truncate max-w-[130px]">{shortDoctorName(a.doctor_name)}</p>
                                                             {a.doctor_spec && <p className="text-muted-foreground/70 truncate max-w-[130px]">{a.doctor_spec}</p>}</>
                                                         : <span className="text-muted-foreground/40">—</span>}
                                                 </td>

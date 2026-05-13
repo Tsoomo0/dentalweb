@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
@@ -339,7 +340,7 @@ export default function AdminPatientShow({ patient: p }: Props) {
                                                 {a.appointment_date}
                                                 {a.appointment_time && <span className="text-muted-foreground ml-1">{a.appointment_time}</span>}
                                             </div>
-                                            {a.doctor && <div className="text-xs text-muted-foreground">{a.doctor.name}</div>}
+                                            {a.doctor && <div className="text-xs text-muted-foreground">{shortDoctorName(a.doctor.name)}</div>}
                                             {a.service && <div className="text-xs text-muted-foreground">{a.service}</div>}
                                             {a.branch && <div className="text-xs text-muted-foreground">{a.branch.name}</div>}
                                             {a.notes && <div className="text-xs text-muted-foreground italic">{a.notes}</div>}
@@ -369,7 +370,7 @@ export default function AdminPatientShow({ patient: p }: Props) {
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <span className="text-sm font-medium">{r.record_date ?? '—'}</span>
-                                                    {r.doctor && <span className="text-xs text-muted-foreground">{r.doctor.name}</span>}
+                                                    {r.doctor && <span className="text-xs text-muted-foreground">{shortDoctorName(r.doctor.name)}</span>}
                                                     {r.payment_status && (
                                                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${PAYMENT_COLOR[r.payment_status] ?? 'bg-muted text-muted-foreground'}`}>
                                                             {PAYMENT_LABEL[r.payment_status] ?? r.payment_status}
@@ -587,7 +588,7 @@ export default function AdminPatientShow({ patient: p }: Props) {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        {v.doctor && <p className="text-xs text-muted-foreground mt-0.5">Эмч: {v.doctor.name}</p>}
+                                                        {v.doctor && <p className="text-xs text-muted-foreground mt-0.5">Эмч: {shortDoctorName(v.doctor.name)}</p>}
                                                         {summary && <p className="text-xs text-muted-foreground mt-0.5 truncate">{summary}</p>}
                                                     </div>
                                                     {expanded ? <ChevronUp className="size-4 shrink-0 text-muted-foreground mt-0.5" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground mt-0.5" />}
