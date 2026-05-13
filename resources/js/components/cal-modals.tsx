@@ -170,6 +170,7 @@ export function AptFormModal({
                 onSuccess: () => {
                     onSaved?.({
                         ...apt,
+                        patient_id:           data.patient_id ? Number(data.patient_id) : apt.patient_id,
                         patient_name:         data.patient_name,
                         patient_phone:        data.patient_phone,
                         patient_email:        data.patient_email  || null,

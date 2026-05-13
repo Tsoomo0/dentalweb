@@ -132,6 +132,15 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
     useEffect(() => { setApts(initialApts); }, [initialApts]);
     useEffect(() => { setStats(initialStats); }, [initialStats]);
 
+    // Sync open detail modal when apts refreshes from server (e.g. patient_id set after confirm)
+    useEffect(() => {
+        setDetailApt(prev => {
+            if (!prev) return prev;
+            const fresh = initialApts.find(a => a.id === prev.id);
+            return fresh ?? prev;
+        });
+    }, [initialApts]);
+
     const today    = new Date();
     const todayStr = pad(today.getFullYear(), today.getMonth(), today.getDate());
 
