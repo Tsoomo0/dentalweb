@@ -150,7 +150,6 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
         emergency_relation: employee.emergency_relation ?? '',
         branch_id:          String(employee.branch_id ?? ''),
         position_id:        String(employee.position_id ?? ''),
-        doctor_specialization: (employee as any).doctor_specialization ?? '',
         salary:             String(employee.salary),
         hired_date:         employee.hired_date ?? '',
         probation_end_date: employee.probation_end_date ?? '',
@@ -364,24 +363,11 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
                                             </Select>
                                         </Field>
                                         <Field label="Албан тушаал" required>
-                                            <Select value={form.position_id} onChange={e => {
-                                                const pos = positions.find(p => String(p.id) === e.target.value);
-                                                set('position_id', e.target.value);
-                                                if (pos?.portal === 'doctor' && !form.doctor_specialization) {
-                                                    set('doctor_specialization', pos.name);
-                                                }
-                                            }}>
+                                            <Select value={form.position_id} onChange={e => set('position_id', e.target.value)}>
                                                 <option value="">— Тушаал сонгоно уу —</option>
                                                 {positions.map(p => <option key={p.id} value={p.id}>{p.name}{p.department ? ` (${p.department})` : ''}</option>)}
                                             </Select>
                                         </Field>
-                                        {positions.find(p => String(p.id) === String(form.position_id))?.portal === 'doctor' && (
-                                            <Field label="Мэргэжил / Чиглэл (эмчийн профайлд харагдана)">
-                                                <Input value={(form as any).doctor_specialization}
-                                                    onChange={e => set('doctor_specialization', e.target.value)}
-                                                    placeholder="Жишээ: Эмчилгээний их эмч" />
-                                            </Field>
-                                        )}
                                         <Field label="Цалин (₮)" required><Input type="number" value={form.salary} onChange={e => set('salary', e.target.value)} /></Field>
                                         <Field label="Ажилд орсон огноо" required><Input type="date" value={form.hired_date} onChange={e => set('hired_date', e.target.value)} /></Field>
                                         <Field label="Туршилтын хугацаа дуусах"><Input type="date" value={form.probation_end_date} onChange={e => set('probation_end_date', e.target.value)} /></Field>

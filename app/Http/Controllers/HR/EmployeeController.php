@@ -228,7 +228,7 @@ class EmployeeController extends Controller
                     'employee_id'    => $employee->id,
                     'branch_id'      => $employee->branch_id,
                     'name'           => $employee->full_name,
-                    'specialization' => $request->filled('doctor_specialization') ? $request->doctor_specialization : $position->name,
+                    'specialization' => $position->name,
                     'phone'          => $employee->phone,
                     'email'          => $loginEmail,
                     'photo'          => $employee->photo,
@@ -275,7 +275,7 @@ class EmployeeController extends Controller
 
     public function edit(Employee $employee): Response
     {
-        $employee->load(['contracts', 'licenses', 'familyMembers', 'doctor']);
+        $employee->load(['contracts', 'licenses', 'familyMembers']);
 
         return Inertia::render('hr/employees/edit', [
             'employee'  => $this->formatEmployee($employee),
@@ -378,7 +378,7 @@ class EmployeeController extends Controller
                 $syncData = [
                     'branch_id'      => $employee->branch_id,
                     'name'           => $employee->full_name,
-                    'specialization' => $request->filled('doctor_specialization') ? $request->doctor_specialization : ($employee->position?->name ?? $employee->doctor->specialization),
+                    'specialization' => $employee->position?->name ?? $employee->doctor->specialization,
                     'phone'          => $employee->phone,
                     'email'          => $employee->email,
                 ];
@@ -466,10 +466,9 @@ class EmployeeController extends Controller
             'is_married'      => $e->is_married,
             'has_children'    => $e->has_children,
             'children_count'  => $e->children_count,
-            'notes'                 => $e->notes,
-            'vacation_days'         => $e->vacation_days,
-            'vacation_extra_days'   => $e->vacation_extra_days,
-            'doctor_specialization' => $e->doctor?->specialization,
+            'notes'               => $e->notes,
+            'vacation_days'       => $e->vacation_days,
+            'vacation_extra_days' => $e->vacation_extra_days,
             'contracts'           => $e->contracts->map(fn($c) => [
                 'id'            => $c->id,
                 'contract_type' => $c->contract_type,
