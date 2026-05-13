@@ -23,7 +23,21 @@ export default function BranchCreate() {
         is_featured: false as boolean,
         is_active: true as boolean,
         image: null as File | null,
+        lat: '',
+        lng: '',
+        radius_m: '100',
     });
+
+    function useCurrentLocation() {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition((pos) => {
+            setData((prev) => ({
+                ...prev,
+                lat: pos.coords.latitude.toFixed(7),
+                lng: pos.coords.longitude.toFixed(7),
+            }));
+        });
+    }
 
     function handleImage(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0] ?? null;
@@ -98,6 +112,64 @@ export default function BranchCreate() {
                                 placeholder="Салбарын тухай товч тайлбар..."
                                 className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                             />
+                        </div>
+
+                        {/* Geofence */}
+                        <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
+                            <p className="text-sm font-semibold">📍 Ирцийн байршил (Geofence)</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-medium text-muted-foreground">Latitude</label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={data.lat}
+                                        onChange={(e) => setData('lat', e.target.value)}
+                                        placeholder="47.9184"
+                                        className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-medium text-muted-foreground">Longitude</label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={data.lng}
+                                        onChange={(e) => setData('lng', e.target.value)}
+                                        placeholder="106.9177"
+                                        className="border-input bg-background w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    />
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={useCurrentLocation}
+                                className="rounded-lg border px-4 py-2 text-xs font-medium hover:bg-muted"
+                            >
+                                📡 Одоогийн байршил авах
+                            </button>
+                            {data.lat && data.lng && (
+                                <a
+                                    href={`https://maps.google.com/?q=${data.lat},${data.lng}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-block text-xs text-red-600 hover:underline"
+                                >
+                                    Google Maps-д харах →
+                                </a>
+                            )}
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">Радиус (метр)</label>
+                                <input
+                                    type="number"
+                                    value={data.radius_m}
+                                    onChange={(e) => setData('radius_m', e.target.value)}
+                                    min="50"
+                                    max="1000"
+                                    className="border-input bg-background w-32 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                />
+                                <p className="text-xs text-muted-foreground">Ажилтан энэ радиусын дотор байвал бүртгэнэ. Санал болгох: 100м</p>
+                            </div>
                         </div>
 
                         {/* Doctor count */}
