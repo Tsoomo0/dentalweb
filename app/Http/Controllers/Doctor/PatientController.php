@@ -32,14 +32,16 @@ class PatientController extends Controller
             $apt = Appointment::find($appointmentId);
             if ($apt && !$apt->patient_id) {
                 $nameParts = explode(' ', trim($apt->patient_name ?? ''), 2);
-                $patient = Patient::create([
-                    'patient_number' => Patient::generateNumber(),
-                    'last_name'      => $nameParts[0] ?? '',
-                    'first_name'     => $nameParts[1] ?? '',
-                    'phone'          => $apt->patient_phone ?? '',
-                    'email'          => $apt->patient_email,
-                    'created_by'     => null,
-                ]);
+                $patient = Patient::firstOrCreate(
+                    ['phone' => $apt->patient_phone ?? ''],
+                    [
+                        'patient_number' => Patient::generateNumber(),
+                        'last_name'      => $nameParts[0] ?? '',
+                        'first_name'     => $nameParts[1] ?? '',
+                        'email'          => $apt->patient_email,
+                        'created_by'     => null,
+                    ]
+                );
                 $apt->update(['patient_id' => $patient->id]);
                 return redirect("/doctor/patients/{$patient->id}?appointment_id={$appointmentId}");
             }
@@ -49,7 +51,6 @@ class PatientController extends Controller
         }
 
         $patients = Patient::query()
-            ->whereHas('appointments', fn($q) => $q->where('doctor_id', $doctor->id))
             ->when($search, function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
                   ->orWhere('last_name', 'like', "%{$search}%")

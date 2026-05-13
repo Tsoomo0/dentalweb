@@ -149,14 +149,16 @@ class ReceptionAppointmentController extends Controller
 
         if (!$patientId) {
             $nameParts = explode(' ', trim($request->patient_name), 2);
-            $patient = Patient::create([
-                'patient_number' => Patient::generateNumber(),
-                'last_name'      => $nameParts[0] ?? '',
-                'first_name'     => $nameParts[1] ?? '',
-                'phone'          => $request->patient_phone,
-                'email'          => $request->patient_email,
-                'created_by'     => Auth::id(),
-            ]);
+            $patient = Patient::firstOrCreate(
+                ['phone' => $request->patient_phone],
+                [
+                    'patient_number' => Patient::generateNumber(),
+                    'last_name'      => $nameParts[0] ?? '',
+                    'first_name'     => $nameParts[1] ?? '',
+                    'email'          => $request->patient_email,
+                    'created_by'     => Auth::id(),
+                ]
+            );
             $patientId = $patient->id;
         }
 
