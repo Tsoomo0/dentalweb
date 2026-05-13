@@ -30,7 +30,7 @@ interface Props { employee: EmployeeInfo; entries: PayrollEntry[] }
 
 function fmt(n: number) {
     if (!n) return '—';
-    return n.toLocaleString('mn-MN', { maximumFractionDigits: 0 }) + '₮';
+    return Math.round(n).toLocaleString('en-US') + '₮';
 }
 
 /* ── Desktop row helper ─────────────────────────── */

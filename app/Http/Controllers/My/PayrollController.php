@@ -21,6 +21,7 @@ class PayrollController extends Controller
             ->orderByDesc('payroll_run_id')
             ->get()
             ->filter(fn($e) => $e->run !== null)  // soft-deleted run-уудыг алгасах
+            ->values()
             ->map(fn($e) => [
                 'id'              => $e->id,
                 'run_id'          => $e->payroll_run_id,
