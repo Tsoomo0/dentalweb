@@ -392,7 +392,7 @@ class EmployeeController extends Controller
             }
         });
 
-        return redirect()->route('hr.employees.show', $employee)
+        return redirect()->route('hr.employees.index')
             ->with('success', 'Мэдээлэл амжилттай шинэчлэгдлээ.');
     }
 

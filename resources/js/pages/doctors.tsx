@@ -1,7 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import PublicLayout from '@/layouts/public-layout';
-import { MapPin, Award, Calendar, X, Phone, Mail, Briefcase, GraduationCap, BadgeCheck, Star } from 'lucide-react';
+import { MapPin, Award, Calendar, X, Briefcase, GraduationCap, BadgeCheck, Star } from 'lucide-react';
 
 interface Experience { year?: string; title: string; institution?: string }
 interface Doctor {
@@ -144,26 +144,6 @@ function DoctorModal({ doctor, onClose }: { doctor: Doctor; onClose: () => void 
                     ))}
                 </div>
 
-                {/* Contact */}
-                {(doctor.phone || doctor.email) && (
-                    <div className="flex flex-col gap-2 mb-5">
-                        {doctor.phone && (
-                            <a href={`tel:${doctor.phone}`}
-                                className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl hover:bg-red-50 hover:border-red-100 border border-transparent transition-all">
-                                <Phone className="w-4 h-4 text-red-500 flex-shrink-0"/>
-                                <span className="text-sm font-medium text-gray-700">{doctor.phone}</span>
-                            </a>
-                        )}
-                        {doctor.email && (
-                            <a href={`mailto:${doctor.email}`}
-                                className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl hover:bg-red-50 hover:border-red-100 border border-transparent transition-all">
-                                <Mail className="w-4 h-4 text-red-500 flex-shrink-0"/>
-                                <span className="text-sm font-medium text-gray-700">{doctor.email}</span>
-                            </a>
-                        )}
-                    </div>
-                )}
-
                 <Link href={bookingUrl}
                     className="w-full flex items-center justify-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-200 text-base">
                     <Calendar className="w-5 h-5"/>
@@ -243,7 +223,7 @@ export default function DoctorsPage() {
                                         className="group text-left rounded-3xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-xl transition-all duration-300 bg-white">
 
                                         {/* Photo */}
-                                        <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-[#1e1209] to-[#2d1a10]">
+                                        <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-[#1e1209] to-[#2d1a10]">
                                             {doc.photo_url
                                                 ? <img src={doc.photo_url} alt={doc.name}
                                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>

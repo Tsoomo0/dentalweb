@@ -124,10 +124,13 @@ class PublicController extends Controller
 
     private function doctorList(): \Illuminate\Support\Collection
     {
-        return Doctor::with('branch')->where('is_active', true)->orderBy('order')->get()
+        return Doctor::with('branch')->where('is_active', true)
+            ->where('specialization', 'not like', '%туслах%')
+            ->where('specialization', 'not like', '%Туслах%')
+            ->orderBy('order')->get()
             ->map(fn($d) => array_merge($d->only([
                 'id', 'name', 'specialization', 'degree', 'experience_years', 'description',
-                'phone', 'email', 'experiences',
+                'experiences',
             ]), [
                 'photo_url'   => $d->photo ? Storage::url($d->photo) : null,
                 'branch_name' => $d->branch?->name,

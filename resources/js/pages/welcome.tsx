@@ -4,7 +4,7 @@ import PublicLayout from '@/layouts/public-layout';
 import {
     ArrowRight, Calendar, CheckCircle, Award,
     ChevronRight, Smile, MapPin, ChevronLeft,
-    X, Phone, Mail, Image as ImageIcon,
+    X, Image as ImageIcon,
     GraduationCap, Briefcase, BadgeCheck
 } from 'lucide-react';
 
@@ -329,30 +329,6 @@ function DoctorModal({ doctor, onClose }: { doctor: Doctor | null; onClose: () =
                         </div>
                     ))}
                 </div>
-
-                {/* Contact */}
-                {(doctor.phone || doctor.email) && (
-                    <div className="flex flex-col gap-2">
-                        {doctor.phone && (
-                            <a href={`tel:${doctor.phone}`}
-                                className="flex items-center gap-3 p-3.5 bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-xl transition-all group">
-                                <div className="w-9 h-9 bg-red-100 group-hover:bg-red-200 rounded-lg flex items-center justify-center">
-                                    <Phone className="w-4 h-4 text-red-600" />
-                                </div>
-                                <span className="text-gray-700 group-hover:text-red-700 font-medium text-sm transition-colors">{doctor.phone}</span>
-                            </a>
-                        )}
-                        {doctor.email && (
-                            <a href={`mailto:${doctor.email}`}
-                                className="flex items-center gap-3 p-3.5 bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-xl transition-all group">
-                                <div className="w-9 h-9 bg-red-100 group-hover:bg-red-200 rounded-lg flex items-center justify-center">
-                                    <Mail className="w-4 h-4 text-red-600" />
-                                </div>
-                                <span className="text-gray-700 group-hover:text-red-700 font-medium text-sm transition-colors">{doctor.email}</span>
-                            </a>
-                        )}
-                    </div>
-                )}
 
                 {/* CTA */}
                 <Link href={bookingUrl}
@@ -1061,7 +1037,7 @@ export default function Welcome() {
                             } as Doctor))).map(doc => (
                                 <button key={doc.id} onClick={() => setSelectedDoctor(doc)}
                                     className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all group text-left">
-                                    <div className="aspect-square sm:aspect-[3/4] bg-gradient-to-br from-rose-50 to-red-100 overflow-hidden relative">
+                                    <div className="aspect-square bg-gradient-to-br from-rose-50 to-red-100 overflow-hidden relative">
                                         {doc.photo_url
                                             ? <img src={doc.photo_url} alt={doc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
                                             : <div className="w-full h-full flex items-center justify-center">

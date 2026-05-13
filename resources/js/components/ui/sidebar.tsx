@@ -320,11 +320,33 @@ const SidebarSeparator = React.forwardRef<React.ElementRef<typeof Separator>, Re
 );
 SidebarSeparator.displayName = 'SidebarSeparator';
 
-const SidebarContent = React.forwardRef<HTMLDivElement, React.ComponentProps<'div'>>(({ className, ...props }, ref) => {
+const SIDEBAR_SCROLL_KEY = 'sidebar-scroll-position';
+
+const SidebarContent = React.forwardRef<HTMLDivElement, React.ComponentProps<'div'>>(({ className, onScroll, ...props }, ref) => {
+    const innerRef = React.useRef<HTMLDivElement | null>(null);
+
+    // Restore scroll on mount
+    React.useLayoutEffect(() => {
+        const el = innerRef.current;
+        if (!el) return;
+        const saved = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+        if (saved) el.scrollTop = parseInt(saved, 10) || 0;
+    }, []);
+
+    const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String((e.target as HTMLDivElement).scrollTop));
+        onScroll?.(e);
+    }, [onScroll]);
+
     return (
         <div
-            ref={ref}
+            ref={(node) => {
+                innerRef.current = node;
+                if (typeof ref === 'function') ref(node);
+                else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+            }}
             data-sidebar="content"
+            onScroll={handleScroll}
             className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden', className)}
             {...props}
         />
