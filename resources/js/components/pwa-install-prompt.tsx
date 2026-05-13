@@ -1,4 +1,4 @@
-import { Download, Share2, Smartphone, X } from 'lucide-react';
+import { Download, Share2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -64,53 +64,42 @@ export function PwaInstallPrompt() {
 
     if (!visible) return null;
 
-    /* iOS prompt — full-screen overlay with clear visual instructions */
+    /* iOS prompt — simplified single arrow pointing to Share button */
     if (isIOS) {
         return (
-            <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm p-4">
-                <div className="w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-slide-up">
-                    <div className="relative bg-gradient-to-br from-red-500 to-red-700 p-6 text-white">
-                        <button onClick={dismiss}
-                            className="absolute top-3 right-3 rounded-full p-1.5 bg-white/20 hover:bg-white/30 transition-colors">
-                            <X className="size-4" />
-                        </button>
-                        <div className="flex items-center gap-3">
-                            <div className="size-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                                <Smartphone className="size-7" />
-                            </div>
-                            <div>
-                                <p className="text-lg font-bold">Утсан дээрээ суулга</p>
-                                <p className="text-xs opacity-90 mt-0.5">Кутикул Дентал апп</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="p-5 space-y-4">
-                        <div className="flex items-start gap-3">
-                            <div className="size-7 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm flex-shrink-0">1</div>
-                            <p className="text-sm text-foreground leading-relaxed">
-                                Доорх <Share2 className="inline size-4 mx-1 text-blue-500" />
-                                <span className="font-semibold">Share</span> товчийг дарна
-                            </p>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <div className="size-7 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm flex-shrink-0">2</div>
-                            <p className="text-sm text-foreground leading-relaxed">
-                                Доош scroll хийгээд <span className="font-semibold">"Add to Home Screen"</span> сонгоно
-                            </p>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <div className="size-7 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-600 dark:text-red-400 font-bold text-sm flex-shrink-0">3</div>
-                            <p className="text-sm text-foreground leading-relaxed">
-                                <span className="font-semibold">"Add"</span> товчоор баталгаажуулна
-                            </p>
-                        </div>
-                        <button onClick={dismiss}
-                            className="w-full rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
-                            Дараа суулгана
-                        </button>
+            <>
+                {/* Animated arrow pointing to Safari's Share button at bottom */}
+                <div className="fixed inset-0 z-[100] pointer-events-none">
+                    <div className="absolute bottom-16 left-1/2 -translate-x-1/2 animate-bounce-down pointer-events-none">
+                        <svg width="48" height="60" viewBox="0 0 48 60" fill="none" className="drop-shadow-2xl">
+                            <path d="M24 0 V50 M24 50 L10 36 M24 50 L38 36" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M24 0 V50 M24 50 L10 36 M24 50 L38 36" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                     </div>
                 </div>
-            </div>
+
+                {/* Bottom card with single instruction */}
+                <div className="fixed bottom-4 left-4 right-4 z-[100] pointer-events-auto">
+                    <div className="rounded-3xl bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-slide-up border border-red-100 dark:border-red-900">
+                        <div className="relative p-4 flex items-center gap-3">
+                            <div className="size-12 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center flex-shrink-0">
+                                <Share2 className="size-6 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-foreground">Аппликейшн суулгах</p>
+                                <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                                    Доорх <Share2 className="inline size-3 mx-0.5 text-blue-500" /> Share товчийг дарж →
+                                    <span className="font-semibold"> "Add to Home Screen"</span>
+                                </p>
+                            </div>
+                            <button onClick={dismiss}
+                                className="rounded-full p-2 hover:bg-muted transition-colors flex-shrink-0">
+                                <X className="size-4 text-muted-foreground" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </>
         );
     }
 

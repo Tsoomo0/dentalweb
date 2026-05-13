@@ -296,6 +296,13 @@
 }
 .animate-slide-up { animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 
+/* iOS install — Share товч руу заах bounce сум */
+@keyframes bounceDown {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%      { transform: translateX(-50%) translateY(14px); }
+}
+.animate-bounce-down { animation: bounceDown 1.4s ease-in-out infinite; }
+
 /* iOS-н "автомат zoom" асуудлыг таслах:
    iOS Safari нь input font-size < 16px бол focus хийхэд zoom хийдэг.
    Mobile дээр бүх input-ыг 16px болгож, харин харагдах хэмжээг transform-аар буцааж жижигрүүлдэг.
