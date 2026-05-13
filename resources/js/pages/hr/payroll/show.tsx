@@ -28,7 +28,7 @@ interface Props { run: PayrollRun; entries: EntryRow[] }
 
 function fmt(n: number) {
     if (n === 0) return '';
-    return n.toLocaleString('mn-MN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return Math.round(n).toLocaleString('en-US');
 }
 function fmtFull(n: number) {
     if (!n) return '—';
@@ -255,6 +255,10 @@ export default function PayrollShow({ run, entries: initial }: Props) {
     const [saving, setSaving]   = useState(false);
     const [saved, setSaved]     = useState(false);
     const [importOpen, setImportOpen] = useState(false);
+
+    useEffect(() => {
+        setEntries(initial.map(e => ({ ...e })));
+    }, [initial]);
     const [scrollEdge, setScrollEdge] = useState({ left: false, right: true });
     const tableRef = useRef<HTMLDivElement>(null);
     const fileRef  = useRef<HTMLInputElement>(null);
