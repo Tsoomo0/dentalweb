@@ -24,21 +24,27 @@ export function PwaInstallPrompt() {
         const dismissedAt = Number(localStorage.getItem(DISMISS_KEY) || 0);
         if (dismissedAt && Date.now() - dismissedAt < DISMISS_DAYS * 24 * 60 * 60 * 1000) return;
 
-        // iOS detection (Safari has no beforeinstallprompt)
         const ua = window.navigator.userAgent;
+
+        // iOS detection (Safari has no beforeinstallprompt)
         const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
         if (iOS) {
             setIsIOS(true);
-            // Show iOS prompt with a 1.5s delay so user sees the page first
             const timer = setTimeout(() => setVisible(true), 1500);
             return () => clearTimeout(timer);
         }
 
-        // Android / Chrome / Edge — listen for beforeinstallprompt
+        // Mobile Android detection
+        const isMobileAndroid = /Android/i.test(ua) && /Mobile/i.test(ua);
+
+        // On Desktop: let Chrome show its native install UI (address bar ⊕ icon)
+        // → Don't preventDefault, don't show our custom modal
+        if (!isMobileAndroid) return;
+
+        // Mobile Android only: show our custom modal
         const handler = (e: Event) => {
             e.preventDefault();
             setDeferred(e as BeforeInstallPromptEvent);
-            // Show immediately when browser indicates the site can be installed
             setVisible(true);
         };
         window.addEventListener('beforeinstallprompt', handler);
