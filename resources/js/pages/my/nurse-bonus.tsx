@@ -1,14 +1,13 @@
-import { NotificationBell } from '@/components/notification-bell';
 import MyLayout from '@/layouts/my-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { CheckCircle2, ChevronDown, ChevronUp, Stethoscope } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-const TEAL  = '#0d9488';
-const TEAL2 = '#0f766e';
-const TEAL3 = '#134e4a';
-const EMRD  = '#10b981';
+const RED  = '#dc2626';
+const RED2 = '#b91c1c';
+const RED3 = '#7f1d1d';
+const ACCENT = '#4ade80';
 
 interface EmployeeInfo {
     full_name: string;
@@ -48,9 +47,9 @@ function MobileBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cri
         <div style={{ background: 'var(--my-card-bg)', borderRadius: 22, overflow: 'hidden', boxShadow: 'var(--my-shadow)', border: '1px solid var(--my-card-border)' }}>
             <button onClick={() => setOpen(v => !v)}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '14px 16px', gap: 13, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ width: 50, height: 50, borderRadius: 16, background: 'linear-gradient(145deg, #f0fdfa, #ccfbf1)', border: '1.5px solid #99f6e4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, gap: 1 }}>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: TEAL, lineHeight: 1 }}>{entry.month}</span>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: TEAL2, letterSpacing: 0.3 }}>{entry.year}</span>
+                <div style={{ width: 50, height: 50, borderRadius: 16, background: 'linear-gradient(145deg, #fef2f2, #fee2e2)', border: '1.5px solid #fecaca', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, gap: 1 }}>
+                    <span style={{ fontSize: 22, fontWeight: 900, color: RED, lineHeight: 1 }}>{entry.month}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: RED2, letterSpacing: 0.3 }}>{entry.year}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--my-input-text)', margin: 0 }}>{entry.month}-р сар</p>
@@ -58,18 +57,18 @@ function MobileBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cri
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontSize: 16, fontWeight: 900, color: TEAL, margin: 0, letterSpacing: -0.3 }}>{fmtMoney(entry.total_amount)}</p>
+                        <p style={{ fontSize: 16, fontWeight: 900, color: RED, margin: 0, letterSpacing: -0.3 }}>{fmtMoney(entry.total_amount)}</p>
                         <p style={{ fontSize: 9, color: 'var(--my-faint)', margin: '2px 0 0', fontWeight: 600 }}>УРАМШУУЛАЛ</p>
                     </div>
-                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: open ? '#f0fdfa' : 'var(--my-pill-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {open ? <ChevronUp size={13} color={TEAL} /> : <ChevronDown size={13} color="#999" />}
+                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: open ? '#fef2f2' : 'var(--my-pill-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {open ? <ChevronUp size={13} color={RED} /> : <ChevronDown size={13} color="#999" />}
                     </div>
                 </div>
             </button>
 
             {open && (
                 <div style={{ borderTop: '1px solid var(--my-divider)', padding: '14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ background: `linear-gradient(135deg, ${TEAL3} 0%, ${TEAL2} 60%, ${TEAL} 100%)`, borderRadius: 18, padding: '16px 18px' }}>
+                    <div style={{ background: `linear-gradient(135deg, ${RED3} 0%, ${RED2} 60%, ${RED} 100%)`, borderRadius: 18, padding: '16px 18px' }}>
                         <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', margin: '0 0 4px', fontWeight: 700, letterSpacing: 0.6 }}>НИЙТ УРАМШУУЛАЛ</p>
                         <p style={{ fontSize: 30, fontWeight: 900, color: 'white', margin: 0, letterSpacing: -0.6, lineHeight: 1 }}>{fmtMoney(entry.total_amount)}</p>
                     </div>
@@ -116,8 +115,8 @@ function DesktopBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cr
             <button onClick={() => setOpen(v => !v)}
                 className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors text-left">
                 <div className="flex items-center gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-950/40">
-                        <CheckCircle2 className="size-5 text-teal-600 dark:text-teal-400" />
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-950/40">
+                        <CheckCircle2 className="size-5 text-red-600 dark:text-red-400" />
                     </div>
                     <div>
                         <p className="text-sm font-bold text-foreground">{entry.run_title}</p>
@@ -127,7 +126,7 @@ function DesktopBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cr
                 <div className="flex items-center gap-6">
                     <div className="text-right">
                         <p className="text-xs text-muted-foreground">Нийт урамшуулал</p>
-                        <p className="text-sm font-bold text-teal-600 dark:text-teal-400">{fmtMoney(entry.total_amount)}</p>
+                        <p className="text-sm font-bold text-red-600 dark:text-red-400">{fmtMoney(entry.total_amount)}</p>
                     </div>
                     {open ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
                 </div>
@@ -158,10 +157,10 @@ function DesktopBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cr
                                 </div>
                             );
                         })}
-                        <div className="grid grid-cols-4 px-4 py-3 bg-teal-50/50 dark:bg-teal-950/10 border-t-2 border-teal-200 dark:border-teal-800">
+                        <div className="grid grid-cols-4 px-4 py-3 bg-red-50/50 dark:bg-red-950/10 border-t-2 border-red-200 dark:border-red-800">
                             <div className="col-span-2 text-sm font-bold text-foreground">Нийт</div>
                             <div />
-                            <div className="text-right text-sm font-bold text-teal-700 dark:text-teal-400 tabular-nums">{fmtMoney(entry.total_amount)}</div>
+                            <div className="text-right text-sm font-bold text-red-700 dark:text-red-400 tabular-nums">{fmtMoney(entry.total_amount)}</div>
                         </div>
                     </div>
                 </div>
@@ -190,27 +189,12 @@ export default function MyNurseBonus({ employee, entries, criteria }: Props) {
 
             {/* ════════════════ MOBILE ════════════════ */}
             <div className="md:hidden" style={{ flex: 1, background: 'var(--my-page-bg)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(88px + env(safe-area-inset-bottom,0px))' } as React.CSSProperties}>
-                {/* ═══ TEAL HERO ════════════════════════════════════ */}
-                <div style={{ background: `linear-gradient(160deg, #14b8a6 0%, ${TEAL} 30%, ${TEAL2} 65%, ${TEAL3} 100%)`, position: 'relative', overflow: 'hidden' }}>
+                {/* ═══ RED HERO ════════════════════════════════════ */}
+                <div style={{ background: `linear-gradient(160deg, #ef4444 0%, ${RED} 30%, ${RED2} 65%, ${RED3} 100%)`, position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', top: -60, right: -60, pointerEvents: 'none' }} />
                     <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', top: 40, right: 40, pointerEvents: 'none' }} />
 
-                    <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px 0', gap: 10, position: 'relative' }}>
-                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, flex: 1, letterSpacing: 0.3 }}>
-                            HR · УРАМШУУЛАЛ
-                        </span>
-                        <NotificationBell variant="ghost" />
-                        <Link href="/my/profile" style={{ textDecoration: 'none', flexShrink: 0 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {employee.photo_url
-                                    ? <img src={employee.photo_url} alt={employee.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
-                                    : <span style={{ fontSize: 12, fontWeight: 800, color: 'white' }}>{employee.initials ?? (employee.full_name?.[0] ?? 'С')}</span>
-                                }
-                            </div>
-                        </Link>
-                    </div>
-
-                    <div style={{ padding: '14px 18px 18px', position: 'relative' }}>
+                    <div style={{ padding: '20px 18px 18px', position: 'relative' }}>
                         <h1 style={{ margin: '0 0 5px', lineHeight: 1.1, letterSpacing: -0.8 }}>
                             <span style={{ fontSize: 36, fontWeight: 900, color: 'white' }}>Сувилагчийн </span>
                             <span style={{ fontSize: 28, fontWeight: 300, fontStyle: 'italic', color: 'rgba(255,255,255,0.7)', fontFamily: 'Georgia, "Times New Roman", serif' }}>урамшуулал</span>
@@ -223,7 +207,7 @@ export default function MyNurseBonus({ employee, entries, criteria }: Props) {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: EMRD }} />
+                                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: ACCENT }} />
                                         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700, letterSpacing: 0.6 }}>СҮҮЛИЙН УРАМШУУЛАЛ</span>
                                     </div>
                                     <p style={{ fontSize: 28, fontWeight: 900, color: 'white', margin: 0, letterSpacing: -0.6, lineHeight: 1 }}>
@@ -249,8 +233,8 @@ export default function MyNurseBonus({ employee, entries, criteria }: Props) {
                 <div style={{ padding: '12px 14px 32px' }}>
                     {entries.length === 0 ? (
                         <div style={{ background: 'var(--my-card-bg)', borderRadius: 24, padding: '48px 20px', textAlign: 'center', boxShadow: 'var(--my-shadow)' }}>
-                            <div style={{ width: 56, height: 56, borderRadius: 18, background: '#f0fdfa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                                <Stethoscope size={26} color="#5eead4" />
+                            <div style={{ width: 56, height: 56, borderRadius: 18, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                                <Stethoscope size={26} color="#fca5a5" />
                             </div>
                             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--my-muted)', margin: '0 0 4px' }}>Урамшуулал байхгүй</p>
                             <p style={{ fontSize: 12, color: 'var(--my-faint)', margin: 0 }}>Баталгаажсан урамшуулал байхгүй байна</p>
