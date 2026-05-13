@@ -98,7 +98,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
         education_degree: '', education_school: '', education_major: '',
         username: '', password: '', phone: '', email: '', address: '',
         emergency_name: '', emergency_phone: '', emergency_relation: '',
-        branch_id: '', position_id: '', salary: '', hired_date: '',
+        branch_id: '', position_id: '', doctor_specialization: '', salary: '', hired_date: '',
         probation_end_date: '', status: 'active',
         vacation_extra_days: 0,
         contract_type: 'fixed', contract_start_date: '', contract_end_date: '', contract_notes: '',
@@ -336,7 +336,14 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                             </Select>
                                         </Field>
                                         <Field label="Албан тушаал" required>
-                                            <Select value={data.position_id} onChange={e => setData('position_id', e.target.value)}>
+                                            <Select value={data.position_id} onChange={e => {
+                                                const pos = positions.find(p => String(p.id) === e.target.value);
+                                                setData(prev => ({
+                                                    ...prev,
+                                                    position_id: e.target.value,
+                                                    doctor_specialization: pos?.portal === 'doctor' ? pos.name : prev.doctor_specialization,
+                                                }));
+                                            }}>
                                                 <option value="">— Тушаал сонгоно уу —</option>
                                                 {positions.map(p => (
                                                     <option key={p.id} value={p.id}>
@@ -345,6 +352,13 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                                 ))}
                                             </Select>
                                         </Field>
+                                        {positions.find(p => String(p.id) === String(data.position_id))?.portal === 'doctor' && (
+                                            <Field label="Мэргэжил / Чиглэл (эмчийн профайлд харагдана)">
+                                                <Input value={data.doctor_specialization}
+                                                    onChange={e => setData('doctor_specialization', e.target.value)}
+                                                    placeholder="Жишээ: Эмчилгээний их эмч" />
+                                            </Field>
+                                        )}
                                         <Field label="Цалин (₮)" required>
                                             <Input type="number" value={data.salary} onChange={e => setData('salary', e.target.value)} placeholder="1500000" />
                                         </Field>
