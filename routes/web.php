@@ -98,6 +98,11 @@ Route::middleware(['either.auth'])->group(function () {
     Route::get('/portal/work',    [PortalController::class, 'goWork'])->name('portal.work');
     Route::get('/portal/hr',      [PortalController::class, 'goHr'])->name('portal.hr');
 
+    // Push subscription (PWA)
+    Route::get('push/vapid-key',    [\App\Http\Controllers\PushSubscriptionController::class, 'vapidKey'])->name('push.vapid');
+    Route::post('push/subscribe',   [\App\Http\Controllers\PushSubscriptionController::class, 'subscribe'])->name('push.subscribe');
+    Route::post('push/unsubscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe');
+
     // Notification routes — either.auth (web болон doctor guard аль алинд нь)
     Route::get('notifications',               [NotificationController::class, 'index'])->middleware('throttle:30,1')->name('notif.index');
     Route::patch('notifications/{id}/read',  [NotificationController::class, 'markRead'])->name('notif.read');
@@ -148,6 +153,22 @@ Route::middleware(['either.auth'])->group(function () {
         // Ирцийн бүртгэл
         Route::post('/attendance/check-in',  [\App\Http\Controllers\My\AttendanceController::class, 'checkIn'])->name('attendance.check-in');
         Route::post('/attendance/check-out', [\App\Http\Controllers\My\AttendanceController::class, 'checkOut'])->name('attendance.check-out');
+
+        // ── Chat ──────────────────────────────────────────────────────────────
+        Route::get('/chat',                                       [\App\Http\Controllers\My\ChatController::class, 'index'])->name('chat.index');
+        Route::get('/chat/conversations',                         [\App\Http\Controllers\My\ChatController::class, 'listConversations'])->name('chat.conversations');
+        Route::post('/chat/heartbeat',                            [\App\Http\Controllers\My\ChatController::class, 'heartbeat'])->name('chat.heartbeat');
+        Route::get('/chat/staff',                                 [\App\Http\Controllers\My\ChatController::class, 'listStaff'])->name('chat.staff');
+        Route::post('/chat/groups',                               [\App\Http\Controllers\My\ChatController::class, 'createGroup'])->name('chat.groups.store');
+        Route::post('/chat/conversations/direct',                 [\App\Http\Controllers\My\ChatController::class, 'startDirect'])->name('chat.direct.start');
+        Route::get('/chat/conversations/{conversation}',          [\App\Http\Controllers\My\ChatController::class, 'show'])->name('chat.show');
+        Route::post('/chat/conversations/{conversation}/messages', [\App\Http\Controllers\My\ChatController::class, 'store'])->name('chat.messages.store');
+        Route::delete('/chat/messages/{message}',                  [\App\Http\Controllers\My\ChatController::class, 'destroyMessage'])->name('chat.messages.destroy');
+        Route::delete('/chat/conversations/{conversation}',        [\App\Http\Controllers\My\ChatController::class, 'destroyConversation'])->name('chat.conversations.destroy');
+        Route::post('/chat/conversations/{conversation}/read',    [\App\Http\Controllers\My\ChatController::class, 'markRead'])->name('chat.read');
+        Route::post('/chat/conversations/{conversation}/typing',  [\App\Http\Controllers\My\ChatController::class, 'typing'])->name('chat.typing');
+        Route::post('/chat/conversations/{conversation}/bot/start',  [\App\Http\Controllers\My\ChatController::class, 'botStart'])->name('chat.bot.start');
+        Route::post('/chat/conversations/{conversation}/bot/button/{button}', [\App\Http\Controllers\My\ChatController::class, 'botButton'])->name('chat.bot.button');
     });
     Route::post('/portal/verify-switch', [\App\Http\Controllers\PortalController::class, 'verifyAndSwitch'])->name('portal.verify-switch');
 });
@@ -210,6 +231,7 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::get('daily-sheets/export-excel', [DailySheetAdminController::class, 'exportExcel'])->name('daily-sheets.export');
     Route::get('daily-sheets', [DailySheetAdminController::class, 'index'])->name('daily-sheets.index');
     Route::delete('daily-sheets/{sheet}', [DailySheetAdminController::class, 'destroy'])->name('daily-sheets.destroy');
+    Route::delete('daily-sheet-entries/{entry}', [DailySheetAdminController::class, 'destroyEntry'])->name('daily-sheets.entries.destroy');
     Route::post('daily-sheets/{sheet}/unlock', [DailySheetAdminController::class, 'unlock'])->name('daily-sheets.unlock');
 
     // Дутуу тооцоо (бүх цаг үе, бүх салбар)
@@ -238,6 +260,28 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
 
     // Ортодонт аппарат бүртгэл (read-only admin view)
     Route::get('ortho-appliances', [OrthoApplianceController::class, 'adminIndex'])->name('ortho-appliances.index');
+
+    // ── Bot Builder ─────────────────────────────────────────────────────────
+    Route::get('chatbot-flows',                  [\App\Http\Controllers\Admin\BotBuilderController::class, 'index'])->name('chatbot-flows.index');
+    Route::put('chatbot/welcome',                [\App\Http\Controllers\Admin\BotBuilderController::class, 'updateWelcome'])->name('chatbot.welcome.update');
+    Route::post('chatbot/flows',                 [\App\Http\Controllers\Admin\BotBuilderController::class, 'storeFlow'])->name('chatbot.flows.store');
+    Route::put('chatbot/flows/{flow}',           [\App\Http\Controllers\Admin\BotBuilderController::class, 'updateFlow'])->name('chatbot.flows.update');
+    Route::put('chatbot/flows/{flow}/menu',      [\App\Http\Controllers\Admin\BotBuilderController::class, 'updateMenu'])->name('chatbot.flows.menu.update');
+    Route::delete('chatbot/flows/{flow}',        [\App\Http\Controllers\Admin\BotBuilderController::class, 'destroyFlow'])->name('chatbot.flows.destroy');
+    Route::post('chatbot/nodes',                 [\App\Http\Controllers\Admin\BotBuilderController::class, 'storeNode'])->name('chatbot.nodes.store');
+    Route::put('chatbot/nodes/{node}',           [\App\Http\Controllers\Admin\BotBuilderController::class, 'updateNode'])->name('chatbot.nodes.update');
+    Route::delete('chatbot/nodes/{node}',        [\App\Http\Controllers\Admin\BotBuilderController::class, 'destroyNode'])->name('chatbot.nodes.destroy');
+
+    // ── Admin chat (full thread UI) ─────────────────────────────────────────
+    Route::get('chat', [\App\Http\Controllers\Admin\ChatController::class, 'index'])->name('chat.index');
+
+    // ── Chat inbox + group management ────────────────────────────────────────
+    Route::get('chat-inbox',                                  [\App\Http\Controllers\Admin\ChatInboxController::class, 'index'])->name('chat-inbox.index');
+    Route::get('chat-inbox/handoffs',                         [\App\Http\Controllers\Admin\ChatInboxController::class, 'listHandoffs'])->name('chat-inbox.handoffs');
+    Route::post('chat-inbox/handoffs/{handoff}/claim',        [\App\Http\Controllers\Admin\ChatInboxController::class, 'claimHandoff'])->name('chat-inbox.handoffs.claim');
+    Route::post('chat-inbox/handoffs/{handoff}/close',        [\App\Http\Controllers\Admin\ChatInboxController::class, 'closeHandoff'])->name('chat-inbox.handoffs.close');
+    Route::post('chat-inbox/groups',                          [\App\Http\Controllers\Admin\ChatInboxController::class, 'createGroup'])->name('chat-inbox.groups.store');
+    Route::get('chat-inbox/staff',                            [\App\Http\Controllers\Admin\ChatInboxController::class, 'listStaff'])->name('chat-inbox.staff');
 });
 
 // ── Reception portal ─────────────────────────────────────────────────────────

@@ -107,8 +107,20 @@ class DailySheetController extends Controller
                 return;
             }
 
-            // source='treatment' тэмдэглэгдсэн auto-added мөрүүдийг устгахгүй
-            $sheet->entries()->where('user_id', $userId)->whereNull('source')->delete();
+            // source='treatment' (auto) болон outstanding_paid_at тавьсан (paid) мөрүүдийг хадгалж үлдээнэ.
+            $sheet->entries()
+                ->where('user_id', $userId)
+                ->whereNull('source')
+                ->whereNull('outstanding_paid_at')   // ← Paid entry-уудыг устгахгүй
+                ->delete();
+
+            // Хадгалагдсан paid entry-уудын identifying data — давхар үүсэхээс сэргийлэх.
+            $preservedKeys = $sheet->entries()
+                ->where('user_id', $userId)
+                ->whereNotNull('outstanding_paid_at')
+                ->get(['id', 'patient_name', 'appointment_number', 'outstanding_amount'])
+                ->map(fn ($e) => trim((string) $e->patient_name) . '|' . trim((string) $e->appointment_number) . '|' . (int) $e->outstanding_amount)
+                ->all();
 
             $rowIdx = 0;
             foreach ($request->input('entries', []) as $row) {
@@ -119,13 +131,20 @@ class DailySheetController extends Controller
                 $discount = (int) ($row['discount'] ?? 0);
                 $name     = trim($row['patient_name'] ?? '');
                 $sum      = $mobile + $card + $cash + $storepay;
+                $outstd   = (int) ($row['outstanding_amount'] ?? 0);
+                $aptNumber = trim($row['appointment_number'] ?? '') ?: null;
 
                 if ($name === '' && $sum === 0 && $discount === 0) {
                     continue;
                 }
 
-                $aptNumber = trim($row['appointment_number'] ?? '') ?: null;
-                $aptId     = $aptNumber
+                // Хэрэв энэ row нь өмнө төлсөн entry-тэй яг тааравал давхар үүсгэхгүй.
+                $rowKey = $name . '|' . ($aptNumber ?? '') . '|' . $outstd;
+                if (in_array($rowKey, $preservedKeys, true)) {
+                    continue;
+                }
+
+                $aptId = $aptNumber
                     ? \App\Models\Appointment::where('appointment_number', $aptNumber)->value('id')
                     : null;
 
@@ -144,7 +163,7 @@ class DailySheetController extends Controller
                     'cash_amount'        => $cash,
                     'storepay_amount'    => $storepay,
                     'total_amount'       => $sum,
-                    'outstanding_amount' => (int) ($row['outstanding_amount'] ?? 0),
+                    'outstanding_amount' => $outstd,
                     'doctor_id'          => $row['doctor_id'] ?? null,
                 ]);
             }

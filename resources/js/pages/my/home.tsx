@@ -1,5 +1,6 @@
 import MyLayout from '@/layouts/my-layout';
 import { NotificationBell } from '@/components/notification-bell';
+import { ChatIcon } from '@/components/chat-icon';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link, router } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
@@ -165,6 +166,8 @@ function MobileHome({ employee, today_schedule, week_days, stats, today, attenda
                     <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, flex: 1, letterSpacing: 0.3 }}>
                         {employee.number} · {today.date} · {today.day_label}
                     </span>
+                    {/* Chat icon */}
+                    <ChatIcon variant="ghost" />
                     {/* Notification bell */}
                     <NotificationBell variant="ghost" />
                     {/* Photo or initials avatar — profile link */}

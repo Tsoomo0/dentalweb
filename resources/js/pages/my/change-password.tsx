@@ -1,3 +1,5 @@
+import { ChatIcon } from '@/components/chat-icon';
+import { NotificationBell } from '@/components/notification-bell';
 import MyLayout from '@/layouts/my-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
@@ -39,13 +41,17 @@ export default function MyChangePassword() {
 
                 {/* Red hero */}
                 <div style={{ background: 'linear-gradient(160deg, #ef4444 0%, #dc2626 30%, #b91c1c 65%, #7f1d1d 100%)', paddingBottom: 32 }}>
-                    {/* Back button */}
-                    <div style={{ padding: '54px 20px 0' }}>
+                    {/* Top: back + icons */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 0' }}>
                         <button onClick={() => router.visit('/my/profile')}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.22)', border: 'none', borderRadius: 20, padding: '7px 14px 7px 10px', cursor: 'pointer' }}>
                             <ArrowLeft style={{ width: 15, height: 15, color: '#fff' }} />
                             <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>Буцах</span>
                         </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <ChatIcon variant="ghost" />
+                            <NotificationBell variant="ghost" />
+                        </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '16px 20px 0' }}>
                         <div style={{ flex: 1, minWidth: 0, marginRight: 16 }}>

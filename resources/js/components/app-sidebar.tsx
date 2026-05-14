@@ -7,6 +7,7 @@ import {
     AlertCircle,
     AlertTriangle,
     BookOpen,
+    Bot,
     Braces,
     FileText,
     Briefcase,
@@ -19,6 +20,7 @@ import {
     Images,
     LayoutGrid,
     LogOut,
+    MessageCircle,
     MessageSquare,
     Newspaper,
     NotebookText,
@@ -195,6 +197,19 @@ const hrItems: NavItem[] = [
     },
 ];
 
+const chatItems: NavItem[] = [
+    {
+        title: 'Чатлах',
+        url: '/admin/chat',
+        icon: MessageCircle,
+    },
+    {
+        title: 'Bot тохиргоо',
+        url: '/admin/chatbot-flows',
+        icon: Bot,
+    },
+];
+
 const systemItems: NavItem[] = [
     {
         title: 'Хэрэглэгчид',
@@ -258,6 +273,7 @@ export function AppSidebar() {
                 <NavMain items={webNavItems} label="Вэб" />
                 <NavMain items={schedulingItems} label="Цаг & Төлбөр" />
                 <NavMain items={hrItems} label="HR" />
+                <NavMain items={chatItems} label="Чат" />
                 <NavMain items={systemItems} label="Систем" />
             </SidebarContent>
 

@@ -142,6 +142,18 @@ class HandleInertiaRequests extends Middleware
             // ─── Auth ─────────────────────────────────────────────────────────
             'auth' => [
                 'user'   => $request->user(),
+                // Unified chat user_id (works for both web and doctor guards).
+                'chat_user_id' => function () use ($request) {
+                    if ($u = $request->user()) return $u->id;
+                    if (Auth::guard('doctor')->check()) {
+                        $d = Auth::guard('doctor')->user();
+                        if ($d?->employee_id) {
+                            $emp = \App\Models\HR\Employee::find($d->employee_id);
+                            return $emp?->user_id;
+                        }
+                    }
+                    return null;
+                },
                 'doctor' => fn () => Auth::guard('doctor')->check()
                     ? (function () {
                         $d = Auth::guard('doctor')->user();

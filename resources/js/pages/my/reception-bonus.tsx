@@ -1,3 +1,5 @@
+import { ChatIcon } from '@/components/chat-icon';
+import { NotificationBell } from '@/components/notification-bell';
 import MyLayout from '@/layouts/my-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -195,8 +197,14 @@ export default function MyReceptionBonus({ employee, entries, criteria }: Props)
                     <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', top: -60, right: -60, pointerEvents: 'none' }} />
                     <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', top: 40, right: 40, pointerEvents: 'none' }} />
 
+                    {/* Top icons */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '14px 18px 0', position: 'relative', zIndex: 2 }}>
+                        <ChatIcon variant="ghost" />
+                        <NotificationBell variant="ghost" />
+                    </div>
+
                     {/* Title */}
-                    <div style={{ padding: '20px 18px 18px', position: 'relative' }}>
+                    <div style={{ padding: '6px 18px 18px', position: 'relative' }}>
                         <h1 style={{ margin: '0 0 5px', lineHeight: 1.1, letterSpacing: -0.8 }}>
                             <span style={{ fontSize: 36, fontWeight: 900, color: 'white' }}>Ресепшний </span>
                             <span style={{ fontSize: 28, fontWeight: 300, fontStyle: 'italic', color: 'rgba(255,255,255,0.7)', fontFamily: 'Georgia, "Times New Roman", serif' }}>урамшуулал</span>

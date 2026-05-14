@@ -167,7 +167,7 @@ type Tab = 'sheets' | 'outstanding' | 'reception';
 /* ------------------------------------------------------------------ */
 /*  Entries table (shared between day-mode and month-mode)             */
 /* ------------------------------------------------------------------ */
-function EntriesTable({ sheet }: { sheet: Sheet }) {
+function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: (id: number) => void }) {
     return (
         <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full">
@@ -186,6 +186,7 @@ function EntriesTable({ sheet }: { sheet: Sheet }) {
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-right bg-yellow-50 dark:bg-yellow-900/20">Дутуу</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-left">Эмч</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-left">Ресепшн</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-center w-10"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -208,6 +209,17 @@ function EntriesTable({ sheet }: { sheet: Sheet }) {
                             </td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-gray-500">{e.receptionist_name ?? '—'}</td>
+                            <td className="border-b border-gray-100 dark:border-gray-800 px-1 py-1.5 text-center">
+                                {onDeleteEntry && (
+                                    <button
+                                        onClick={() => onDeleteEntry(e.id)}
+                                        title="Мөр устгах"
+                                        className="p-1.5 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                    </button>
+                                )}
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -221,7 +233,7 @@ function EntriesTable({ sheet }: { sheet: Sheet }) {
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.storepay_amount)}</td>
                         <td className="px-2 py-1.5 text-right bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{fmt(sheet.totals.total_amount)}</td>
                         <td className="px-2 py-1.5 text-right bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{fmt(sheet.totals.outstanding_amount)}</td>
-                        <td colSpan={2} />
+                        <td colSpan={3} />
                     </tr>
                 </tfoot>
             </table>
@@ -247,7 +259,7 @@ export default function DailySheetsIndex({
         return () => clearInterval(id);
     }, []);
 
-    type ModalAction = 'delete' | 'unlock';
+    type ModalAction = 'delete' | 'unlock' | 'delete-entry';
     const [actionTarget, setActionTarget] = useState<{ type: ModalAction; id: number } | null>(null);
     const [actionCode, setActionCode]     = useState('');
     const [actionError, setActionError]   = useState<string | null>(null);
@@ -265,6 +277,8 @@ export default function DailySheetsIndex({
         };
         if (actionTarget.type === 'delete') {
             router.delete(`/admin/daily-sheets/${actionTarget.id}`, { data: { code: actionCode }, ...cb });
+        } else if (actionTarget.type === 'delete-entry') {
+            router.delete(`/admin/daily-sheet-entries/${actionTarget.id}`, { data: { code: actionCode }, ...cb });
         } else {
             router.post(`/admin/daily-sheets/${actionTarget.id}/unlock`, { code: actionCode }, cb);
         }
@@ -593,7 +607,7 @@ export default function DailySheetsIndex({
 
                                                 {isOpen && (
                                                     <div className="border-t border-gray-200 dark:border-gray-700">
-                                                        <EntriesTable sheet={sheet} />
+                                                        <EntriesTable sheet={sheet} onDeleteEntry={(id) => openModal("delete-entry", id)} />
                                                         <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                                                             {sheet.is_confirmed && (
                                                                 <button onClick={() => openModal('unlock', sheet.id)}
@@ -689,7 +703,7 @@ export default function DailySheetsIndex({
                                                                         </span>
                                                                     </div>
                                                                 )}
-                                                                <EntriesTable sheet={sheet} />
+                                                                <EntriesTable sheet={sheet} onDeleteEntry={(id) => openModal("delete-entry", id)} />
                                                                 <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                                                                     {sheet.is_confirmed && (
                                                                         <button onClick={() => openModal('unlock', sheet.id)}
@@ -919,7 +933,7 @@ export default function DailySheetsIndex({
                     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
                             <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                {actionTarget.type === 'delete' ? 'Тооцоо устгах' : 'Тооцоо нээх'}
+                                {actionTarget.type === 'delete' ? 'Тооцоо устгах' : actionTarget.type === 'delete-entry' ? 'Мөр устгах' : 'Тооцоо нээх'}
                             </h3>
                             <button onClick={closeModal} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
                                 <X className="size-4 text-gray-500" />
@@ -929,7 +943,9 @@ export default function DailySheetsIndex({
                             <p className="text-xs text-gray-500">
                                 {actionTarget.type === 'delete'
                                     ? 'Энэ тооцоог устгахын тулд хамгаалалтын кодыг оруулна уу.'
-                                    : 'Тооцоог засварлахаар нээхийн тулд хамгаалалтын кодыг оруулна уу.'}
+                                    : actionTarget.type === 'delete-entry'
+                                        ? 'Энэ мөрийг устгахын тулд хамгаалалтын кодыг оруулна уу.'
+                                        : 'Тооцоог засварлахаар нээхийн тулд хамгаалалтын кодыг оруулна уу.'}
                             </p>
                             <input
                                 type="password"
@@ -953,11 +969,11 @@ export default function DailySheetsIndex({
                                 onClick={handleAction}
                                 disabled={!actionCode || actionLoading}
                                 className={`text-xs px-4 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
-                                    actionTarget.type === 'delete'
-                                        ? 'bg-red-600 text-white hover:bg-red-700'
-                                        : 'bg-amber-500 text-white hover:bg-amber-600'
+                                    actionTarget.type === 'unlock'
+                                        ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                        : 'bg-red-600 text-white hover:bg-red-700'
                                 }`}>
-                                {actionLoading ? 'Түр хүлээнэ үү...' : actionTarget.type === 'delete' ? 'Устгах' : 'Нээх'}
+                                {actionLoading ? 'Түр хүлээнэ үү...' : actionTarget.type === 'unlock' ? 'Нээх' : 'Устгах'}
                             </button>
                         </div>
                     </div>

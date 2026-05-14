@@ -1,3 +1,5 @@
+import { ChatIcon } from '@/components/chat-icon';
+import { NotificationBell } from '@/components/notification-bell';
 import MyLayout from '@/layouts/my-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
@@ -172,7 +174,12 @@ export default function MyProfile({ employee }: Props) {
 
                 {/* Red hero */}
                 <div style={{ background: 'linear-gradient(160deg, #ef4444 0%, #dc2626 30%, #b91c1c 65%, #7f1d1d 100%)', paddingBottom: 28 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '52px 20px 0' }}>
+                    {/* Floating top icons */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '14px 20px 0', position: 'relative', zIndex: 2 }}>
+                        <ChatIcon variant="ghost" />
+                        <NotificationBell variant="ghost" />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '24px 20px 0' }}>
                         <div style={{ flex: 1, minWidth: 0, marginRight: 16 }}>
                             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginBottom: 6 }}>HR · ПРОФАЙЛ</p>
                             <h1 style={{ fontSize: 30, fontWeight: 800, color: '#fff', lineHeight: 1.1, letterSpacing: '-0.5px', margin: 0 }}>

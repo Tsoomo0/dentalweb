@@ -256,6 +256,21 @@ class DailySheetAdminController extends Controller
         return back()->with('success', 'Тооцоо устгагдлаа.');
     }
 
+    public function destroyEntry(Request $request, DailySheetEntry $entry): RedirectResponse
+    {
+        $request->validate(['code' => 'required|string']);
+
+        $correct = Setting::where('key', 'daily_sheet_code')->value('value') ?? '1234';
+
+        if ($request->input('code') !== $correct) {
+            return back()->withErrors(['code' => 'Код буруу байна.']);
+        }
+
+        $entry->delete();
+
+        return back()->with('success', 'Мөр устгагдлаа.');
+    }
+
     public function unlock(Request $request, DailySheet $sheet): RedirectResponse
     {
         $request->validate(['code' => 'required|string']);

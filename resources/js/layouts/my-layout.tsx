@@ -3,6 +3,7 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { MySidebar } from '@/components/my-sidebar';
 import { NotificationBell } from '@/components/notification-bell';
+import { ChatIcon } from '@/components/chat-icon';
 import { ToastContainer } from '@/components/toast';
 import { useAppearance } from '@/hooks/use-appearance';
 import { type BreadcrumbItem } from '@/types';
@@ -11,7 +12,7 @@ import {
     AlertTriangle, ArrowLeftRight, BookOpen, Briefcase,
     CalendarCheck, CalendarDays, ChevronRight, DollarSign,
     Eye, EyeOff, FileText, Home, KeyRound,
-    LayoutGrid, LogOut, MessageSquare, Monitor, Moon,
+    LayoutGrid, LogOut, MessageCircle, MessageSquare, Monitor, Moon,
     Package, Smile, Stethoscope, Sun, Umbrella, UserCircle2, X,
 } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
@@ -95,13 +96,16 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
         || url === '/my/documents'         || url.startsWith('/my/documents?')
         || url === '/my/profile'           || url.startsWith('/my/profile?')
         || url === '/my/change-password'   || url.startsWith('/my/change-password?');
+    // Чат хуудсан дээр top bar + bottom nav-ыг нуугаад full-screen чат болгоно.
+    const isChat = url === '/my/chat' || url.startsWith('/my/chat?');
     const pageTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].title : 'HR хэсэг';
 
-    /* ── 5 nav tabs ── */
+    /* ── nav tabs ── */
     const NAV = [
-        { Icon: Home,        label: 'Нүүр',   href: '/my/home' },
-        { Icon: DollarSign,  label: 'Цалин',  href: '/my/payroll' },
-        { Icon: CalendarDays,label: 'Чөлөө',  href: '/my/leave-requests' },
+        { Icon: Home,          label: 'Нүүр',  href: '/my/home' },
+        { Icon: MessageCircle, label: 'Чат',   href: '/my/chat' },
+        { Icon: DollarSign,    label: 'Цалин', href: '/my/payroll' },
+        { Icon: CalendarDays,  label: 'Чөлөө', href: '/my/leave-requests' },
     ];
 
     return (
@@ -109,8 +113,8 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
             {isMobile ? (
                 <div style={{ height: '100svh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--my-page-bg)', position: 'relative' }}>
 
-                    {/* Top bar — hidden on home */}
-                    {!isHome && (
+                    {/* Top bar — hidden on home + chat (has own hero banner) */}
+                    {!isHome && !isChat && (
                         <header className="bg-card border-b border-border"
                             style={{ height: '3.25rem', flexShrink: 0, display: 'flex', alignItems: 'center', paddingInline: 16 }}>
                             <Link href="/my/profile" style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}>
@@ -122,7 +126,8 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
                                 style={{ fontSize: 17, fontWeight: 700, flex: 1, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {pageTitle}
                             </span>
-                            <div style={{ width: 36, display: 'flex', justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
+                                <ChatIcon />
                                 <NotificationBell />
                             </div>
                         </header>

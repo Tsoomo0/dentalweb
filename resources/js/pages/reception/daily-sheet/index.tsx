@@ -231,7 +231,7 @@ function NumCell({ value, onChange, readOnly, cls }: {
     const live = useRef(false);
     useEffect(() => { if (!live.current) setRaw(value > 0 ? String(value) : ''); }, [value]);
 
-    const base = 'w-full h-8 text-right text-xs px-1.5 tabular-nums';
+    const base = 'w-full h-8 text-right text-xs px-1.5 tabular-nums text-gray-900 dark:text-gray-100';
     if (readOnly) return (
         <div className={`${base} flex items-center justify-end ${cls ?? ''}`}>
             {value > 0 ? value.toLocaleString() : ''}
@@ -247,7 +247,7 @@ function NumCell({ value, onChange, readOnly, cls }: {
                 onChange?.(n);
             }}
             onChange={e => setRaw(e.target.value)}
-            className={`${base} bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20`}
+            className={`${base} bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-900/30`}
         />
     );
 }
@@ -259,7 +259,7 @@ function TextCell({ value, onChange, readOnly, center, list }: {
     value: string; onChange?: (v: string) => void;
     readOnly?: boolean; center?: boolean; list?: string;
 }) {
-    const base = 'w-full h-8 text-xs px-1.5 bg-transparent outline-none';
+    const base = 'w-full h-8 text-xs px-1.5 bg-transparent outline-none text-gray-900 dark:text-gray-100';
     if (readOnly) return (
         <div className={`${base} flex items-center ${center ? 'justify-center' : ''} text-gray-700 dark:text-gray-300 overflow-hidden`}>
             <span className="truncate">{value}</span>
@@ -268,7 +268,7 @@ function TextCell({ value, onChange, readOnly, center, list }: {
     return (
         <input type="text" value={value} list={list}
             onChange={e => onChange?.(e.target.value)}
-            className={`${base} focus:bg-blue-50 dark:focus:bg-blue-900/20 ${center ? 'text-center' : ''}`}
+            className={`${base} focus:bg-blue-50 dark:focus:bg-blue-900/30 ${center ? 'text-center' : ''}`}
         />
     );
 }
@@ -316,7 +316,7 @@ function Row({
                     ? <div className="h-8 flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">{entry.gender}</div>
                     : <select value={entry.gender}
                         onChange={e => upd({ gender: e.target.value })}
-                        className="w-full h-8 text-xs text-center bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20 dark:bg-gray-900 cursor-pointer">
+                        className="w-full h-8 text-xs text-center bg-transparent text-gray-900 dark:text-gray-100 outline-none focus:bg-blue-50 dark:focus:bg-blue-900/30 dark:bg-gray-800 [&>option]:bg-white [&>option]:text-gray-900 dark:[&>option]:bg-gray-900 dark:[&>option]:text-gray-100 cursor-pointer">
                         <option value="">—</option>
                         <option value="Эр">Эр</option>
                         <option value="Эм">Эм</option>
@@ -376,7 +376,7 @@ function Row({
                             upd({ doctor_id: e.target.value ? +e.target.value : null });
                             onSaveNow?.();
                         }}
-                        className="w-full h-8 text-xs px-1 bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20 dark:bg-gray-900 cursor-pointer">
+                        className="w-full h-8 text-xs px-1 bg-transparent text-gray-900 dark:text-gray-100 outline-none focus:bg-blue-50 dark:focus:bg-blue-900/30 dark:bg-gray-800 [&>option]:bg-white [&>option]:text-gray-900 dark:[&>option]:bg-gray-900 dark:[&>option]:text-gray-100 cursor-pointer">
                         <option value="">—</option>
                         {doctors.map(d => <option key={d.id} value={d.id}>{shortDoctorName(d.name)}</option>)}
                       </select>

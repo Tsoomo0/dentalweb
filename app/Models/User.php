@@ -3,8 +3,13 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Chat\Conversation;
+use App\Models\Chat\Message;
+use App\Models\Chat\Participant;
 use App\Models\HR\Employee;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -90,5 +95,33 @@ class User extends Authenticatable
     public function patient(): HasOne
     {
         return $this->hasOne(Patient::class, 'user_id');
+    }
+
+    // ── Chat ──────────────────────────────────────────────────────────────────
+
+    public function chatParticipants(): HasMany
+    {
+        return $this->hasMany(Participant::class);
+    }
+
+    public function conversations(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Conversation::class,
+            'chat_participants',
+            'user_id',
+            'conversation_id'
+        )->withPivot(['role', 'last_read_at', 'muted_until', 'is_pinned', 'joined_at', 'left_at'])
+            ->withTimestamps();
+    }
+
+    public function sentMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 }

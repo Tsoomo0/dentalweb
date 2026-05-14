@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, BookOpen, Briefcase, CalendarCheck, CalendarDays, ChevronsUpDown, DollarSign, Eye, EyeOff, FileText, KeyRound,
-    LayoutGrid, LogOut, MessageSquare, Monitor, Moon, Package, Smile, Stethoscope, Sun, Umbrella, UserCircle2, X,
+    LayoutGrid, LogOut, MessageCircle, MessageSquare, Monitor, Moon, Package, Smile, Stethoscope, Sun, Umbrella, UserCircle2, X,
 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import AppLogo from './app-logo';
@@ -39,6 +39,7 @@ export function MySidebar() {
 
     const navItems = [
         { title: 'Хяналтын самбар',       url: '/my/home',              icon: LayoutGrid },
+        { title: 'Чат',                   url: '/my/chat',              icon: MessageCircle },
         { title: 'Хувийн мэдээлэл',      url: '/my/profile',           icon: UserCircle2 },
         { title: 'Ажлын хуваарь',        url: '/my/work-schedule',     icon: CalendarCheck },
         { title: 'Чөлөөний хүсэлт',      url: '/my/leave-requests',    icon: CalendarDays },

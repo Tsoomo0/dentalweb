@@ -71,3 +71,38 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
     if (event.data === 'skipWaiting') self.skipWaiting();
 });
+
+// ── Web Push ────────────────────────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+    let data = {};
+    try {
+        data = event.data ? event.data.json() : {};
+    } catch (e) {
+        data = { title: 'Шинэ мэдэгдэл', body: event.data ? event.data.text() : '' };
+    }
+
+    const title = data.title || 'Cuticul Dental';
+    const options = {
+        body:  data.body  || '',
+        icon:  data.icon  || '/img/icon-192.png',
+        badge: data.badge || '/img/icon-192.png',
+        tag:   data.tag   || 'cuticul-chat',
+        renotify: true,
+        vibrate: [120, 60, 120],
+        data:  data.data  || {},
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const target = (event.notification.data && event.notification.data.url) || '/my/chat';
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((all) => {
+            for (const client of all) {
+                if (client.url.includes(target) && 'focus' in client) return client.focus();
+            }
+            if (clients.openWindow) return clients.openWindow(target);
+        })
+    );
+});

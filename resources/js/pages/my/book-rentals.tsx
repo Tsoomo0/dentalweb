@@ -1,4 +1,5 @@
 ﻿import MyLayout from '@/layouts/my-layout';
+import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -123,6 +124,7 @@ export default function MyBookRentals({ employee, rentals, books }: Props) {
                     {/* Top bar */}
                     <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px 0', gap: 10, position: 'relative' }}>
                         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, flex: 1, letterSpacing: 0.3 }}>HR · НОМЫН САН</span>
+                        <ChatIcon variant="ghost" />
                         <NotificationBell variant="ghost" />
                         <Link href="/my/profile" style={{ textDecoration: 'none', flexShrink: 0 }}>
                             <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
