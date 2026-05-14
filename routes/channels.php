@@ -14,6 +14,7 @@ Broadcast::routes(['middleware' => ['web', 'either.auth']]);
  * Resolve the underlying User for the broadcasting request,
  * regardless of which guard authenticated them.
  */
+if (!function_exists('chatUser')) {
 function chatUser($user): ?User
 {
     if ($user instanceof User) {
@@ -44,6 +45,7 @@ function chatUser($user): ?User
         }
     }
     return null;
+}
 }
 
 // ── User inbox ───────────────────────────────────────────────────────────────
