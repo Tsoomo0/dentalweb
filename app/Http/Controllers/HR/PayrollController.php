@@ -8,6 +8,7 @@ use App\Models\HR\Employee;
 use App\Models\HR\PayrollEntry;
 use App\Models\HR\PayrollRun;
 use App\Notifications\PayrollSlipSent;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -201,6 +202,9 @@ class PayrollController extends Controller
                 \Log::warning("PayrollSlipSent mail failed for user {$user->id}: " . $e->getMessage());
             }
         }
+
+        AuditService::log('finalized', $payrollRun, null, ['title' => $payrollRun->title ?? "Run #{$payrollRun->id}"],
+            "Цалингийн тооцоо баталгаажуулав: " . ($payrollRun->title ?? "#{$payrollRun->id}"));
 
         return back()->with('success', 'Цалингийн тооцоо баталгаажлаа. Бүх ажилтанд мэдэгдэл илгээлээ.');
     }

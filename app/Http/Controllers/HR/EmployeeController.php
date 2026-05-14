@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\HR\Employee;
 use App\Models\HR\EmployeeContract;
+use App\Services\AuditService;
 use App\Models\HR\EmployeeFamilyMember;
 use App\Models\HR\EmployeeLicense;
 use App\Models\HR\PayrollEntry;
@@ -106,7 +107,7 @@ class EmployeeController extends Controller
             'password'        => 'required|string|min:6',
         ]);
 
-        DB::transaction(function () use ($request) {
+        $createdEmployee = DB::transaction(function () use ($request) {
             // 1. User үүсгэх
             $position       = Position::findOrFail($request->position_id);
             $role           = $this->portalToRole($position->portal);
@@ -239,7 +240,15 @@ class EmployeeController extends Controller
                     $doctor->branches()->sync([$employee->branch_id]);
                 }
             }
+
+            return $employee;
         });
+
+        if ($createdEmployee) {
+            AuditService::log('created', $createdEmployee, null,
+                ['name' => $createdEmployee->full_name, 'number' => $createdEmployee->employee_number],
+                "Шинэ ажилтан бүртгэв: {$createdEmployee->full_name} ({$createdEmployee->employee_number})");
+        }
 
         return redirect()->route('hr.employees.index')
             ->with('success', 'Ажилтан амжилттай бүртгэгдлээ.');
@@ -392,26 +401,37 @@ class EmployeeController extends Controller
             }
         });
 
+        AuditService::log('updated', $employee, null,
+            ['name' => $employee->full_name, 'number' => $employee->employee_number],
+            "Ажилтны мэдээлэл шинэчлэв: {$employee->full_name}");
+
         return redirect()->route('hr.employees.index')
             ->with('success', 'Мэдээлэл амжилттай шинэчлэгдлээ.');
     }
 
     public function destroy(Employee $employee): RedirectResponse
     {
-        // Эмчтэй холбоотой тохиолдолд эмчийн бүртгэлийг устгах
+        $name = $employee->full_name;
+        $number = $employee->employee_number;
+
         $employee->doctor?->delete();
-
-        // Нэвтрэх эрхийг идэвхгүй болгох
         $employee->user?->update(['is_active' => false]);
-
         $employee->delete();
+
+        AuditService::log('deleted', $employee, ['name' => $name, 'number' => $number], null,
+            "Ажилтан устгав: {$name} ({$number})");
 
         return redirect()->route('hr.employees.index')->with('success', 'Ажилтан амжилттай устгагдлаа.');
     }
 
     public function toggleStatus(Employee $employee): RedirectResponse
     {
+        $old = $employee->status;
         $employee->update(['status' => $employee->status === 'active' ? 'inactive' : 'active']);
+
+        AuditService::log('status_changed', $employee, ['status' => $old], ['status' => $employee->status],
+            "Ажилтны статус өөрчлөв: {$employee->full_name} → " . ($employee->status === 'active' ? 'идэвхтэй' : 'идэвхгүй'));
+
         return back();
     }
 

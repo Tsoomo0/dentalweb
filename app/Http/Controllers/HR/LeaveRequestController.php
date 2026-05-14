@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\HR\LeaveRequest;
 use App\Models\Setting;
 use App\Notifications\LeaveRequestDecision;
+use App\Services\AuditService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,6 +62,10 @@ class LeaveRequestController extends Controller
 
         $this->notifyEmployee($leaveRequest);
 
+        $emp = $leaveRequest->employee?->full_name ?? '—';
+        AuditService::log('approved', $leaveRequest, null, ['status' => 'approved'],
+            "Чөлөөний хүсэлт зөвшөөрөв: {$emp} ({$leaveRequest->start_date} → {$leaveRequest->end_date})");
+
         return back()->with('success', 'Чөлөөний хүсэлт зөвшөөрөгдлөө.');
     }
 
@@ -82,6 +87,10 @@ class LeaveRequestController extends Controller
         ]);
 
         $this->notifyEmployee($leaveRequest);
+
+        $emp = $leaveRequest->employee?->full_name ?? '—';
+        AuditService::log('rejected', $leaveRequest, null, ['status' => 'rejected', 'reason' => $request->rejection_reason],
+            "Чөлөөний хүсэлт татгалзав: {$emp}");
 
         return back()->with('success', 'Чөлөөний хүсэлт цуцлагдлаа.');
     }

@@ -7,6 +7,7 @@ use App\Models\HR\Employee;
 use App\Models\HR\VacationRequest;
 use App\Models\Setting;
 use App\Notifications\VacationRequestDecision;
+use App\Services\AuditService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -123,6 +124,10 @@ class VacationRequestController extends Controller
 
         $this->notifyEmployee($vacationRequest);
 
+        $emp = $vacationRequest->employee?->full_name ?? '—';
+        AuditService::log('approved', $vacationRequest, null, ['status' => 'approved'],
+            "Ээлжийн амралт зөвшөөрөв: {$emp} ({$vacationRequest->start_date} → {$vacationRequest->end_date})");
+
         return back()->with('success', 'Ээлжийн амралтын хүсэлт зөвшөөрөгдлөө.');
     }
 
@@ -144,6 +149,10 @@ class VacationRequestController extends Controller
         ]);
 
         $this->notifyEmployee($vacationRequest);
+
+        $emp = $vacationRequest->employee?->full_name ?? '—';
+        AuditService::log('rejected', $vacationRequest, null, ['status' => 'rejected', 'reason' => $request->rejection_reason],
+            "Ээлжийн амралт татгалзав: {$emp}");
 
         return back()->with('success', 'Ээлжийн амралтын хүсэлт цуцлагдлаа.');
     }
