@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
-import { AlertCircle, CalendarDays, CheckCircle2, Clock, Download, FileSpreadsheet, Users, X, XCircle } from 'lucide-react';
+import { AlertCircle, CalendarDays, CheckCircle2, Clock, Download, FileSpreadsheet, Trash2, Users, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface LeaveRequest {
@@ -66,6 +66,10 @@ export default function HrLeaveRequests({ requests }: Props) {
 
     function approve(id: number) {
         router.patch(`/hr/leave-requests/${id}/approve`, {}, { preserveScroll: true });
+    }
+    function destroy(id: number, employeeName: string) {
+        if (!confirm(`${employeeName}-ийн чөлөөний хүсэлтийг бүрмөсөн устгах уу?`)) return;
+        router.delete(`/hr/leave-requests/${id}`, { preserveScroll: true });
     }
     function submitReject(e: React.FormEvent) {
         e.preventDefault();
@@ -214,6 +218,11 @@ export default function HrLeaveRequests({ requests }: Props) {
                                                             </button>
                                                         </>
                                                     )}
+                                                    <button onClick={() => destroy(r.id, r.employee_name)}
+                                                        title="Бүрмөсөн устгах"
+                                                        className="flex items-center gap-1 rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-red-950/10 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                                                        <Trash2 className="size-3" />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>

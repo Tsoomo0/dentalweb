@@ -5,6 +5,7 @@ namespace App\Http\Controllers\HR;
 use App\Http\Controllers\Controller;
 use App\Models\HR\BookRental;
 use App\Notifications\BookRentalDecision;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -103,6 +104,21 @@ class BookRentalController extends Controller
         ]);
 
         return back()->with('success', 'Ном буцааж авсан гэж тэмдэглэлээ.');
+    }
+
+    public function destroy(BookRental $bookRental): RedirectResponse
+    {
+        $bookRental->load('book', 'employee');
+        $emp   = $bookRental->employee?->full_name ?? '—';
+        $book  = $bookRental->book?->title ?? '—';
+        $stat  = $bookRental->status;
+
+        $bookRental->delete();
+
+        AuditService::log('deleted', $bookRental, null, null,
+            "Номын түрээс устгав: {$emp} — {$book} (төлөв: {$stat})");
+
+        return back()->with('success', 'Номын түрээсийн хүсэлт устгагдлаа.');
     }
 
     private function notifyEmployee(BookRental $bookRental): void

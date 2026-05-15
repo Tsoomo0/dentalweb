@@ -3,7 +3,7 @@ import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
-    BookOpen, CheckCircle2, Clock, RotateCcw, Tag, Undo2, Users, X, XCircle,
+    BookOpen, CheckCircle2, Clock, RotateCcw, Tag, Trash2, Undo2, Users, X, XCircle,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -106,6 +106,11 @@ export default function HrBookRentals({ rentals }: Props) {
             preserveScroll: true,
             onSuccess: () => { setRejectId(null); rejectForm.reset(); },
         });
+    }
+
+    function destroy(id: number, bookTitle: string, employeeName: string) {
+        if (!confirm(`${employeeName} — "${bookTitle}" түрээсийн хүсэлтийг устгах уу?`)) return;
+        router.delete(`/hr/book-rentals/${id}`, { preserveScroll: true });
     }
 
     function markReturned(id: number) {
@@ -262,6 +267,11 @@ export default function HrBookRentals({ rentals }: Props) {
                                                         <RotateCcw className="size-3" /> Буцааж авсан
                                                     </button>
                                                 )}
+                                                <button onClick={() => destroy(r.id, r.book_title, r.employee_name)}
+                                                    title="Бүрмөсөн устгах"
+                                                    className="flex items-center gap-1 rounded-lg border border-red-200 dark:border-red-900 bg-white dark:bg-red-950/10 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                                                    <Trash2 className="size-3" />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>

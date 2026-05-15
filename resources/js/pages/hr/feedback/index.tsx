@@ -4,7 +4,7 @@ import { type BreadcrumbItem } from '@/types';
 import { router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
-    MessageSquare, Send, X,
+    MessageSquare, Send, Trash2, X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -71,6 +71,11 @@ export default function HrFeedback() {
     function openRespond(f: Feedback) {
         setRespondTarget(f);
         form.setData({ status: 'resolved', admin_response: f.admin_response ?? '' });
+    }
+
+    function destroy(f: Feedback) {
+        if (!confirm(`"${f.subject}" санал хүсэлтийг устгах уу?`)) return;
+        router.delete(`/hr/feedback/${f.id}`, { preserveScroll: true });
     }
 
     function submitRespond(e: React.FormEvent) {
@@ -190,6 +195,10 @@ export default function HrFeedback() {
                                         <button onClick={() => setExpanded(expanded === f.id ? null : f.id)}
                                             className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
                                             {expanded === f.id ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                                        </button>
+                                        <button onClick={() => destroy(f)} title="Устгах"
+                                            className="p-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                                            <Trash2 className="size-3.5" />
                                         </button>
                                     </div>
                                 </div>

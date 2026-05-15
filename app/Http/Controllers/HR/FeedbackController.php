@@ -5,6 +5,7 @@ namespace App\Http\Controllers\HR;
 use App\Http\Controllers\Controller;
 use App\Models\HR\FeedbackRequest;
 use App\Notifications\FeedbackResponded;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -61,5 +62,18 @@ class FeedbackController extends Controller
         }
 
         return back()->with('success', 'Хариу амжилттай илгээгдлээ.');
+    }
+
+    public function destroy(FeedbackRequest $feedback): RedirectResponse
+    {
+        $emp     = $feedback->employee?->full_name ?? '—';
+        $subject = $feedback->subject;
+
+        $feedback->delete();
+
+        AuditService::log('deleted', $feedback, null, null,
+            "Санал хүсэлт устгав: {$emp} — {$subject}");
+
+        return back()->with('success', 'Санал хүсэлт устгагдлаа.');
     }
 }

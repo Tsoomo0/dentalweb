@@ -48,6 +48,7 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     Route::get('leave-requests/{leaveRequest}/pdf',      [LeaveRequestController::class, 'pdf'])->name('leave-requests.pdf');
     Route::patch('leave-requests/{leaveRequest}/approve',[LeaveRequestController::class, 'approve'])->name('leave-requests.approve');
     Route::patch('leave-requests/{leaveRequest}/reject', [LeaveRequestController::class, 'reject'])->name('leave-requests.reject');
+    Route::delete('leave-requests/{leaveRequest}',       [LeaveRequestController::class, 'destroy'])->name('leave-requests.destroy');
 
     // ── Ээлжийн амралтын хүсэлт ──────────────────────────────────────────────
     Route::get('vacation-balance',                                      [VacationRequestController::class, 'balanceIndex'])->name('vacation-requests.balance-index');
@@ -56,6 +57,7 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     Route::get('vacation-requests/{vacationRequest}/pdf',               [VacationRequestController::class, 'pdf'])->name('vacation-requests.pdf');
     Route::patch('vacation-requests/{vacationRequest}/approve',         [VacationRequestController::class, 'approve'])->name('vacation-requests.approve');
     Route::patch('vacation-requests/{vacationRequest}/reject',          [VacationRequestController::class, 'reject'])->name('vacation-requests.reject');
+    Route::delete('vacation-requests/{vacationRequest}',                [VacationRequestController::class, 'destroy'])->name('vacation-requests.destroy');
     Route::patch('vacation-requests/employees/{employee}/balance',      [VacationRequestController::class, 'updateBalance'])->name('vacation-requests.balance');
 
     // ── Цалингийн тооцоо ─────────────────────────────────────────────────────
@@ -97,6 +99,7 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     // ── Санал хүсэлт гомдол ─────────────────────────────────────────────────
     Route::get('feedback',                              [FeedbackController::class, 'index'])->name('feedback.index');
     Route::patch('feedback/{feedback}/respond',         [FeedbackController::class, 'respond'])->name('feedback.respond');
+    Route::delete('feedback/{feedback}',                [FeedbackController::class, 'destroy'])->name('feedback.destroy');
 
     // ── Ирцийн бүртгэл ──────────────────────────────────────────────────────
     Route::get('attendance',              [\App\Http\Controllers\HR\AttendanceController::class, 'index'])->name('attendance.index');
@@ -155,4 +158,5 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     Route::patch('book-rentals/{bookRental}/approve',  [BookRentalController::class, 'approve'])->name('book-rentals.approve');
     Route::patch('book-rentals/{bookRental}/reject',   [BookRentalController::class, 'reject'])->name('book-rentals.reject');
     Route::patch('book-rentals/{bookRental}/return',   [BookRentalController::class, 'markReturned'])->name('book-rentals.return');
+    Route::delete('book-rentals/{bookRental}',         [BookRentalController::class, 'destroy'])->name('book-rentals.destroy');
 });

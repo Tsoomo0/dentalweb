@@ -157,6 +157,20 @@ class VacationRequestController extends Controller
         return back()->with('success', 'Ээлжийн амралтын хүсэлт цуцлагдлаа.');
     }
 
+    public function destroy(VacationRequest $vacationRequest): RedirectResponse
+    {
+        $emp    = $vacationRequest->employee?->full_name ?? '—';
+        $status = $vacationRequest->status;
+        $period = $vacationRequest->start_date->toDateString() . ' → ' . $vacationRequest->end_date->toDateString();
+
+        $vacationRequest->delete();
+
+        AuditService::log('deleted', $vacationRequest, null, null,
+            "Ээлжийн амралтын хүсэлт устгав: {$emp} ({$period}, төлөв: {$status})");
+
+        return back()->with('success', 'Ээлжийн амралтын хүсэлт устгагдлаа.');
+    }
+
     public function updateBalance(Request $request, Employee $employee): RedirectResponse
     {
         $data = $request->validate([

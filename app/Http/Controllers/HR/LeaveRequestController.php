@@ -95,6 +95,20 @@ class LeaveRequestController extends Controller
         return back()->with('success', 'Чөлөөний хүсэлт цуцлагдлаа.');
     }
 
+    public function destroy(LeaveRequest $leaveRequest): RedirectResponse
+    {
+        $emp    = $leaveRequest->employee?->full_name ?? '—';
+        $status = $leaveRequest->status;
+        $period = $leaveRequest->start_date->toDateString() . ' → ' . $leaveRequest->end_date->toDateString();
+
+        $leaveRequest->delete();
+
+        AuditService::log('deleted', $leaveRequest, null, null,
+            "Чөлөөний хүсэлт устгав: {$emp} ({$period}, төлөв: {$status})");
+
+        return back()->with('success', 'Чөлөөний хүсэлт устгагдлаа.');
+    }
+
     public function pdf(LeaveRequest $leaveRequest): HttpResponse
     {
         $leaveRequest->load(['employee.position', 'employee.branch', 'replacement', 'reviewer']);
