@@ -18,15 +18,21 @@ class PatientController extends Controller
 {
     public function index(Request $request)
     {
-        $search = $request->input('search');
+        $search   = $request->input('search');
+        $branchId = Auth::user()->branch_id;
 
         $patients = Patient::query()
+            ->when($branchId, fn($q) => $q->where(fn($q2) =>
+                $q2->where('branch_id', $branchId)->orWhereNull('branch_id')
+            ))
             ->when($search, function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('patient_number', 'like', "%{$search}%")
-                  ->orWhere('register_number', 'like', "%{$search}%");
+                $q->where(fn($q2) => $q2
+                    ->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('patient_number', 'like', "%{$search}%")
+                    ->orWhere('register_number', 'like', "%{$search}%")
+                );
             })
             ->orderByDesc('created_at')
             ->paginate(20)
@@ -84,6 +90,7 @@ class PatientController extends Controller
             'emergency_contact_phone'    => $validated['emergency_contact_phone'] ?? null,
             'emergency_contact_relation' => $validated['emergency_contact_relation'] ?? null,
             'notes'                      => $validated['notes'] ?? null,
+            'branch_id'                  => Auth::user()->branch_id,
             'created_by'                 => Auth::id(),
         ]);
 
@@ -109,6 +116,11 @@ class PatientController extends Controller
 
     public function show(Patient $patient)
     {
+        $branchId = Auth::user()->branch_id;
+        if ($branchId && $patient->branch_id !== null && $patient->branch_id !== $branchId) {
+            abort(403, 'Энэ өвчтөн өөр салбарт хамаарна.');
+        }
+
         $patient->load([
             'medicalHistory',
             'orthoAssessment',
@@ -331,11 +343,19 @@ class PatientController extends Controller
 
     public function search(Request $request)
     {
-        $q = $request->input('q', '');
-        $patients = Patient::where('phone', 'like', "%{$q}%")
-            ->orWhere('first_name', 'like', "%{$q}%")
-            ->orWhere('last_name', 'like', "%{$q}%")
-            ->orWhere('patient_number', 'like', "%{$q}%")
+        $q        = $request->input('q', '');
+        $branchId = Auth::user()->branch_id;
+
+        $patients = Patient::query()
+            ->when($branchId, fn($qb) => $qb->where(fn($qb2) =>
+                $qb2->where('branch_id', $branchId)->orWhereNull('branch_id')
+            ))
+            ->where(fn($qb) => $qb
+                ->where('phone', 'like', "%{$q}%")
+                ->orWhere('first_name', 'like', "%{$q}%")
+                ->orWhere('last_name', 'like', "%{$q}%")
+                ->orWhere('patient_number', 'like', "%{$q}%")
+            )
             ->limit(10)
             ->get(['id', 'patient_number', 'first_name', 'last_name', 'phone', 'date_of_birth']);
 
