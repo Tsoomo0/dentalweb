@@ -25,6 +25,8 @@ class OrthoApplianceController extends Controller
                 ->orWhere('specialization', 'like', '%Гажиг%')
                 ->orWhere('specialization', 'like', '%ortho%')
             )
+            ->where('specialization', 'not like', '%туслах%')
+            ->where('specialization', 'not like', '%Туслах%')
             ->when($branchId, fn($q) => $q->where(fn($q2) => $q2
                 ->where('branch_id', $branchId)
                 ->orWhereHas('branches', fn($q3) => $q3->where('branches.id', $branchId))
