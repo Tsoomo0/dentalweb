@@ -122,7 +122,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
     ];
 
     // ── Patient autofill ─────────────────────────────────────────────
-    const [foundPatient, setFoundPatient] = useState<{ name: string; email: string } | null>(null);
+    const [foundPatient, setFoundPatient] = useState<{ name: string; email: string; last_name?: string; first_name?: string } | null>(null);
     const phoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     function lookupPhone(phone: string) {
@@ -143,10 +143,24 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
 
     function applyFoundPatient(form: 'online' | 'ip') {
         if (!foundPatient) return;
+        const last  = foundPatient.last_name  ?? foundPatient.name.split(' ')[0] ?? '';
+        const first = foundPatient.first_name ?? foundPatient.name.split(' ').slice(1).join(' ');
         if (form === 'online') {
-            setData(prev => ({ ...prev, patient_name: foundPatient.name, patient_email: foundPatient.email || prev.patient_email }));
+            setData(prev => ({
+                ...prev,
+                patient_last_name:  last,
+                patient_first_name: first,
+                patient_name:       foundPatient.name,
+                patient_email:      foundPatient.email || prev.patient_email,
+            }));
         } else {
-            setIpData(prev => ({ ...prev, patient_name: foundPatient.name, patient_email: foundPatient.email || prev.patient_email }));
+            setIpData(prev => ({
+                ...prev,
+                patient_last_name:  last,
+                patient_first_name: first,
+                patient_name:       foundPatient.name,
+                patient_email:      foundPatient.email || prev.patient_email,
+            }));
         }
         setFoundPatient(null);
     }
@@ -155,6 +169,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
     const { data, setData, post, processing, errors, reset } = useForm<{
         booking_type: BookingType;
         branch_id: string;
+        patient_last_name: string; patient_first_name: string;
         patient_name: string; patient_phone: string; patient_email: string;
         doctor_id: string; online_slot_id: string;
         appointment_date: string; appointment_time: string; appointment_time_end: string;
@@ -163,6 +178,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
     }>({
         booking_type: 'online',
         branch_id: '',
+        patient_last_name: '', patient_first_name: '',
         patient_name: '', patient_phone: '', patient_email: '',
         doctor_id: '', online_slot_id: '',
         appointment_date: '', appointment_time: '', appointment_time_end: '',
@@ -174,6 +190,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
     const { data: ipData, setData: setIpData, post: ipPost, processing: ipProcessing, errors: ipErrors, reset: ipReset } = useForm<{
         booking_type: BookingType;
         branch_id: string; doctor_id: string;
+        patient_last_name: string; patient_first_name: string;
         patient_name: string; patient_phone: string; patient_email: string;
         patient_address: string; reason: string; service: string;
         preferred_date: string; preferred_time: string;
@@ -181,6 +198,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
     }>({
         booking_type: 'in_person',
         branch_id: '', doctor_id: '',
+        patient_last_name: '', patient_first_name: '',
         patient_name: '', patient_phone: '', patient_email: '',
         patient_address: '', reason: '', service: '',
         preferred_date: '', preferred_time: '',
@@ -552,29 +570,40 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                 {selectedSlotId && (
                                     <Card step={4} title="Таны мэдээлэл" icon={User}>
                                         <div className="flex flex-col gap-4">
+                                            <div>
+                                                <Label required>Утасны дугаар</Label>
+                                                <div className="relative">
+                                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                                                    <input type="tel" value={data.patient_phone}
+                                                        onChange={e => { setData('patient_phone', e.target.value); lookupPhone(e.target.value); }}
+                                                        placeholder="+976 9900 0000"
+                                                        className={inputCls + " pl-9"}/>
+                                                </div>
+                                                {errors.patient_phone && <p className="text-xs text-red-500 mt-1">{errors.patient_phone}</p>}
+                                                <AutofillHint form="online"/>
+                                            </div>
                                             <div className="grid gap-4 sm:grid-cols-2">
                                                 <div>
-                                                    <Label required>Утасны дугаар</Label>
+                                                    <Label>Овог</Label>
                                                     <div className="relative">
-                                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                                                        <input type="tel" value={data.patient_phone}
-                                                            onChange={e => { setData('patient_phone', e.target.value); lookupPhone(e.target.value); }}
-                                                            placeholder="+976 9900 0000"
+                                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                                                        <input type="text" value={data.patient_last_name}
+                                                            onChange={e => setData('patient_last_name', e.target.value)}
+                                                            placeholder="Болд"
                                                             className={inputCls + " pl-9"}/>
                                                     </div>
-                                                    {errors.patient_phone && <p className="text-xs text-red-500 mt-1">{errors.patient_phone}</p>}
-                                                    <AutofillHint form="online"/>
+                                                    {errors.patient_last_name && <p className="text-xs text-red-500 mt-1">{errors.patient_last_name}</p>}
                                                 </div>
                                                 <div>
                                                     <Label required>Нэр</Label>
                                                     <div className="relative">
                                                         <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                                                        <input type="text" value={data.patient_name}
-                                                            onChange={e => setData('patient_name', e.target.value)}
-                                                            placeholder="Овог нэр"
+                                                        <input type="text" value={data.patient_first_name}
+                                                            onChange={e => setData('patient_first_name', e.target.value)}
+                                                            placeholder="Бат"
                                                             className={inputCls + " pl-9"}/>
                                                     </div>
-                                                    {errors.patient_name && <p className="text-xs text-red-500 mt-1">{errors.patient_name}</p>}
+                                                    {errors.patient_first_name && <p className="text-xs text-red-500 mt-1">{errors.patient_first_name}</p>}
                                                 </div>
                                             </div>
 
@@ -664,7 +693,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                         </div>
 
                                         <button type="submit"
-                                            disabled={processing || !data.patient_name || !data.patient_phone || !data.patient_email}
+                                            disabled={processing || !data.patient_first_name || !data.patient_phone || !data.patient_email}
                                             className="w-full flex items-center justify-center gap-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-200 text-base">
                                             {processing
                                                 ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> Илгээж байна...</>
@@ -778,29 +807,40 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                 {ipData.branch_id && (
                                     <Card step={3} title="Таны мэдээлэл" icon={User}>
                                         <div className="flex flex-col gap-4">
+                                            <div>
+                                                <Label required>Утасны дугаар</Label>
+                                                <div className="relative">
+                                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                                                    <input type="tel" value={ipData.patient_phone}
+                                                        onChange={e => { setIpData('patient_phone', e.target.value); lookupPhone(e.target.value); }}
+                                                        placeholder="+976 9900 0000"
+                                                        className={inputCls + " pl-9"}/>
+                                                </div>
+                                                {ipErrors.patient_phone && <p className="text-xs text-red-500 mt-1">{ipErrors.patient_phone}</p>}
+                                                <AutofillHint form="ip"/>
+                                            </div>
                                             <div className="grid gap-4 sm:grid-cols-2">
                                                 <div>
-                                                    <Label required>Утасны дугаар</Label>
+                                                    <Label>Овог</Label>
                                                     <div className="relative">
-                                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                                                        <input type="tel" value={ipData.patient_phone}
-                                                            onChange={e => { setIpData('patient_phone', e.target.value); lookupPhone(e.target.value); }}
-                                                            placeholder="+976 9900 0000"
+                                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
+                                                        <input type="text" value={ipData.patient_last_name}
+                                                            onChange={e => setIpData('patient_last_name', e.target.value)}
+                                                            placeholder="Болд"
                                                             className={inputCls + " pl-9"}/>
                                                     </div>
-                                                    {ipErrors.patient_phone && <p className="text-xs text-red-500 mt-1">{ipErrors.patient_phone}</p>}
-                                                    <AutofillHint form="ip"/>
+                                                    {ipErrors.patient_last_name && <p className="text-xs text-red-500 mt-1">{ipErrors.patient_last_name}</p>}
                                                 </div>
                                                 <div>
                                                     <Label required>Нэр</Label>
                                                     <div className="relative">
                                                         <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-                                                        <input type="text" value={ipData.patient_name}
-                                                            onChange={e => setIpData('patient_name', e.target.value)}
-                                                            placeholder="Овог нэр"
+                                                        <input type="text" value={ipData.patient_first_name}
+                                                            onChange={e => setIpData('patient_first_name', e.target.value)}
+                                                            placeholder="Бат"
                                                             className={inputCls + " pl-9"}/>
                                                     </div>
-                                                    {ipErrors.patient_name && <p className="text-xs text-red-500 mt-1">{ipErrors.patient_name}</p>}
+                                                    {ipErrors.patient_first_name && <p className="text-xs text-red-500 mt-1">{ipErrors.patient_first_name}</p>}
                                                 </div>
                                             </div>
 
@@ -948,7 +988,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
 
                                 {ipData.branch_id && (
                                     <button type="submit"
-                                        disabled={ipProcessing || !ipData.patient_name || !ipData.patient_phone}
+                                        disabled={ipProcessing || !ipData.patient_first_name || !ipData.patient_phone}
                                         className="w-full flex items-center justify-center gap-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-200 text-base">
                                         {ipProcessing
                                             ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> Илгээж байна...</>

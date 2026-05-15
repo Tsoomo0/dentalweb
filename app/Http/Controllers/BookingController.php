@@ -119,7 +119,8 @@ class BookingController extends Controller
         $advanceDays = (int) Setting::get('appointment_advance_days', 30);
 
         $request->validate([
-            'patient_name'         => 'required|string|max:255',
+            'patient_last_name'    => 'nullable|string|max:255',
+            'patient_first_name'   => 'required|string|max:255',
             'patient_phone'        => 'required|string|max:50',
             'patient_email'        => 'required|email|max:255',
             'doctor_id'            => 'required|exists:doctors,id',
@@ -157,9 +158,15 @@ class BookingController extends Controller
             $linkedPatientId = $portalUser->patient?->id;
         }
 
+        $lastName    = trim((string) $request->patient_last_name);
+        $firstName   = trim((string) $request->patient_first_name);
+        $patientName = trim($lastName . ' ' . $firstName);
+
         $appointment = Appointment::create([
             'appointment_number'   => Appointment::generateNumber(),
-            'patient_name'         => $request->patient_name,
+            'patient_name'         => $patientName,
+            'patient_last_name'    => $lastName,
+            'patient_first_name'   => $firstName,
             'patient_phone'        => $request->patient_phone,
             'patient_email'        => $request->patient_email,
             'patient_id'           => $linkedPatientId,
@@ -187,20 +194,24 @@ class BookingController extends Controller
     private function storeInPerson(Request $request): RedirectResponse
     {
         $request->validate([
-            'patient_name'  => 'required|string|max:255',
-            'patient_phone' => 'required|string|max:50',
-            'patient_email' => 'nullable|email|max:255',
-            'doctor_id'     => 'nullable|exists:doctors,id',
-            'service'       => 'nullable|string|max:255',
+            'patient_last_name'  => 'nullable|string|max:255',
+            'patient_first_name' => 'required|string|max:255',
+            'patient_phone'      => 'required|string|max:50',
+            'patient_email'      => 'nullable|email|max:255',
+            'doctor_id'          => 'nullable|exists:doctors,id',
+            'service'            => 'nullable|string|max:255',
         ]);
 
-        $nameParts = explode(' ', trim($request->patient_name), 2);
-        $patient   = Patient::firstOrCreate(
+        $lastName    = trim((string) $request->patient_last_name);
+        $firstName   = trim((string) $request->patient_first_name);
+        $patientName = trim($lastName . ' ' . $firstName);
+
+        $patient = Patient::firstOrCreate(
             ['phone' => $request->patient_phone],
             [
                 'patient_number' => Patient::generateNumber(),
-                'last_name'      => $nameParts[0] ?? '',
-                'first_name'     => $nameParts[1] ?? '',
+                'last_name'      => $lastName,
+                'first_name'     => $firstName,
                 'email'          => $request->patient_email,
             ]
         );
@@ -218,7 +229,9 @@ class BookingController extends Controller
         $appointment = Appointment::create([
             'appointment_number'   => Appointment::generateNumber(),
             'patient_id'           => $patient->id,
-            'patient_name'         => $request->patient_name,
+            'patient_name'         => $patientName,
+            'patient_last_name'    => $lastName,
+            'patient_first_name'   => $firstName,
             'patient_phone'        => $request->patient_phone,
             'patient_email'        => $request->patient_email,
             'doctor_id'            => $doctor?->id,
