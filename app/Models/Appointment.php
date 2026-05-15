@@ -15,6 +15,8 @@ class Appointment extends Model
         'appointment_number',
         'patient_id',
         'patient_name',
+        'patient_last_name',
+        'patient_first_name',
         'patient_phone',
         'patient_email',
         'doctor_id',
@@ -87,6 +89,22 @@ class Appointment extends Model
         return $this->appointment_date?->format('Y оны m сарын d') ?? '—';
     }
 
+    /** "Б. Бат" — овгийн эхний үсэг + . + бүтэн нэр */
+    public function getDisplayNameAttribute(): string
+    {
+        $last  = trim((string) ($this->patient_last_name ?? ''));
+        $first = trim((string) ($this->patient_first_name ?? ''));
+
+        if ($last !== '' && $first !== '') {
+            return mb_substr($last, 0, 1) . '.' . $first;
+        }
+        if ($first !== '') return $first;
+        if ($last !== '')  return $last;
+
+        // Fallback: хуучин patient_name
+        return (string) ($this->patient_name ?? '');
+    }
+
     /**
      * patient_id байвал patient-аас patient_name/phone/email автоматаар синк хийнэ.
      * Ингэснээр appointments дахь өгөгдөл үргэлж patients хүснэгттэй нийцнэ.
@@ -94,21 +112,28 @@ class Appointment extends Model
     protected static function booted(): void
     {
         static::saving(function (Appointment $appointment) {
-            if (! $appointment->patient_id) {
-                return;
+            // patient_id-тай бол patients-аас sync
+            if ($appointment->patient_id) {
+                $patient = $appointment->relationLoaded('patient')
+                    ? $appointment->patient
+                    : Patient::find($appointment->patient_id);
+
+                if ($patient) {
+                    $appointment->patient_last_name  = $patient->last_name;
+                    $appointment->patient_first_name = $patient->first_name;
+                    $appointment->patient_name       = $patient->full_name;
+                    $appointment->patient_phone      = $patient->phone;
+                    $appointment->patient_email      = $patient->email;
+                    return;
+                }
             }
 
-            $patient = $appointment->relationLoaded('patient')
-                ? $appointment->patient
-                : Patient::find($appointment->patient_id);
-
-            if (! $patient) {
-                return;
+            // last/first байгаа бол patient_name-г auto-build
+            $last  = trim((string) ($appointment->patient_last_name ?? ''));
+            $first = trim((string) ($appointment->patient_first_name ?? ''));
+            if ($last !== '' || $first !== '') {
+                $appointment->patient_name = trim($last . ' ' . $first);
             }
-
-            $appointment->patient_name  = $patient->full_name;
-            $appointment->patient_phone = $patient->phone;
-            $appointment->patient_email = $patient->email;
         });
     }
 }

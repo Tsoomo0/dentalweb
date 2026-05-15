@@ -19,6 +19,9 @@ interface Appointment {
     appointment_number: string;
     patient_id: number | null;
     patient_name: string;
+    patient_last_name?: string | null;
+    patient_first_name?: string | null;
+    display_name?: string;
     patient_phone: string;
     patient_email: string | null;
     doctor_id: number | null;
@@ -43,6 +46,17 @@ interface Appointment {
 interface Treatment { id: number; title: string }
 interface Stats { total: number; pending: number; confirmed: number; today: number; cancelled: number }
 interface Props  { appointments: Appointment[]; doctors: Doctor[]; branches: Branch[]; treatments: Treatment[]; creators: string[]; filters: Record<string,string>; stats: Stats }
+
+/** "Б. Бат" — овгийн эхний үсэг + . + бүтэн нэр */
+function shortName(a: Partial<Appointment>): string {
+    if (a.display_name) return a.display_name;
+    const last  = (a.patient_last_name ?? '').trim();
+    const first = (a.patient_first_name ?? '').trim();
+    if (last && first) return last.charAt(0) + '.' + first;
+    if (first) return first;
+    if (last)  return last;
+    return a.patient_name ?? '';
+}
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                           */
@@ -717,7 +731,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                 style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid hsl(var(--border))', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
                                                 <div style={{ width:4, alignSelf:'stretch', borderRadius:99, background: pal.bg, flexShrink:0 }} />
                                                 <div style={{ flex:1, minWidth:0 }}>
-                                                    <p style={{ fontSize:14, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))', marginBottom:2 }}>{a.patient_name}</p>
+                                                    <p style={{ fontSize:14, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))', marginBottom:2 }}>{shortName(a)}</p>
                                                     <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
                                                         {a.appointment_date} · {a.appointment_time}
                                                         {a.doctor_name && <span style={{ color: pal.bg }}> · {shortDoctorName(a.doctor_name)}</span>}
@@ -806,12 +820,12 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                 <div style={{ flex:1, minWidth:0 }}>
                                                                     {compact ? (
                                                                         <p style={{ fontSize:10, fontWeight:700, color: pal2.bg, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1 }}>
-                                                                            {a.appointment_time} {a.patient_name.split(' ')[0]}
+                                                                            {a.appointment_time} {shortName(a)}
                                                                         </p>
                                                                     ) : (
                                                                         <>
                                                                             <p style={{ fontSize:12, fontWeight:700, color:'hsl(var(--foreground))', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', lineHeight:1.3, marginBottom:2 }}>
-                                                                                {a.patient_name}
+                                                                                {shortName(a)}
                                                                             </p>
                                                                             <p style={{ fontSize:10, color: pal2.bg, fontWeight:600, lineHeight:1.2 }}>
                                                                                 {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}
@@ -935,7 +949,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                             </span>
                                                             <div style={{ flex:1, minWidth:0 }}>
                                                                 <p className="text-foreground" style={{ fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:2 }}>
-                                                                    {a.patient_name}
+                                                                    {shortName(a)}
                                                                 </p>
                                                                 <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
                                                                     {a.doctor_name && <span style={{ color: pal.bg }}>{shortDoctorName(a.doctor_name)}</span>}
@@ -1007,7 +1021,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                         }}>
                                                                         {a.treatment_sent && <span style={{ position: 'absolute', top: 3, right: 3, width: 6, height: 6, borderRadius: '50%', background: '#16a34a', boxShadow: '0 0 0 1px white' }} />}
                                                                         <p style={{ fontSize:9, fontWeight:700, color: pal2.border, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', lineHeight:1.3 }}>
-                                                                            {a.patient_name.split(' ')[0]}
+                                                                            {shortName(a)}
                                                                         </p>
                                                                         {h3 > 40 && (
                                                                             <p style={{ fontSize:8, color: pal2.border, opacity:0.75, lineHeight:1.2 }}>{a.appointment_time}</p>
@@ -1279,7 +1293,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                 <span className="size-1.5 rounded-full shrink-0" style={{ background: a.doctor_id ? pal.bg : '#eab308' }} />
                                                 {/* Main info */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-semibold truncate text-yellow-900 dark:text-yellow-200 leading-tight">{a.patient_name}</p>
+                                                    <p className="text-xs font-semibold truncate text-yellow-900 dark:text-yellow-200 leading-tight">{shortName(a)}</p>
                                                     <p className="text-[10px] text-yellow-700/70 dark:text-yellow-400/70 leading-tight truncate">
                                                         {a.appointment_date
                                                             ? <>{a.appointment_time}{a.type === 'online' ? ' 💻' : ''}</>
@@ -1401,7 +1415,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                     </div>
                                                     <div className="min-w-0 flex-1">
                                                         <p className="text-sm font-semibold truncate">
-                                                            {a.patient_name}
+                                                            {shortName(a)}
                                                             <span className="ml-2 text-xs font-normal text-muted-foreground">{a.patient_phone}</span>
                                                         </p>
                                                         <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
@@ -1572,7 +1586,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                             <span className="shrink-0 tabular-nums" style={{ color: accentColor }}>
                                                                                 {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}
                                                                             </span>
-                                                                            <span className="truncate" style={{ color: accentColor }}>{a.patient_name}</span>
+                                                                            <span className="truncate" style={{ color: accentColor }}>{shortName(a)}</span>
                                                                             {isOnline && <span className="shrink-0 opacity-70" style={{ fontSize: 9 }}>💻</span>}
                                                                             {a.treatment_sent && <span className="shrink-0 rounded-full" style={{ width: 6, height: 6, background: '#16a34a', display: 'inline-block', flexShrink: 0 }} />}
                                                                         </div>
@@ -1689,7 +1703,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                 return (
                                                                     <div key={a.id}
                                                                         onClick={ev => { ev.stopPropagation(); openApt(a); }}
-                                                                        title={`${a.appointment_time}${a.appointment_time_end ? '–'+a.appointment_time_end : ''} · ${a.patient_name}`}
+                                                                        title={`${a.appointment_time}${a.appointment_time_end ? '–'+a.appointment_time_end : ''} · ${shortName(a)}`}
                                                                         className="absolute cursor-pointer overflow-hidden rounded px-1 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
                                                                         style={{
                                                                             top, height: h,
@@ -1705,7 +1719,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                         <p className="font-bold tabular-nums truncate leading-tight" style={{ fontSize: 9, color: ac }}>
                                                                             {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}{isOnline ? ' 💻' : ''}
                                                                         </p>
-                                                                        {h > 30 && <p className="truncate font-semibold leading-tight" style={{ fontSize: 10, color: ac }}>{a.patient_name}</p>}
+                                                                        {h > 30 && <p className="truncate font-semibold leading-tight" style={{ fontSize: 10, color: ac }}>{shortName(a)}</p>}
                                                                     </div>
                                                                 );
                                                             })}
@@ -1853,7 +1867,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                 return (
                                                                     <div key={a.id}
                                                                         onClick={ev => { ev.stopPropagation(); openApt(a); }}
-                                                                        title={`${a.appointment_time}${a.appointment_time_end ? '–' + a.appointment_time_end : ''} · ${a.patient_name} · ${a.patient_phone ?? ''}`}
+                                                                        title={`${a.appointment_time}${a.appointment_time_end ? '–' + a.appointment_time_end : ''} · ${shortName(a)} · ${a.patient_phone ?? ''}`}
                                                                         className="absolute cursor-pointer overflow-hidden rounded px-1.5 pt-0.5 transition-all hover:brightness-95 hover:shadow-md"
                                                                         style={{
                                                                             top, height: h,
@@ -1870,7 +1884,7 @@ export default function AppointmentsIndex({ appointments: initialApts, doctors, 
                                                                         <p className="font-bold tabular-nums truncate leading-tight" style={{ fontSize: 9 }}>
                                                                             {a.appointment_time}{a.appointment_time_end ? `–${a.appointment_time_end}` : ''}{isOnline ? ' 💻' : ''}
                                                                         </p>
-                                                                        {h > 30 && <p className="truncate font-semibold leading-tight" style={{ fontSize: 10 }}>{a.patient_name}</p>}
+                                                                        {h > 30 && <p className="truncate font-semibold leading-tight" style={{ fontSize: 10 }}>{shortName(a)}</p>}
                                                                         {h > 46 && <p className="truncate opacity-70 leading-tight" style={{ fontSize: 9 }}>{a.patient_phone}</p>}
                                                                     </div>
                                                                 );

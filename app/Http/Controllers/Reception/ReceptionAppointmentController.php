@@ -57,6 +57,9 @@ class ReceptionAppointmentController extends Controller
             'appointment_number'   => $a->appointment_number,
             'patient_id'           => $a->patient_id,
             'patient_name'         => $a->patient_name,
+            'patient_last_name'    => $a->patient_last_name,
+            'patient_first_name'   => $a->patient_first_name,
+            'display_name'         => $a->display_name,
             'patient_phone'        => $a->patient_phone,
             'patient_email'        => $a->patient_email,
             'doctor_id'            => $a->doctor_id,
@@ -126,7 +129,8 @@ class ReceptionAppointmentController extends Controller
 
         $request->validate([
             'patient_id'           => 'nullable|exists:patients,id',
-            'patient_name'         => 'required|string|max:255',
+            'patient_last_name'    => 'nullable|string|max:255',
+            'patient_first_name'   => 'required|string|max:255',
             'patient_phone'        => 'required|string|max:50',
             'patient_email'        => 'nullable|email|max:255',
             'doctor_id'            => 'nullable|exists:doctors,id',
@@ -145,16 +149,18 @@ class ReceptionAppointmentController extends Controller
             'admin_notes'          => 'nullable|string',
         ]);
 
-        $patientId = $request->patient_id;
+        $patientId   = $request->patient_id;
+        $lastName    = trim((string) $request->patient_last_name);
+        $firstName   = trim((string) $request->patient_first_name);
+        $patientName = trim($lastName . ' ' . $firstName);
 
         if (!$patientId) {
-            $nameParts = explode(' ', trim($request->patient_name), 2);
             $patient = Patient::firstOrCreate(
                 ['phone' => $request->patient_phone],
                 [
                     'patient_number' => Patient::generateNumber(),
-                    'last_name'      => $nameParts[0] ?? '',
-                    'first_name'     => $nameParts[1] ?? '',
+                    'last_name'      => $lastName,
+                    'first_name'     => $firstName,
                     'email'          => $request->patient_email,
                     'created_by'     => Auth::id(),
                 ]
@@ -168,8 +174,11 @@ class ReceptionAppointmentController extends Controller
             'created_by_id'      => Auth::id(),
             'branch_id'          => $branchId ?? $request->branch_id,
             'patient_id'         => $patientId,
+            'patient_name'       => $patientName,
+            'patient_last_name'  => $lastName,
+            'patient_first_name' => $firstName,
             ...$request->only(
-                'patient_name', 'patient_phone', 'patient_email',
+                'patient_phone', 'patient_email',
                 'doctor_id', 'service', 'type',
                 'appointment_date', 'appointment_time', 'appointment_time_end',
                 'status', 'notes', 'admin_notes'
@@ -193,7 +202,8 @@ class ReceptionAppointmentController extends Controller
 
         $request->validate([
             'patient_id'           => 'nullable|exists:patients,id',
-            'patient_name'         => 'required|string|max:255',
+            'patient_last_name'    => 'nullable|string|max:255',
+            'patient_first_name'   => 'required|string|max:255',
             'patient_phone'        => 'required|string|max:50',
             'patient_email'        => 'nullable|email|max:255',
             'doctor_id'            => 'nullable|exists:doctors,id',
@@ -213,18 +223,19 @@ class ReceptionAppointmentController extends Controller
         ]);
 
         $oldStatus = $appointment->status;
+        $lastName    = trim((string) $request->patient_last_name);
+        $firstName   = trim((string) $request->patient_first_name);
+        $patientName = trim($lastName . ' ' . $firstName);
 
         $patientId = $request->filled('patient_id') ? (int) $request->patient_id : $appointment->patient_id;
         if (!$patientId) {
-            $name      = $request->patient_name ?: $appointment->patient_name ?? '';
-            $nameParts = explode(' ', trim($name), 2);
-            $phone     = $request->patient_phone ?: $appointment->patient_phone ?? '';
-            $patient   = Patient::firstOrCreate(
+            $phone   = $request->patient_phone ?: $appointment->patient_phone ?? '';
+            $patient = Patient::firstOrCreate(
                 ['phone' => $phone],
                 [
                     'patient_number' => Patient::generateNumber(),
-                    'last_name'      => $nameParts[0] ?? '',
-                    'first_name'     => $nameParts[1] ?? '',
+                    'last_name'      => $lastName,
+                    'first_name'     => $firstName,
                     'email'          => $request->patient_email ?: $appointment->patient_email,
                     'created_by'     => Auth::id(),
                 ]
@@ -233,11 +244,16 @@ class ReceptionAppointmentController extends Controller
         }
 
         $appointment->update(array_merge($request->only(
-            'patient_name', 'patient_phone', 'patient_email',
+            'patient_phone', 'patient_email',
             'doctor_id', 'branch_id', 'service', 'type',
             'appointment_date', 'appointment_time', 'appointment_time_end',
             'status', 'notes', 'admin_notes'
-        ), ['patient_id' => $patientId]));
+        ), [
+            'patient_id'         => $patientId,
+            'patient_name'       => $patientName,
+            'patient_last_name'  => $lastName,
+            'patient_first_name' => $firstName,
+        ]));
 
         // Статус confirmed болоход patient-д notification явуулна
         if ($oldStatus !== 'confirmed' && $appointment->status === 'confirmed') {
@@ -354,6 +370,9 @@ class ReceptionAppointmentController extends Controller
             'id'                   => $a->id,
             'appointment_number'   => $a->appointment_number,
             'patient_name'         => $a->patient_name,
+            'patient_last_name'    => $a->patient_last_name,
+            'patient_first_name'   => $a->patient_first_name,
+            'display_name'         => $a->display_name,
             'patient_phone'        => $a->patient_phone,
             'patient_email'        => $a->patient_email,
             'doctor_id'            => $a->doctor_id,
@@ -434,6 +453,7 @@ class ReceptionAppointmentController extends Controller
                 'id'                 => $a->id,
                 'appointment_number' => $a->appointment_number,
                 'patient_name'       => $a->patient_name,
+                'display_name'       => $a->display_name,
                 'patient_phone'      => $a->patient_phone,
                 'patient_email'      => $a->patient_email,
                 'appointment_date'   => $a->appointment_date?->format('Y-m-d') ?? '',
@@ -476,6 +496,9 @@ class ReceptionAppointmentController extends Controller
                 'appointment_number'   => $a->appointment_number,
                 'patient_id'           => $a->patient_id,
                 'patient_name'         => $a->patient_name,
+                'patient_last_name'    => $a->patient_last_name,
+                'patient_first_name'   => $a->patient_first_name,
+                'display_name'         => $a->display_name,
                 'patient_phone'        => $a->patient_phone,
                 'patient_email'        => $a->patient_email,
                 'doctor_id'            => $a->doctor_id,

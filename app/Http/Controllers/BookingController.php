@@ -64,7 +64,9 @@ class BookingController extends Controller
         if ($patient) {
             return response()->json([
                 'patient_id' => $patient->id,
-                'name'       => $patient->last_name . ' ' . $patient->first_name,
+                'last_name'  => $patient->last_name,
+                'first_name' => $patient->first_name,
+                'name'       => trim(($patient->last_name ?? '') . ' ' . ($patient->first_name ?? '')),
                 'email'      => $patient->email ?? '',
             ]);
         }

@@ -15,7 +15,10 @@ export interface ModalTreatment { id: number; title: string }
 export interface ModalAppt {
     id: number; appointment_number: string;
     patient_id: number | null;
-    patient_name: string; patient_phone: string; patient_email: string | null;
+    patient_name: string;
+    patient_last_name?: string | null;
+    patient_first_name?: string | null;
+    patient_phone: string; patient_email: string | null;
     doctor_id: number | null; doctor_name: string | null; doctor_spec: string | null;
     branch_id: number | null; branch_name: string | null;
     service: string | null; type: 'online' | 'in_person';
@@ -55,6 +58,15 @@ function addMins(time: string, mins: number): string {
     const t = h * 60 + m + mins;
     return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 }
+function shortAptName(a: Partial<ModalAppt>): string {
+    const last  = (a.patient_last_name ?? '').trim();
+    const first = (a.patient_first_name ?? '').trim();
+    if (last && first) return last.charAt(0) + '.' + first;
+    if (first) return first;
+    if (last)  return last;
+    return a.patient_name ?? '';
+}
+
 function diffLabel(start: string, end: string): string | null {
     const [sh, sm] = start.split(':').map(Number);
     const [eh, em] = end.split(':').map(Number);
@@ -101,8 +113,20 @@ export function AptFormModal({
     const initTime = apt?.appointment_time ?? initialTime;
     const initEnd  = apt?.appointment_time_end ?? addMins(initTime, 20);
 
+    // Хуучин patient_name-ыг овог/нэр болгож хуваах helper
+    const splitName = (full: string): { last: string; first: string } => {
+        const t = full.trim();
+        if (!t) return { last: '', first: '' };
+        const parts = t.split(/\s+/);
+        if (parts.length === 1) return { last: '', first: parts[0] };
+        return { last: parts[0], first: parts.slice(1).join(' ') };
+    };
+    const initialSplit = splitName(apt?.patient_name ?? '');
+
     const { data, setData, post, put, processing, errors, reset } = useForm<{
-        patient_id: string; patient_name: string; patient_phone: string; patient_email: string;
+        patient_id: string;
+        patient_last_name: string; patient_first_name: string;
+        patient_name: string; patient_phone: string; patient_email: string;
         branch_id: string; doctor_id: string; service: string;
         type: 'online' | 'in_person';
         appointment_date: string; appointment_time: string; appointment_time_end: string;
@@ -110,6 +134,8 @@ export function AptFormModal({
         notes: string; admin_notes: string;
     }>({
         patient_id:           apt?.patient_id ? String(apt.patient_id) : '',
+        patient_last_name:    apt?.patient_last_name ?? initialSplit.last,
+        patient_first_name:   apt?.patient_first_name ?? initialSplit.first,
         patient_name:         apt?.patient_name         ?? '',
         patient_phone:        apt?.patient_phone        ?? '',
         patient_email:        apt?.patient_email        ?? '',
@@ -136,8 +162,6 @@ export function AptFormModal({
         setData(prev => ({ ...prev, appointment_time: v, appointment_time_end: addMins(v, 20) }));
     }
 
-    const nameRef = useRef(data.patient_name);
-    useEffect(() => { nameRef.current = data.patient_name; }, [data.patient_name]);
     const phoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     function handlePhoneChange(phone: string) {
@@ -151,10 +175,13 @@ export function AptFormModal({
                 if (r.ok) {
                     const p = await r.json();
                     if (p?.name) {
+                        const sp = splitName(p.name);
                         setData(prev => ({
                             ...prev,
-                            patient_id:   p.patient_id ? String(p.patient_id) : prev.patient_id,
-                            patient_name: prev.patient_name || p.name,
+                            patient_id:    p.patient_id ? String(p.patient_id) : prev.patient_id,
+                            patient_last_name:  prev.patient_last_name  || (p.last_name  ?? sp.last),
+                            patient_first_name: prev.patient_first_name || (p.first_name ?? sp.first),
+                            patient_name:  prev.patient_name || p.name,
                             patient_email: prev.patient_email || (p.email ?? ''),
                         }));
                     }
@@ -165,6 +192,9 @@ export function AptFormModal({
 
     function submit(e: FormEvent) {
         e.preventDefault();
+        // patient_name-ийг last+first-ээс backend дээр бүтээх болно. Энд UI дисплей-д ашиглах combinedName бэлдэнэ.
+        const combinedName = `${data.patient_last_name} ${data.patient_first_name}`.trim();
+
         if (isEdit && apt) {
             put(`${routePrefix}/${apt.id}`, {
                 preserveScroll: true,
@@ -172,7 +202,9 @@ export function AptFormModal({
                     onSaved?.({
                         ...apt,
                         patient_id:           data.patient_id ? Number(data.patient_id) : apt.patient_id,
-                        patient_name:         data.patient_name,
+                        patient_last_name:    data.patient_last_name,
+                        patient_first_name:   data.patient_first_name,
+                        patient_name:         combinedName,
                         patient_phone:        data.patient_phone,
                         patient_email:        data.patient_email  || null,
                         doctor_id:            data.doctor_id      ? Number(data.doctor_id) : null,
@@ -238,22 +270,32 @@ export function AptFormModal({
 
                 <form onSubmit={submit} className="cal-scroll flex-1 overflow-y-auto p-4 space-y-3">
 
-                    {/* Нэр + Утас */}
+                    {/* Овог + Нэр */}
                     <div className="grid grid-cols-2 gap-2">
                         <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">Нэр <span className="text-red-500">*</span></label>
-                            <input type="text" value={data.patient_name}
-                                onChange={e => setData('patient_name', e.target.value)}
-                                placeholder="Овог нэр" className={inp} />
-                            {errors.patient_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.patient_name}</p>}
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Овог</label>
+                            <input type="text" value={data.patient_last_name}
+                                onChange={e => setData('patient_last_name', e.target.value)}
+                                placeholder="Болд" className={inp} />
+                            {errors.patient_last_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.patient_last_name}</p>}
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">Утас <span className="text-red-500">*</span></label>
-                            <input autoFocus type="tel" value={data.patient_phone}
-                                onChange={e => handlePhoneChange(e.target.value)}
-                                placeholder="9900 0000" className={inp} />
-                            {errors.patient_phone && <p className="text-[10px] text-red-500 mt-0.5">{errors.patient_phone}</p>}
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Нэр <span className="text-red-500">*</span></label>
+                            <input type="text" value={data.patient_first_name}
+                                onChange={e => setData('patient_first_name', e.target.value)}
+                                placeholder="Бат" className={inp} />
+                            {errors.patient_first_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.patient_first_name}</p>}
+                            {errors.patient_name && <p className="text-[10px] text-red-500 mt-0.5">{errors.patient_name}</p>}
                         </div>
+                    </div>
+
+                    {/* Утас */}
+                    <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Утас <span className="text-red-500">*</span></label>
+                        <input autoFocus type="tel" value={data.patient_phone}
+                            onChange={e => handlePhoneChange(e.target.value)}
+                            placeholder="9900 0000" className={inp} />
+                        {errors.patient_phone && <p className="text-[10px] text-red-500 mt-0.5">{errors.patient_phone}</p>}
                     </div>
 
                     {/* И-мэйл */}
@@ -399,7 +441,7 @@ export function AptDetailModal({ apt, onClose, onStatusChange, onDelete, onEdit,
                 {/* Header */}
                 <div className="flex items-center justify-between border-b px-4 py-3">
                     <div>
-                        <p className="text-sm font-bold leading-tight">{apt.patient_name}</p>
+                        <p className="text-sm font-bold leading-tight">{shortAptName(apt)}</p>
                         <p className="text-[11px] text-muted-foreground">{apt.appointment_number}</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -653,7 +695,7 @@ export function DayMoreModal({ dateStr, apts, onClose, onSelect, onAdd }: DayMor
                                 {a.appointment_time_end && <p className="text-[9px] text-muted-foreground">{a.appointment_time_end}</p>}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold truncate">{a.patient_name}</p>
+                                <p className="text-sm font-semibold truncate">{shortAptName(a)}</p>
                                 <p className="text-[11px] text-muted-foreground truncate">{a.doctor_name ? shortDoctorName(a.doctor_name) : (a.service ?? '—')}</p>
                             </div>
                             <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium shrink-0 ${STATUS_CHIP[a.status]}`}>
