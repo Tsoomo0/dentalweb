@@ -1,12 +1,17 @@
 import ReceptionLayout from '@/layouts/reception-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { CheckCircle2, TrendingUp, X } from 'lucide-react';
-import { useState } from 'react';
+import { CheckCircle2, Search, TrendingUp, X } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
 /* ------------------------------------------------------------------ */
+interface TodayEntry {
+    appointment_number: string;
+    patient_name: string | null;
+}
+
 interface OverpaidEntry {
     id: number;
     patient_name: string | null;
@@ -30,6 +35,7 @@ interface Props {
     entries: OverpaidEntry[];
     tab: Tab;
     pendingCount: number;
+    todayEntries: TodayEntry[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -43,21 +49,38 @@ const breadcrumbs: BreadcrumbItem[] = [
 const METHOD_LABELS: Record<string, string> = {
     mobile: 'Мобайл', card: 'Карт', cash: 'Бэлэн', storepay: 'Storepay',
 };
-const METHODS = ['cash', 'mobile', 'card', 'storepay'] as const;
 
 /* ------------------------------------------------------------------ */
 /*  Apply Modal                                                         */
 /* ------------------------------------------------------------------ */
-function ApplyModal({ entry, onClose }: { entry: OverpaidEntry; onClose: () => void }) {
-    const [method,  setMethod]  = useState<'mobile'|'card'|'cash'|'storepay'>('cash');
-    const [receipt, setReceipt] = useState('');
-    const [busy,    setBusy]    = useState(false);
+function ApplyModal({ entry, todayEntries, onClose }: {
+    entry: OverpaidEntry;
+    todayEntries: TodayEntry[];
+    onClose: () => void;
+}) {
+    const [receipt,  setReceipt]  = useState('');
+    const [query,    setQuery]    = useState('');
+    const [open,     setOpen]     = useState(false);
+    const [busy,     setBusy]     = useState(false);
+    const dropRef = useRef<HTMLDivElement>(null);
+
+    const filtered = query
+        ? todayEntries.filter(e =>
+            e.appointment_number.toLowerCase().includes(query.toLowerCase()) ||
+            (e.patient_name ?? '').toLowerCase().includes(query.toLowerCase())
+          )
+        : todayEntries;
+
+    function pickEntry(e: TodayEntry) {
+        setReceipt(e.appointment_number);
+        setQuery(e.appointment_number);
+        setOpen(false);
+    }
 
     function submit() {
         if (!receipt.trim()) return;
         setBusy(true);
         router.post(`/reception/daily-sheet/apply-overpaid/${entry.id}`, {
-            paid_method: method,
             paid_receipt: receipt.trim(),
         }, {
             preserveScroll: true,
@@ -107,38 +130,63 @@ function ApplyModal({ entry, onClose }: { entry: OverpaidEntry; onClose: () => v
                         )}
                     </div>
 
-                    <div className="space-y-4">
-                        {/* Receipt */}
-                        <div>
-                            <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
-                                Баримтын дугаар <span className="normal-case font-normal text-red-500">(заавал)</span>
-                            </label>
-                            <input type="text" value={receipt} onChange={e => setReceipt(e.target.value)}
-                                placeholder="Жишээ: TXN-12345"
-                                autoFocus
-                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
-                        </div>
+                    {/* Receipt number picker */}
+                    <div className="space-y-3">
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Өнөөдрийн тооцооны баримт № сонгоно уу
+                        </label>
 
-                        {/* Method */}
-                        <div>
-                            <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Төлбөрийн хэлбэр</label>
-                            <div className="grid grid-cols-4 gap-2">
-                                {METHODS.map(m => (
-                                    <button key={m} type="button" onClick={() => setMethod(m)}
-                                        className={`rounded-xl border py-2.5 text-xs font-bold transition-all ${
-                                            method === m
-                                                ? 'bg-green-600 border-green-600 text-white shadow-md shadow-green-200 dark:shadow-green-900/30'
-                                                : 'border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-green-400 hover:text-green-600'
-                                        }`}>
-                                        {METHOD_LABELS[m]}
+                        <div className="relative" ref={dropRef}>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                                <input
+                                    type="text"
+                                    value={query}
+                                    autoFocus
+                                    placeholder="Баримт № эсвэл нэрээр хайх..."
+                                    onChange={e => { setQuery(e.target.value); setReceipt(''); setOpen(true); }}
+                                    onFocus={() => setOpen(true)}
+                                    className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+                                />
+                                {query && (
+                                    <button type="button" onClick={() => { setQuery(''); setReceipt(''); setOpen(false); }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                        <X className="size-3.5" />
                                     </button>
-                                ))}
+                                )}
                             </div>
+
+                            {open && (
+                                <div className="absolute left-0 right-0 top-full mt-1 z-10 max-h-52 overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-card shadow-xl">
+                                    {filtered.length === 0 ? (
+                                        <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                                            {todayEntries.length === 0
+                                                ? 'Өнөөдрийн тооцоонд баримт № бүртгэгдээгүй байна.'
+                                                : 'Тохирох баримт олдсонгүй.'}
+                                        </div>
+                                    ) : (
+                                        filtered.map((e, i) => (
+                                            <button key={i} type="button"
+                                                onClick={() => pickEntry(e)}
+                                                className="w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-left border-b border-gray-100 dark:border-gray-800 last:border-0">
+                                                <span className="font-mono font-semibold text-foreground">{e.appointment_number}</span>
+                                                <span className="text-xs text-muted-foreground ml-3 truncate">{e.patient_name ?? ''}</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        <p className="text-xs text-muted-foreground">
-                            Өнөөдрийн тооцоонд <strong className="text-green-700 dark:text-green-400">{entry.overpaid_amount.toLocaleString()}₮</strong> нэмэгдэж баланслагдана.
-                        </p>
+                        {receipt && (
+                            <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2">
+                                <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 shrink-0" />
+                                <span className="text-sm text-green-800 dark:text-green-300">
+                                    <strong className="font-mono">{receipt}</strong> баримтад{' '}
+                                    <strong>{entry.overpaid_amount.toLocaleString()}₮</strong> баланслагдана.
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex gap-2 mt-6">
@@ -163,7 +211,7 @@ function ApplyModal({ entry, onClose }: { entry: OverpaidEntry; onClose: () => v
 /* ------------------------------------------------------------------ */
 /*  Main page                                                           */
 /* ------------------------------------------------------------------ */
-export default function OverpaidIndex({ entries, tab, pendingCount }: Props) {
+export default function OverpaidIndex({ entries, tab, pendingCount, todayEntries }: Props) {
     const [applyEntry, setApplyEntry] = useState<OverpaidEntry | null>(null);
 
     const gotoTab = (t: Tab) => router.get('/reception/overpaid', { tab: t }, { preserveState: false });
@@ -291,7 +339,7 @@ export default function OverpaidIndex({ entries, tab, pendingCount }: Props) {
             </div>
 
             {applyEntry && (
-                <ApplyModal entry={applyEntry} onClose={() => setApplyEntry(null)} />
+                <ApplyModal entry={applyEntry} todayEntries={todayEntries} onClose={() => setApplyEntry(null)} />
             )}
         </ReceptionLayout>
     );

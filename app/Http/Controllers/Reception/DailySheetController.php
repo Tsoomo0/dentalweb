@@ -514,10 +514,29 @@ class DailySheetController extends Controller
             ->whereNull('overpaid_used_at')
             ->count();
 
+        // Өнөөдрийн тооцооны баримт дугаарууд — modal autocomplete-д ашиглана
+        $todaySheet = DailySheet::where('branch_id', $branchId)
+            ->whereDate('date', today())
+            ->with('entries')
+            ->first();
+
+        $todayEntries = $todaySheet
+            ? $todaySheet->entries
+                ->filter(fn($e) => filled($e->appointment_number))
+                ->map(fn($e) => [
+                    'appointment_number' => $e->appointment_number,
+                    'patient_name'       => $e->patient_name,
+                ])
+                ->unique('appointment_number')
+                ->values()
+                ->all()
+            : [];
+
         return Inertia::render('reception/overpaid/index', [
             'entries'      => $entries,
             'tab'          => $tab,
             'pendingCount' => $pendingCount,
+            'todayEntries' => $todayEntries,
         ]);
     }
 
@@ -539,16 +558,25 @@ class DailySheetController extends Controller
         }
 
         $validated = $request->validate([
-            'paid_method'  => 'required|in:mobile,card,cash,storepay',
             'paid_receipt' => 'required|string|max:100',
         ]);
 
         $amount = $entry->overpaid_amount;
 
+        // Анхны entry-ийн хамгийн их дүнтэй төлбөрийн аргыг автоматаар тодорхойлно
+        $methodAmounts = [
+            'mobile'   => (int) $entry->mobile_amount,
+            'card'     => (int) $entry->card_amount,
+            'cash'     => (int) $entry->cash_amount,
+            'storepay' => (int) $entry->storepay_amount,
+        ];
+        arsort($methodAmounts);
+        $method = array_key_first($methodAmounts) ?? 'cash';
+
         $entry->update([
             'overpaid_used_at'     => now(),
             'overpaid_used_receipt'=> $validated['paid_receipt'],
-            'overpaid_used_method' => $validated['paid_method'],
+            'overpaid_used_method' => $method,
             'overpaid_used_amount' => $amount,
         ]);
 
@@ -559,8 +587,7 @@ class DailySheetController extends Controller
         );
 
         if ($sheet->submitted_at === null) {
-            $method = $validated['paid_method'];
-            $aptId  = \App\Models\Appointment::where('appointment_number', $validated['paid_receipt'])->value('id');
+            $aptId = \App\Models\Appointment::where('appointment_number', $validated['paid_receipt'])->value('id');
             DailySheetEntry::create([
                 'daily_sheet_id'     => $sheet->id,
                 'user_id'            => $userId,
