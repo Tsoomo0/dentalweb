@@ -580,33 +580,46 @@ class DailySheetController extends Controller
             'overpaid_used_amount' => $amount,
         ]);
 
-        // Өнөөдрийн daily sheet-д шинэ мөр нэмнэ
+        // Өнөөдрийн тооцооны тухайн баримт дугаартай entry-д нэмнэ
         $sheet = DailySheet::firstOrCreate(
             ['branch_id' => $branchId, 'date' => today()->toDateString()],
             ['status' => 'submitted']
         );
 
         if ($sheet->submitted_at === null) {
-            $aptId = \App\Models\Appointment::where('appointment_number', $validated['paid_receipt'])->value('id');
-            DailySheetEntry::create([
-                'daily_sheet_id'     => $sheet->id,
-                'user_id'            => $userId,
-                'source'             => 'overpaid',
-                'row_order'          => 999,
-                'patient_name'       => $entry->patient_name,
-                'gender'             => $entry->gender,
-                'diagnosis'          => $entry->diagnosis,
-                'appointment_number' => $validated['paid_receipt'],
-                'appointment_id'     => $aptId,
-                'mobile_amount'      => $method === 'mobile'   ? $amount : 0,
-                'card_amount'        => $method === 'card'     ? $amount : 0,
-                'cash_amount'        => $method === 'cash'     ? $amount : 0,
-                'storepay_amount'    => $method === 'storepay' ? $amount : 0,
-                'total_amount'       => $amount,
-                'outstanding_amount' => 0,
-                'discount'           => 0,
-                'doctor_id'          => $entry->doctor_id,
-            ]);
+            $col = $method . '_amount';
+
+            // Тохирох баримт дугаартай manual entry байвал төлбөрийн талбарт нэмнэ
+            $target = $sheet->entries()
+                ->where('appointment_number', $validated['paid_receipt'])
+                ->whereNull('source')
+                ->first();
+
+            if ($target) {
+                $target->increment($col, $amount);
+            } else {
+                // Байхгүй бол шинэ мөр үүсгэнэ (fallback)
+                $aptId = \App\Models\Appointment::where('appointment_number', $validated['paid_receipt'])->value('id');
+                DailySheetEntry::create([
+                    'daily_sheet_id'     => $sheet->id,
+                    'user_id'            => $userId,
+                    'source'             => 'overpaid',
+                    'row_order'          => 999,
+                    'patient_name'       => $entry->patient_name,
+                    'gender'             => $entry->gender,
+                    'diagnosis'          => $entry->diagnosis,
+                    'appointment_number' => $validated['paid_receipt'],
+                    'appointment_id'     => $aptId,
+                    'mobile_amount'      => $method === 'mobile'   ? $amount : 0,
+                    'card_amount'        => $method === 'card'     ? $amount : 0,
+                    'cash_amount'        => $method === 'cash'     ? $amount : 0,
+                    'storepay_amount'    => $method === 'storepay' ? $amount : 0,
+                    'total_amount'       => $amount,
+                    'outstanding_amount' => 0,
+                    'discount'           => 0,
+                    'doctor_id'          => $entry->doctor_id,
+                ]);
+            }
         }
 
         return back()->with('success', 'Илүү тооцоо ашиглагдлаа.');
