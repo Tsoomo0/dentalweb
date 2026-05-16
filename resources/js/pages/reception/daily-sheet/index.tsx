@@ -456,6 +456,23 @@ function Row({
             <td className={`${B} p-0`}><NumCell value={entry.cash_amount} readOnly={!editable} onChange={v => upd({ cash_amount: v })} /></td>
             {/* Storepay */}
             <td className={`${B} p-0`}><NumCell value={entry.storepay_amount} readOnly={!editable} onChange={v => upd({ storepay_amount: v })} /></td>
+            {/* Илүү дүн (auto) */}
+            {(() => {
+                const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
+                const overpaidAmt = entry.gross_amount > 0 && paySum > entry.total_amount
+                    ? paySum - entry.total_amount
+                    : (entry.overpaid_amount ?? 0);
+                const isUsed = !!entry.overpaid_used_at;
+                return (
+                    <td className={`${B} p-0 ${overpaidAmt > 0 ? (isUsed ? 'bg-gray-50/60 dark:bg-gray-800/40' : 'bg-green-50/60 dark:bg-green-900/20') : ''}`}>
+                        {overpaidAmt > 0 ? (
+                            <div className={`h-8 flex items-center justify-end px-1.5 text-xs tabular-nums font-semibold ${isUsed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-green-700 dark:text-green-400'}`}>
+                                +{overpaidAmt.toLocaleString()}
+                            </div>
+                        ) : <div className="h-8" />}
+                    </td>
+                );
+            })()}
             {/* Нийт дүн — зөрүү шалгах */}
             {(() => {
                 const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
@@ -520,27 +537,8 @@ function Row({
                 </td>
             ))}
 
-            {/* Илүү тооцоо (auto) */}
-            {(() => {
-                const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
-                const overpaidAmt = entry.gross_amount > 0 && paySum > entry.total_amount
-                    ? paySum - entry.total_amount
-                    : (entry.overpaid_amount ?? 0);
-                const isUsed = !!entry.overpaid_used_at;
-                return (
-                    <td className={`${B} p-0 ${overpaidAmt > 0 ? (isUsed ? 'bg-gray-50/60 dark:bg-gray-800/40' : 'bg-green-50/60 dark:bg-green-900/20') : ''}`}
-                        {...(isLast ? lastCellTabProps : {})}>
-                        {overpaidAmt > 0 ? (
-                            <div className={`h-8 flex items-center justify-end px-1.5 text-xs tabular-nums font-semibold ${isUsed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-green-700 dark:text-green-400'}`}>
-                                +{overpaidAmt.toLocaleString()}
-                            </div>
-                        ) : <div className="h-8" />}
-                    </td>
-                );
-            })()}
-
             {/* Устгах */}
-            <td className={`${B} p-0 text-center`}>
+            <td className={`${B} p-0 text-center`} {...(isLast ? lastCellTabProps : {})}>
                 {editable && onRemove && (
                     <button onClick={onRemove} className="w-full h-8 flex items-center justify-center text-gray-300 hover:text-red-400">
                         <Trash2 className="size-3" />
@@ -667,12 +665,13 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
         card:        allRows.reduce((s,e)=>s+e.card_amount,0),
         cash:        allRows.reduce((s,e)=>s+e.cash_amount,0),
         storepay:    allRows.reduce((s,e)=>s+e.storepay_amount,0),
+        overpaid:    allRows.reduce((s,e)=>s+(e.overpaid_amount??0),0),
         total:       allRows.reduce((s,e)=>s+e.total_amount,0),
         outstanding: allRows.reduce((s,e)=>s+e.outstanding_amount,0),
     };
     const filledCount = allRows.filter(e => e.patient_name || e.total_amount > 0).length;
 
-    const isMorningConfirmed = sheet?.morning_confirmed ?? false;
+
 
     const [confirmingMorning, setConfirmingMorning] = useState(false);
     const handleSubmitMorning = () => {
@@ -817,6 +816,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                 <col style={{ width: 78 }} />   {/* Карт */}
                                 <col style={{ width: 78 }} />   {/* Бэлэн */}
                                 <col style={{ width: 78 }} />   {/* Storepay */}
+                                <col style={{ width: 72 }} />   {/* Илүү дүн */}
                                 <col style={{ width: 78 }} />   {/* Нийт дүн */}
                                 <col style={{ width: 70 }} />   {/* Дутуу */}
                                 <col style={{ width: 130 }} />  {/* Эмч */}
@@ -828,8 +828,6 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                 <col style={{ width: 30 }} />
                                 <col style={{ width: 30 }} />
                                 <col style={{ width: 30 }} />
-                                {/* Илүү тооцоо */}
-                                <col style={{ width: 80 }} />
                                 {/* Устгах */}
                                 <col style={{ width: 28 }} />
                             </colgroup>
@@ -848,6 +846,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Карт</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Бэлэн</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Storepay</th>
+                                    <th className={`${BH} px-1 pb-1.5 text-center text-green-700 dark:text-green-400`}>Илүү</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center bg-blue-50 dark:bg-blue-900/20`}>Нийт дүн</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center bg-yellow-100 dark:bg-yellow-900/30`}>Дутуу</th>
                                     <th className={`${BH} px-1 pb-1.5 text-left`}>Эмч</th>
@@ -860,9 +859,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                             </div>
                                         </th>
                                     ))}
-                                    {/* Илүү тооцоо */}
-                                    <th className={`${BH} px-1 pb-1.5 text-center text-green-700 dark:text-green-400`}>Илүү</th>
-                                    <th className={`${BH}`}></th>
+                                        <th className={`${BH}`}></th>
                                 </tr>
                             </thead>
 
@@ -937,9 +934,10 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.card)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.cash)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.storepay)}</td>
+                                    <td className={`${B} px-1.5 py-2 text-right tabular-nums text-green-700 dark:text-green-400`}>{fmt(T.overpaid)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300`}>{fmt(T.total)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums bg-yellow-200 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300`}>{fmt(T.outstanding)}</td>
-                                    <td className={`${B}`} colSpan={10}></td>
+                                    <td className={`${B}`} colSpan={9}></td>
                                 </tr>
                             </tfoot>
                         </table>
