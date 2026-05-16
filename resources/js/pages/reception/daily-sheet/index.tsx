@@ -1,7 +1,7 @@
 import ReceptionLayout from '@/layouts/reception-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { AlertCircle, Calendar, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudOff, Moon, Plus, Search, Sun, Trash2, X } from 'lucide-react';
+import { AlertCircle, Calendar, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudOff, Moon, Plus, Search, Sun, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -22,6 +22,7 @@ interface Entry {
     gender: string;
     diagnosis: string;
     appointment_number: string;
+    gross_amount: number;
     discount: number;
     mobile_amount: number;
     card_amount: number;
@@ -42,6 +43,8 @@ interface Entry {
     supply_removable_app_case: number;
     entry_notes: string;
     is_morning_entry: boolean;
+    overpaid_amount: number;
+    overpaid_used_at?: string | null;
 }
 
 interface Sheet {
@@ -103,16 +106,19 @@ function blank(authUser: AuthUser): Entry {
     return {
         is_mine: true, receptionist_name: authUser.name,
         patient_name: '', gender: '', diagnosis: '', appointment_number: '',
-        discount: 0, mobile_amount: 0, card_amount: 0, cash_amount: 0,
+        gross_amount: 0, discount: 0, mobile_amount: 0, card_amount: 0, cash_amount: 0,
         storepay_amount: 0, total_amount: 0, outstanding_amount: 0, doctor_id: null, technician_employee_id: null,
         supply_orthodontic_brush: 0, supply_interdental_brush: 0,
         supply_dental_floss: 0, supply_wax: 0,
         supply_retainer_case: 0, supply_removable_app_case: 0,
-        entry_notes: '', is_morning_entry: false,
+        entry_notes: '', is_morning_entry: false, overpaid_amount: 0,
     };
 }
 
-function calcTotal(e: Pick<Entry,'mobile_amount'|'card_amount'|'cash_amount'|'storepay_amount'>): number {
+function calcTotal(e: Pick<Entry,'gross_amount'|'discount'|'mobile_amount'|'card_amount'|'cash_amount'|'storepay_amount'>): number {
+    if (e.gross_amount > 0) {
+        return Math.round(e.gross_amount * (1 - (e.discount || 0) / 100));
+    }
     return e.mobile_amount + e.card_amount + e.cash_amount + e.storepay_amount;
 }
 function parseNum(s: string) {
@@ -287,79 +293,6 @@ function SupplyCell({ value, onChange, readOnly }: {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Notes modal                                                         */
-/* ------------------------------------------------------------------ */
-function NotesModal({ value, onClose, onSave, readOnly }: {
-    value: string;
-    onClose: () => void;
-    onSave: (v: string) => void;
-    readOnly?: boolean;
-}) {
-    const [text, setText] = useState(value);
-    const areaRef = useRef<HTMLTextAreaElement>(null);
-
-    useEffect(() => {
-        areaRef.current?.focus();
-        const len = text.length;
-        areaRef.current?.setSelectionRange(len, len);
-    }, []);
-
-    const handleKey = (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') onClose();
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { onSave(text); onClose(); }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4 overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Тэмдэглэл</span>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                        <X className="size-4" />
-                    </button>
-                </div>
-                {/* Body */}
-                <div className="p-4">
-                    {readOnly ? (
-                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap min-h-[120px]">
-                            {value || <span className="text-gray-400 italic">Тэмдэглэл байхгүй</span>}
-                        </p>
-                    ) : (
-                        <textarea
-                            ref={areaRef}
-                            value={text}
-                            onChange={e => setText(e.target.value)}
-                            onKeyDown={handleKey}
-                            rows={6}
-                            placeholder="Тэмдэглэл бичих..."
-                            className="w-full resize-none text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-blue-600 placeholder-gray-400"
-                        />
-                    )}
-                </div>
-                {/* Footer */}
-                {!readOnly && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <span className="text-[11px] text-gray-400">Ctrl+Enter — хадгалах · Esc — хаах</span>
-                        <div className="flex gap-2">
-                            <button onClick={onClose}
-                                className="text-xs px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                Болих
-                            </button>
-                            <button onClick={() => { onSave(text); onClose(); }}
-                                className="text-xs px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700">
-                                Хадгалах
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Doctor / Technician custom select                                   */
 /* ------------------------------------------------------------------ */
 function DoctorSelect({ value, onChange, doctors, technicians }: {
@@ -462,7 +395,6 @@ function Row({
     onSaveNow?: () => void;
 }) {
     const editable = entry.is_mine && !isConfirmed;
-    const [notesOpen, setNotesOpen] = useState(false);
     const B   = 'border border-gray-200 dark:border-gray-700 overflow-hidden';
     const row = editIdx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50/50 dark:bg-gray-800/40';
 
@@ -501,8 +433,21 @@ function Row({
             <td className={`${B} p-0`}><TextCell value={entry.diagnosis} readOnly={!editable} list={editable ? 'treatments-list' : undefined} onChange={v => upd({ diagnosis: v })} /></td>
             {/* Дугаар */}
             <td className={`${B} p-0`}><TextCell value={entry.appointment_number} center readOnly={!editable} onChange={v => upd({ appointment_number: v })} /></td>
-            {/* Хөнгөлөлт */}
-            <td className={`${B} p-0`}><NumCell value={entry.discount} readOnly={!editable} cls="text-gray-500" onChange={v => upd({ discount: v })} /></td>
+            {/* Нийт төлөх ёстой дүн */}
+            <td className={`${B} p-0`}><NumCell value={entry.gross_amount} readOnly={!editable} onChange={v => upd({ gross_amount: v })} /></td>
+            {/* Хөнгөлөлт % */}
+            <td className={`${B} p-0`}>
+                {!editable
+                    ? <div className="h-8 flex items-center justify-end px-1.5 text-xs tabular-nums text-gray-500">
+                        {entry.discount > 0 ? `${entry.discount}%` : ''}
+                      </div>
+                    : <div className="relative">
+                        <NumCell value={entry.discount} readOnly={false} cls="text-gray-500 pr-4"
+                            onChange={v => upd({ discount: Math.min(100, Math.max(0, v)) })} />
+                        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">%</span>
+                      </div>
+                }
+            </td>
             {/* Мобайл */}
             <td className={`${B} p-0`}><NumCell value={entry.mobile_amount} readOnly={!editable} onChange={v => upd({ mobile_amount: v })} /></td>
             {/* Карт */}
@@ -511,10 +456,19 @@ function Row({
             <td className={`${B} p-0`}><NumCell value={entry.cash_amount} readOnly={!editable} onChange={v => upd({ cash_amount: v })} /></td>
             {/* Storepay */}
             <td className={`${B} p-0`}><NumCell value={entry.storepay_amount} readOnly={!editable} onChange={v => upd({ storepay_amount: v })} /></td>
-            {/* Нийт дүн */}
-            <td className={`${B} p-0 bg-blue-50/40 dark:bg-blue-900/10`}>
-                <NumCell value={entry.total_amount} readOnly cls="text-blue-700 dark:text-blue-400 font-semibold" />
-            </td>
+            {/* Нийт дүн — зөрүү шалгах */}
+            {(() => {
+                const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
+                const underpaid = entry.gross_amount > 0 && paySum > 0 && paySum < entry.total_amount;
+                const overpaid  = entry.gross_amount > 0 && paySum > entry.total_amount;
+                return (
+                    <td className={`${B} p-0 ${underpaid ? 'bg-orange-50/60 dark:bg-orange-900/20' : overpaid ? 'bg-green-50/40 dark:bg-green-900/10' : 'bg-blue-50/40 dark:bg-blue-900/10'}`}
+                        title={underpaid ? `Дутуу: ${(entry.total_amount - paySum).toLocaleString()}₮` : overpaid ? `Илүү: +${(paySum - entry.total_amount).toLocaleString()}₮` : undefined}>
+                        <NumCell value={entry.total_amount} readOnly
+                            cls={underpaid ? 'text-orange-600 dark:text-orange-400 font-semibold' : overpaid ? 'text-green-700 dark:text-green-400 font-semibold' : 'text-blue-700 dark:text-blue-400 font-semibold'} />
+                    </td>
+                );
+            })()}
             {/* Дутуу */}
             <td className={`${B} p-0 ${entry.outstanding_paid_at ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-yellow-50/60 dark:bg-yellow-900/15'}`}>
                 {entry.outstanding_paid_at ? (
@@ -566,30 +520,24 @@ function Row({
                 </td>
             ))}
 
-            {/* Тэмдэглэл — modal */}
-            <td className={`${B} p-0`} {...(isLast ? lastCellTabProps : {})}>
-                <button
-                    onClick={() => { if (editable || entry.entry_notes) setNotesOpen(true); }}
-                    title={entry.entry_notes || undefined}
-                    className={[
-                        'w-full h-8 px-1.5 text-left text-xs truncate transition-colors',
-                        entry.entry_notes
-                            ? 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                            : editable
-                                ? 'text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
-                                : 'cursor-default',
-                    ].join(' ')}>
-                    {entry.entry_notes || (editable ? '+ тэмдэглэл' : '')}
-                </button>
-                {notesOpen && (
-                    <NotesModal
-                        value={entry.entry_notes}
-                        readOnly={!editable}
-                        onClose={() => setNotesOpen(false)}
-                        onSave={v => upd({ entry_notes: v })}
-                    />
-                )}
-            </td>
+            {/* Илүү тооцоо (auto) */}
+            {(() => {
+                const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
+                const overpaidAmt = entry.gross_amount > 0 && paySum > entry.total_amount
+                    ? paySum - entry.total_amount
+                    : (entry.overpaid_amount ?? 0);
+                const isUsed = !!entry.overpaid_used_at;
+                return (
+                    <td className={`${B} p-0 ${overpaidAmt > 0 ? (isUsed ? 'bg-gray-50/60 dark:bg-gray-800/40' : 'bg-green-50/60 dark:bg-green-900/20') : ''}`}
+                        {...(isLast ? lastCellTabProps : {})}>
+                        {overpaidAmt > 0 ? (
+                            <div className={`h-8 flex items-center justify-end px-1.5 text-xs tabular-nums font-semibold ${isUsed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-green-700 dark:text-green-400'}`}>
+                                +{overpaidAmt.toLocaleString()}
+                            </div>
+                        ) : <div className="h-8" />}
+                    </td>
+                );
+            })()}
 
             {/* Устгах */}
             <td className={`${B} p-0 text-center`}>
@@ -714,7 +662,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
 
     const allRows = [...morningRows, ...myRows, ...otherRows, ...sourceRows];
     const T = {
-        discount:    allRows.reduce((s,e)=>s+e.discount,0),
+        gross:       allRows.reduce((s,e)=>s+e.gross_amount,0),
         mobile:      allRows.reduce((s,e)=>s+e.mobile_amount,0),
         card:        allRows.reduce((s,e)=>s+e.card_amount,0),
         cash:        allRows.reduce((s,e)=>s+e.cash_amount,0),
@@ -856,14 +804,15 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                 {/* ── Хүснэгт ── */}
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                     <div ref={scrollRef} className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '72vh' }}>
-                        <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed', minWidth: 1260 }}>
+                        <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed', minWidth: 1400 }}>
                             <colgroup>
                                 <col style={{ width: 30 }} />   {/* № */}
                                 <col />                          {/* Үйлчлүүлэгч */}
                                 <col style={{ width: 48 }} />   {/* Хүйс */}
                                 <col />                          {/* Оношилгоо */}
                                 <col style={{ width: 88 }} />   {/* Дугаар */}
-                                <col style={{ width: 78 }} />   {/* Хөнгөлөлт */}
+                                <col style={{ width: 90 }} />   {/* Нийт төлөх ёстой дүн */}
+                                <col style={{ width: 58 }} />   {/* Хөнг. % */}
                                 <col style={{ width: 78 }} />   {/* Мобайл */}
                                 <col style={{ width: 78 }} />   {/* Карт */}
                                 <col style={{ width: 78 }} />   {/* Бэлэн */}
@@ -879,8 +828,8 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                 <col style={{ width: 30 }} />
                                 <col style={{ width: 30 }} />
                                 <col style={{ width: 30 }} />
-                                {/* Тэмдэглэл */}
-                                <col style={{ width: 130 }} />
+                                {/* Илүү тооцоо */}
+                                <col style={{ width: 80 }} />
                                 {/* Устгах */}
                                 <col style={{ width: 28 }} />
                             </colgroup>
@@ -893,7 +842,8 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Хүйс</th>
                                     <th className={`${BH} px-2 pb-1.5 text-left`} style={{ minWidth: 110 }}>Оношилгоо / эмчилгээ</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Дугаар</th>
-                                    <th className={`${BH} px-1 pb-1.5 text-center`}>Хөнгөлөлт</th>
+                                    <th className={`${BH} px-1 pb-1.5 text-center`}>Нийт төлөх</th>
+                                    <th className={`${BH} px-1 pb-1.5 text-center`}>Хөнг.%</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Мобайл</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Карт</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Бэлэн</th>
@@ -910,8 +860,8 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                             </div>
                                         </th>
                                     ))}
-                                    {/* Тэмдэглэл */}
-                                    <th className={`${BH} px-2 py-2 text-left text-gray-700 dark:text-gray-300`}>Тэмдэглэл</th>
+                                    {/* Илүү тооцоо */}
+                                    <th className={`${BH} px-1 pb-1.5 text-center text-green-700 dark:text-green-400`}>Илүү</th>
                                     <th className={`${BH}`}></th>
                                 </tr>
                             </thead>
@@ -921,7 +871,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                 {isMorningLocked && !isSearching && morningRows.length > 0 && (
                                     <>
                                         <tr>
-                                            <td colSpan={22} className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                                            <td colSpan={23} className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
                                                 ☀️ Өглөөний бүртгэл — баталгаажсан
                                             </td>
                                         </tr>
@@ -933,7 +883,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                             />
                                         ))}
                                         <tr>
-                                            <td colSpan={22} className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
+                                            <td colSpan={23} className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
                                                 🌙 Өдрийн бүртгэл
                                             </td>
                                         </tr>
@@ -968,7 +918,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                 ))}
                                 {isSearching && filteredMyRows.length === 0 && filteredOtherRows.length === 0 && (
                                     <tr>
-                                        <td colSpan={22} className={`${B} px-4 py-6 text-center text-gray-400 text-xs`}>
+                                        <td colSpan={23} className={`${B} px-4 py-6 text-center text-gray-400 text-xs`}>
                                             «{searchQuery}» — тохирох бичлэг олдсонгүй
                                         </td>
                                     </tr>
@@ -981,7 +931,8 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                     <td colSpan={5} className={`${BH} px-2 py-2 text-right`}>
                                         Нийт ({filledCount} бичлэг){isSearching && ` · хайлт: ${filteredMyRows.length + filteredOtherRows.length}`}
                                     </td>
-                                    <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.discount)}</td>
+                                    <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.gross)}</td>
+                                    <td className={`${B}`}></td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.mobile)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.card)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.cash)}</td>
@@ -1023,6 +974,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                 </div>
 
             </div>
+
         </ReceptionLayout>
     );
 }

@@ -390,6 +390,7 @@ class DailySheetAdminController extends Controller
                 'gender'                    => $e->gender,
                 'diagnosis'                 => $e->diagnosis,
                 'appointment_number'        => $e->appointment_number,
+                'gross_amount'              => $e->gross_amount,
                 'discount'                  => $e->discount,
                 'mobile_amount'             => $e->mobile_amount,
                 'card_amount'               => $e->card_amount,
@@ -414,6 +415,8 @@ class DailySheetAdminController extends Controller
                 'supply_removable_app_case' => (int) $e->supply_removable_app_case,
                 'entry_notes'               => $e->entry_notes,
                 'is_morning_entry'          => (bool) $e->is_morning_entry,
+                'overpaid_amount'           => (int) $e->overpaid_amount,
+                'overpaid_used_at'          => $e->overpaid_used_at?->toDateTimeString(),
             ])->values()->all(),
         ];
     }

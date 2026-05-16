@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAppearance } from '@/hooks/use-appearance';
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, Braces, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, KeyRound, LayoutGrid, Monitor, Moon, Sun, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
+import { AlertCircle, Braces, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, KeyRound, LayoutGrid, Monitor, Moon, Sun, TrendingUp, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import AppLogo from './app-logo';
 
@@ -19,6 +19,7 @@ const navItems = [
     { title: 'Хэрэглэгч',         url: '/reception/patient-users',       icon: UserCheck,    badge: null },
     { title: 'Өдрийн тооцоо',      url: '/reception/daily-sheet',        icon: ClipboardList, badge: null },
     { title: 'Дутуу тооцоо',       url: '/reception/outstanding',         icon: AlertCircle,  badge: null },
+    { title: 'Илүү тооцоо',        url: '/reception/overpaid',            icon: TrendingUp,   badge: null },
     { title: 'Миний профайл',      url: '/reception/profile',             icon: UserCircle2,  badge: null },
 ];
 

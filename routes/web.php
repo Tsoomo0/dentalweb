@@ -302,6 +302,8 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     Route::post('/daily-sheet/submit-morning', [DailySheetController::class, 'submitMorning'])->name('daily-sheet.submit-morning');
     Route::post('/daily-sheet/submit', [DailySheetController::class, 'submit'])->name('daily-sheet.submit');
     Route::post('/daily-sheet/pay-outstanding/{entry}', [DailySheetController::class, 'payOutstanding'])->name('daily-sheet.pay-outstanding');
+    Route::post('/daily-sheet/apply-overpaid/{entry}', [DailySheetController::class, 'applyOverpaid'])->name('daily-sheet.apply-overpaid');
+    Route::get('/overpaid', [DailySheetController::class, 'overpaid'])->name('overpaid.index');
 
     // Дутуу тооцоо
     Route::get('/outstanding', [DailySheetController::class, 'outstanding'])->name('outstanding.list');

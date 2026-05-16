@@ -100,7 +100,8 @@ class DailySheetController extends Controller
             'entries.*.gender'                  => 'nullable|string|max:10',
             'entries.*.diagnosis'               => 'nullable|string|max:500',
             'entries.*.appointment_number'      => 'nullable|string|max:50',
-            'entries.*.discount'                => 'nullable|integer|min:0',
+            'entries.*.gross_amount'            => 'nullable|integer|min:0',
+            'entries.*.discount'                => 'nullable|integer|min:0|max:100',
             'entries.*.mobile_amount'           => 'nullable|integer|min:0',
             'entries.*.card_amount'             => 'nullable|integer|min:0',
             'entries.*.cash_amount'             => 'nullable|integer|min:0',
@@ -150,12 +151,21 @@ class DailySheetController extends Controller
                 $cash     = (int) ($row['cash_amount'] ?? 0);
                 $storepay = (int) ($row['storepay_amount'] ?? 0);
                 $discount = (int) ($row['discount'] ?? 0);
+                $gross    = (int) ($row['gross_amount'] ?? 0);
                 $name     = trim($row['patient_name'] ?? '');
                 $sum      = $mobile + $card + $cash + $storepay;
                 $outstd   = (int) ($row['outstanding_amount'] ?? 0);
                 $aptNumber = trim($row['appointment_number'] ?? '') ?: null;
 
-                if ($name === '' && $sum === 0 && $discount === 0) {
+                // gross_amount байвал total = gross * (1 - discount%), үгүй бол payment нийлбэр
+                $total = $gross > 0
+                    ? (int) round($gross * (1 - $discount / 100))
+                    : $sum;
+
+                // Илүү тооцоо: gross байхад payment нийлбэр total-аас их бол
+                $overpaid = ($gross > 0 && $sum > $total) ? $sum - $total : 0;
+
+                if ($name === '' && $sum === 0 && $discount === 0 && $gross === 0) {
                     continue;
                 }
 
@@ -178,12 +188,14 @@ class DailySheetController extends Controller
                     'diagnosis'                  => trim($row['diagnosis'] ?? '') ?: null,
                     'appointment_number'         => $aptNumber,
                     'appointment_id'             => $aptId,
+                    'gross_amount'               => $gross,
                     'discount'                   => $discount,
                     'mobile_amount'              => $mobile,
                     'card_amount'                => $card,
                     'cash_amount'                => $cash,
                     'storepay_amount'            => $storepay,
-                    'total_amount'               => $sum,
+                    'total_amount'               => $total,
+                    'overpaid_amount'            => $overpaid,
                     'outstanding_amount'         => $outstd,
                     'doctor_id'                  => $row['doctor_id'] ?? null,
                     'technician_employee_id'     => $row['technician_employee_id'] ?? null,
@@ -435,6 +447,7 @@ class DailySheetController extends Controller
                     'gender'             => $e->gender,
                     'diagnosis'          => $e->diagnosis,
                     'appointment_number' => $e->appointment_number,
+                    'gross_amount'       => $e->gross_amount,
                     'discount'           => $e->discount,
                     'mobile_amount'      => $e->mobile_amount,
                     'card_amount'        => $e->card_amount,
@@ -455,7 +468,120 @@ class DailySheetController extends Controller
                     'supply_removable_app_case'   => $e->supply_removable_app_case,
                     'entry_notes'                 => $e->entry_notes,
                     'is_morning_entry'            => (bool) $e->is_morning_entry,
+                    'overpaid_amount'             => (int) $e->overpaid_amount,
+                    'overpaid_used_at'            => $e->overpaid_used_at?->toDateTimeString(),
+                    'overpaid_used_receipt'       => $e->overpaid_used_receipt,
+                    'overpaid_used_method'        => $e->overpaid_used_method,
+                    'overpaid_used_amount'        => $e->overpaid_used_amount,
                 ])->all(),
         ];
+    }
+
+    public function overpaid(Request $request): Response
+    {
+        $branchId = $this->branchId();
+        $userId   = Auth::id();
+        $tab      = $request->get('tab', 'pending'); // pending | used
+
+        $entries = DailySheetEntry::whereHas('dailySheet', fn($q) => $q->where('branch_id', $branchId))
+            ->where('overpaid_amount', '>', 0)
+            ->with(['dailySheet', 'doctor', 'user'])
+            ->when($tab === 'pending', fn($q) => $q->whereNull('overpaid_used_at'))
+            ->when($tab === 'used',    fn($q) => $q->whereNotNull('overpaid_used_at'))
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn($e) => [
+                'id'                   => $e->id,
+                'patient_name'         => $e->patient_name,
+                'gender'               => $e->gender,
+                'diagnosis'            => $e->diagnosis,
+                'appointment_number'   => $e->appointment_number,
+                'overpaid_amount'      => $e->overpaid_amount,
+                'date'                 => $e->dailySheet->date->toDateString(),
+                'receptionist_name'    => $e->user?->name,
+                'doctor_name'          => $e->doctor?->name,
+                'is_mine'              => $e->user_id === $userId,
+                'overpaid_used_at'     => $e->overpaid_used_at?->toDateTimeString(),
+                'overpaid_used_receipt'=> $e->overpaid_used_receipt,
+                'overpaid_used_method' => $e->overpaid_used_method,
+                'overpaid_used_amount' => $e->overpaid_used_amount,
+            ])
+            ->values()
+            ->all();
+
+        $pendingCount = DailySheetEntry::whereHas('dailySheet', fn($q) => $q->where('branch_id', $branchId))
+            ->where('overpaid_amount', '>', 0)
+            ->whereNull('overpaid_used_at')
+            ->count();
+
+        return Inertia::render('reception/overpaid/index', [
+            'entries'      => $entries,
+            'tab'          => $tab,
+            'pendingCount' => $pendingCount,
+        ]);
+    }
+
+    public function applyOverpaid(Request $request, DailySheetEntry $entry): RedirectResponse
+    {
+        $branchId = $this->branchId();
+        $userId   = Auth::id();
+
+        if ($entry->dailySheet->branch_id !== $branchId) {
+            abort(403);
+        }
+
+        if ($entry->overpaid_used_at !== null) {
+            return back()->with('info', 'Илүү тооцоо аль хэдийн ашиглагдсан байна.');
+        }
+
+        if ($entry->overpaid_amount <= 0) {
+            return back()->with('info', 'Илүү тооцоо байхгүй байна.');
+        }
+
+        $validated = $request->validate([
+            'paid_method'  => 'required|in:mobile,card,cash,storepay',
+            'paid_receipt' => 'required|string|max:100',
+        ]);
+
+        $amount = $entry->overpaid_amount;
+
+        $entry->update([
+            'overpaid_used_at'     => now(),
+            'overpaid_used_receipt'=> $validated['paid_receipt'],
+            'overpaid_used_method' => $validated['paid_method'],
+            'overpaid_used_amount' => $amount,
+        ]);
+
+        // Өнөөдрийн daily sheet-д шинэ мөр нэмнэ
+        $sheet = DailySheet::firstOrCreate(
+            ['branch_id' => $branchId, 'date' => today()->toDateString()],
+            ['status' => 'submitted']
+        );
+
+        if ($sheet->submitted_at === null) {
+            $method = $validated['paid_method'];
+            $aptId  = \App\Models\Appointment::where('appointment_number', $validated['paid_receipt'])->value('id');
+            DailySheetEntry::create([
+                'daily_sheet_id'     => $sheet->id,
+                'user_id'            => $userId,
+                'source'             => 'overpaid',
+                'row_order'          => 999,
+                'patient_name'       => $entry->patient_name,
+                'gender'             => $entry->gender,
+                'diagnosis'          => $entry->diagnosis,
+                'appointment_number' => $validated['paid_receipt'],
+                'appointment_id'     => $aptId,
+                'mobile_amount'      => $method === 'mobile'   ? $amount : 0,
+                'card_amount'        => $method === 'card'     ? $amount : 0,
+                'cash_amount'        => $method === 'cash'     ? $amount : 0,
+                'storepay_amount'    => $method === 'storepay' ? $amount : 0,
+                'total_amount'       => $amount,
+                'outstanding_amount' => 0,
+                'discount'           => 0,
+                'doctor_id'          => $entry->doctor_id,
+            ]);
+        }
+
+        return back()->with('success', 'Илүү тооцоо ашиглагдлаа.');
     }
 }

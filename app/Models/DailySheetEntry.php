@@ -20,6 +20,7 @@ class DailySheetEntry extends Model
         'diagnosis',
         'appointment_number',
         'appointment_id',
+        'gross_amount',
         'discount',
         'mobile_amount',
         'card_amount',
@@ -41,9 +42,15 @@ class DailySheetEntry extends Model
         'supply_removable_app_case',
         'entry_notes',
         'is_morning_entry',
+        'overpaid_amount',
+        'overpaid_used_at',
+        'overpaid_used_receipt',
+        'overpaid_used_method',
+        'overpaid_used_amount',
     ];
 
     protected $casts = [
+        'gross_amount'             => 'integer',
         'discount'                 => 'integer',
         'total_amount'             => 'integer',
         'cash_amount'              => 'integer',
@@ -60,6 +67,9 @@ class DailySheetEntry extends Model
         'supply_retainer_case'        => 'integer',
         'supply_removable_app_case'   => 'integer',
         'is_morning_entry'            => 'boolean',
+        'overpaid_amount'             => 'integer',
+        'overpaid_used_at'            => 'datetime',
+        'overpaid_used_amount'        => 'integer',
     ];
 
     public function dailySheet(): BelongsTo

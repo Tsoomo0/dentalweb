@@ -17,6 +17,7 @@ interface Entry {
     gender: string | null;
     diagnosis: string | null;
     appointment_number: string | null;
+    gross_amount: number;
     discount: number;
     mobile_amount: number;
     card_amount: number;
@@ -262,7 +263,9 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                     <col />
                     <col style={{ width: 36 }} />
                     <col />
-                    <col style={{ width: 60 }} />
+                    <col style={{ width: 72 }} />  {/* Дугаар */}
+                    <col style={{ width: 80 }} />  {/* Нийт төлөх */}
+                    <col style={{ width: 52 }} />  {/* Хөнг.% */}
                     <col style={{ width: 60 }} />
                     <col style={{ width: 60 }} />
                     <col style={{ width: 60 }} />
@@ -281,7 +284,9 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Үйлчлүүлэгч</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Хүйс</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Оношилгоо/Эмчилгээ</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Хөнгөлөлт</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Дугаар</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Нийт төлөх</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Хөнг.%</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Мобайл</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Карт</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Бэлэн</th>
@@ -306,7 +311,9 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.patient_name ?? '—'}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-center">{e.gender ?? ''}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.diagnosis ?? '—'}</td>
-                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.discount)}</td>
+                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-center text-gray-500">{e.appointment_number ?? ''}</td>
+                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.gross_amount)}</td>
+                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-center text-gray-500">{e.discount > 0 ? `${e.discount}%` : ''}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.mobile_amount)}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.card_amount)}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.cash_amount)}</td>
@@ -344,7 +351,9 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                 <tfoot>
                     <tr className="bg-gray-100 dark:bg-gray-800 font-semibold text-xs">
                         <td colSpan={4} className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">Нийт</td>
-                        <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.discount)}</td>
+                        <td />
+                        <td className="px-2 py-1.5 text-right">{fmt(sheet.entries.reduce((s,e)=>s+e.gross_amount,0))}</td>
+                        <td />
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.mobile_amount)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.card_amount)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.cash_amount)}</td>
