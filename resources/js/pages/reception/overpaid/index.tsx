@@ -1,8 +1,8 @@
 import ReceptionLayout from '@/layouts/reception-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
-import { CheckCircle2, TrendingUp, X } from 'lucide-react';
-import { useState } from 'react';
+import { Head, router, usePage } from '@inertiajs/react';
+import { AlertCircle, CheckCircle2, TrendingUp, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -26,10 +26,13 @@ interface OverpaidEntry {
 
 type Tab = 'pending' | 'used';
 
+interface TodayReceipt { appointment_number: string; patient_name: string | null }
+
 interface Props {
     entries: OverpaidEntry[];
     tab: Tab;
     pendingCount: number;
+    todayReceipts: TodayReceipt[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -47,12 +50,31 @@ const METHOD_LABELS: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 /*  Apply Modal                                                         */
 /* ------------------------------------------------------------------ */
-function ApplyModal({ entry, onClose }: {
+function ApplyModal({ entry, todayReceipts, onClose }: {
     entry: OverpaidEntry;
+    todayReceipts: TodayReceipt[];
     onClose: () => void;
 }) {
+    const { errors } = usePage<{ errors: Record<string, string> }>().props;
     const [receipt, setReceipt] = useState('');
     const [busy,    setBusy]    = useState(false);
+    const [manual,  setManual]  = useState(false);
+
+    // Зөвхөн илүү тооцоотой ижил өвчтөний өнөөдрийн баримтуудыг харуулна
+    const matchingReceipts = useMemo(() => {
+        if (!entry.patient_name) return todayReceipts;
+        const target = entry.patient_name.trim().toLowerCase();
+        return todayReceipts.filter(r =>
+            (r.patient_name ?? '').trim().toLowerCase() === target
+        );
+    }, [todayReceipts, entry.patient_name]);
+
+    const matched = useMemo(
+        () => todayReceipts.find(r => r.appointment_number === receipt.trim()) || null,
+        [todayReceipts, receipt],
+    );
+    const nameMismatch = matched && entry.patient_name && matched.patient_name
+        && matched.patient_name.trim().toLowerCase() !== entry.patient_name.trim().toLowerCase();
 
     function submit() {
         if (!receipt.trim()) return;
@@ -61,7 +83,9 @@ function ApplyModal({ entry, onClose }: {
             paid_receipt: receipt.trim(),
         }, {
             preserveScroll: true,
-            onFinish: () => { setBusy(false); onClose(); },
+            preserveState: true,
+            onSuccess: () => onClose(),
+            onFinish: () => setBusy(false),
         });
     }
 
@@ -107,25 +131,92 @@ function ApplyModal({ entry, onClose }: {
                         )}
                     </div>
 
-                    {/* Receipt number input */}
+                    {/* Receipt selector */}
                     <div className="space-y-2">
-                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                            Баримтын дугаар
-                        </label>
-                        <input
-                            type="text"
-                            value={receipt}
-                            autoFocus
-                            placeholder="Баримтын дугаар оруулна уу..."
-                            onChange={e => setReceipt(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-                            className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition"
-                        />
-                        {receipt.trim() && (
+                        <div className="flex items-center justify-between">
+                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                Өнөөдрийн баримт
+                            </label>
+                            {!manual && todayReceipts.length > 0 && (
+                                <button type="button" onClick={() => setManual(true)}
+                                    className="text-[11px] text-muted-foreground hover:text-foreground underline">
+                                    Гараар оруулах
+                                </button>
+                            )}
+                            {manual && (
+                                <button type="button" onClick={() => { setManual(false); setReceipt(''); }}
+                                    className="text-[11px] text-muted-foreground hover:text-foreground underline">
+                                    Жагсаалтаас сонгох
+                                </button>
+                            )}
+                        </div>
+
+                        {todayReceipts.length === 0 ? (
+                            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
+                                <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-800 dark:text-amber-300">
+                                    Өнөөдөр илгээгдээгүй өдрийн тооцоонд баримт бүртгэгдээгүй байна.
+                                    Эхлээд өдрийн тооцоонд баримтаа нэмнэ үү.
+                                </p>
+                            </div>
+                        ) : !manual && matchingReceipts.length === 0 ? (
+                            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
+                                <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-800 dark:text-amber-300">
+                                    Өнөөдөр <strong>{entry.patient_name}</strong> нэр дээр баримт бүртгэгдээгүй байна.
+                                    Эхлээд өвчтөнийг өдрийн тооцоонд нэмнэ үү, эсвэл "Гараар оруулах" сонголтыг ашиглана уу.
+                                </p>
+                            </div>
+                        ) : !manual ? (
+                            <select
+                                value={receipt}
+                                onChange={e => setReceipt(e.target.value)}
+                                autoFocus
+                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                                <option value="">— Баримт сонгох —</option>
+                                {matchingReceipts.map(r => (
+                                    <option key={r.appointment_number} value={r.appointment_number}>
+                                        {r.appointment_number}{r.patient_name ? ` — ${r.patient_name}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                value={receipt}
+                                autoFocus
+                                placeholder="Баримтын дугаар..."
+                                onChange={e => setReceipt(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+                            />
+                        )}
+
+                        {/* Server-side error */}
+                        {errors?.paid_receipt && (
+                            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2.5 flex items-start gap-2">
+                                <AlertCircle className="size-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-800 dark:text-red-300">{errors.paid_receipt}</p>
+                            </div>
+                        )}
+
+                        {/* Name mismatch warning */}
+                        {nameMismatch && (
+                            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
+                                <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-800 dark:text-amber-300">
+                                    Анхаар: <strong>{receipt}</strong> баримт нь <strong>{matched?.patient_name}</strong>
+                                    нэр дээр, харин илүү тооцоо <strong>{entry.patient_name}</strong> дээр байна.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Success preview */}
+                        {matched && !nameMismatch && (
                             <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2">
                                 <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 shrink-0" />
                                 <span className="text-sm text-green-800 dark:text-green-300">
-                                    <strong className="font-mono">{receipt.trim()}</strong> баримтад{' '}
+                                    <strong className="font-mono">{receipt}</strong> баримтад{' '}
                                     <strong>{entry.overpaid_amount.toLocaleString()}₮</strong> баланслагдана.
                                 </span>
                             </div>
@@ -154,7 +245,7 @@ function ApplyModal({ entry, onClose }: {
 /* ------------------------------------------------------------------ */
 /*  Main page                                                           */
 /* ------------------------------------------------------------------ */
-export default function OverpaidIndex({ entries, tab, pendingCount }: Props) {
+export default function OverpaidIndex({ entries, tab, pendingCount, todayReceipts }: Props) {
     const [applyEntry, setApplyEntry] = useState<OverpaidEntry | null>(null);
 
     const gotoTab = (t: Tab) => router.get('/reception/overpaid', { tab: t }, { preserveState: false });
@@ -282,7 +373,7 @@ export default function OverpaidIndex({ entries, tab, pendingCount }: Props) {
             </div>
 
             {applyEntry && (
-                <ApplyModal entry={applyEntry} onClose={() => setApplyEntry(null)} />
+                <ApplyModal entry={applyEntry} todayReceipts={todayReceipts} onClose={() => setApplyEntry(null)} />
             )}
         </ReceptionLayout>
     );

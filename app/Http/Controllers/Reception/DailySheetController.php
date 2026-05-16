@@ -339,16 +339,37 @@ class DailySheetController extends Controller
             ->values()
             ->all();
 
+        // Өнөөдрийн илгээгдээгүй өдрийн тооцооны баримтууд (dropdown-д ашиглана)
+        $todayReceipts = [];
+        $todaySheet = DailySheet::where('branch_id', $branchId)
+            ->whereDate('date', today())
+            ->whereNull('submitted_at')
+            ->first();
+        if ($todaySheet) {
+            $todayReceipts = $todaySheet->entries()
+                ->whereNull('source')
+                ->whereNotNull('appointment_number')
+                ->where('appointment_number', '!=', '')
+                ->orderBy('row_order')
+                ->get(['appointment_number', 'patient_name'])
+                ->map(fn($e) => [
+                    'appointment_number' => $e->appointment_number,
+                    'patient_name'       => $e->patient_name,
+                ])
+                ->values()
+                ->all();
+        }
+
         return Inertia::render('reception/outstanding/index', [
-            'entries' => $entries,
-            'filters' => compact('mode', 'date', 'month'),
+            'entries'       => $entries,
+            'filters'       => compact('mode', 'date', 'month'),
+            'todayReceipts' => $todayReceipts,
         ]);
     }
 
     public function payOutstanding(Request $request, DailySheetEntry $entry): RedirectResponse
     {
         $branchId = $this->branchId();
-        $userId   = Auth::id();
 
         if ($entry->dailySheet->branch_id !== $branchId) {
             abort(403);
@@ -361,50 +382,53 @@ class DailySheetController extends Controller
         $validated = $request->validate([
             'paid_amount'  => 'required|integer|min:1',
             'paid_method'  => 'required|in:mobile,card,cash,storepay',
-            'paid_receipt' => 'nullable|string|max:100',
+            'paid_receipt' => 'required|string|max:100',
         ]);
 
-        // Дутуу тооцоог төлөгдсөн гэж тэмдэглэнэ
-        $entry->update([
-            'outstanding_paid_at'     => now(),
-            'outstanding_paid_receipt'=> $validated['paid_receipt'] ?? null,
-            'outstanding_paid_method' => $validated['paid_method'],
-            'outstanding_paid_amount' => $validated['paid_amount'],
-        ]);
+        $receipt = trim($validated['paid_receipt']);
+        $method  = $validated['paid_method'];
+        $amount  = $validated['paid_amount'];
 
-        // Өнөөдрийн daily sheet-д шинэ мөр нэмнэ (balance)
+        // Өнөөдрийн илгээгдээгүй өдрийн тооцоог олно
         $sheet = DailySheet::firstOrCreate(
             ['branch_id' => $branchId, 'date' => today()->toDateString()],
             ['status' => 'submitted']
         );
 
-        if ($sheet->submitted_at === null) {
-            $method  = $validated['paid_method'];
-            $amount  = $validated['paid_amount'];
-            $apptNum = $validated['paid_receipt'] ?: $this->nextAppointmentNumber($entry->appointment_number);
-            $apptId  = $apptNum
-                ? \App\Models\Appointment::where('appointment_number', $apptNum)->value('id')
-                : null;
-            DailySheetEntry::create([
-                'daily_sheet_id'     => $sheet->id,
-                'user_id'            => $userId,
-                'source'             => 'outstanding',
-                'row_order'          => 999,
-                'patient_name'       => $entry->patient_name,
-                'gender'             => $entry->gender,
-                'diagnosis'          => $entry->diagnosis,
-                'appointment_number' => $apptNum,
-                'appointment_id'     => $apptId,
-                'mobile_amount'      => $method === 'mobile'   ? $amount : 0,
-                'card_amount'        => $method === 'card'     ? $amount : 0,
-                'cash_amount'        => $method === 'cash'     ? $amount : 0,
-                'storepay_amount'    => $method === 'storepay' ? $amount : 0,
-                'total_amount'       => $amount,
-                'outstanding_amount' => 0,
-                'discount'           => 0,
-                'doctor_id'          => $entry->doctor_id,
-            ]);
+        if ($sheet->submitted_at !== null) {
+            return back()->with('error', 'Өнөөдрийн тооцоо аль хэдийн илгээгдсэн байна. Дутуу тооцоог одоо төлөх боломжгүй.');
         }
+
+        // Заавал өнөөдрийн тооцоонд тухайн баримт дугаар бүртгэгдсэн байх ёстой
+        $target = $sheet->entries()
+            ->where('appointment_number', $receipt)
+            ->whereNull('source')
+            ->first();
+
+        if (!$target) {
+            return back()->withErrors([
+                'paid_receipt' => "Өнөөдрийн тооцоонд '{$receipt}' гэсэн баримт дугаар бүртгэгдээгүй байна. Эхлээд баримтыг өдрийн тооцоонд бүртгэнэ үү.",
+            ])->withInput();
+        }
+
+        // Өвчтөний нэр баримттай таарч байгаа эсэхийг шалгах
+        if ($target->patient_name && $entry->patient_name
+            && mb_strtolower(trim($target->patient_name)) !== mb_strtolower(trim($entry->patient_name))) {
+            return back()->withErrors([
+                'paid_receipt' => "Анхаар: '{$receipt}' баримт нь '{$target->patient_name}' нэр дээр бүртгэгдсэн, харин дутуу тооцоо '{$entry->patient_name}' нэр дээр байна. Зөв баримтаа сонгоно уу.",
+            ])->withInput();
+        }
+
+        // Дутуу тооцоог төлөгдсөн гэж тэмдэглэнэ
+        $entry->update([
+            'outstanding_paid_at'     => now(),
+            'outstanding_paid_receipt'=> $receipt,
+            'outstanding_paid_method' => $method,
+            'outstanding_paid_amount' => $amount,
+        ]);
+
+        // Зөвхөн тухайн мөрд нэмнэ — шинэ мөр үүсгэхгүй
+        $target->increment($method . '_amount', $amount);
 
         // Admin-д notification
         $entry->load(['dailySheet.branch']);
@@ -412,14 +436,14 @@ class DailySheetController extends Controller
         if ($admins->isNotEmpty()) {
             Notification::send($admins, new OutstandingPaid(
                 patientName:      $entry->patient_name ?? '—',
-                amount:           $validated['paid_amount'],
+                amount:           $amount,
                 branchName:       $entry->dailySheet->branch?->name ?? '—',
                 date:             $entry->dailySheet->date->toDateString(),
                 receptionistName: Auth::user()->name,
             ));
         }
 
-        return redirect('/reception/outstanding?mode=all')->with('success', 'Дутуу тооцоо төлөгдлөө.');
+        return back()->with('success', 'Дутуу тооцоо төлөгдлөө.');
     }
 
     private function nextAppointmentNumber(?string $current): ?string
@@ -529,10 +553,32 @@ class DailySheetController extends Controller
             ->whereNull('overpaid_used_at')
             ->count();
 
+        // Өнөөдрийн илгээгдээгүй өдрийн тооцооны баримтуудыг dropdown-д ашиглана
+        $todayReceipts = [];
+        $todaySheet = DailySheet::where('branch_id', $branchId)
+            ->whereDate('date', today())
+            ->whereNull('submitted_at')
+            ->first();
+        if ($todaySheet) {
+            $todayReceipts = $todaySheet->entries()
+                ->whereNull('source')
+                ->whereNotNull('appointment_number')
+                ->where('appointment_number', '!=', '')
+                ->orderBy('row_order')
+                ->get(['appointment_number', 'patient_name'])
+                ->map(fn($e) => [
+                    'appointment_number' => $e->appointment_number,
+                    'patient_name'       => $e->patient_name,
+                ])
+                ->values()
+                ->all();
+        }
+
         return Inertia::render('reception/overpaid/index', [
-            'entries'      => $entries,
-            'tab'          => $tab,
-            'pendingCount' => $pendingCount,
+            'entries'       => $entries,
+            'tab'           => $tab,
+            'pendingCount'  => $pendingCount,
+            'todayReceipts' => $todayReceipts,
         ]);
     }
 
@@ -557,7 +603,38 @@ class DailySheetController extends Controller
             'paid_receipt' => 'required|string|max:100',
         ]);
 
-        $amount = $entry->overpaid_amount;
+        $receipt = trim($validated['paid_receipt']);
+        $amount  = $entry->overpaid_amount;
+
+        // Өнөөдрийн илгээгдээгүй өдрийн тооцоог олж/үүсгэнэ
+        $sheet = DailySheet::firstOrCreate(
+            ['branch_id' => $branchId, 'date' => today()->toDateString()],
+            ['status' => 'submitted']
+        );
+
+        if ($sheet->submitted_at !== null) {
+            return back()->with('error', 'Өнөөдрийн тооцоо аль хэдийн илгээгдсэн байна. Илүү тооцоог одоо ашиглах боломжгүй.');
+        }
+
+        // Заавал өнөөдрийн тооцоонд тухайн баримт дугаар бүртгэгдсэн байх ёстой
+        $target = $sheet->entries()
+            ->where('appointment_number', $receipt)
+            ->whereNull('source')
+            ->first();
+
+        if (!$target) {
+            return back()->withErrors([
+                'paid_receipt' => "Өнөөдрийн тооцоонд '{$receipt}' гэсэн баримт дугаар бүртгэгдээгүй байна. Эхлээд баримтыг өдрийн тооцоонд бүртгэнэ үү.",
+            ])->withInput();
+        }
+
+        // Зөв баримттай өвчтөнтэй тохирч байгаа эсэхийг сэрэмжлүүлэх (нэр)
+        if ($target->patient_name && $entry->patient_name
+            && mb_strtolower(trim($target->patient_name)) !== mb_strtolower(trim($entry->patient_name))) {
+            return back()->withErrors([
+                'paid_receipt' => "Анхаар: '{$receipt}' баримт нь '{$target->patient_name}' нэр дээр бүртгэгдсэн, харин илүү тооцоо '{$entry->patient_name}' нэр дээр байна. Зөв баримтаа сонгоно уу.",
+            ])->withInput();
+        }
 
         // Анхны entry-ийн хамгийн их дүнтэй төлбөрийн аргыг автоматаар тодорхойлно
         $methodAmounts = [
@@ -571,52 +648,13 @@ class DailySheetController extends Controller
 
         $entry->update([
             'overpaid_used_at'     => now(),
-            'overpaid_used_receipt'=> $validated['paid_receipt'],
+            'overpaid_used_receipt'=> $receipt,
             'overpaid_used_method' => $method,
             'overpaid_used_amount' => $amount,
         ]);
 
-        // Өнөөдрийн тооцооны тухайн баримт дугаартай entry-д нэмнэ
-        $sheet = DailySheet::firstOrCreate(
-            ['branch_id' => $branchId, 'date' => today()->toDateString()],
-            ['status' => 'submitted']
-        );
-
-        if ($sheet->submitted_at === null) {
-            $col = $method . '_amount';
-
-            // Тохирох баримт дугаартай manual entry байвал төлбөрийн талбарт нэмнэ
-            $target = $sheet->entries()
-                ->where('appointment_number', $validated['paid_receipt'])
-                ->whereNull('source')
-                ->first();
-
-            if ($target) {
-                $target->increment($col, $amount);
-            } else {
-                // Байхгүй бол шинэ мөр үүсгэнэ (fallback)
-                $aptId = \App\Models\Appointment::where('appointment_number', $validated['paid_receipt'])->value('id');
-                DailySheetEntry::create([
-                    'daily_sheet_id'     => $sheet->id,
-                    'user_id'            => $userId,
-                    'source'             => 'overpaid',
-                    'row_order'          => 999,
-                    'patient_name'       => $entry->patient_name,
-                    'gender'             => $entry->gender,
-                    'diagnosis'          => $entry->diagnosis,
-                    'appointment_number' => $validated['paid_receipt'],
-                    'appointment_id'     => $aptId,
-                    'mobile_amount'      => $method === 'mobile'   ? $amount : 0,
-                    'card_amount'        => $method === 'card'     ? $amount : 0,
-                    'cash_amount'        => $method === 'cash'     ? $amount : 0,
-                    'storepay_amount'    => $method === 'storepay' ? $amount : 0,
-                    'total_amount'       => $amount,
-                    'outstanding_amount' => 0,
-                    'discount'           => 0,
-                    'doctor_id'          => $entry->doctor_id,
-                ]);
-            }
-        }
+        // Зөвхөн тухайн мөрд нэмнэ — шинэ мөр үүсгэхгүй
+        $target->increment($method . '_amount', $amount);
 
         return back()->with('success', 'Илүү тооцоо ашиглагдлаа.');
     }

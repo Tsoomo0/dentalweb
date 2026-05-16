@@ -1,12 +1,12 @@
 import ReceptionLayout from '@/layouts/reception-layout';
 import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
     AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft,
     ChevronRight, ChevronUp, Clock, TrendingDown, X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -33,7 +33,8 @@ interface OutstandingEntry {
 type Mode = 'day' | 'week' | 'month' | 'all';
 
 interface Filters { mode: Mode; date: string; month: string }
-interface Props { entries: OutstandingEntry[]; filters: Filters }
+interface TodayReceipt { appointment_number: string; patient_name: string | null }
+interface Props { entries: OutstandingEntry[]; filters: Filters; todayReceipts: TodayReceipt[] }
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                           */
@@ -160,22 +161,42 @@ function PeriodNav({ filters }: { filters: Filters }) {
 /* ------------------------------------------------------------------ */
 /*  Pay Modal                                                           */
 /* ------------------------------------------------------------------ */
-function PayModal({ entry, onClose }: { entry: OutstandingEntry; onClose: () => void }) {
+function PayModal({ entry, todayReceipts, onClose }: { entry: OutstandingEntry; todayReceipts: TodayReceipt[]; onClose: () => void }) {
+    const { errors } = usePage<{ errors: Record<string, string> }>().props;
     const [method,  setMethod]  = useState<'mobile' | 'card' | 'cash' | 'storepay'>('cash');
     const [amount,  setAmount]  = useState(String(entry.outstanding_amount));
     const [receipt, setReceipt] = useState('');
     const [busy,    setBusy]    = useState(false);
+    const [manual,  setManual]  = useState(false);
     const parsedAmt = parseInt(amount.replace(/[^0-9]/g, ''), 10) || 0;
 
+    // Зөвхөн дутуу тооцоотой ижил өвчтөний өнөөдрийн баримтуудыг харуулна
+    const matchingReceipts = useMemo(() => {
+        if (!entry.patient_name) return todayReceipts;
+        const target = entry.patient_name.trim().toLowerCase();
+        return todayReceipts.filter(r =>
+            (r.patient_name ?? '').trim().toLowerCase() === target
+        );
+    }, [todayReceipts, entry.patient_name]);
+
+    const matched = useMemo(
+        () => todayReceipts.find(r => r.appointment_number === receipt.trim()) || null,
+        [todayReceipts, receipt],
+    );
+    const nameMismatch = matched && entry.patient_name && matched.patient_name
+        && matched.patient_name.trim().toLowerCase() !== entry.patient_name.trim().toLowerCase();
+
     function submit() {
-        if (parsedAmt <= 0) return;
+        if (parsedAmt <= 0 || !receipt.trim()) return;
         setBusy(true);
         router.post(`/reception/daily-sheet/pay-outstanding/${entry.id}`, {
             paid_amount: parsedAmt, paid_method: method,
-            paid_receipt: receipt.trim() || null,
+            paid_receipt: receipt.trim(),
         }, {
             preserveScroll: true,
-            onFinish: () => { setBusy(false); onClose(); },
+            preserveState: true,
+            onSuccess: () => onClose(),
+            onFinish: () => setBusy(false),
         });
     }
 
@@ -253,18 +274,82 @@ function PayModal({ entry, onClose }: { entry: OutstandingEntry; onClose: () => 
                                 ))}
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
-                                Баримтын дугаар <span className="normal-case font-normal">(заавал биш)</span>
-                            </label>
-                            <input type="text" value={receipt} onChange={e => setReceipt(e.target.value)}
-                                placeholder="Жишээ: TXN-12345"
-                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                    Өнөөдрийн баримт
+                                </label>
+                                {!manual && todayReceipts.length > 0 && (
+                                    <button type="button" onClick={() => setManual(true)}
+                                        className="text-[11px] text-muted-foreground hover:text-foreground underline">
+                                        Гараар оруулах
+                                    </button>
+                                )}
+                                {manual && (
+                                    <button type="button" onClick={() => { setManual(false); setReceipt(''); }}
+                                        className="text-[11px] text-muted-foreground hover:text-foreground underline">
+                                        Жагсаалтаас сонгох
+                                    </button>
+                                )}
+                            </div>
+
+                            {todayReceipts.length === 0 ? (
+                                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
+                                    <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-800 dark:text-amber-300">
+                                        Өнөөдөр илгээгдээгүй өдрийн тооцоонд баримт бүртгэгдээгүй байна.
+                                        Эхлээд өдрийн тооцоонд баримтаа нэмнэ үү.
+                                    </p>
+                                </div>
+                            ) : !manual && matchingReceipts.length === 0 ? (
+                                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
+                                    <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-800 dark:text-amber-300">
+                                        Өнөөдөр <strong>{entry.patient_name}</strong> нэр дээр баримт бүртгэгдээгүй байна.
+                                        Эхлээд өвчтөнийг өдрийн тооцоонд нэмнэ үү, эсвэл "Гараар оруулах" сонголтыг ашиглана уу.
+                                    </p>
+                                </div>
+                            ) : !manual ? (
+                                <select
+                                    value={receipt}
+                                    onChange={e => setReceipt(e.target.value)}
+                                    className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                                    <option value="">— Баримт сонгох —</option>
+                                    {matchingReceipts.map(r => (
+                                        <option key={r.appointment_number} value={r.appointment_number}>
+                                            {r.appointment_number}{r.patient_name ? ` — ${r.patient_name}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input type="text" value={receipt} onChange={e => setReceipt(e.target.value)}
+                                    placeholder="Баримтын дугаар..."
+                                    className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                            )}
+
+                            {/* Server error */}
+                            {errors?.paid_receipt && (
+                                <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2.5 flex items-start gap-2">
+                                    <AlertCircle className="size-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-red-800 dark:text-red-300">{errors.paid_receipt}</p>
+                                </div>
+                            )}
+
+                            {/* Name mismatch warning */}
+                            {nameMismatch && (
+                                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
+                                    <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-800 dark:text-amber-300">
+                                        Анхаар: <strong>{receipt}</strong> баримт нь <strong>{matched?.patient_name}</strong>
+                                        нэр дээр, харин дутуу тооцоо <strong>{entry.patient_name}</strong> дээр байна.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     <div className="flex gap-2 mt-6">
-                        <button onClick={submit} disabled={busy || parsedAmt <= 0}
+                        <button onClick={submit} disabled={busy || parsedAmt <= 0 || !receipt.trim()}
                             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 hover:bg-green-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">
                             {busy
                                 ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -298,7 +383,7 @@ function DaysBadge({ days }: { days: number }) {
 /* ------------------------------------------------------------------ */
 /*  Main                                                                */
 /* ------------------------------------------------------------------ */
-export default function OutstandingIndex({ entries, filters }: Props) {
+export default function OutstandingIndex({ entries, filters, todayReceipts }: Props) {
     const [modal,    setModal]    = useState<OutstandingEntry | null>(null);
 
     const unpaid  = entries.filter(e => !e.is_paid);
@@ -515,7 +600,7 @@ export default function OutstandingIndex({ entries, filters }: Props) {
 
             </div>
 
-            {modal && <PayModal entry={modal} onClose={() => setModal(null)} />}
+            {modal && <PayModal entry={modal} todayReceipts={todayReceipts} onClose={() => setModal(null)} />}
         </ReceptionLayout>
     );
 }
