@@ -514,29 +514,10 @@ class DailySheetController extends Controller
             ->whereNull('overpaid_used_at')
             ->count();
 
-        // Өнөөдрийн тооцооны баримт дугаарууд — modal autocomplete-д ашиглана
-        $todaySheet = DailySheet::where('branch_id', $branchId)
-            ->whereDate('date', today())
-            ->with('entries')
-            ->first();
-
-        $todayEntries = $todaySheet
-            ? $todaySheet->entries
-                ->filter(fn($e) => filled($e->appointment_number))
-                ->map(fn($e) => [
-                    'appointment_number' => $e->appointment_number,
-                    'patient_name'       => $e->patient_name,
-                ])
-                ->unique('appointment_number')
-                ->values()
-                ->all()
-            : [];
-
         return Inertia::render('reception/overpaid/index', [
             'entries'      => $entries,
             'tab'          => $tab,
             'pendingCount' => $pendingCount,
-            'todayEntries' => $todayEntries,
         ]);
     }
 
