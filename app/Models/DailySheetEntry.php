@@ -32,6 +32,15 @@ class DailySheetEntry extends Model
         'outstanding_paid_method',
         'outstanding_paid_amount',
         'doctor_id',
+        'technician_employee_id',
+        'supply_orthodontic_brush',
+        'supply_interdental_brush',
+        'supply_dental_floss',
+        'supply_wax',
+        'supply_retainer_case',
+        'supply_removable_app_case',
+        'entry_notes',
+        'is_morning_entry',
     ];
 
     protected $casts = [
@@ -42,8 +51,15 @@ class DailySheetEntry extends Model
         'storepay_amount'          => 'integer',
         'mobile_amount'            => 'integer',
         'outstanding_amount'       => 'integer',
-        'outstanding_paid_at'      => 'datetime',
-        'outstanding_paid_amount'  => 'integer',
+        'outstanding_paid_at'         => 'datetime',
+        'outstanding_paid_amount'     => 'integer',
+        'supply_orthodontic_brush'    => 'integer',
+        'supply_interdental_brush'    => 'integer',
+        'supply_dental_floss'         => 'integer',
+        'supply_wax'                  => 'integer',
+        'supply_retainer_case'        => 'integer',
+        'supply_removable_app_case'   => 'integer',
+        'is_morning_entry'            => 'boolean',
     ];
 
     public function dailySheet(): BelongsTo

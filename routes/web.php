@@ -299,6 +299,7 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     // Өдрийн тооцоо
     Route::get('/daily-sheet', [DailySheetController::class, 'index'])->name('daily-sheet.index');
     Route::post('/daily-sheet/save', [DailySheetController::class, 'save'])->name('daily-sheet.save');
+    Route::post('/daily-sheet/submit-morning', [DailySheetController::class, 'submitMorning'])->name('daily-sheet.submit-morning');
     Route::post('/daily-sheet/submit', [DailySheetController::class, 'submit'])->name('daily-sheet.submit');
     Route::post('/daily-sheet/pay-outstanding/{entry}', [DailySheetController::class, 'payOutstanding'])->name('daily-sheet.pay-outstanding');
 

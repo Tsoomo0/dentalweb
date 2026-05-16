@@ -17,11 +17,16 @@ class DailySheet extends Model
         'receptionist_id',
         'status',
         'submitted_at',
+        'supplies',
+        'morning_submitted_at',
+        'morning_receptionist_id',
     ];
 
     protected $casts = [
-        'date'         => 'date:Y-m-d',
-        'submitted_at' => 'datetime',
+        'date'                 => 'date:Y-m-d',
+        'submitted_at'         => 'datetime',
+        'morning_submitted_at' => 'datetime',
+        'supplies'             => 'array',
     ];
 
     public function branch(): BelongsTo
@@ -32,6 +37,11 @@ class DailySheet extends Model
     public function receptionist(): BelongsTo
     {
         return $this->belongsTo(User::class, 'receptionist_id');
+    }
+
+    public function morningReceptionist(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'morning_receptionist_id');
     }
 
     public function entries(): HasMany

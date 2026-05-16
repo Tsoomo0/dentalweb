@@ -26,7 +26,7 @@ class DailySheetAdminController extends Controller
 
         [$year, $mon] = explode('-', $month);
 
-        $sheetsQuery = DailySheet::with(['branch', 'receptionist', 'entries.doctor', 'entries.user'])
+        $sheetsQuery = DailySheet::with(['branch', 'receptionist', 'morningReceptionist', 'entries.doctor', 'entries.user'])
             ->when($mode === 'month',
                 fn($q) => $q->whereYear('date', $year)->whereMonth('date', $mon),
                 fn($q) => $q->whereDate('date', $date)
@@ -282,9 +282,13 @@ class DailySheetAdminController extends Controller
         }
 
         $sheet->update([
-            'submitted_at'    => null,
-            'receptionist_id' => null,
+            'submitted_at'            => null,
+            'receptionist_id'         => null,
+            'morning_submitted_at'    => null,
+            'morning_receptionist_id' => null,
         ]);
+
+        $sheet->entries()->update(['is_morning_entry' => false]);
 
         return back()->with('success', 'Тооцоо нээгдлээ. Ресепшн засварлах боломжтой болов.');
     }
@@ -369,30 +373,47 @@ class DailySheetAdminController extends Controller
         ];
 
         return [
-            'id'           => $sheet->id,
-            'date'         => $sheet->date->toDateString(),
-            'branch'       => $sheet->branch?->name,
-            'branch_id'    => $sheet->branch_id,
-            'is_confirmed' => $sheet->submitted_at !== null,
-            'submitted_at' => $sheet->submitted_at?->toDateTimeString(),
-            'receptionist' => $sheet->receptionist?->name,
-            'totals'       => $totals,
-            'entries'      => $entries->map(fn($e) => [
-                'id'                 => $e->id,
-                'patient_name'       => $e->patient_name,
-                'gender'             => $e->gender,
-                'diagnosis'          => $e->diagnosis,
-                'appointment_number' => $e->appointment_number,
-                'discount'           => $e->discount,
-                'mobile_amount'      => $e->mobile_amount,
-                'card_amount'        => $e->card_amount,
-                'cash_amount'        => $e->cash_amount,
-                'storepay_amount'    => $e->storepay_amount,
-                'total_amount'       => $e->total_amount,
-                'outstanding_amount' => $e->outstanding_amount,
-                'doctor_id'          => $e->doctor_id,
-                'doctor_name'        => $e->doctor?->name,
-                'receptionist_name'  => $e->user?->name,
+            'id'                   => $sheet->id,
+            'date'                 => $sheet->date->toDateString(),
+            'branch'               => $sheet->branch?->name,
+            'branch_id'            => $sheet->branch_id,
+            'is_confirmed'         => $sheet->submitted_at !== null,
+            'submitted_at'         => $sheet->submitted_at?->toDateTimeString(),
+            'receptionist'         => $sheet->receptionist?->name,
+            'morning_confirmed'    => $sheet->morning_submitted_at !== null,
+            'morning_submitted_at' => $sheet->morning_submitted_at?->toDateTimeString(),
+            'morning_receptionist' => $sheet->morningReceptionist?->name,
+            'totals'               => $totals,
+            'entries'              => $entries->map(fn($e) => [
+                'id'                        => $e->id,
+                'patient_name'              => $e->patient_name,
+                'gender'                    => $e->gender,
+                'diagnosis'                 => $e->diagnosis,
+                'appointment_number'        => $e->appointment_number,
+                'discount'                  => $e->discount,
+                'mobile_amount'             => $e->mobile_amount,
+                'card_amount'               => $e->card_amount,
+                'cash_amount'               => $e->cash_amount,
+                'storepay_amount'           => $e->storepay_amount,
+                'total_amount'              => $e->total_amount,
+                'outstanding_amount'        => $e->outstanding_amount,
+                'doctor_id'                 => $e->doctor_id,
+                'doctor_name'               => $e->doctor?->name,
+                'technician_employee_id'    => $e->technician_employee_id,
+                'technician_name'           => $e->technician_employee_id
+                    ? (fn($emp) => $emp ? trim($emp->last_name . ' ' . $emp->first_name) : null)(
+                        \DB::table('employees')->where('id', $e->technician_employee_id)->first(['first_name', 'last_name'])
+                    )
+                    : null,
+                'receptionist_name'         => $e->user?->name,
+                'supply_orthodontic_brush'  => (int) $e->supply_orthodontic_brush,
+                'supply_interdental_brush'  => (int) $e->supply_interdental_brush,
+                'supply_dental_floss'       => (int) $e->supply_dental_floss,
+                'supply_wax'                => (int) $e->supply_wax,
+                'supply_retainer_case'      => (int) $e->supply_retainer_case,
+                'supply_removable_app_case' => (int) $e->supply_removable_app_case,
+                'entry_notes'               => $e->entry_notes,
+                'is_morning_entry'          => (bool) $e->is_morning_entry,
             ])->values()->all(),
         ];
     }

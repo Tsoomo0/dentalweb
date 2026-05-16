@@ -3,7 +3,7 @@ import { shortDoctorName } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Download, Printer, CheckCircle, Clock, Trash2, LockOpen, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -27,6 +27,13 @@ interface Entry {
     doctor_id: number | null;
     doctor_name: string | null;
     receptionist_name: string | null;
+    supply_orthodontic_brush: number;
+    supply_interdental_brush: number;
+    supply_dental_floss: number;
+    supply_wax: number;
+    supply_retainer_case: number;
+    supply_removable_app_case: number;
+    entry_notes: string | null;
 }
 
 interface SheetTotals {
@@ -44,6 +51,9 @@ interface Sheet {
     is_confirmed: boolean;
     submitted_at: string | null;
     receptionist: string | null;
+    morning_confirmed: boolean;
+    morning_submitted_at: string | null;
+    morning_receptionist: string | null;
     totals: SheetTotals;
     entries: Entry[];
 }
@@ -157,6 +167,25 @@ function sumTotals(arr: Sheet[]): SheetTotals {
     }), { total_amount: 0, cash_amount: 0, card_amount: 0, mobile_amount: 0, storepay_amount: 0, outstanding_amount: 0, discount: 0 });
 }
 
+const SUPPLY_COLS = [
+    { key: 'supply_orthodontic_brush'  as const, label: 'Гажигийн сойз' },
+    { key: 'supply_interdental_brush'  as const, label: 'Завсрын сойз' },
+    { key: 'supply_dental_floss'       as const, label: 'Шүдний утас' },
+    { key: 'supply_wax'                as const, label: 'Вакс' },
+    { key: 'supply_retainer_case'      as const, label: 'Бэхжүүлэгчний сав' },
+    { key: 'supply_removable_app_case' as const, label: 'Авагддаг апп сав' },
+];
+
+const rotatedHeaderStyle: React.CSSProperties = {
+    writingMode: 'vertical-lr',
+    transform: 'rotate(180deg)',
+    whiteSpace: 'nowrap',
+    padding: '6px 4px',
+    fontSize: 11,
+    fontWeight: 500,
+    lineHeight: 1.2,
+};
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Хянах самбар', href: '/admin/dashboard' },
     { title: 'Өдрийн тооцоо', href: '/admin/daily-sheets' },
@@ -165,28 +194,109 @@ const breadcrumbs: BreadcrumbItem[] = [
 type Tab = 'sheets' | 'outstanding' | 'reception';
 
 /* ------------------------------------------------------------------ */
+/*  Export / Print dropdown button                                      */
+/* ------------------------------------------------------------------ */
+function ExportMenuButton({ icon, label, branches, colorCls, onAll, onBranch }: {
+    icon: React.ReactNode;
+    label: string;
+    branches: Branch[];
+    colorCls: string;
+    onAll: () => void;
+    onBranch: (id: number, name: string) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const fn = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', fn);
+        return () => document.removeEventListener('mousedown', fn);
+    }, [open]);
+
+    return (
+        <div ref={ref} className="relative">
+            <button onClick={() => setOpen(v => !v)}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${colorCls}`}>
+                {icon}
+                {label}
+                <ChevronDown className={`size-3 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div className="absolute right-0 top-full mt-1 z-50 min-w-40 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-800">
+                        Хэмжээ сонгох
+                    </div>
+                    <button onClick={() => { onAll(); setOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium">
+                        Бүх салбар
+                    </button>
+                    {branches.length > 1 && (
+                        <>
+                            <div className="mx-3 my-0.5 border-t border-gray-100 dark:border-gray-800" />
+                            {branches.map(b => (
+                                <button key={b.id} onClick={() => { onBranch(b.id, b.name); setOpen(false); }}
+                                    className="w-full text-left px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    {b.name}
+                                </button>
+                            ))}
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Entries table (shared between day-mode and month-mode)             */
 /* ------------------------------------------------------------------ */
 function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: (id: number) => void }) {
     return (
-        <div className="overflow-x-auto">
-            <table className="text-xs border-collapse w-full">
-                <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-center w-8">№</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-left">Үйлчлүүлэгч</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-center">Хүйс</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-left">Оношилгоо/Эмчилгээ</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-right">Хөнгөлөлт</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-right">Мобайл</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-right">Карт</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-right">Бэлэн</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-right">Storepay</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-right bg-blue-50 dark:bg-blue-900/20">Нийт дүн</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-right bg-yellow-50 dark:bg-yellow-900/20">Дутуу</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-left">Эмч</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-left">Ресепшн</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 text-center w-10"></th>
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '60vh' }}>
+            <table className="text-xs border-collapse w-full" style={{ minWidth: 1100 }}>
+                <colgroup>
+                    <col style={{ width: 28 }} />
+                    <col />
+                    <col style={{ width: 36 }} />
+                    <col />
+                    <col style={{ width: 60 }} />
+                    <col style={{ width: 60 }} />
+                    <col style={{ width: 60 }} />
+                    <col style={{ width: 60 }} />
+                    <col style={{ width: 60 }} />
+                    <col style={{ width: 70 }} />
+                    <col style={{ width: 60 }} />
+                    <col style={{ width: 72 }} />
+                    <col style={{ width: 72 }} />
+                    {SUPPLY_COLS.map(c => <col key={c.key} style={{ width: 34 }} />)}
+                    <col style={{ width: 120 }} />
+                    <col style={{ width: 32 }} />
+                </colgroup>
+                <thead className="sticky top-0 z-10">
+                    <tr className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400" style={{ verticalAlign: 'bottom' }}>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">№</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Үйлчлүүлэгч</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Хүйс</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Оношилгоо/Эмчилгээ</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Хөнгөлөлт</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Мобайл</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Карт</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Бэлэн</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Storepay</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center bg-blue-50 dark:bg-blue-900/20">Нийт дүн</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center bg-yellow-50 dark:bg-yellow-900/20">Дутуу</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Эмч</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Ресепшн</th>
+                        {SUPPLY_COLS.map(c => (
+                            <th key={c.key} className="border-b border-gray-200 dark:border-gray-700 text-center" style={{ verticalAlign: 'bottom', height: 90 }}>
+                                <span style={rotatedHeaderStyle}>{c.label}</span>
+                            </th>
+                        ))}
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Тэмдэглэл</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -209,6 +319,14 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                             </td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-gray-500">{e.receptionist_name ?? '—'}</td>
+                            {SUPPLY_COLS.map(c => (
+                                <td key={c.key} className="border-b border-gray-100 dark:border-gray-800 px-1 py-1.5 text-center">
+                                    {e[c.key] > 0 ? e[c.key] : <span className="text-gray-300">—</span>}
+                                </td>
+                            ))}
+                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-gray-500 text-xs" style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.entry_notes ?? ''}>
+                                {e.entry_notes || ''}
+                            </td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-1 py-1.5 text-center">
                                 {onDeleteEntry && (
                                     <button
@@ -233,7 +351,7 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.storepay_amount)}</td>
                         <td className="px-2 py-1.5 text-right bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{fmt(sheet.totals.total_amount)}</td>
                         <td className="px-2 py-1.5 text-right bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{fmt(sheet.totals.outstanding_amount)}</td>
-                        <td colSpan={3} />
+                        <td colSpan={10} />
                     </tr>
                 </tfoot>
             </table>
@@ -325,22 +443,27 @@ export default function DailySheetsIndex({
     const sortedDates = Object.keys(sheetsByDate).sort((a, b) => b.localeCompare(a));
 
     /* ---------- Export ---------- */
-    const exportExcel = () => {
+    const exportExcel = (branchId?: number) => {
         const params = new URLSearchParams({
             mode: filters.mode,
             date: filters.date,
             month: filters.month,
         });
         if (filters.doctorId) params.set('doctor_id', filters.doctorId);
-        if (filters.branchId) params.set('branch_id', filters.branchId);
+        const bid = branchId ?? (filters.branchId ? Number(filters.branchId) : undefined);
+        if (bid) params.set('branch_id', String(bid));
         window.location.href = `/admin/daily-sheets/export-excel?${params}`;
     };
 
-    const handlePrint = () => {
+    const handlePrint = (branchId?: number, branchName?: string) => {
+        const targetSheets = branchId ? sheets.filter(s => s.branch_id === branchId) : sheets;
+        const totals       = branchId ? sumTotals(targetSheets) : grandTotals;
+        const titleLabel   = branchId ? `${periodLabel} — ${branchName}` : periodLabel;
+
         const win = window.open('', '_blank', 'width=1280,height=900');
         if (!win) return;
 
-        const rows = sheets.flatMap(sheet =>
+        const rows = targetSheets.flatMap(sheet =>
             sheet.entries.map((e, i) => `
                 <tr>
                     <td>${fmtDate(sheet.date)}</td>
@@ -364,7 +487,7 @@ export default function DailySheetsIndex({
 
         win.document.write(`<!DOCTYPE html><html><head>
             <meta charset="UTF-8">
-            <title>Өдрийн тооцоо — ${periodLabel}</title>
+            <title>Өдрийн тооцоо — ${titleLabel}</title>
             <style>
                 body{font-family:Arial,sans-serif;font-size:9pt;margin:10mm}
                 h2{margin-bottom:8px;font-size:13pt}
@@ -375,7 +498,7 @@ export default function DailySheetsIndex({
                 @page{size:landscape;margin:10mm}
             </style>
             </head><body>
-            <h2>Өдрийн тооцоо — ${periodLabel}</h2>
+            <h2>Өдрийн тооцоо — ${titleLabel}</h2>
             <table>
                 <thead><tr>
                     <th>Огноо</th><th>Салбар</th><th>№</th><th>Үйлчлүүлэгч</th><th>Хүйс</th>
@@ -385,13 +508,13 @@ export default function DailySheetsIndex({
                 <tbody>${rows}</tbody>
                 <tfoot><tr>
                     <td colspan="6" style="text-align:right">Нийт дүн:</td>
-                    <td style="text-align:right">${grandTotals.discount.toLocaleString()}</td>
-                    <td style="text-align:right">${grandTotals.mobile_amount.toLocaleString()}</td>
-                    <td style="text-align:right">${grandTotals.card_amount.toLocaleString()}</td>
-                    <td style="text-align:right">${grandTotals.cash_amount.toLocaleString()}</td>
-                    <td style="text-align:right">${grandTotals.storepay_amount.toLocaleString()}</td>
-                    <td style="text-align:right">${grandTotals.total_amount.toLocaleString()}</td>
-                    <td style="text-align:right">${grandTotals.outstanding_amount.toLocaleString()}</td>
+                    <td style="text-align:right">${totals.discount.toLocaleString()}</td>
+                    <td style="text-align:right">${totals.mobile_amount.toLocaleString()}</td>
+                    <td style="text-align:right">${totals.card_amount.toLocaleString()}</td>
+                    <td style="text-align:right">${totals.cash_amount.toLocaleString()}</td>
+                    <td style="text-align:right">${totals.storepay_amount.toLocaleString()}</td>
+                    <td style="text-align:right">${totals.total_amount.toLocaleString()}</td>
+                    <td style="text-align:right">${totals.outstanding_amount.toLocaleString()}</td>
                     <td colspan="2"></td>
                 </tr></tfoot>
             </table></body></html>`);
@@ -488,16 +611,22 @@ export default function DailySheetsIndex({
 
             {tab === 'sheets' && (
                 <div className="ml-auto flex items-center gap-2">
-                    <button onClick={exportExcel}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
-                        <Download className="size-3.5" />
-                        Excel татах
-                    </button>
-                    <button onClick={handlePrint}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        <Printer className="size-3.5" />
-                        Хэвлэх / PDF
-                    </button>
+                    <ExportMenuButton
+                        icon={<Download className="size-3.5" />}
+                        label="Excel татах"
+                        branches={branches}
+                        colorCls="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
+                        onAll={() => exportExcel()}
+                        onBranch={(id) => exportExcel(id)}
+                    />
+                    <ExportMenuButton
+                        icon={<Printer className="size-3.5" />}
+                        label="Хэвлэх / PDF"
+                        branches={branches}
+                        colorCls="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onAll={() => handlePrint()}
+                        onBranch={(id, name) => handlePrint(id, name)}
+                    />
                 </div>
             )}
         </div>
@@ -576,9 +705,15 @@ export default function DailySheetsIndex({
                                                         {sheet.entries.length} бүртгэл
                                                     </span>
 
+                                                    {sheet.morning_confirmed && (
+                                                        <span className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                                                            ☀️ Өглөө · {sheet.morning_receptionist}
+                                                        </span>
+                                                    )}
+
                                                     {sheet.is_confirmed ? (
                                                         <span className="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-2 py-0.5 rounded-full">
-                                                            Баталгаажсан · {sheet.receptionist}
+                                                            🌙 Баталгаажсан · {sheet.receptionist}
                                                         </span>
                                                     ) : (
                                                         <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2 py-0.5 rounded-full">
@@ -609,7 +744,7 @@ export default function DailySheetsIndex({
                                                     <div className="border-t border-gray-200 dark:border-gray-700">
                                                         <EntriesTable sheet={sheet} onDeleteEntry={(id) => openModal("delete-entry", id)} />
                                                         <div className="flex justify-end gap-2 px-4 py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-                                                            {sheet.is_confirmed && (
+                                                            {(sheet.is_confirmed || sheet.morning_confirmed) && (
                                                                 <button onClick={() => openModal('unlock', sheet.id)}
                                                                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
                                                                     <LockOpen className="size-3.5" /> Нээх
@@ -691,9 +826,14 @@ export default function DailySheetsIndex({
                                                                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                                                                             {sheet.branch ?? 'Салбаргүй'}
                                                                         </span>
+                                                                        {sheet.morning_confirmed && (
+                                                                            <span className="text-xs text-amber-600 dark:text-amber-400">
+                                                                                ☀️ {sheet.morning_receptionist}
+                                                                            </span>
+                                                                        )}
                                                                         {sheet.is_confirmed ? (
                                                                             <span className="text-xs text-green-600 dark:text-green-400">
-                                                                                Баталгаажсан · {sheet.receptionist}
+                                                                                🌙 Баталгаажсан · {sheet.receptionist}
                                                                             </span>
                                                                         ) : (
                                                                             <span className="text-xs text-gray-400">Засварлаж байна</span>

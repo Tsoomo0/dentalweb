@@ -31,7 +31,7 @@ class DailySheetController extends Controller
         $userId   = Auth::id();
         $date     = $request->get('date', today()->toDateString());
 
-        $sheet = DailySheet::with(['entries.doctor', 'entries.user', 'receptionist'])
+        $sheet = DailySheet::with(['entries.doctor', 'entries.user', 'receptionist', 'morningReceptionist'])
             ->where('branch_id', $branchId)
             ->whereDate('date', $date)
             ->first();
@@ -42,6 +42,17 @@ class DailySheetController extends Controller
             ->get(['id', 'name']);
 
         $treatments = Treatment::orderBy('title')->get(['id', 'title']);
+
+        $technicians = \DB::table('employees')
+            ->join('positions', 'employees.position_id', '=', 'positions.id')
+            ->where('positions.name', 'Рентген техникч')
+            ->where('employees.status', 'active')
+            ->when($branchId, fn($q) => $q->where('employees.branch_id', $branchId))
+            ->whereNull('employees.deleted_at')
+            ->get(['employees.id', 'employees.first_name', 'employees.last_name'])
+            ->map(fn($e) => ['id' => $e->id, 'name' => trim($e->last_name . ' ' . $e->first_name)])
+            ->values()
+            ->all();
 
         $outstandingEntries = DailySheetEntry::whereHas('dailySheet', fn($q) => $q->where('branch_id', $branchId))
             ->where('outstanding_amount', '>', 0)
@@ -70,6 +81,7 @@ class DailySheetController extends Controller
             'date'                => $date,
             'doctors'             => $doctors,
             'treatments'          => $treatments,
+            'technicians'         => $technicians,
             'auth_user'           => ['id' => $userId, 'name' => Auth::user()->name],
             'outstanding_entries' => $outstandingEntries,
         ]);
@@ -82,19 +94,27 @@ class DailySheetController extends Controller
         $date     = $request->input('date', today()->toDateString());
 
         $request->validate([
-            'date'                         => 'required|date',
-            'entries'                      => 'array',
-            'entries.*.patient_name'       => 'nullable|string|max:255',
-            'entries.*.gender'             => 'nullable|string|max:10',
-            'entries.*.diagnosis'          => 'nullable|string|max:500',
-            'entries.*.appointment_number' => 'nullable|string|max:50',
-            'entries.*.discount'           => 'nullable|integer|min:0',
-            'entries.*.mobile_amount'      => 'nullable|integer|min:0',
-            'entries.*.card_amount'        => 'nullable|integer|min:0',
-            'entries.*.cash_amount'        => 'nullable|integer|min:0',
-            'entries.*.storepay_amount'    => 'nullable|integer|min:0',
-            'entries.*.outstanding_amount' => 'nullable|integer|min:0',
-            'entries.*.doctor_id'          => 'nullable|exists:doctors,id',
+            'date'                              => 'required|date',
+            'entries'                           => 'array',
+            'entries.*.patient_name'            => 'nullable|string|max:255',
+            'entries.*.gender'                  => 'nullable|string|max:10',
+            'entries.*.diagnosis'               => 'nullable|string|max:500',
+            'entries.*.appointment_number'      => 'nullable|string|max:50',
+            'entries.*.discount'                => 'nullable|integer|min:0',
+            'entries.*.mobile_amount'           => 'nullable|integer|min:0',
+            'entries.*.card_amount'             => 'nullable|integer|min:0',
+            'entries.*.cash_amount'             => 'nullable|integer|min:0',
+            'entries.*.storepay_amount'         => 'nullable|integer|min:0',
+            'entries.*.outstanding_amount'           => 'nullable|integer|min:0',
+            'entries.*.doctor_id'                    => 'nullable|exists:doctors,id',
+            'entries.*.technician_employee_id'       => 'nullable|exists:employees,id',
+            'entries.*.supply_orthodontic_brush'     => 'nullable|integer|min:0',
+            'entries.*.supply_interdental_brush'     => 'nullable|integer|min:0',
+            'entries.*.supply_dental_floss'          => 'nullable|integer|min:0',
+            'entries.*.supply_wax'                   => 'nullable|integer|min:0',
+            'entries.*.supply_retainer_case'         => 'nullable|integer|min:0',
+            'entries.*.supply_removable_app_case'    => 'nullable|integer|min:0',
+            'entries.*.entry_notes'                  => 'nullable|string|max:500',
         ]);
 
         DB::transaction(function () use ($request, $branchId, $userId, $date) {
@@ -111,7 +131,8 @@ class DailySheetController extends Controller
             $sheet->entries()
                 ->where('user_id', $userId)
                 ->whereNull('source')
-                ->whereNull('outstanding_paid_at')   // ← Paid entry-уудыг устгахгүй
+                ->whereNull('outstanding_paid_at')
+                ->where('is_morning_entry', false)   // ← Өглөөний мөрүүдийг устгахгүй
                 ->delete();
 
             // Хадгалагдсан paid entry-уудын identifying data — давхар үүсэхээс сэргийлэх.
@@ -149,27 +170,61 @@ class DailySheetController extends Controller
                     : null;
 
                 DailySheetEntry::create([
-                    'daily_sheet_id'     => $sheet->id,
-                    'user_id'            => $userId,
-                    'row_order'          => $rowIdx++,
-                    'patient_name'       => $name ?: null,
-                    'gender'             => $row['gender'] ?? null,
-                    'diagnosis'          => trim($row['diagnosis'] ?? '') ?: null,
-                    'appointment_number' => $aptNumber,
-                    'appointment_id'     => $aptId,
-                    'discount'           => $discount,
-                    'mobile_amount'      => $mobile,
-                    'card_amount'        => $card,
-                    'cash_amount'        => $cash,
-                    'storepay_amount'    => $storepay,
-                    'total_amount'       => $sum,
-                    'outstanding_amount' => $outstd,
-                    'doctor_id'          => $row['doctor_id'] ?? null,
+                    'daily_sheet_id'             => $sheet->id,
+                    'user_id'                    => $userId,
+                    'row_order'                  => $rowIdx++,
+                    'patient_name'               => $name ?: null,
+                    'gender'                     => $row['gender'] ?? null,
+                    'diagnosis'                  => trim($row['diagnosis'] ?? '') ?: null,
+                    'appointment_number'         => $aptNumber,
+                    'appointment_id'             => $aptId,
+                    'discount'                   => $discount,
+                    'mobile_amount'              => $mobile,
+                    'card_amount'                => $card,
+                    'cash_amount'                => $cash,
+                    'storepay_amount'            => $storepay,
+                    'total_amount'               => $sum,
+                    'outstanding_amount'         => $outstd,
+                    'doctor_id'                  => $row['doctor_id'] ?? null,
+                    'technician_employee_id'     => $row['technician_employee_id'] ?? null,
+                    'supply_orthodontic_brush'   => (int) ($row['supply_orthodontic_brush'] ?? 0),
+                    'supply_interdental_brush'   => (int) ($row['supply_interdental_brush'] ?? 0),
+                    'supply_dental_floss'        => (int) ($row['supply_dental_floss'] ?? 0),
+                    'supply_wax'                 => (int) ($row['supply_wax'] ?? 0),
+                    'supply_retainer_case'       => (int) ($row['supply_retainer_case'] ?? 0),
+                    'supply_removable_app_case'  => (int) ($row['supply_removable_app_case'] ?? 0),
+                    'entry_notes'                => trim($row['entry_notes'] ?? '') ?: null,
                 ]);
             }
         });
 
         return back()->with('success', 'Хадгалагдлаа.');
+    }
+
+    public function submitMorning(Request $request): RedirectResponse
+    {
+        $branchId = $this->branchId();
+        $date     = $request->input('date', today()->toDateString());
+
+        $request->validate(['date' => 'required|date']);
+
+        $sheet = DailySheet::firstOrCreate(
+            ['branch_id' => $branchId, 'date' => $date],
+            ['status' => 'submitted']
+        );
+
+        if ($sheet->morning_submitted_at !== null) {
+            return back()->with('info', 'Өглөөний баталгаажуулалт хийгдсэн байна.');
+        }
+
+        $sheet->update([
+            'morning_receptionist_id' => Auth::id(),
+            'morning_submitted_at'    => now(),
+        ]);
+
+        $sheet->entries()->update(['is_morning_entry' => true]);
+
+        return back()->with('success', 'Өглөөний баталгаажуулалт хийгдлээ.');
     }
 
     public function submit(Request $request): RedirectResponse
@@ -349,14 +404,25 @@ class DailySheetController extends Controller
         return $current;
     }
 
+    private function technicianName(?int $id): ?string
+    {
+        if (!$id) return null;
+        $e = \DB::table('employees')->where('id', $id)->first(['first_name', 'last_name']);
+        return $e ? trim($e->last_name . ' ' . $e->first_name) : null;
+    }
+
     private function mapSheet(DailySheet $sheet, int $currentUserId): array
     {
         return [
-            'id'           => $sheet->id,
-            'date'         => $sheet->date->toDateString(),
-            'is_confirmed' => $sheet->submitted_at !== null,
-            'submitted_at' => $sheet->submitted_at?->toDateTimeString(),
-            'receptionist' => $sheet->receptionist?->name,
+            'id'                      => $sheet->id,
+            'date'                    => $sheet->date->toDateString(),
+            'is_confirmed'            => $sheet->submitted_at !== null,
+            'submitted_at'            => $sheet->submitted_at?->toDateTimeString(),
+            'receptionist'            => $sheet->receptionist?->name,
+            'morning_confirmed'       => $sheet->morning_submitted_at !== null,
+            'morning_submitted_at'    => $sheet->morning_submitted_at?->toDateTimeString(),
+            'morning_receptionist'    => $sheet->morningReceptionist?->name,
+            'supplies'                => $sheet->supplies,
             'entries'      => $sheet->entries
                 ->sortBy(fn($e) => [$e->user_id === $currentUserId ? 0 : 1, $e->row_order])
                 ->values()
@@ -375,10 +441,20 @@ class DailySheetController extends Controller
                     'cash_amount'        => $e->cash_amount,
                     'storepay_amount'    => $e->storepay_amount,
                     'total_amount'       => $e->total_amount,
-                    'outstanding_amount'  => $e->outstanding_amount,
-                    'outstanding_paid_at' => $e->outstanding_paid_at?->toDateString(),
-                    'doctor_id'           => $e->doctor_id,
-                    'doctor_name'         => $e->doctor?->name,
+                    'outstanding_amount'          => $e->outstanding_amount,
+                    'outstanding_paid_at'         => $e->outstanding_paid_at?->toDateString(),
+                    'doctor_id'                   => $e->doctor_id,
+                    'doctor_name'                 => $e->doctor?->name,
+                    'technician_employee_id'      => $e->technician_employee_id,
+                    'technician_name'             => $this->technicianName($e->technician_employee_id),
+                    'supply_orthodontic_brush'    => $e->supply_orthodontic_brush,
+                    'supply_interdental_brush'    => $e->supply_interdental_brush,
+                    'supply_dental_floss'         => $e->supply_dental_floss,
+                    'supply_wax'                  => $e->supply_wax,
+                    'supply_retainer_case'        => $e->supply_retainer_case,
+                    'supply_removable_app_case'   => $e->supply_removable_app_case,
+                    'entry_notes'                 => $e->entry_notes,
+                    'is_morning_entry'            => (bool) $e->is_morning_entry,
                 ])->all(),
         ];
     }
