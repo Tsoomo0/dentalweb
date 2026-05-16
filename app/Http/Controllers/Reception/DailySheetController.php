@@ -128,6 +128,15 @@ class DailySheetController extends Controller
                 return;
             }
 
+            // Устгахын өмнө ашиглагдсан overpaid мэдээллийг хадгална
+            $usedOverpaidMap = $sheet->entries()
+                ->where('user_id', $userId)
+                ->whereNull('source')
+                ->whereNotNull('overpaid_used_at')
+                ->whereNotNull('appointment_number')
+                ->get(['appointment_number', 'overpaid_used_at', 'overpaid_used_receipt', 'overpaid_used_method', 'overpaid_used_amount'])
+                ->keyBy('appointment_number');
+
             // source='treatment' (auto) болон outstanding_paid_at тавьсан (paid) мөрүүдийг хадгалж үлдээнэ.
             $sheet->entries()
                 ->where('user_id', $userId)
@@ -179,6 +188,8 @@ class DailySheetController extends Controller
                     ? \App\Models\Appointment::where('appointment_number', $aptNumber)->value('id')
                     : null;
 
+                $usedData = $aptNumber ? $usedOverpaidMap->get($aptNumber) : null;
+
                 DailySheetEntry::create([
                     'daily_sheet_id'             => $sheet->id,
                     'user_id'                    => $userId,
@@ -197,6 +208,10 @@ class DailySheetController extends Controller
                     'total_amount'               => $total,
                     'overpaid_amount'            => $overpaid,
                     'outstanding_amount'         => $outstd,
+                    'overpaid_used_at'           => $usedData?->overpaid_used_at,
+                    'overpaid_used_receipt'      => $usedData?->overpaid_used_receipt,
+                    'overpaid_used_method'       => $usedData?->overpaid_used_method,
+                    'overpaid_used_amount'       => $usedData?->overpaid_used_amount,
                     'doctor_id'                  => $row['doctor_id'] ?? null,
                     'technician_employee_id'     => $row['technician_employee_id'] ?? null,
                     'supply_orthodontic_brush'   => (int) ($row['supply_orthodontic_brush'] ?? 0),
