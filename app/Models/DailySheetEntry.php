@@ -47,6 +47,11 @@ class DailySheetEntry extends Model
         'overpaid_used_receipt',
         'overpaid_used_method',
         'overpaid_used_amount',
+        'refund_amount',
+        'refunded_at',
+        'refund_method',
+        'refund_reason',
+        'refunded_by',
     ];
 
     protected $casts = [
@@ -70,6 +75,8 @@ class DailySheetEntry extends Model
         'overpaid_amount'             => 'integer',
         'overpaid_used_at'            => 'datetime',
         'overpaid_used_amount'        => 'integer',
+        'refund_amount'               => 'integer',
+        'refunded_at'                 => 'datetime',
     ];
 
     public function dailySheet(): BelongsTo

@@ -52,7 +52,7 @@ type Tab = 'all' | 'apt' | 'billing' | 'job' | 'leave' | 'payroll' | 'library' |
 
 /* ── Filters ──────────────────────────────────────────────────────────── */
 const isApt        = (n: NotifItem) => ['NewAppointment','AppointmentBookedPatient','AppointmentConfirmedPatient','PatientAppointmentRequested'].includes(n.notif_type);
-const isBilling    = (n: NotifItem) => n.notif_type === 'DailySheetConfirmed' || n.notif_type === 'OutstandingPaid';
+const isBilling    = (n: NotifItem) => ['DailySheetConfirmed','OutstandingPaid','OverpaidUsed','RefundProcessed'].includes(n.notif_type);
 const isJob        = (n: NotifItem) => n.notif_type === 'NewJobApplication';
 const isLeave      = (n: NotifItem) => ['LeaveRequestSubmitted','LeaveRequestDecision','VacationRequestSubmitted','VacationRequestDecision'].includes(n.notif_type);
 const isPayroll    = (n: NotifItem) => n.notif_type === 'PayrollSlipSent';
@@ -95,6 +95,8 @@ function getNotifMeta(n: NotifItem): { icon: React.ElementType; bg: string; fg: 
     switch (n.notif_type) {
         case 'DailySheetConfirmed':       return { icon: CheckCircle2,     bg: 'bg-green-100 dark:bg-green-900/30',   fg: 'text-green-600 dark:text-green-400' };
         case 'OutstandingPaid':           return { icon: DollarSign,        bg: 'bg-yellow-100 dark:bg-yellow-900/30', fg: 'text-yellow-600 dark:text-yellow-400' };
+        case 'OverpaidUsed':              return { icon: DollarSign,        bg: 'bg-green-100 dark:bg-green-900/30',   fg: 'text-green-600 dark:text-green-400' };
+        case 'RefundProcessed':           return { icon: DollarSign,        bg: 'bg-red-100 dark:bg-red-900/30',       fg: 'text-red-600 dark:text-red-400' };
         case 'NewJobApplication':         return { icon: BriefcaseBusiness, bg: 'bg-purple-100 dark:bg-purple-900/30', fg: 'text-purple-600 dark:text-purple-400' };
         case 'LeaveRequestSubmitted':     return { icon: CalendarDays,      bg: 'bg-orange-100 dark:bg-orange-900/30', fg: 'text-orange-600 dark:text-orange-400' };
         case 'VacationRequestSubmitted':  return { icon: Umbrella,          bg: 'bg-sky-100 dark:bg-sky-900/30',       fg: 'text-sky-600 dark:text-sky-400' };
@@ -146,6 +148,10 @@ function NotifContent({ n }: { n: NotifItem }) {
             return <><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.branch_name} — өдрийн тооцоо баталгаажлаа</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.receptionist_name} · {d.entry_count} бүртгэл · {d.total_amount?.toLocaleString()}₮</p></>;
         case 'OutstandingPaid':
             return <><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Дутуу тооцоо төлөгдлөө — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.receptionist_name} · {d.branch_name} · {d.amount?.toLocaleString()}₮</p></>;
+        case 'OverpaidUsed':
+            return <><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Илүү тооцоо ашиглагдлаа — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.receptionist_name} · {d.branch_name} · {d.amount?.toLocaleString()}₮{d.used_receipt ? ` · ${d.used_receipt}` : ''}</p></>;
+        case 'RefundProcessed':
+            return <><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Буцаалт хийгдлээ — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.receptionist_name} · {d.branch_name} · {d.amount?.toLocaleString()}₮ ({d.method}){d.reason ? ` · ${d.reason}` : ''}</p></>;
         case 'NewJobApplication':
             return <><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Шинэ ажлын анкет — {d.applicant_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.phone}{d.position ? ` · ${d.position}` : ''}</p></>;
         case 'LeaveRequestSubmitted':

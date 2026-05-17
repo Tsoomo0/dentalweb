@@ -237,6 +237,8 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Дутуу тооцоо (бүх цаг үе, бүх салбар)
     Route::get('outstanding', [DailySheetAdminController::class, 'outstanding'])->name('admin.outstanding');
     Route::get('outstanding/export', [DailySheetAdminController::class, 'exportOutstanding'])->name('admin.outstanding.export');
+    Route::get('overpaid', [DailySheetAdminController::class, 'overpaid'])->name('admin.overpaid');
+    Route::get('refunds',  [DailySheetAdminController::class, 'refunds'])->name('admin.refunds');
 
     // Системийн тохиргоо
     Route::get('settings', [SettingController::class, 'index'])->name('settings');
@@ -304,6 +306,9 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     Route::post('/daily-sheet/pay-outstanding/{entry}', [DailySheetController::class, 'payOutstanding'])->name('daily-sheet.pay-outstanding');
     Route::post('/daily-sheet/apply-overpaid/{entry}', [DailySheetController::class, 'applyOverpaid'])->name('daily-sheet.apply-overpaid');
     Route::get('/overpaid', [DailySheetController::class, 'overpaid'])->name('overpaid.index');
+
+    Route::post('/daily-sheet/refund/{entry}', [DailySheetController::class, 'processRefund'])->name('daily-sheet.refund');
+    Route::get('/refunds', [DailySheetController::class, 'refunds'])->name('refunds.index');
 
     // Дутуу тооцоо
     Route::get('/outstanding', [DailySheetController::class, 'outstanding'])->name('outstanding.list');

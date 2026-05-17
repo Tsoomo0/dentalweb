@@ -186,6 +186,87 @@ class DailySheetAdminController extends Controller
         ]);
     }
 
+    /** Илүү тооцоо — Admin view */
+    public function overpaid(Request $request): Response
+    {
+        $branchId = $request->get('branchId') ?: null;
+        $tab      = $request->get('tab', 'all'); // all | pending | used
+
+        $entries = DailySheetEntry::with(['dailySheet.branch', 'doctor', 'user'])
+            ->where('overpaid_amount', '>', 0)
+            ->when($branchId, fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->where('branch_id', $branchId)))
+            ->when($tab === 'pending', fn($q) => $q->whereNull('overpaid_used_at'))
+            ->when($tab === 'used',    fn($q) => $q->whereNotNull('overpaid_used_at'))
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn($e) => [
+                'id'                    => $e->id,
+                'date'                  => $e->dailySheet->date->toDateString(),
+                'branch'                => $e->dailySheet->branch?->name,
+                'patient_name'          => $e->patient_name,
+                'diagnosis'             => $e->diagnosis,
+                'appointment_number'    => $e->appointment_number,
+                'overpaid_amount'       => (int) $e->overpaid_amount,
+                'overpaid_used_at'      => $e->overpaid_used_at?->toDateTimeString(),
+                'overpaid_used_receipt' => $e->overpaid_used_receipt,
+                'overpaid_used_method'  => $e->overpaid_used_method,
+                'overpaid_used_amount'  => $e->overpaid_used_amount,
+                'doctor_name'           => $e->doctor?->name,
+                'receptionist_name'     => $e->user?->name,
+            ])->values()->all();
+
+        return Inertia::render('admin/overpaid/index', [
+            'entries'  => $entries,
+            'branches' => Branch::orderBy('name')->get(['id', 'name']),
+            'filters'  => compact('branchId', 'tab'),
+        ]);
+    }
+
+    /** Буцаалт — Admin view */
+    public function refunds(Request $request): Response
+    {
+        $branchId = $request->get('branchId') ?: null;
+        $mode     = $request->get('mode', 'month'); // day | week | month | all
+        $date     = $request->get('date', today()->toDateString());
+        $month    = $request->get('month', today()->format('Y-m'));
+        [$year, $mon] = explode('-', $month);
+
+        $entries = DailySheetEntry::with(['dailySheet.branch', 'doctor', 'user'])
+            ->where('refund_amount', '>', 0)
+            ->whereNotNull('refunded_at')
+            ->when($branchId, fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->where('branch_id', $branchId)))
+            ->when($mode === 'day',   fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereDate('date', $date)))
+            ->when($mode === 'week',  fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereBetween('date', [
+                now()->parse($date)->subDays(6)->toDateString(), $date
+            ])))
+            ->when($mode === 'month', fn($q) => $q->whereHas('dailySheet', fn($q2) => $q2->whereYear('date', $year)->whereMonth('date', $mon)))
+            ->orderByDesc('refunded_at')
+            ->get()
+            ->map(fn($e) => [
+                'id'                  => $e->id,
+                'date'                => $e->dailySheet->date->toDateString(),
+                'branch'              => $e->dailySheet->branch?->name,
+                'patient_name'        => $e->patient_name,
+                'diagnosis'           => $e->diagnosis,
+                'appointment_number'  => $e->appointment_number,
+                'refund_amount'       => (int) $e->refund_amount,
+                'refund_method'       => $e->refund_method,
+                'refund_reason'       => $e->refund_reason,
+                'refunded_at'         => $e->refunded_at?->toDateTimeString(),
+                'doctor_name'         => $e->doctor?->name,
+                'receptionist_name'   => $e->user?->name,
+            ])->values()->all();
+
+        $totalSelected = collect($entries)->sum('refund_amount');
+
+        return Inertia::render('admin/refunds/index', [
+            'entries'       => $entries,
+            'branches'      => Branch::orderBy('name')->get(['id', 'name']),
+            'filters'       => compact('branchId', 'mode', 'date', 'month'),
+            'totalSelected' => (int) $totalSelected,
+        ]);
+    }
+
     public function exportOutstanding(Request $request): StreamedResponse
     {
         $branchId = $request->get('branchId') ?: null;

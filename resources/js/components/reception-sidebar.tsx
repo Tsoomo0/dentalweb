@@ -2,25 +2,48 @@ import { NavReceptionUser } from '@/components/nav-reception-user';
 import {
     Sidebar, SidebarContent, SidebarFooter, SidebarHeader,
     SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-    SidebarGroup, SidebarGroupContent,
+    SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { useAppearance } from '@/hooks/use-appearance';
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, Braces, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, KeyRound, LayoutGrid, Monitor, Moon, Sun, TrendingUp, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
+import { AlertCircle, Braces, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, KeyRound, LayoutGrid, Monitor, Moon, Sun, TrendingUp, Undo2, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import AppLogo from './app-logo';
 
-const navItems = [
-    { title: 'Хяналтын самбар',    url: '/reception/dashboard',           icon: LayoutGrid,   badge: null },
-    { title: 'Цаг захиалга',       url: '/reception/appointments',        icon: CalendarClock, badge: null },
-    { title: 'Эмчилгээний төлбөр', url: '/reception/treatment-payments',  icon: CreditCard,   badge: 'pending_treatment_payments' },
-    { title: 'Өвчтний карт',       url: '/reception/patients',            icon: Users,        badge: null },
-    { title: 'Ортодонт бүртгэл',  url: '/reception/ortho-appliances',    icon: Braces,       badge: null },
-    { title: 'Хэрэглэгч',         url: '/reception/patient-users',       icon: UserCheck,    badge: null },
-    { title: 'Өдрийн тооцоо',      url: '/reception/daily-sheet',        icon: ClipboardList, badge: null },
-    { title: 'Дутуу тооцоо',       url: '/reception/outstanding',         icon: AlertCircle,  badge: null },
-    { title: 'Илүү тооцоо',        url: '/reception/overpaid',            icon: TrendingUp,   badge: null },
-    { title: 'Миний профайл',      url: '/reception/profile',             icon: UserCircle2,  badge: null },
+interface NavItem { title: string; url: string; icon: any; badge: string | null }
+
+const navGroups: { label: string; items: NavItem[] }[] = [
+    {
+        label: 'Үндсэн',
+        items: [
+            { title: 'Хяналтын самбар',    url: '/reception/dashboard',     icon: LayoutGrid,    badge: null },
+            { title: 'Цаг захиалга',       url: '/reception/appointments',  icon: CalendarClock, badge: null },
+        ],
+    },
+    {
+        label: 'Өвчтөн',
+        items: [
+            { title: 'Өвчтний карт',       url: '/reception/patients',         icon: Users,     badge: null },
+            { title: 'Ортодонт бүртгэл',   url: '/reception/ortho-appliances', icon: Braces,    badge: null },
+            { title: 'Хэрэглэгч',          url: '/reception/patient-users',    icon: UserCheck, badge: null },
+        ],
+    },
+    {
+        label: 'Тооцоо',
+        items: [
+            { title: 'Эмчилгээний төлбөр', url: '/reception/treatment-payments', icon: CreditCard,    badge: 'pending_treatment_payments' },
+            { title: 'Өдрийн тооцоо',      url: '/reception/daily-sheet',        icon: ClipboardList, badge: null },
+            { title: 'Дутуу тооцоо',       url: '/reception/outstanding',        icon: AlertCircle,   badge: null },
+            { title: 'Илүү тооцоо',        url: '/reception/overpaid',           icon: TrendingUp,    badge: null },
+            { title: 'Буцаалт',            url: '/reception/refunds',            icon: Undo2,         badge: null },
+        ],
+    },
+    {
+        label: 'Хувийн',
+        items: [
+            { title: 'Миний профайл',      url: '/reception/profile',            icon: UserCircle2,   badge: null },
+        ],
+    },
 ];
 
 interface PageProps {
@@ -71,31 +94,34 @@ export function ReceptionSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <SidebarGroup>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {navItems.map((item) => {
-                                const isActive = url === item.url || url.startsWith(item.url + '?') || (item.url !== '/reception/dashboard' && url.startsWith(item.url + '/'));
-                                const badgeCount = item.badge === 'pending_treatment_payments' ? pendingPayments : 0;
-                                return (
-                                    <SidebarMenuItem key={item.url}>
-                                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                                            <Link href={item.url}>
-                                                <item.icon className="size-4 shrink-0" />
-                                                <span className="flex-1">{item.title}</span>
-                                                {badgeCount > 0 && (
-                                                    <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-                                                        {badgeCount > 9 ? '9+' : badgeCount}
-                                                    </span>
-                                                )}
-                                            </Link>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                );
-                            })}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
+                {navGroups.map((group) => (
+                    <SidebarGroup key={group.label}>
+                        <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {group.items.map((item) => {
+                                    const isActive = url === item.url || url.startsWith(item.url + '?') || (item.url !== '/reception/dashboard' && url.startsWith(item.url + '/'));
+                                    const badgeCount = item.badge === 'pending_treatment_payments' ? pendingPayments : 0;
+                                    return (
+                                        <SidebarMenuItem key={item.url}>
+                                            <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                                                <Link href={item.url}>
+                                                    <item.icon className="size-4 shrink-0" />
+                                                    <span className="flex-1">{item.title}</span>
+                                                    {badgeCount > 0 && (
+                                                        <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                                                            {badgeCount > 9 ? '9+' : badgeCount}
+                                                        </span>
+                                                    )}
+                                                </Link>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    );
+                                })}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                ))}
             </SidebarContent>
 
             <SidebarFooter>

@@ -1,7 +1,7 @@
 import ReceptionLayout from '@/layouts/reception-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { AlertCircle, Calendar, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudOff, Moon, Plus, Search, Sun, Trash2, X } from 'lucide-react';
+import { AlertCircle, Calendar, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudOff, Moon, Plus, Search, Sun, Trash2, Undo2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -45,6 +45,19 @@ interface Entry {
     is_morning_entry: boolean;
     overpaid_amount: number;
     overpaid_used_at?: string | null;
+    refund_amount?: number;
+    refunded_at?: string | null;
+    refund_method?: string | null;
+    refund_reason?: string | null;
+    applied_credits?: AppliedCredit[];
+}
+
+interface AppliedCredit {
+    kind: 'overpaid' | 'outstanding';
+    amount: number;
+    method: 'mobile' | 'card' | 'cash' | 'storepay' | null;
+    from_date: string | null;
+    from_name: string | null;
 }
 
 interface Sheet {
@@ -254,6 +267,28 @@ function NumCell({ value, onChange, readOnly, cls }: {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Payment cell with optional refund overlay                           */
+/* ------------------------------------------------------------------ */
+function PayCellWithRefund({ B, value, onChange, readOnly, refundShow, refundLabel }: {
+    B: string;
+    value: number; onChange?: (v: number) => void; readOnly?: boolean;
+    refundShow?: number | null; refundLabel?: string;
+}) {
+    const show = !!refundShow && refundShow > 0;
+    return (
+        <td className={`${B} p-0 relative ${show ? 'bg-red-50/40 dark:bg-red-900/15' : ''}`}>
+            <NumCell value={value} onChange={onChange} readOnly={readOnly} />
+            {show && (
+                <div className="px-1.5 pb-1 -mt-0.5 text-right tabular-nums text-[10px] font-bold text-red-600 dark:text-red-400 line-through"
+                    title={refundLabel ? `Буцаалт (${refundLabel}): ${refundShow!.toLocaleString()}₮` : `Буцаалт: ${refundShow!.toLocaleString()}₮`}>
+                    −{refundShow!.toLocaleString()}
+                </div>
+            )}
+        </td>
+    );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Text cell                                                           */
 /* ------------------------------------------------------------------ */
 function TextCell({ value, onChange, readOnly, center, list }: {
@@ -384,7 +419,7 @@ function DoctorSelect({ value, onChange, doctors, technicians }: {
 /* ------------------------------------------------------------------ */
 function Row({
     entry, rowNum, editIdx, doctors, technicians, authUser, isConfirmed,
-    isLast, onChange, onRemove, onTabLast, onSaveNow,
+    isLast, onChange, onRemove, onTabLast, onSaveNow, onRefund,
 }: {
     entry: Entry; rowNum: number; editIdx: number;
     doctors: Doctor[]; technicians: Technician[]; authUser: AuthUser;
@@ -393,6 +428,7 @@ function Row({
     onRemove?: () => void;
     onTabLast?: () => void;
     onSaveNow?: () => void;
+    onRefund?: (entry: Entry) => void;
 }) {
     const editable = entry.is_mine && !isConfirmed;
     const B   = 'border border-gray-200 dark:border-gray-700 overflow-hidden';
@@ -449,13 +485,22 @@ function Row({
                 }
             </td>
             {/* Мобайл */}
-            <td className={`${B} p-0`}><NumCell value={entry.mobile_amount} readOnly={!editable} onChange={v => upd({ mobile_amount: v })} /></td>
-            {/* Карт */}
-            <td className={`${B} p-0`}><NumCell value={entry.card_amount} readOnly={!editable} onChange={v => upd({ card_amount: v })} /></td>
+            <PayCellWithRefund B={B} value={entry.mobile_amount} readOnly={!editable}
+                onChange={v => upd({ mobile_amount: v })}
+                refundShow={entry.refunded_at && entry.refund_method === 'mobile' ? entry.refund_amount : 0} />
+            {/* Карт (Данс ч мөн адил карт баганаас баланслана) */}
+            <PayCellWithRefund B={B} value={entry.card_amount} readOnly={!editable}
+                onChange={v => upd({ card_amount: v })}
+                refundShow={entry.refunded_at && (entry.refund_method === 'card' || entry.refund_method === 'bank') ? entry.refund_amount : 0}
+                refundLabel={entry.refund_method === 'bank' ? 'Данс' : ''} />
             {/* Бэлэн */}
-            <td className={`${B} p-0`}><NumCell value={entry.cash_amount} readOnly={!editable} onChange={v => upd({ cash_amount: v })} /></td>
+            <PayCellWithRefund B={B} value={entry.cash_amount} readOnly={!editable}
+                onChange={v => upd({ cash_amount: v })}
+                refundShow={entry.refunded_at && entry.refund_method === 'cash' ? entry.refund_amount : 0} />
             {/* Storepay */}
-            <td className={`${B} p-0`}><NumCell value={entry.storepay_amount} readOnly={!editable} onChange={v => upd({ storepay_amount: v })} /></td>
+            <PayCellWithRefund B={B} value={entry.storepay_amount} readOnly={!editable}
+                onChange={v => upd({ storepay_amount: v })}
+                refundShow={entry.refunded_at && entry.refund_method === 'storepay' ? entry.refund_amount : 0} />
             {/* Илүү дүн (auto) */}
             {(() => {
                 const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
@@ -463,41 +508,87 @@ function Row({
                     ? paySum - entry.total_amount
                     : (entry.overpaid_amount ?? 0);
                 const isUsed = !!entry.overpaid_used_at;
+                const credits = entry.applied_credits ?? [];
+                const hasOverpaid = overpaidAmt > 0;
+                const hasCredits  = credits.length > 0;
                 return (
-                    <td className={`${B} p-0 ${overpaidAmt > 0 ? (isUsed ? 'bg-gray-50/60 dark:bg-gray-800/40' : 'bg-green-50/60 dark:bg-green-900/20') : ''}`}>
-                        {overpaidAmt > 0 ? (
-                            <div className={`h-8 flex items-center justify-end px-1.5 text-xs tabular-nums font-semibold ${isUsed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-green-700 dark:text-green-400'}`}>
-                                +{overpaidAmt.toLocaleString()}
-                            </div>
-                        ) : <div className="h-8" />}
+                    <td className={`${B} p-0 ${hasOverpaid ? (isUsed ? 'bg-gray-50/60 dark:bg-gray-800/40' : 'bg-green-50/60 dark:bg-green-900/20') : ''}`}>
+                        <div className="min-h-8 flex flex-col items-end justify-center px-1.5 text-[11px] tabular-nums font-semibold gap-0.5">
+                            {hasOverpaid && (
+                                <span className={isUsed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-green-700 dark:text-green-400'}>
+                                    +{overpaidAmt.toLocaleString()}
+                                </span>
+                            )}
+                            {credits.map((c, i) => (
+                                <span key={i}
+                                    title={`${c.kind === 'overpaid' ? 'Илүү тооцоо' : 'Дутуу тооцоо'} ${c.from_date ?? ''} ${c.from_name ?? ''}-аас ${c.amount.toLocaleString()}₮ ${c.method ?? ''}`}
+                                    className={`tabular-nums ${
+                                        c.kind === 'overpaid'
+                                            ? 'text-emerald-700 dark:text-emerald-400 font-semibold'
+                                            : 'text-amber-700 dark:text-amber-400 font-semibold'
+                                    }`}>
+                                    {c.amount.toLocaleString()}
+                                </span>
+                            ))}
+                            {!hasOverpaid && !hasCredits && <div className="h-4" />}
+                        </div>
                     </td>
                 );
             })()}
             {/* Нийт дүн — зөрүү шалгах */}
             {(() => {
                 const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
-                const underpaid = entry.gross_amount > 0 && paySum > 0 && paySum < entry.total_amount;
-                const overpaid  = entry.gross_amount > 0 && paySum > entry.total_amount;
+                const creditSum = (entry.applied_credits ?? []).reduce((s, c) => s + (c.amount ?? 0), 0);
+                const effective = paySum + creditSum;
+                const underpaid = entry.gross_amount > 0 && effective > 0 && effective < entry.total_amount;
+                const overpaid  = entry.gross_amount > 0 && effective > entry.total_amount;
                 return (
-                    <td className={`${B} p-0 ${underpaid ? 'bg-orange-50/60 dark:bg-orange-900/20' : overpaid ? 'bg-green-50/40 dark:bg-green-900/10' : 'bg-blue-50/40 dark:bg-blue-900/10'}`}
-                        title={underpaid ? `Дутуу: ${(entry.total_amount - paySum).toLocaleString()}₮` : overpaid ? `Илүү: +${(paySum - entry.total_amount).toLocaleString()}₮` : undefined}>
-                        <NumCell value={entry.total_amount} readOnly
-                            cls={underpaid ? 'text-orange-600 dark:text-orange-400 font-semibold' : overpaid ? 'text-green-700 dark:text-green-400 font-semibold' : 'text-blue-700 dark:text-blue-400 font-semibold'} />
+                    <td className={`${B} p-0 ${entry.refunded_at ? 'bg-red-50/40 dark:bg-red-900/15' : underpaid ? 'bg-orange-50/60 dark:bg-orange-900/20' : overpaid ? 'bg-green-50/40 dark:bg-green-900/10' : 'bg-blue-50/40 dark:bg-blue-900/10'}`}
+                        title={entry.refunded_at ? `Refund-ийн дараа: ${(entry.total_amount - (entry.refund_amount ?? 0)).toLocaleString()}₮` : underpaid ? `Дутуу: ${(entry.total_amount - effective).toLocaleString()}₮` : overpaid ? `Илүү: +${(effective - entry.total_amount).toLocaleString()}₮` : undefined}>
+                        {entry.refunded_at ? (
+                            <div className="px-1.5">
+                                <div className="h-4 flex items-center justify-end text-[10px] tabular-nums line-through opacity-50 text-gray-500">
+                                    {entry.total_amount.toLocaleString()}
+                                </div>
+                                <div className="h-5 flex items-center justify-end text-xs tabular-nums font-bold text-red-600 dark:text-red-400">
+                                    {(entry.total_amount - (entry.refund_amount ?? 0)).toLocaleString()}
+                                </div>
+                            </div>
+                        ) : (
+                            <NumCell value={entry.total_amount} readOnly
+                                cls={underpaid ? 'text-orange-600 dark:text-orange-400 font-semibold' : overpaid ? 'text-green-700 dark:text-green-400 font-semibold' : 'text-blue-700 dark:text-blue-400 font-semibold'} />
+                        )}
                     </td>
                 );
             })()}
-            {/* Дутуу */}
-            <td className={`${B} p-0 ${entry.outstanding_paid_at ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-yellow-50/60 dark:bg-yellow-900/15'}`}>
-                {entry.outstanding_paid_at ? (
-                    <div className="w-full h-8 flex items-center justify-end px-1.5 text-xs tabular-nums text-green-600 dark:text-green-400 font-semibold line-through opacity-60">
-                        {entry.outstanding_amount > 0 ? entry.outstanding_amount.toLocaleString() : ''}
-                    </div>
-                ) : (
-                    <NumCell value={entry.outstanding_amount} readOnly={!editable}
-                        cls="text-yellow-700 dark:text-yellow-400 font-semibold"
-                        onChange={v => upd({ outstanding_amount: v })} />
-                )}
-            </td>
+            {/* Дутуу — gross байвал auto, үгүй бол гар оруулга */}
+            {(() => {
+                const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
+                const creditSum = (entry.applied_credits ?? []).reduce((s, c) => s + (c.amount ?? 0), 0);
+                const effective = paySum + creditSum;
+                const autoUnderpaid = entry.gross_amount > 0 && effective < entry.total_amount
+                    ? entry.total_amount - effective
+                    : 0;
+                const display = entry.gross_amount > 0 ? autoUnderpaid : entry.outstanding_amount;
+                return (
+                    <td className={`${B} p-0 ${entry.outstanding_paid_at ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-yellow-50/60 dark:bg-yellow-900/15'}`}>
+                        {entry.outstanding_paid_at ? (
+                            <div className="w-full h-8 flex items-center justify-end px-1.5 text-xs tabular-nums text-green-600 dark:text-green-400 font-semibold line-through opacity-60">
+                                {entry.outstanding_amount > 0 ? entry.outstanding_amount.toLocaleString() : ''}
+                            </div>
+                        ) : entry.gross_amount > 0 ? (
+                            <div className="w-full h-8 flex items-center justify-end px-1.5 text-xs tabular-nums text-yellow-700 dark:text-yellow-400 font-semibold"
+                                title="Автомат: Нийт төлөх − Төлсөн нийлбэр">
+                                {display > 0 ? display.toLocaleString() : ''}
+                            </div>
+                        ) : (
+                            <NumCell value={entry.outstanding_amount} readOnly={!editable}
+                                cls="text-yellow-700 dark:text-yellow-400 font-semibold"
+                                onChange={v => upd({ outstanding_amount: v })} />
+                        )}
+                    </td>
+                );
+            })()}
             {/* Эмч */}
             <td className={`${B} p-0`}>
                 {!editable
@@ -537,15 +628,133 @@ function Row({
                 </td>
             ))}
 
-            {/* Устгах */}
+            {/* Устгах / Буцаалт */}
             <td className={`${B} p-0 text-center`} {...(isLast ? lastCellTabProps : {})}>
-                {editable && onRemove && (
-                    <button onClick={onRemove} className="w-full h-8 flex items-center justify-center text-gray-300 hover:text-red-400">
-                        <Trash2 className="size-3" />
-                    </button>
-                )}
+                <div className="flex items-center justify-center gap-0.5">
+                    {!entry.refunded_at && onRefund && (entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount > 0) && (
+                        <button onClick={() => onRefund(entry)}
+                            title="Буцаалт хийх"
+                            className="h-7 w-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors">
+                            <Undo2 className="size-3" />
+                        </button>
+                    )}
+                    {entry.refunded_at && (
+                        <span title={`Буцаасан: ${entry.refund_amount?.toLocaleString()}₮ ${entry.refund_method}`}
+                            className="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 text-[9px] font-bold text-red-700 dark:text-red-300 leading-none">
+                            ↩ {((entry.refund_amount ?? 0) / 1000).toFixed(0)}K
+                        </span>
+                    )}
+                    {editable && onRemove && (
+                        <button onClick={onRemove} className="h-7 w-7 flex items-center justify-center text-gray-300 hover:text-red-400">
+                            <Trash2 className="size-3" />
+                        </button>
+                    )}
+                </div>
             </td>
         </tr>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Refund Modal                                                        */
+/* ------------------------------------------------------------------ */
+function RefundModal({ entry, onClose }: { entry: Entry; onClose: () => void }) {
+    const paySum = entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount;
+    const [amount, setAmount] = useState(String(paySum));
+    const [method, setMethod] = useState<'bank' | 'mobile' | 'cash' | 'storepay'>('bank');
+    const [reason, setReason] = useState('');
+    const [busy, setBusy]     = useState(false);
+    const parsed = parseInt(amount.replace(/[^0-9]/g, ''), 10) || 0;
+
+    function submit() {
+        if (parsed <= 0) return;
+        if (!entry.id) return;
+        setBusy(true);
+        router.post(`/reception/daily-sheet/refund/${entry.id}`, {
+            amount: parsed, method, reason: reason.trim() || null,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => onClose(),
+            onFinish: () => setBusy(false),
+        });
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border bg-card shadow-2xl overflow-hidden">
+                <div className="h-1.5 w-full bg-gradient-to-r from-red-400 via-red-500 to-red-600" />
+                <div className="p-5 sm:p-6 space-y-4">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <h3 className="text-base font-bold text-foreground">Буцаалт хийх</h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {entry.patient_name ?? '—'} · {entry.diagnosis ?? ''}
+                            </p>
+                        </div>
+                        <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+                            <X className="size-4" />
+                        </button>
+                    </div>
+
+                    <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Анх төлсөн дүн</span>
+                            <span className="font-bold tabular-nums">{paySum.toLocaleString()}₮</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Буцаах дүн</label>
+                        <div className="relative">
+                            <input type="text" inputMode="numeric" value={amount}
+                                onChange={e => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
+                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 pr-8 text-base font-bold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500 transition" />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">₮</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Буцаах хэлбэр</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {(['bank', 'mobile', 'cash', 'storepay'] as const).map(m => (
+                                <button key={m} type="button" onClick={() => setMethod(m)}
+                                    className={`rounded-xl border py-2.5 text-xs font-bold transition-all ${
+                                        method === m
+                                            ? 'bg-red-600 border-red-600 text-white'
+                                            : 'border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-red-400'
+                                    }`}>
+                                    {m === 'bank' ? 'Данс' : m === 'mobile' ? 'Мобайл' : m === 'cash' ? 'Бэлэн' : 'Storepay'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
+                            Шалтгаан <span className="normal-case font-normal">(заавал биш)</span>
+                        </label>
+                        <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2}
+                            placeholder="Жишээ: Үйлчилгээ хүсэхгүй болсон..."
+                            className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none transition" />
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                        <button onClick={submit} disabled={busy || parsed <= 0}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
+                            {busy
+                                ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                : <Undo2 className="size-4" />}
+                            Буцаалт хийх
+                        </button>
+                        <button onClick={onClose}
+                            className="rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-muted-foreground hover:bg-muted">
+                            Цуцлах
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -556,6 +765,8 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
     usePage<any>().props;
     const isConfirmed     = sheet?.is_confirmed ?? false;
     const isMorningLocked = sheet?.morning_confirmed ?? false;
+    const [refundEntry, setRefundEntry] = useState<Entry | null>(null);
+    const [waitingForSave, setWaitingForSave] = useState<number | null>(null);
 
     // Өглөөний мөрүүд (хаагдсан, state-гүй)
     const morningRows: Entry[] = isMorningLocked
@@ -568,8 +779,10 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
         return saved.length ? saved.map(e => ({ ...e })) : [blank(auth_user)];
     });
 
-    const otherRows: Entry[] = sheet?.entries.filter(e => !e.is_mine && !e.source && !e.is_morning_entry) ?? [];
+    const otherRows: Entry[] = sheet?.entries.filter(e => !e.is_mine && !e.source && !e.is_morning_entry && !e.refunded_at) ?? [];
     const sourceRows: Entry[] = sheet?.entries.filter(e => !!e.source) ?? [];
+    // Бүх buцаалт хийсэн мөрүүд (server-ээс шууд)
+    const refundedRows: Entry[] = sheet?.entries.filter(e => !!e.refunded_at && !e.source && !e.is_morning_entry) ?? [];
 
     useEffect(() => {
         if (isConfirmed) return;
@@ -587,6 +800,57 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
     const myRowsRef        = useRef(myRows);
     myRowsRef.current = myRows;
 
+    // Сервер sheet шинэчлэгдэх бүрд myRows-ийн id, refund мэдээллийг автомат sync хийнэ.
+    // Хэрэглэгчийн засаж буй талбаруудад халдахгүй.
+    useEffect(() => {
+        if (!sheet) return;
+        const serverMyRows = sheet.entries.filter(e => e.is_mine && !e.source && !e.is_morning_entry);
+        if (serverMyRows.length === 0) return;
+        setMyRows(prev => {
+            let changed = false;
+            const next = prev.map((row, idx) => {
+                const server = serverMyRows[idx];
+                if (!server) return row;
+                if (row.id === server.id && row.refund_amount === server.refund_amount) return row;
+                changed = true;
+                return {
+                    ...row,
+                    id: server.id,
+                    refund_amount: server.refund_amount,
+                    refunded_at: server.refunded_at,
+                    refund_method: server.refund_method,
+                    refund_reason: server.refund_reason,
+                };
+            });
+            return changed ? next : prev;
+        });
+    }, [sheet]);
+
+    // Refund button дэрэх үед серверийн fresh entry-ийг (id-тай) олно
+    const openRefundForRow = useCallback((rowIdx: number) => {
+        const myServerRows = (sheet?.entries ?? []).filter(e => e.is_mine && !e.source && !e.is_morning_entry);
+        const server = myServerRows[rowIdx];
+        if (server && server.id) {
+            setRefundEntry(server);
+            return;
+        }
+        setWaitingForSave(rowIdx);
+        pendingImmediate.current = true;
+        setMyRows(prev => [...prev]);
+    }, [sheet]);
+
+    // Save амжилттай дууссаны дараа хүлээгдэж буй row-н Refund modal-ыг нээнэ
+    useEffect(() => {
+        if (waitingForSave === null) return;
+        if (saveState !== 'saved') return;
+        const myServerRows = (sheet?.entries ?? []).filter(e => e.is_mine && !e.source && !e.is_morning_entry);
+        const server = myServerRows[waitingForSave];
+        if (server && server.id) {
+            setRefundEntry(server);
+        }
+        setWaitingForSave(null);
+    }, [saveState, sheet, waitingForSave]);
+
     // Inertia props шинэчлэгдэхэд morning lock болсон тохиолдолд myRows reset хийнэ
     const prevMorningLocked = useRef(isMorningLocked);
     useEffect(() => {
@@ -596,6 +860,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
         }
         prevMorningLocked.current = isMorningLocked;
     }, [isMorningLocked]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
     const scrollRef      = useRef<HTMLDivElement>(null);
     const prevRowCount   = useRef(myRows.length);
@@ -659,15 +924,39 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
     const isSearching = searchQuery.trim().length > 0;
 
     const allRows = [...morningRows, ...myRows, ...otherRows, ...sourceRows];
+    // Refund-аар хасагдах дүнг тооцох helper
+    const refundBy = (col: 'mobile' | 'card' | 'cash' | 'storepay') => refundedRows.reduce((s, e) => {
+        if (!e.refund_amount) return s;
+        // bank refund нь карт баганаас хасагдана
+        const eff = e.refund_method === 'bank' ? 'card' : e.refund_method;
+        return eff === col ? s + e.refund_amount : s;
+    }, 0);
+
     const T = {
-        gross:       allRows.reduce((s,e)=>s+e.gross_amount,0),
-        mobile:      allRows.reduce((s,e)=>s+e.mobile_amount,0),
-        card:        allRows.reduce((s,e)=>s+e.card_amount,0),
-        cash:        allRows.reduce((s,e)=>s+e.cash_amount,0),
-        storepay:    allRows.reduce((s,e)=>s+e.storepay_amount,0),
-        overpaid:    allRows.reduce((s,e)=>s+(e.overpaid_amount??0),0),
-        total:       allRows.reduce((s,e)=>s+e.total_amount,0),
-        outstanding: allRows.reduce((s,e)=>s+e.outstanding_amount,0),
+        gross:       allRows.reduce((s,e) => s + e.gross_amount, 0),
+        discount:    allRows.reduce((s,e) => {
+            const g = e.gross_amount || 0;
+            const d = e.discount || 0;
+            return s + Math.round(g * (d / 100));
+        }, 0),
+        // Payment column total = idэвхтэй мөрүүдээс — refund-ийн ижил method дүн
+        mobile:      allRows.reduce((s,e) => s + e.mobile_amount, 0)   - refundBy('mobile'),
+        card:        allRows.reduce((s,e) => s + e.card_amount, 0)     - refundBy('card'),
+        cash:        allRows.reduce((s,e) => s + e.cash_amount, 0)     - refundBy('cash'),
+        storepay:    allRows.reduce((s,e) => s + e.storepay_amount, 0) - refundBy('storepay'),
+        overpaid:    allRows.reduce((s,e) => s + (e.overpaid_amount ?? 0), 0),
+        // Нийт дүн: total - refund
+        total:       allRows.reduce((s,e) => s + e.total_amount - (e.refund_amount ?? 0), 0),
+        outstanding: allRows.reduce((s, e) => {
+            if (e.refunded_at) return s;
+            const paySum = e.mobile_amount + e.card_amount + e.cash_amount + e.storepay_amount;
+            const creditSum = (e.applied_credits ?? []).reduce((cs, c) => cs + (c.amount ?? 0), 0);
+            const effective = paySum + creditSum;
+            const autoUnderpaid = e.gross_amount > 0 && effective < e.total_amount ? e.total_amount - effective : 0;
+            const value = e.gross_amount > 0 ? autoUnderpaid : e.outstanding_amount;
+            return s + value;
+        }, 0),
+        refund: refundedRows.reduce((s, e) => s + (e.refund_amount ?? 0), 0),
     };
     const filledCount = allRows.filter(e => e.patient_name || e.total_amount > 0).length;
 
@@ -897,6 +1186,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                         onRemove={() => removeRow(i)}
                                         onTabLast={addRow}
                                         onSaveNow={triggerImmediateSave}
+                                        onRefund={() => openRefundForRow(i)}
                                     />
                                 ))}
                                 {filteredOtherRows.map(({ e, i }, displayIdx) => (
@@ -929,7 +1219,10 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                         Нийт ({filledCount} бичлэг){isSearching && ` · хайлт: ${filteredMyRows.length + filteredOtherRows.length}`}
                                     </td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.gross)}</td>
-                                    <td className={`${B}`}></td>
+                                    <td className={`${B} px-1.5 py-2 text-right tabular-nums text-orange-700 dark:text-orange-400`}
+                                        title="Хөнгөлсөн нийт дүн (₮)">
+                                        {T.discount > 0 ? `-${fmt(T.discount)}` : ''}
+                                    </td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.mobile)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.card)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums`}>{fmt(T.cash)}</td>
@@ -955,14 +1248,16 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                 </div>
 
                 {/* Summary cards */}
-                <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 mt-1">
+                <div className="grid grid-cols-3 lg:grid-cols-8 gap-2 mt-1">
                     {[
-                        { label: 'Мобайл',   value: T.mobile,      color: 'text-gray-700 dark:text-gray-300' },
-                        { label: 'Карт',     value: T.card,        color: 'text-gray-700 dark:text-gray-300' },
-                        { label: 'Бэлэн',    value: T.cash,        color: 'text-gray-700 dark:text-gray-300' },
-                        { label: 'Storepay', value: T.storepay,    color: 'text-gray-700 dark:text-gray-300' },
-                        { label: 'Нийт дүн', value: T.total,       color: 'text-blue-700 dark:text-blue-400' },
-                        { label: 'Дутуу',    value: T.outstanding, color: 'text-yellow-700 dark:text-yellow-400' },
+                        { label: 'Мобайл',     value: T.mobile,      color: 'text-gray-700 dark:text-gray-300' },
+                        { label: 'Карт',       value: T.card,        color: 'text-gray-700 dark:text-gray-300' },
+                        { label: 'Бэлэн',      value: T.cash,        color: 'text-gray-700 dark:text-gray-300' },
+                        { label: 'Storepay',   value: T.storepay,    color: 'text-gray-700 dark:text-gray-300' },
+                        { label: 'Хөнгөлсөн',  value: T.discount,    color: 'text-orange-600 dark:text-orange-400' },
+                        { label: 'Буцаасан',   value: T.refund,      color: 'text-red-600 dark:text-red-400' },
+                        { label: 'Нийт дүн',   value: T.total,       color: 'text-blue-700 dark:text-blue-400' },
+                        { label: 'Дутуу',      value: T.outstanding, color: 'text-yellow-700 dark:text-yellow-400' },
                     ].map(({ label, value, color }) => (
                         <div key={label} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5">
                             <div className="text-xs text-gray-500 mb-0.5">{label}</div>
@@ -972,6 +1267,10 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                 </div>
 
             </div>
+
+            {refundEntry && (
+                <RefundModal entry={refundEntry} onClose={() => setRefundEntry(null)} />
+            )}
 
         </ReceptionLayout>
     );

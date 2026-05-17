@@ -6,6 +6,8 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     AlertTriangle,
+    TrendingUp,
+    Undo2,
     BookOpen,
     Bot,
     Braces,
@@ -115,6 +117,16 @@ const schedulingItems: NavItem[] = [
         title: 'Дутуу тооцоо',
         url: '/admin/outstanding',
         icon: AlertCircle,
+    },
+    {
+        title: 'Илүү тооцоо',
+        url: '/admin/overpaid',
+        icon: TrendingUp,
+    },
+    {
+        title: 'Буцаалт',
+        url: '/admin/refunds',
+        icon: Undo2,
     },
 ];
 
