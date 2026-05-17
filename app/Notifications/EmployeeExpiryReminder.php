@@ -12,7 +12,7 @@ class EmployeeExpiryReminder extends Notification
         public readonly string $employeeNumber,
         public readonly string $itemName,       // гэрээний төрөл эсвэл лицензийн нэр
         public readonly string $endDate,
-        public readonly int    $daysLeft,
+        public readonly int $daysLeft,
     ) {}
 
     public function via(object $notifiable): array
@@ -23,12 +23,12 @@ class EmployeeExpiryReminder extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'type'            => $this->type,
-            'employee_name'   => $this->employeeName,
+            'type' => $this->type,
+            'employee_name' => $this->employeeName,
             'employee_number' => $this->employeeNumber,
-            'item_name'       => $this->itemName,
-            'end_date'        => $this->endDate,
-            'days_left'       => $this->daysLeft,
+            'item_name' => $this->itemName,
+            'end_date' => $this->endDate,
+            'days_left' => $this->daysLeft,
         ];
     }
 }

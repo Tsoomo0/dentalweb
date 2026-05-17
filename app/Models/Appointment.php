@@ -41,8 +41,8 @@ class Appointment extends Model
     ];
 
     protected $casts = [
-        'appointment_date'  => 'date:Y-m-d',
-        'payment_amount'    => 'integer',
+        'appointment_date' => 'date:Y-m-d',
+        'payment_amount' => 'integer',
     ];
 
     public function patient(): BelongsTo
@@ -65,23 +65,24 @@ class Appointment extends Model
         return $this->hasOne(TreatmentRecord::class);
     }
 
-    public function createdBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'created_by_id');
+        return $this->belongsTo(User::class, 'created_by_id');
     }
 
-    public function confirmedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function confirmedBy(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'confirmed_by_id');
+        return $this->belongsTo(User::class, 'confirmed_by_id');
     }
 
     /** APT-0001 форматтай дугаар үүсгэх */
     public static function generateNumber(): string
     {
         $max = static::withTrashed()
-            ->selectRaw("MAX(CAST(SUBSTRING(appointment_number, 5) AS UNSIGNED)) as n")
+            ->selectRaw('MAX(CAST(SUBSTRING(appointment_number, 5) AS UNSIGNED)) as n')
             ->value('n') ?? 0;
-        return 'APT-' . str_pad($max + 1, 4, '0', STR_PAD_LEFT);
+
+        return 'APT-'.str_pad($max + 1, 4, '0', STR_PAD_LEFT);
     }
 
     public function getFormattedDateAttribute(): string
@@ -92,14 +93,18 @@ class Appointment extends Model
     /** "Б. Бат" — овгийн эхний үсэг + . + бүтэн нэр */
     public function getDisplayNameAttribute(): string
     {
-        $last  = trim((string) ($this->patient_last_name ?? ''));
+        $last = trim((string) ($this->patient_last_name ?? ''));
         $first = trim((string) ($this->patient_first_name ?? ''));
 
         if ($last !== '' && $first !== '') {
-            return mb_substr($last, 0, 1) . '.' . $first;
+            return mb_substr($last, 0, 1).'.'.$first;
         }
-        if ($first !== '') return $first;
-        if ($last !== '')  return $last;
+        if ($first !== '') {
+            return $first;
+        }
+        if ($last !== '') {
+            return $last;
+        }
 
         // Fallback: хуучин patient_name
         return (string) ($this->patient_name ?? '');
@@ -119,20 +124,21 @@ class Appointment extends Model
                     : Patient::find($appointment->patient_id);
 
                 if ($patient) {
-                    $appointment->patient_last_name  = $patient->last_name;
+                    $appointment->patient_last_name = $patient->last_name;
                     $appointment->patient_first_name = $patient->first_name;
-                    $appointment->patient_name       = $patient->full_name;
-                    $appointment->patient_phone      = $patient->phone;
-                    $appointment->patient_email      = $patient->email;
+                    $appointment->patient_name = $patient->full_name;
+                    $appointment->patient_phone = $patient->phone;
+                    $appointment->patient_email = $patient->email;
+
                     return;
                 }
             }
 
             // last/first байгаа бол patient_name-г auto-build
-            $last  = trim((string) ($appointment->patient_last_name ?? ''));
+            $last = trim((string) ($appointment->patient_last_name ?? ''));
             $first = trim((string) ($appointment->patient_first_name ?? ''));
             if ($last !== '' || $first !== '') {
-                $appointment->patient_name = trim($last . ' ' . $first);
+                $appointment->patient_name = trim($last.' '.$first);
             }
         });
     }

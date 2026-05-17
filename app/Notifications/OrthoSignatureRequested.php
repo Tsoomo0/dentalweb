@@ -20,8 +20,8 @@ class OrthoSignatureRequested extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'doctor_name'  => $this->doctorName,
-            'visit_date'   => $this->visitDate,
+            'doctor_name' => $this->doctorName,
+            'visit_date' => $this->visitDate,
             'patient_name' => $this->patientName,
         ];
     }

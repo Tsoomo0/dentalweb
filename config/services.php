@@ -36,23 +36,23 @@ return [
     ],
 
     'qpay' => [
-        'base_url'     => env('QPAY_BASE_URL', 'https://sandbox-merchant.qpay.mn/v2'),
-        'username'     => env('QPAY_USERNAME', 'TEST_MERCHANT'),
-        'password'     => env('QPAY_PASSWORD', '123456'),
+        'base_url' => env('QPAY_BASE_URL', 'https://sandbox-merchant.qpay.mn/v2'),
+        'username' => env('QPAY_USERNAME', 'TEST_MERCHANT'),
+        'password' => env('QPAY_PASSWORD', '123456'),
         'invoice_code' => env('QPAY_INVOICE_CODE', 'TEST_INVOICE'),
-        'test_mode'    => env('QPAY_TEST_MODE', false),
+        'test_mode' => env('QPAY_TEST_MODE', false),
     ],
 
     'google' => [
-        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect_uri'  => env('GOOGLE_REDIRECT_URI'),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
         'refresh_token' => env('GOOGLE_REFRESH_TOKEN'),
     ],
 
     'turnstile' => [
         'site_key' => env('TURNSTILE_SITE_KEY'),
-        'secret'   => env('TURNSTILE_SECRET_KEY'),
+        'secret' => env('TURNSTILE_SECRET_KEY'),
     ],
 
 ];

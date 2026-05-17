@@ -32,25 +32,25 @@ class EmployeeExitChecklist extends Model
     ];
 
     protected $casts = [
-        'exit_date'   => 'date',
+        'exit_date' => 'date',
         'notice_date' => 'date',
-        'completed_at'=> 'datetime',
-        'eligible_for_rehire'           => 'boolean',
-        'item_equipment_returned'       => 'boolean',
-        'item_badge_returned'           => 'boolean',
-        'item_keys_returned'            => 'boolean',
-        'item_books_returned'           => 'boolean',
-        'item_uniform_returned'         => 'boolean',
-        'item_system_access_revoked'    => 'boolean',
-        'item_email_deactivated'        => 'boolean',
-        'item_files_transferred'        => 'boolean',
-        'item_final_salary_processed'   => 'boolean',
-        'item_advances_settled'         => 'boolean',
-        'item_insurance_notified'       => 'boolean',
-        'item_tax_notified'             => 'boolean',
-        'item_handover_completed'       => 'boolean',
-        'item_exit_interview_done'      => 'boolean',
-        'item_certificate_issued'       => 'boolean',
+        'completed_at' => 'datetime',
+        'eligible_for_rehire' => 'boolean',
+        'item_equipment_returned' => 'boolean',
+        'item_badge_returned' => 'boolean',
+        'item_keys_returned' => 'boolean',
+        'item_books_returned' => 'boolean',
+        'item_uniform_returned' => 'boolean',
+        'item_system_access_revoked' => 'boolean',
+        'item_email_deactivated' => 'boolean',
+        'item_files_transferred' => 'boolean',
+        'item_final_salary_processed' => 'boolean',
+        'item_advances_settled' => 'boolean',
+        'item_insurance_notified' => 'boolean',
+        'item_tax_notified' => 'boolean',
+        'item_handover_completed' => 'boolean',
+        'item_exit_interview_done' => 'boolean',
+        'item_certificate_issued' => 'boolean',
     ];
 
     public static array $allItems = [
@@ -64,7 +64,7 @@ class EmployeeExitChecklist extends Model
 
     public function completedCount(): int
     {
-        return collect(self::$allItems)->filter(fn($k) => $this->{$k})->count();
+        return collect(self::$allItems)->filter(fn ($k) => $this->{$k})->count();
     }
 
     public function totalItems(): int

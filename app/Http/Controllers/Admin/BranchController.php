@@ -21,8 +21,8 @@ class BranchController extends Controller
         });
 
         return Inertia::render('admin/branches/index', [
-            'branches'       => $branches,
-            'total_doctors'  => Branch::where('is_active', true)->sum('doctor_count'),
+            'branches' => $branches,
+            'total_doctors' => Branch::where('is_active', true)->sum('doctor_count'),
         ]);
     }
 
@@ -34,17 +34,17 @@ class BranchController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name'         => 'required|string|max:255',
-            'address'      => 'nullable|string|max:500',
-            'phone'        => 'nullable|string|max:50',
-            'image'        => 'nullable|image|max:5120',
-            'description'  => 'nullable|string',
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:500',
+            'phone' => 'nullable|string|max:50',
+            'image' => 'nullable|image|max:5120',
+            'description' => 'nullable|string',
             'doctor_count' => 'nullable|integer|min:0',
-            'is_featured'  => 'boolean',
-            'is_active'    => 'boolean',
-            'lat'          => 'nullable|numeric|between:-90,90',
-            'lng'          => 'nullable|numeric|between:-180,180',
-            'radius_m'     => 'nullable|integer|min:50|max:1000',
+            'is_featured' => 'boolean',
+            'is_active' => 'boolean',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+            'radius_m' => 'nullable|integer|min:50|max:1000',
         ]);
 
         $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active', 'lat', 'lng', 'radius_m');
@@ -71,23 +71,25 @@ class BranchController extends Controller
     public function update(Request $request, Branch $branch): RedirectResponse
     {
         $request->validate([
-            'name'         => 'required|string|max:255',
-            'address'      => 'nullable|string|max:500',
-            'phone'        => 'nullable|string|max:50',
-            'image'        => 'nullable|image|max:5120',
-            'description'  => 'nullable|string',
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:500',
+            'phone' => 'nullable|string|max:50',
+            'image' => 'nullable|image|max:5120',
+            'description' => 'nullable|string',
             'doctor_count' => 'nullable|integer|min:0',
-            'is_featured'  => 'boolean',
-            'is_active'    => 'boolean',
-            'lat'          => 'nullable|numeric|between:-90,90',
-            'lng'          => 'nullable|numeric|between:-180,180',
-            'radius_m'     => 'nullable|integer|min:50|max:1000',
+            'is_featured' => 'boolean',
+            'is_active' => 'boolean',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+            'radius_m' => 'nullable|integer|min:50|max:1000',
         ]);
 
         $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active', 'lat', 'lng', 'radius_m');
 
         if ($request->hasFile('image')) {
-            if ($branch->image) Storage::disk('public')->delete($branch->image);
+            if ($branch->image) {
+                Storage::disk('public')->delete($branch->image);
+            }
             $data['image'] = $request->file('image')->store('branches', 'public');
         }
 
@@ -98,7 +100,9 @@ class BranchController extends Controller
 
     public function destroy(Branch $branch): RedirectResponse
     {
-        if ($branch->image) Storage::disk('public')->delete($branch->image);
+        if ($branch->image) {
+            Storage::disk('public')->delete($branch->image);
+        }
         $branch->delete();
 
         return back()->with('success', 'Салбар устгагдлаа.');

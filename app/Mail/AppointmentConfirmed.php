@@ -14,8 +14,7 @@ class AppointmentConfirmed extends Mailable
     use Queueable, SerializesModels;
 
     /**
-     * @param Appointment $appointment
-     * @param string      $recipient  'patient' | 'doctor'
+     * @param  string  $recipient  'patient' | 'doctor'
      */
     public function __construct(
         public readonly Appointment $appointment,
@@ -24,7 +23,7 @@ class AppointmentConfirmed extends Mailable
 
     public function envelope(): Envelope
     {
-        $number  = $this->appointment->appointment_number;
+        $number = $this->appointment->appointment_number;
         $subject = $this->recipient === 'patient'
             ? "✅ Онлайн зөвлөгөө баталгаажлаа — {$number}"
             : "📋 Шинэ онлайн зөвлөгөөний захиалга — {$number}";

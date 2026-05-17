@@ -27,14 +27,14 @@ class LateCheckIn extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'type'            => 'late_check_in',
-            'employee_name'   => $this->employee->full_name,
+            'type' => 'late_check_in',
+            'employee_name' => $this->employee->full_name,
             'employee_number' => $this->employee->employee_number,
-            'date'            => $this->date,
-            'checked_in_at'   => $this->checkedInAt,
+            'date' => $this->date,
+            'checked_in_at' => $this->checkedInAt,
             'scheduled_start' => $this->scheduledStart,
-            'late_minutes'    => $this->lateMinutes,
-            'message'         => "{$this->employee->full_name} {$this->lateMinutes} минут хоцорч ирлээ ({$this->scheduledStart} → {$this->checkedInAt})",
+            'late_minutes' => $this->lateMinutes,
+            'message' => "{$this->employee->full_name} {$this->lateMinutes} минут хоцорч ирлээ ({$this->scheduledStart} → {$this->checkedInAt})",
         ];
     }
 }

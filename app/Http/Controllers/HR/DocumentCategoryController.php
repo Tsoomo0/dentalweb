@@ -12,12 +12,12 @@ class DocumentCategoryController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name'  => 'required|string|max:100|unique:hr_document_categories,name',
+            'name' => 'required|string|max:100|unique:hr_document_categories,name',
             'color' => 'required|string|in:blue,violet,emerald,orange,sky,green,red,pink,yellow,gray',
         ]);
 
         HrDocumentCategory::create([
-            'name'  => $request->name,
+            'name' => $request->name,
             'color' => $request->color,
             'order' => HrDocumentCategory::max('order') + 1,
         ]);
@@ -28,12 +28,12 @@ class DocumentCategoryController extends Controller
     public function update(Request $request, HrDocumentCategory $documentCategory): RedirectResponse
     {
         $request->validate([
-            'name'  => 'required|string|max:100|unique:hr_document_categories,name,' . $documentCategory->id,
+            'name' => 'required|string|max:100|unique:hr_document_categories,name,'.$documentCategory->id,
             'color' => 'required|string|in:blue,violet,emerald,orange,sky,green,red,pink,yellow,gray',
         ]);
 
         $documentCategory->update([
-            'name'  => $request->name,
+            'name' => $request->name,
             'color' => $request->color,
         ]);
 
@@ -47,6 +47,7 @@ class DocumentCategoryController extends Controller
         }
 
         $documentCategory->delete();
+
         return back()->with('success', 'Ангилал устгагдлаа.');
     }
 }

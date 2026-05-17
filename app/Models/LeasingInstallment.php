@@ -19,9 +19,9 @@ class LeasingInstallment extends Model
     ];
 
     protected $casts = [
-        'amount'   => 'integer',
+        'amount' => 'integer',
         'due_date' => 'date',
-        'paid_at'  => 'datetime',
+        'paid_at' => 'datetime',
     ];
 
     public function leasingPlan(): BelongsTo

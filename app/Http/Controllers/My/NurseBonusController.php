@@ -13,7 +13,9 @@ class NurseBonusController extends Controller
     public function index(): Response|RedirectResponse
     {
         $employee = ProfileController::resolveEmployee();
-        if (!$employee) return redirect()->route('portal.select');
+        if (! $employee) {
+            return redirect()->route('portal.select');
+        }
 
         // Зөвхөн сувилагч албан тушаал
         $position = $employee->position?->name ?? '';
@@ -26,45 +28,45 @@ class NurseBonusController extends Controller
             ->where('is_sent', true)
             ->orderByDesc('nurse_bonus_run_id')
             ->get()
-            ->filter(fn($e) => $e->run !== null)
-            ->map(fn($e) => [
-                'id'                       => $e->id,
-                'run_id'                   => $e->nurse_bonus_run_id,
-                'run_title'                => $e->run->title,
-                'half_label'               => $e->run->half_label,
-                'year'                     => $e->run->year,
-                'month'                    => $e->run->month,
-                'half'                     => $e->run->half,
-                'clothing'                 => $e->clothing,
-                'hand_hygiene'             => $e->hand_hygiene,
-                'chair_sterilization'      => $e->chair_sterilization,
-                'equipment_prep'           => $e->equipment_prep,
-                'material_prep'            => $e->material_prep,
-                'card_issued'              => $e->card_issued,
-                'card_collected'           => $e->card_collected,
-                'pre_exam_prep'            => $e->pre_exam_prep,
-                'exam_chair_prep'          => $e->exam_chair_prep,
-                'post_exam_chair_sterilize'=> $e->post_exam_chair_sterilize,
-                'tube_sterilization'       => $e->tube_sterilization,
-                'suction_filter'           => $e->suction_filter,
-                'quartz_before'            => $e->quartz_before,
-                'quartz_after'             => $e->quartz_after,
-                'xray'                     => $e->xray,
-                'model_cast'               => $e->model_cast,
-                'implant'                  => $e->implant,
-                'blood_pressure'           => $e->blood_pressure,
-                'complaint'                => $e->complaint,
-                'absent'                   => $e->absent,
-                'total_amount'             => $e->total_amount,
+            ->filter(fn ($e) => $e->run !== null)
+            ->map(fn ($e) => [
+                'id' => $e->id,
+                'run_id' => $e->nurse_bonus_run_id,
+                'run_title' => $e->run->title,
+                'half_label' => $e->run->half_label,
+                'year' => $e->run->year,
+                'month' => $e->run->month,
+                'half' => $e->run->half,
+                'clothing' => $e->clothing,
+                'hand_hygiene' => $e->hand_hygiene,
+                'chair_sterilization' => $e->chair_sterilization,
+                'equipment_prep' => $e->equipment_prep,
+                'material_prep' => $e->material_prep,
+                'card_issued' => $e->card_issued,
+                'card_collected' => $e->card_collected,
+                'pre_exam_prep' => $e->pre_exam_prep,
+                'exam_chair_prep' => $e->exam_chair_prep,
+                'post_exam_chair_sterilize' => $e->post_exam_chair_sterilize,
+                'tube_sterilization' => $e->tube_sterilization,
+                'suction_filter' => $e->suction_filter,
+                'quartz_before' => $e->quartz_before,
+                'quartz_after' => $e->quartz_after,
+                'xray' => $e->xray,
+                'model_cast' => $e->model_cast,
+                'implant' => $e->implant,
+                'blood_pressure' => $e->blood_pressure,
+                'complaint' => $e->complaint,
+                'absent' => $e->absent,
+                'total_amount' => $e->total_amount,
             ]);
 
         return Inertia::render('my/nurse-bonus', [
             'employee' => [
-                'full_name'       => $employee->full_name,
+                'full_name' => $employee->full_name,
                 'employee_number' => $employee->employee_number,
-                'position'        => $employee->position?->name,
+                'position' => $employee->position?->name,
             ],
-            'entries'  => $entries,
+            'entries' => $entries,
             'criteria' => NurseBonusEntry::CRITERIA,
         ]);
     }

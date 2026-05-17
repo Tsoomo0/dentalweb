@@ -30,9 +30,11 @@ class EitherAuthMiddleware
                             return User::find($emp->user_id);
                         }
                     }
+
                     return null;
                 });
             }
+
             return $next($request);
         }
 

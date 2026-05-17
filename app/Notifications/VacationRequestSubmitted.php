@@ -2,8 +2,8 @@
 
 namespace App\Notifications;
 
-use App\Models\HR\VacationRequest;
 use App\Mail\VacationRequestSubmittedMail;
+use App\Models\HR\VacationRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -12,14 +12,16 @@ use Illuminate\Queue\SerializesModels;
 class VacationRequestSubmitted extends Notification implements ShouldQueue
 {
     use Queueable, SerializesModels;
+
     public function __construct(public readonly VacationRequest $vacationRequest) {}
 
     public function via(object $notifiable): array
     {
         $channels = ['database'];
-        if (!empty($notifiable->email)) {
+        if (! empty($notifiable->email)) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -31,15 +33,16 @@ class VacationRequestSubmitted extends Notification implements ShouldQueue
     public function toDatabase(object $notifiable): array
     {
         $emp = $this->vacationRequest->employee;
+
         return [
-            'type'                   => 'vacation_request_submitted',
-            'employee_name'          => $emp->full_name,
-            'employee_number'        => $emp->employee_number,
-            'vacation_request_id'    => $this->vacationRequest->id,
-            'start_date'             => $this->vacationRequest->start_date->toDateString(),
-            'end_date'               => $this->vacationRequest->end_date->toDateString(),
-            'days'                   => $this->vacationRequest->days,
-            'message'                => "{$emp->full_name} ээлжийн амралтын хүсэлт илгээлээ",
+            'type' => 'vacation_request_submitted',
+            'employee_name' => $emp->full_name,
+            'employee_number' => $emp->employee_number,
+            'vacation_request_id' => $this->vacationRequest->id,
+            'start_date' => $this->vacationRequest->start_date->toDateString(),
+            'end_date' => $this->vacationRequest->end_date->toDateString(),
+            'days' => $this->vacationRequest->days,
+            'message' => "{$emp->full_name} ээлжийн амралтын хүсэлт илгээлээ",
         ];
     }
 }

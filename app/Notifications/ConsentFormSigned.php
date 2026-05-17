@@ -19,7 +19,7 @@ class ConsentFormSigned extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'patient_name'   => $this->patientName,
+            'patient_name' => $this->patientName,
             'template_title' => $this->templateTitle,
         ];
     }

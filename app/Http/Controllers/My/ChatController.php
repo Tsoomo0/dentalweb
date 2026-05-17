@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\My;
 
+use App\Events\Chat\ConversationUpdated;
 use App\Events\Chat\UserTyping;
 use App\Http\Controllers\Controller;
 use App\Models\Bot\BotButton;
+use App\Models\Bot\BotNode;
 use App\Models\Chat\Conversation;
 use App\Models\Chat\Message;
 use App\Models\Chat\Participant;
@@ -16,7 +18,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -36,7 +40,9 @@ class ChatController extends Controller
         // Web-guard user (HR ажилтан, админ г.м.) — User төрлийнх.
         if (Auth::guard('web')->check()) {
             $u = Auth::guard('web')->user();
-            if ($u instanceof User) return $u;
+            if ($u instanceof User) {
+                return $u;
+            }
         }
 
         // Doctor-guard — Doctor → Employee.user_id-ээр Userруу resolve.
@@ -47,7 +53,9 @@ class ChatController extends Controller
                 $employee = Employee::find($employeeId);
                 if ($employee?->user_id) {
                     $u = User::find($employee->user_id);
-                    if ($u) return $u;
+                    if ($u) {
+                        return $u;
+                    }
                 }
             }
         }
@@ -67,7 +75,7 @@ class ChatController extends Controller
 
         return Inertia::render('my/Chat/Index', [
             'currentUserId' => $user->id,
-            'isStaff'       => $user->isStaff(),
+            'isStaff' => $user->isStaff(),
             'initialConversations' => $this->fetchConversationsData($user),
         ]);
     }
@@ -100,31 +108,32 @@ class ChatController extends Controller
             [$title, $photo, $otherUserId] = $this->resolveDisplay($c, $user);
             $myPivot = $c->activeParticipants->firstWhere('user_id', $user->id);
             $otherOnline = $otherUserId
-                ? \Illuminate\Support\Facades\Cache::has("chat-online:{$otherUserId}")
+                ? Cache::has("chat-online:{$otherUserId}")
                 : false;
+
             return [
-                'id'                => $c->id,
-                'type'              => $c->type,
-                'title'             => $title,
-                'avatar'            => $c->avatar,
-                'photo'             => $photo,
-                'other_user_id'     => $otherUserId,
-                'other_online'      => $otherOnline,
-                'last_message'      => $c->lastMessage ? [
-                    'id'          => $c->lastMessage->id,
-                    'body'        => $c->lastMessage->body,
-                    'type'        => $c->lastMessage->type,
-                    'sender_id'   => $c->lastMessage->sender_id,
+                'id' => $c->id,
+                'type' => $c->type,
+                'title' => $title,
+                'avatar' => $c->avatar,
+                'photo' => $photo,
+                'other_user_id' => $otherUserId,
+                'other_online' => $otherOnline,
+                'last_message' => $c->lastMessage ? [
+                    'id' => $c->lastMessage->id,
+                    'body' => $c->lastMessage->body,
+                    'type' => $c->lastMessage->type,
+                    'sender_id' => $c->lastMessage->sender_id,
                     'sender_type' => $c->lastMessage->sender_type,
                     'sender_name' => $c->lastMessage->sender?->name,
-                    'created_at'  => $c->lastMessage->created_at?->toIso8601String(),
+                    'created_at' => $c->lastMessage->created_at?->toIso8601String(),
                 ] : null,
-                'last_message_at'   => $c->last_message_at?->toIso8601String(),
-                'unread_count'      => $this->chat->unreadCount($c, $user),
-                'is_pinned'         => (bool) ($myPivot?->is_pinned),
-                'muted'             => $myPivot && $myPivot->muted_until && $myPivot->muted_until->isFuture(),
+                'last_message_at' => $c->last_message_at?->toIso8601String(),
+                'unread_count' => $this->chat->unreadCount($c, $user),
+                'is_pinned' => (bool) ($myPivot?->is_pinned),
+                'muted' => $myPivot && $myPivot->muted_until && $myPivot->muted_until->isFuture(),
                 'participants_count' => $c->activeParticipants->count(),
-                'is_support'        => is_array($c->meta) && isset($c->meta['support_for_user_id']),
+                'is_support' => is_array($c->meta) && isset($c->meta['support_for_user_id']),
             ];
         })->all();
     }
@@ -137,15 +146,16 @@ class ChatController extends Controller
         $user = $this->currentUser();
         $isOwner = $message->sender_id === $user->id;
         $isAdmin = $user->isAdmin();
-        if (!$isOwner && !$isAdmin) {
+        if (! $isOwner && ! $isAdmin) {
             abort(403, 'Энэ мессежийг устгах эрх алга.');
         }
         $message->delete();
-        broadcast(new \App\Events\Chat\ConversationUpdated(
+        broadcast(new ConversationUpdated(
             $message->conversation_id,
             $this->chat->participantUserIds($message->conversation),
             ['message_deleted_id' => $message->id]
         ));
+
         return response()->json(['ok' => true]);
     }
 
@@ -160,10 +170,14 @@ class ChatController extends Controller
 
         $isMember = $conversation->participants()
             ->where('user_id', $user->id)->whereNull('left_at')->exists();
-        if (!$isMember) abort(403);
+        if (! $isMember) {
+            abort(403);
+        }
 
         if ($forEveryone) {
-            if (!$user->isAdmin()) abort(403, 'Бүх хүний хувьд устгах эрх зөвхөн админд бий.');
+            if (! $user->isAdmin()) {
+                abort(403, 'Бүх хүний хувьд устгах эрх зөвхөн админд бий.');
+            }
             $conversation->delete();
         } else {
             // Just leave the conversation for this user — keeps history for others.
@@ -180,13 +194,14 @@ class ChatController extends Controller
     public function listConversations(): JsonResponse
     {
         $user = $this->currentUser();
+
         return response()->json(['conversations' => $this->fetchConversationsData($user)]);
     }
 
     /**
      * Compute display title + photo for a conversation based on the viewing user.
      *
-     * @return array{0:string,1:?string,2:?int}  [title, photoUrl, otherUserId]
+     * @return array{0:string,1:?string,2:?int} [title, photoUrl, otherUserId]
      */
     protected function resolveDisplay(Conversation $c, $viewer): array
     {
@@ -203,7 +218,7 @@ class ChatController extends Controller
                     ->first(fn ($p) => $p->user && $p->user->role?->name === 'admin');
 
                 // Prefer the admin who sent the most recent message, if any.
-                $lastAdminMsg = \App\Models\Chat\Message::query()
+                $lastAdminMsg = Message::query()
                     ->where('conversation_id', $c->id)
                     ->where('sender_type', 'user')
                     ->whereHas('sender.role', fn ($q) => $q->where('name', 'admin'))
@@ -213,17 +228,20 @@ class ChatController extends Controller
 
                 $adminUser = $lastAdminMsg?->sender ?? $adminParticipant?->user;
                 $photo = $this->userPhoto($adminUser);
+
                 return [$adminUser?->name ?? 'HR баг', $photo, $adminUser?->id];
             }
 
             // Admin viewing: show the employee.
             $employeeUser = $c->activeParticipants
                 ->firstWhere('user_id', (int) $supportFor)?->user;
+
             return [$employeeUser?->name ?? 'Хэрэглэгч', $this->userPhoto($employeeUser), $employeeUser?->id];
         }
 
         if ($c->type === Conversation::TYPE_DIRECT) {
             $other = $c->activeParticipants->where('user_id', '!=', $viewer->id)->first()?->user;
+
             return [$other?->name ?? 'Чат', $this->userPhoto($other), $other?->id];
         }
 
@@ -233,11 +251,14 @@ class ChatController extends Controller
 
     protected function userPhoto($user): ?string
     {
-        if (!$user) return null;
+        if (! $user) {
+            return null;
+        }
         $employee = $user->relationLoaded('employee') ? $user->employee : null;
         if ($employee && $employee->photo) {
-            return asset('storage/' . $employee->photo);
+            return asset('storage/'.$employee->photo);
         }
+
         return null;
     }
 
@@ -273,16 +294,16 @@ class ChatController extends Controller
 
         return response()->json([
             'conversation' => [
-                'id'        => $conversation->id,
-                'type'      => $conversation->type,
-                'name'      => $conversation->name,
-                'avatar'    => $conversation->avatar,
+                'id' => $conversation->id,
+                'type' => $conversation->type,
+                'name' => $conversation->name,
+                'avatar' => $conversation->avatar,
                 'created_by' => $conversation->created_by,
             ],
             'participants' => $conversation->activeParticipants->map(fn (Participant $p) => [
                 'user_id' => $p->user_id,
-                'name'    => $p->user?->name,
-                'role'    => $p->role,
+                'name' => $p->user?->name,
+                'role' => $p->role,
                 'last_read_at' => $p->last_read_at?->toIso8601String(),
             ]),
             'messages' => $messages->map(fn (Message $m) => $this->serializeMessage($m)),
@@ -295,9 +316,9 @@ class ChatController extends Controller
         $this->authorizeMember($conversation);
 
         $data = $request->validate([
-            'body'        => 'nullable|string|max:5000',
+            'body' => 'nullable|string|max:5000',
             'reply_to_id' => 'nullable|integer|exists:chat_messages,id',
-            'files.*'     => 'file|max:20480', // 20MB
+            'files.*' => 'file|max:20480', // 20MB
         ]);
 
         $files = $request->file('files', []);
@@ -318,6 +339,7 @@ class ChatController extends Controller
     {
         $this->authorizeMember($conversation);
         $this->chat->markRead($conversation, $this->currentUser());
+
         return response()->json(['ok' => true]);
     }
 
@@ -331,6 +353,7 @@ class ChatController extends Controller
             $user->name,
             (bool) $request->input('is_typing', true),
         ))->toOthers();
+
         return response()->json(['ok' => true]);
     }
 
@@ -340,15 +363,15 @@ class ChatController extends Controller
     public function createGroup(Request $request): JsonResponse
     {
         $user = $this->currentUser();
-        if (!$user->isStaff()) {
+        if (! $user->isStaff()) {
             abort(403, 'Группын чат үүсгэх эрх алга.');
         }
 
         $data = $request->validate([
-            'name'       => 'required|string|max:120',
-            'user_ids'   => 'required|array|min:1',
+            'name' => 'required|string|max:120',
+            'user_ids' => 'required|array|min:1',
             'user_ids.*' => 'integer|exists:users,id',
-            'avatar'     => 'nullable|string',
+            'avatar' => 'nullable|string',
         ]);
 
         $conv = $this->chat->createGroup(
@@ -368,7 +391,8 @@ class ChatController extends Controller
     public function heartbeat(): JsonResponse
     {
         $user = $this->currentUser();
-        \Illuminate\Support\Facades\Cache::put("chat-online:{$user->id}", now()->toIso8601String(), now()->addSeconds(90));
+        Cache::put("chat-online:{$user->id}", now()->toIso8601String(), now()->addSeconds(90));
+
         return response()->json(['ok' => true]);
     }
 
@@ -397,11 +421,11 @@ class ChatController extends Controller
 
         return response()->json([
             'employees' => $employees->map(fn (Employee $e) => [
-                'user_id'  => $e->user_id,
-                'name'     => trim($e->last_name . ' ' . $e->first_name) ?: $e->user?->name,
+                'user_id' => $e->user_id,
+                'name' => trim($e->last_name.' '.$e->first_name) ?: $e->user?->name,
                 'position' => $e->position?->name,
-                'branch'   => $e->branch?->name,
-                'photo'    => $e->photo_url,
+                'branch' => $e->branch?->name,
+                'photo' => $e->photo_url,
             ]),
         ]);
     }
@@ -427,7 +451,7 @@ class ChatController extends Controller
     {
         $this->authorizeMember($conversation);
 
-        if (!$conversation->isBot()) {
+        if (! $conversation->isBot()) {
             abort(422, 'Bot товч bot чатад л идэвхтэй.');
         }
 
@@ -435,8 +459,8 @@ class ChatController extends Controller
 
         return response()->json([
             'user_message' => $this->serializeMessage($result['user_message']),
-            'bot_message'  => $result['bot_message'] ? $this->serializeMessage($result['bot_message']) : null,
-            'handoff_id'   => $result['handoff']?->id,
+            'bot_message' => $result['bot_message'] ? $this->serializeMessage($result['bot_message']) : null,
+            'handoff_id' => $result['handoff']?->id,
         ]);
     }
 
@@ -446,10 +470,11 @@ class ChatController extends Controller
     public function botStart(Conversation $conversation): JsonResponse
     {
         $this->authorizeMember($conversation);
-        if (!$conversation->isBot()) {
+        if (! $conversation->isBot()) {
             abort(422, 'Зөвхөн bot чатад ашиглана.');
         }
         $message = $this->bot->sendWelcome($this->currentUser(), $conversation);
+
         return response()->json(['message' => $this->serializeMessage($message)]);
     }
 
@@ -460,11 +485,11 @@ class ChatController extends Controller
             ->where('user_id', $user->id)
             ->whereNull('left_at')
             ->exists();
-        if (!$isMember) {
-            \Illuminate\Support\Facades\Log::warning('Chat authorizeMember denied', [
-                'user_id'         => $user->id,
+        if (! $isMember) {
+            Log::warning('Chat authorizeMember denied', [
+                'user_id' => $user->id,
                 'conversation_id' => $conversation->id,
-                'participants'    => $conversation->participants()->get(['user_id', 'left_at'])->toArray(),
+                'participants' => $conversation->participants()->get(['user_id', 'left_at'])->toArray(),
             ]);
             abort(Response::HTTP_FORBIDDEN, 'Энэ чатад эрх алга.');
         }
@@ -477,54 +502,54 @@ class ChatController extends Controller
         // Bot card-уудын товчнуудыг одоогийн bot config-аас шинэчилнэ —
         // ингэснээр admin-аас засвар хийгдмэгц чатад автоматаар тусна.
         if ($m->type === Message::TYPE_BOT_CARD && $m->bot_node_id) {
-            $node = \App\Models\Bot\BotNode::with(['buttons' => fn ($q) => $q->orderBy('sort_order')])->find($m->bot_node_id);
+            $node = BotNode::with(['buttons' => fn ($q) => $q->orderBy('sort_order')])->find($m->bot_node_id);
             if ($node) {
                 $buttons = $node->buttons->map(fn ($b) => [
-                    'id'             => $b->id,
-                    'label'          => $b->label,
-                    'icon'           => $b->icon,
-                    'action'         => $b->action,
+                    'id' => $b->id,
+                    'label' => $b->label,
+                    'icon' => $b->icon,
+                    'action' => $b->action,
                     'target_node_id' => $b->target_node_id,
                     'target_flow_id' => $b->target_flow_id,
-                    'target_url'     => $b->target_url,
+                    'target_url' => $b->target_url,
                 ])->all();
                 $meta = array_merge(is_array($meta) ? $meta : [], [
-                    'title'   => $node->title,
+                    'title' => $node->title,
                     'buttons' => $buttons,
                 ]);
             }
         }
 
         return [
-            'id'              => $m->id,
+            'id' => $m->id,
             'conversation_id' => $m->conversation_id,
-            'sender_id'       => $m->sender_id,
-            'sender_type'     => $m->sender_type,
-            'sender'          => $m->sender ? ['id' => $m->sender->id, 'name' => $m->sender->name] : null,
-            'body'            => $m->body,
-            'type'            => $m->type,
-            'bot_node_id'     => $m->bot_node_id,
-            'reply_to_id'     => $m->reply_to_id,
-            'reply_to'        => $m->replyTo ? [
-                'id'        => $m->replyTo->id,
-                'body'      => $m->replyTo->body,
-                'type'      => $m->replyTo->type,
+            'sender_id' => $m->sender_id,
+            'sender_type' => $m->sender_type,
+            'sender' => $m->sender ? ['id' => $m->sender->id, 'name' => $m->sender->name] : null,
+            'body' => $m->body,
+            'type' => $m->type,
+            'bot_node_id' => $m->bot_node_id,
+            'reply_to_id' => $m->reply_to_id,
+            'reply_to' => $m->replyTo ? [
+                'id' => $m->replyTo->id,
+                'body' => $m->replyTo->body,
+                'type' => $m->replyTo->type,
                 'sender_id' => $m->replyTo->sender_id,
                 'sender_name' => $m->replyTo->sender?->name,
             ] : null,
-            'meta'            => $meta,
-            'attachments'     => $m->attachments->map(fn ($a) => [
-                'id'            => $a->id,
-                'url'           => $a->url,
+            'meta' => $meta,
+            'attachments' => $m->attachments->map(fn ($a) => [
+                'id' => $a->id,
+                'url' => $a->url,
                 'original_name' => $a->original_name,
-                'mime_type'     => $a->mime_type,
-                'size'          => $a->size,
-                'width'         => $a->width,
-                'height'        => $a->height,
-                'is_image'      => $a->is_image,
+                'mime_type' => $a->mime_type,
+                'size' => $a->size,
+                'width' => $a->width,
+                'height' => $a->height,
+                'is_image' => $a->is_image,
             ])->all(),
-            'edited_at'       => $m->edited_at?->toIso8601String(),
-            'created_at'      => $m->created_at?->toIso8601String(),
+            'edited_at' => $m->edited_at?->toIso8601String(),
+            'created_at' => $m->created_at?->toIso8601String(),
         ];
     }
 }

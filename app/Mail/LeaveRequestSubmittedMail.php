@@ -18,6 +18,7 @@ class LeaveRequestSubmittedMail extends Mailable
     public function envelope(): Envelope
     {
         $name = $this->leaveRequest->employee->full_name;
+
         return new Envelope(subject: "📋 Чөлөөний хүсэлт — {$name}");
     }
 

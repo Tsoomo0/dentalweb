@@ -13,8 +13,8 @@ class AttendanceLog extends Model
     ];
 
     protected $casts = [
-        'date'           => 'date',
-        'checked_in_at'  => 'datetime',
+        'date' => 'date',
+        'checked_in_at' => 'datetime',
         'checked_out_at' => 'datetime',
     ];
 
@@ -25,7 +25,10 @@ class AttendanceLog extends Model
 
     public function getWorkedMinutesAttribute(): int
     {
-        if (!$this->checked_in_at || !$this->checked_out_at) return 0;
+        if (! $this->checked_in_at || ! $this->checked_out_at) {
+            return 0;
+        }
+
         return (int) $this->checked_in_at->diffInMinutes($this->checked_out_at);
     }
 }

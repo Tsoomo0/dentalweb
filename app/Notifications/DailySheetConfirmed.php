@@ -10,9 +10,9 @@ class DailySheetConfirmed extends Notification
         public readonly string $branchName,
         public readonly string $date,
         public readonly string $receptionistName,
-        public readonly int    $sheetId,
-        public readonly int    $entryCount,
-        public readonly int    $totalAmount,
+        public readonly int $sheetId,
+        public readonly int $entryCount,
+        public readonly int $totalAmount,
     ) {}
 
     public function via(object $notifiable): array
@@ -23,13 +23,12 @@ class DailySheetConfirmed extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'branch_name'       => $this->branchName,
-            'date'              => $this->date,
+            'branch_name' => $this->branchName,
+            'date' => $this->date,
             'receptionist_name' => $this->receptionistName,
-            'sheet_id'          => $this->sheetId,
-            'entry_count'       => $this->entryCount,
-            'total_amount'      => $this->totalAmount,
+            'sheet_id' => $this->sheetId,
+            'entry_count' => $this->entryCount,
+            'total_amount' => $this->totalAmount,
         ];
     }
-
 }

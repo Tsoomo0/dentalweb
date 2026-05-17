@@ -8,9 +8,9 @@ class LeasingPaidByPatient extends Notification
 {
     public function __construct(
         public readonly string $patientName,
-        public readonly int    $amount,
-        public readonly int    $installmentNumber,
-        public readonly int    $planId,
+        public readonly int $amount,
+        public readonly int $installmentNumber,
+        public readonly int $planId,
     ) {}
 
     public function via(object $notifiable): array
@@ -21,11 +21,11 @@ class LeasingPaidByPatient extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'patient_name'       => $this->patientName,
-            'amount'             => $this->amount,
+            'patient_name' => $this->patientName,
+            'amount' => $this->amount,
             'installment_number' => $this->installmentNumber,
-            'plan_id'            => $this->planId,
-            'message'            => "{$this->patientName} — лизингийн {$this->installmentNumber}-р сар QPay-р төлөгдлөө",
+            'plan_id' => $this->planId,
+            'message' => "{$this->patientName} — лизингийн {$this->installmentNumber}-р сар QPay-р төлөгдлөө",
         ];
     }
 }

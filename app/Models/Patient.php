@@ -3,11 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\User;
 
 class Patient extends Model
 {
@@ -89,7 +88,7 @@ class Patient extends Model
 
     public function getFullNameAttribute(): string
     {
-        return $this->last_name . ' ' . $this->first_name;
+        return $this->last_name.' '.$this->first_name;
     }
 
     public function getAgeAttribute(): ?int
@@ -100,8 +99,9 @@ class Patient extends Model
     public static function generateNumber(): string
     {
         $max = static::withTrashed()
-            ->selectRaw("MAX(CAST(SUBSTRING(patient_number, 4) AS UNSIGNED)) as n")
+            ->selectRaw('MAX(CAST(SUBSTRING(patient_number, 4) AS UNSIGNED)) as n')
             ->value('n') ?? 0;
-        return 'PT-' . str_pad($max + 1, 4, '0', STR_PAD_LEFT);
+
+        return 'PT-'.str_pad($max + 1, 4, '0', STR_PAD_LEFT);
     }
 }

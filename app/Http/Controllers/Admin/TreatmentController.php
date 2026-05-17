@@ -64,15 +64,15 @@ class TreatmentController extends Controller
         AuditService::log('created', $treatment, null, ['title' => $treatment->title], "Эмчилгээ үүсгэв: {$treatment->title}");
 
         foreach ($request->input('sub_treatments', []) as $i => $sub) {
-            if (!empty($sub['title'])) {
+            if (! empty($sub['title'])) {
                 $treatment->subTreatments()->create([
-                    'title'        => $sub['title'],
-                    'description'  => $sub['description'] ?? null,
-                    'price_min'    => $sub['price_min'] ?? null,
-                    'price_max'    => $sub['price_max'] ?? null,
+                    'title' => $sub['title'],
+                    'description' => $sub['description'] ?? null,
+                    'price_min' => $sub['price_min'] ?? null,
+                    'price_max' => $sub['price_max'] ?? null,
                     'duration_min' => $sub['duration_min'] ?? null,
-                    'is_active'    => filter_var($sub['is_active'] ?? true, FILTER_VALIDATE_BOOLEAN),
-                    'order'        => $i,
+                    'is_active' => filter_var($sub['is_active'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                    'order' => $i,
                 ]);
             }
         }

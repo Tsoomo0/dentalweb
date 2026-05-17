@@ -9,7 +9,7 @@ class TreatmentSentToReception extends Notification
     public function __construct(
         public readonly string $patientName,
         public readonly string $doctorName,
-        public readonly int    $amount,
+        public readonly int $amount,
         public readonly ?string $appointmentNumber,
     ) {}
 
@@ -21,10 +21,10 @@ class TreatmentSentToReception extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'patient_name'        => $this->patientName,
-            'doctor_name'         => $this->doctorName,
-            'amount'              => $this->amount,
-            'appointment_number'  => $this->appointmentNumber,
+            'patient_name' => $this->patientName,
+            'doctor_name' => $this->doctorName,
+            'amount' => $this->amount,
+            'appointment_number' => $this->appointmentNumber,
         ];
     }
 }

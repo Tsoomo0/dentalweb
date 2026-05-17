@@ -10,8 +10,10 @@ class Participant extends Model
 {
     protected $table = 'chat_participants';
 
-    public const ROLE_OWNER  = 'owner';
-    public const ROLE_ADMIN  = 'admin';
+    public const ROLE_OWNER = 'owner';
+
+    public const ROLE_ADMIN = 'admin';
+
     public const ROLE_MEMBER = 'member';
 
     protected $fillable = [
@@ -27,10 +29,10 @@ class Participant extends Model
 
     protected $casts = [
         'last_read_at' => 'datetime',
-        'muted_until'  => 'datetime',
-        'is_pinned'    => 'boolean',
-        'joined_at'    => 'datetime',
-        'left_at'      => 'datetime',
+        'muted_until' => 'datetime',
+        'is_pinned' => 'boolean',
+        'joined_at' => 'datetime',
+        'left_at' => 'datetime',
     ];
 
     public function conversation(): BelongsTo

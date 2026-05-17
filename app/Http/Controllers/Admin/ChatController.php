@@ -17,8 +17,8 @@ class ChatController extends Controller
         $payload = $myChat->preloadConversations($user);
 
         return Inertia::render('admin/Chat/Index', [
-            'currentUserId'        => $user->id,
-            'isStaff'              => true,
+            'currentUserId' => $user->id,
+            'isStaff' => true,
             'initialConversations' => $payload,
         ]);
     }

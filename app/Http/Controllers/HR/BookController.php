@@ -18,20 +18,20 @@ class BookController extends Controller
         $books = Book::with(['category', 'activeRentals.employee'])
             ->latest()
             ->get()
-            ->map(fn(Book $b) => [
-                'id'               => $b->id,
-                'title'            => $b->title,
-                'author'           => $b->author,
-                'isbn'             => $b->isbn,
-                'cover_url'        => $b->cover_url,
-                'total_copies'     => $b->total_copies,
+            ->map(fn (Book $b) => [
+                'id' => $b->id,
+                'title' => $b->title,
+                'author' => $b->author,
+                'isbn' => $b->isbn,
+                'cover_url' => $b->cover_url,
+                'total_copies' => $b->total_copies,
                 'available_copies' => $b->available_copies,
-                'description'      => $b->description,
-                'category_id'      => $b->book_category_id,
-                'category_name'    => $b->category?->name,
-                'category_color'   => $b->category?->color ?? 'blue',
-                'rented_by'        => $b->activeRentals->map(fn($r) => [
-                    'id'   => $r->employee_id,
+                'description' => $b->description,
+                'category_id' => $b->book_category_id,
+                'category_name' => $b->category?->name,
+                'category_color' => $b->category?->color ?? 'blue',
+                'rented_by' => $b->activeRentals->map(fn ($r) => [
+                    'id' => $r->employee_id,
                     'name' => $r->employee->full_name,
                 ])->values()->all(),
             ]);
@@ -39,7 +39,7 @@ class BookController extends Controller
         $categories = BookCategory::orderBy('name')->get(['id', 'name', 'color']);
 
         return Inertia::render('hr/books/index', [
-            'books'      => $books,
+            'books' => $books,
             'categories' => $categories,
         ]);
     }
@@ -47,13 +47,13 @@ class BookController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'title'            => 'required|string|max:255',
-            'author'           => 'nullable|string|max:255',
-            'isbn'             => 'nullable|string|max:50',
+            'title' => 'required|string|max:255',
+            'author' => 'nullable|string|max:255',
+            'isbn' => 'nullable|string|max:50',
             'book_category_id' => 'nullable|exists:book_categories,id',
-            'total_copies'     => 'required|integer|min:1|max:999',
-            'description'      => 'nullable|string|max:2000',
-            'cover'            => 'nullable|image|max:2048',
+            'total_copies' => 'required|integer|min:1|max:999',
+            'description' => 'nullable|string|max:2000',
+            'cover' => 'nullable|image|max:2048',
         ]);
 
         $coverPath = null;
@@ -62,13 +62,13 @@ class BookController extends Controller
         }
 
         Book::create([
-            'title'            => $request->title,
-            'author'           => $request->author,
-            'isbn'             => $request->isbn,
+            'title' => $request->title,
+            'author' => $request->author,
+            'isbn' => $request->isbn,
             'book_category_id' => $request->book_category_id,
-            'total_copies'     => $request->total_copies,
-            'description'      => $request->description,
-            'cover_image'      => $coverPath,
+            'total_copies' => $request->total_copies,
+            'description' => $request->description,
+            'cover_image' => $coverPath,
         ]);
 
         return back()->with('success', 'Ном нэмэгдлээ.');
@@ -77,13 +77,13 @@ class BookController extends Controller
     public function update(Request $request, Book $book): RedirectResponse
     {
         $request->validate([
-            'title'            => 'required|string|max:255',
-            'author'           => 'nullable|string|max:255',
-            'isbn'             => 'nullable|string|max:50',
+            'title' => 'required|string|max:255',
+            'author' => 'nullable|string|max:255',
+            'isbn' => 'nullable|string|max:50',
             'book_category_id' => 'nullable|exists:book_categories,id',
-            'total_copies'     => 'required|integer|min:1|max:999',
-            'description'      => 'nullable|string|max:2000',
-            'cover'            => 'nullable|image|max:2048',
+            'total_copies' => 'required|integer|min:1|max:999',
+            'description' => 'nullable|string|max:2000',
+            'cover' => 'nullable|image|max:2048',
         ]);
 
         $data = $request->only(['title', 'author', 'isbn', 'book_category_id', 'total_copies', 'description']);
@@ -111,6 +111,7 @@ class BookController extends Controller
         }
 
         $book->delete();
+
         return back()->with('success', 'Ном устгагдлаа.');
     }
 }

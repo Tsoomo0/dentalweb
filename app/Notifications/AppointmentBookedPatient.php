@@ -7,12 +7,12 @@ use Illuminate\Notifications\Notification;
 class AppointmentBookedPatient extends Notification
 {
     public function __construct(
-        public readonly string  $appointmentNumber,
-        public readonly string  $appointmentDate,
-        public readonly string  $appointmentTime,
+        public readonly string $appointmentNumber,
+        public readonly string $appointmentDate,
+        public readonly string $appointmentTime,
         public readonly ?string $doctorName,
         public readonly ?string $branchName,
-        public readonly string  $status,
+        public readonly string $status,
     ) {}
 
     public function via(object $notifiable): array
@@ -24,11 +24,11 @@ class AppointmentBookedPatient extends Notification
     {
         return [
             'appointment_number' => $this->appointmentNumber,
-            'appointment_date'   => $this->appointmentDate,
-            'appointment_time'   => $this->appointmentTime,
-            'doctor_name'        => $this->doctorName,
-            'branch_name'        => $this->branchName,
-            'status'             => $this->status,
+            'appointment_date' => $this->appointmentDate,
+            'appointment_time' => $this->appointmentTime,
+            'doctor_name' => $this->doctorName,
+            'branch_name' => $this->branchName,
+            'status' => $this->status,
         ];
     }
 }

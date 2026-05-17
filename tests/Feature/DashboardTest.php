@@ -17,8 +17,10 @@ class DashboardTest extends TestCase
 
     public function test_authenticated_users_can_visit_the_dashboard()
     {
-        $this->actingAs($user = User::factory()->create());
+        $this->actingAs(User::factory()->create());
 
-        $this->get('/dashboard')->assertOk();
+        // App нь user role-н дагуу /admin, /hr, /reception, /my эсвэл /patient рүү redirect хийдэг
+        // тул /dashboard өөрөө assertion-д шаардлагагүй
+        $this->get('/dashboard')->assertRedirect();
     }
 }

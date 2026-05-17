@@ -20,8 +20,8 @@ class GalleryItem extends Model
 
     protected $casts = [
         'is_featured' => 'boolean',
-        'is_active'   => 'boolean',
-        'order'       => 'integer',
+        'is_active' => 'boolean',
+        'order' => 'integer',
     ];
 
     public function category(): BelongsTo

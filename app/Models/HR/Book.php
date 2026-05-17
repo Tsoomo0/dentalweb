@@ -39,12 +39,13 @@ class Book extends Model
 
     public function getCoverUrlAttribute(): ?string
     {
-        return $this->cover_image ? asset('storage/' . $this->cover_image) : null;
+        return $this->cover_image ? asset('storage/'.$this->cover_image) : null;
     }
 
     public function getAvailableCopiesAttribute(): int
     {
         $rented = $this->activeRentals()->count();
+
         return max(0, $this->total_copies - $rented);
     }
 }

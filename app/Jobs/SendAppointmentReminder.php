@@ -19,7 +19,7 @@ class SendAppointmentReminder implements ShouldQueue
     public int $tries = 2;
 
     public function __construct(
-        public readonly int    $appointmentId,
+        public readonly int $appointmentId,
         public readonly string $type  // '24h' | '2h'
     ) {}
 
@@ -42,8 +42,8 @@ class SendAppointmentReminder implements ShouldQueue
         } catch (\Throwable $e) {
             Log::error('Appointment reminder email failed', [
                 'appointment' => $this->appointmentId,
-                'type'        => $this->type,
-                'error'       => $e->getMessage(),
+                'type' => $this->type,
+                'error' => $e->getMessage(),
             ]);
         }
     }

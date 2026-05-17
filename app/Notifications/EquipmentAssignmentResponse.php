@@ -8,15 +8,15 @@ use Illuminate\Notifications\Notification;
 
 class EquipmentAssignmentResponse extends Notification
 {
-
     public function __construct(public readonly EquipmentAssignment $assignment) {}
 
     public function via(object $notifiable): array
     {
         $channels = ['database'];
-        if (!empty($notifiable->email)) {
+        if (! empty($notifiable->email)) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -27,16 +27,17 @@ class EquipmentAssignmentResponse extends Notification
 
     public function toDatabase(object $notifiable): array
     {
-        $eq  = $this->assignment->equipment;
+        $eq = $this->assignment->equipment;
         $emp = $this->assignment->employee;
+
         return [
-            'type'                    => 'equipment_assignment_response',
+            'type' => 'equipment_assignment_response',
             'equipment_assignment_id' => $this->assignment->id,
-            'equipment_name'          => $eq->name,
-            'employee_name'           => $emp->full_name,
-            'status'                  => $this->assignment->status,
-            'rejection_reason'        => $this->assignment->rejection_reason,
-            'message'                 => $this->assignment->isAccepted()
+            'equipment_name' => $eq->name,
+            'employee_name' => $emp->full_name,
+            'status' => $this->assignment->status,
+            'rejection_reason' => $this->assignment->rejection_reason,
+            'message' => $this->assignment->isAccepted()
                 ? "{$emp->full_name} «{$eq->name}» тоног төхөөрөмж хүлээн авлаа ✅"
                 : "{$emp->full_name} «{$eq->name}» тоног төхөөрөмж татгалзлаа ❌",
         ];

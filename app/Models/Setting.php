@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 class Setting extends Model
 {
     const CACHE_KEY = 'site_settings_all';
+
     const CACHE_TTL = 3600; // 1 цаг
 
     protected $fillable = [
@@ -38,7 +39,7 @@ class Setting extends Model
 
         return match ($setting['type'] ?? 'string') {
             'integer' => (int) $setting['value'],
-            default   => $setting['value'],
+            default => $setting['value'],
         };
     }
 
@@ -47,9 +48,9 @@ class Setting extends Model
     public static function allCached(): array
     {
         return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
-            return static::all()->keyBy('key')->map(fn($s) => [
+            return static::all()->keyBy('key')->map(fn ($s) => [
                 'value' => $s->value,
-                'type'  => $s->type,
+                'type' => $s->type,
             ])->toArray();
         });
     }
@@ -81,7 +82,7 @@ class Setting extends Model
                 ->orderBy('id')
                 ->get()
                 ->keyBy('key')
-                ->map(fn($s) => $s->value)
+                ->map(fn ($s) => $s->value)
                 ->toArray();
         });
     }

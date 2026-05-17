@@ -22,7 +22,7 @@ class ConsentRequestSent extends Notification
         return [
             'template_title' => $this->templateTitle,
             'reception_name' => $this->receptionName,
-            'patient_name'   => $this->patientName,
+            'patient_name' => $this->patientName,
         ];
     }
 }

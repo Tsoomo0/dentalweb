@@ -18,25 +18,37 @@ class AppointmentExportController extends Controller
             ->orderBy('appointment_date')
             ->orderBy('appointment_time');
 
-        if ($request->filled('status'))    $query->where('status', $request->status);
-        if ($request->filled('doctor_id')) $query->where('doctor_id', $request->doctor_id);
-        if ($request->filled('branch_id')) $query->where('branch_id', $request->branch_id);
-        if ($request->filled('type'))      $query->where('type', $request->type);
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('doctor_id')) {
+            $query->where('doctor_id', $request->doctor_id);
+        }
+        if ($request->filled('branch_id')) {
+            $query->where('branch_id', $request->branch_id);
+        }
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
 
-        if ($request->filled('date_from')) $query->whereDate('appointment_date', '>=', $request->date_from);
-        if ($request->filled('date_to'))   $query->whereDate('appointment_date', '<=', $request->date_to);
+        if ($request->filled('date_from')) {
+            $query->whereDate('appointment_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('appointment_date', '<=', $request->date_to);
+        }
 
         if ($request->filled('month')) {
             $query->whereYear('appointment_date', substr($request->month, 0, 4))
-                  ->whereMonth('appointment_date', substr($request->month, 5, 2));
+                ->whereMonth('appointment_date', substr($request->month, 5, 2));
         } elseif (! $request->filled('date_from') && ! $request->filled('date_to')) {
             $query->whereDate('appointment_date', '>=', Carbon::today()->startOfMonth())
-                  ->whereDate('appointment_date', '<=', Carbon::today()->endOfMonth());
+                ->whereDate('appointment_date', '<=', Carbon::today()->endOfMonth());
         }
 
         $appointments = $query->limit(500)->get();
-        $doctors      = Doctor::where('is_active', true)->orderBy('name')->get(['id', 'name']);
-        $branches     = Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $doctors = Doctor::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $branches = Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
         $html = view('exports.appointments-pdf', compact('appointments', 'request', 'doctors', 'branches'))->render();
 

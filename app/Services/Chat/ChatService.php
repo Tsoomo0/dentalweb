@@ -5,7 +5,6 @@ namespace App\Services\Chat;
 use App\Events\Chat\ConversationUpdated;
 use App\Events\Chat\MessageRead as MessageReadEvent;
 use App\Events\Chat\MessageSent;
-use App\Services\Chat\PushService;
 use App\Models\Chat\Attachment;
 use App\Models\Chat\Conversation;
 use App\Models\Chat\Message;
@@ -15,7 +14,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ChatService
@@ -38,12 +37,13 @@ class ChatService
         if ($existing) {
             // Ensure both participants are active (re-join if they previously left).
             $this->addParticipants($existing, [$a->id, $b->id]);
+
             return $existing;
         }
 
         return DB::transaction(function () use ($a, $b) {
             $conv = Conversation::create([
-                'type'       => Conversation::TYPE_DIRECT,
+                'type' => Conversation::TYPE_DIRECT,
                 'created_by' => $a->id,
             ]);
 
@@ -69,7 +69,7 @@ class ChatService
 
         return DB::transaction(function () use ($user) {
             $conv = Conversation::create([
-                'type'       => Conversation::TYPE_BOT,
+                'type' => Conversation::TYPE_BOT,
                 'created_by' => $user->id,
             ]);
 
@@ -99,15 +99,16 @@ class ChatService
         if ($existing) {
             // Ensure all current admins are participants (admin set may have changed).
             $this->addParticipants($existing, array_merge($adminIds, [$employee->id]));
+
             return $existing;
         }
 
         return DB::transaction(function () use ($employee, $adminIds) {
             $conv = Conversation::create([
-                'type'       => Conversation::TYPE_GROUP,
-                'name'       => $employee->name ?? ('#' . $employee->id), // raw name; display is overridden per viewer in API
+                'type' => Conversation::TYPE_GROUP,
+                'name' => $employee->name ?? ('#'.$employee->id), // raw name; display is overridden per viewer in API
                 'created_by' => $employee->id,
-                'meta'       => ['support_for_user_id' => $employee->id],
+                'meta' => ['support_for_user_id' => $employee->id],
             ]);
 
             $this->addParticipants($conv, array_merge($adminIds, [$employee->id]), ownerId: $employee->id);
@@ -125,9 +126,9 @@ class ChatService
 
         return DB::transaction(function () use ($creator, $name, $userIds, $avatar) {
             $conv = Conversation::create([
-                'type'       => Conversation::TYPE_GROUP,
-                'name'       => $name,
-                'avatar'     => $avatar,
+                'type' => Conversation::TYPE_GROUP,
+                'name' => $name,
+                'avatar' => $avatar,
                 'created_by' => $creator->id,
             ]);
 
@@ -144,11 +145,11 @@ class ChatService
         foreach (array_unique($userIds) as $uid) {
             $rows[] = [
                 'conversation_id' => $conv->id,
-                'user_id'         => $uid,
-                'role'            => $ownerId === $uid ? Participant::ROLE_OWNER : Participant::ROLE_MEMBER,
-                'joined_at'       => $now,
-                'created_at'      => $now,
-                'updated_at'      => $now,
+                'user_id' => $uid,
+                'role' => $ownerId === $uid ? Participant::ROLE_OWNER : Participant::ROLE_MEMBER,
+                'joined_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
         if ($rows) {
@@ -190,26 +191,26 @@ class ChatService
         ?array $meta = null,
         string $type = Message::TYPE_TEXT,
     ): Message {
-        if (!$body && empty($files) && !$meta) {
+        if (! $body && empty($files) && ! $meta) {
             abort(422, 'Хоосон мессеж илгээх боломжгүй.');
         }
 
         return DB::transaction(function () use ($conv, $sender, $body, $files, $replyToId, $senderType, $botNodeId, $meta, $type) {
             // If attachments exist and no explicit type chosen, infer.
             $inferredType = $type;
-            if ($type === Message::TYPE_TEXT && !empty($files)) {
+            if ($type === Message::TYPE_TEXT && ! empty($files)) {
                 $inferredType = $this->isAllImages($files) ? Message::TYPE_IMAGE : Message::TYPE_FILE;
             }
 
             $message = Message::create([
                 'conversation_id' => $conv->id,
-                'sender_id'       => $sender?->id,
-                'sender_type'     => $senderType,
-                'body'            => $body,
-                'type'            => $inferredType,
-                'bot_node_id'     => $botNodeId,
-                'reply_to_id'     => $replyToId,
-                'meta'            => $meta,
+                'sender_id' => $sender?->id,
+                'sender_type' => $senderType,
+                'body' => $body,
+                'type' => $inferredType,
+                'bot_node_id' => $botNodeId,
+                'reply_to_id' => $replyToId,
+                'meta' => $meta,
             ]);
 
             foreach ($files as $file) {
@@ -270,12 +271,12 @@ class ChatService
 
             if ($unreadIds->isNotEmpty()) {
                 $rows = $unreadIds->map(fn ($id) => [
-                    'message_id'   => $id,
-                    'user_id'      => $user->id,
+                    'message_id' => $id,
+                    'user_id' => $user->id,
                     'delivered_at' => $now,
-                    'read_at'      => $now,
-                    'created_at'   => $now,
-                    'updated_at'   => $now,
+                    'read_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ])->all();
 
                 MessageRead::query()->upsert(
@@ -301,7 +302,7 @@ class ChatService
             ->where('user_id', $user->id)
             ->first();
 
-        if (!$participant) {
+        if (! $participant) {
             return 0;
         }
 
@@ -333,30 +334,31 @@ class ChatService
     protected function storeAttachment(Message $message, UploadedFile $file): Attachment
     {
         $disk = 'public';
-        $folder = 'chat/' . $message->conversation_id . '/' . now()->format('Y/m');
+        $folder = 'chat/'.$message->conversation_id.'/'.now()->format('Y/m');
         $path = $file->store($folder, $disk);
 
         [$width, $height] = $this->probeImageSize($file);
 
         return Attachment::create([
-            'message_id'    => $message->id,
-            'disk'          => $disk,
-            'path'          => $path,
+            'message_id' => $message->id,
+            'disk' => $disk,
+            'path' => $path,
             'original_name' => $file->getClientOriginalName(),
-            'mime_type'     => $file->getClientMimeType(),
-            'size'          => $file->getSize(),
-            'width'         => $width,
-            'height'        => $height,
+            'mime_type' => $file->getClientMimeType(),
+            'size' => $file->getSize(),
+            'width' => $width,
+            'height' => $height,
         ]);
     }
 
     protected function probeImageSize(UploadedFile $file): array
     {
-        if (!str_starts_with((string) $file->getClientMimeType(), 'image/')) {
+        if (! str_starts_with((string) $file->getClientMimeType(), 'image/')) {
             return [null, null];
         }
         try {
             $info = @getimagesize($file->getRealPath());
+
             return $info ? [(int) $info[0], (int) $info[1]] : [null, null];
         } catch (\Throwable) {
             return [null, null];
@@ -366,10 +368,11 @@ class ChatService
     protected function isAllImages(array $files): bool
     {
         foreach ($files as $f) {
-            if (!str_starts_with((string) $f->getClientMimeType(), 'image/')) {
+            if (! str_starts_with((string) $f->getClientMimeType(), 'image/')) {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -384,39 +387,41 @@ class ChatService
             $push = app(PushService::class);
 
             $convTitle = match ($conv->type) {
-                Conversation::TYPE_BOT   => 'HR Туслах',
+                Conversation::TYPE_BOT => 'HR Туслах',
                 Conversation::TYPE_GROUP => $conv->name ?? 'Группын чат',
-                default                  => $sender?->name ?? 'Шинэ мессеж',
+                default => $sender?->name ?? 'Шинэ мессеж',
             };
 
             $preview = $message->body
-                ? \Illuminate\Support\Str::limit($message->body, 140)
+                ? Str::limit($message->body, 140)
                 : match ($message->type) {
-                    Message::TYPE_IMAGE    => '📷 Зураг',
-                    Message::TYPE_FILE     => '📎 Файл',
+                    Message::TYPE_IMAGE => '📷 Зураг',
+                    Message::TYPE_FILE => '📎 Файл',
                     Message::TYPE_BOT_CARD => '🤖 Сонголтын карт',
-                    default                => 'Шинэ мессеж',
+                    default => 'Шинэ мессеж',
                 };
 
             $payload = [
                 'title' => $convTitle,
-                'body'  => ($conv->isGroup() && $sender) ? ($sender->name . ': ' . $preview) : $preview,
-                'icon'  => '/img/icon-192.png',
+                'body' => ($conv->isGroup() && $sender) ? ($sender->name.': '.$preview) : $preview,
+                'icon' => '/img/icon-192.png',
                 'badge' => '/img/icon-192.png',
-                'tag'   => 'chat-' . $conv->id,
-                'data'  => [
+                'tag' => 'chat-'.$conv->id,
+                'data' => [
                     'conversation_id' => $conv->id,
-                    'message_id'      => $message->id,
-                    'url'             => '/my/chat',
+                    'message_id' => $message->id,
+                    'url' => '/my/chat',
                 ],
             ];
 
             foreach ($participantIds as $uid) {
-                if ($sender && $uid === $sender->id) continue;
+                if ($sender && $uid === $sender->id) {
+                    continue;
+                }
                 $push->sendToUser($uid, $payload);
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('chat push failed', ['err' => $e->getMessage()]);
+            Log::warning('chat push failed', ['err' => $e->getMessage()]);
         }
     }
 }

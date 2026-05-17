@@ -9,12 +9,17 @@ class BotButton extends Model
 {
     protected $table = 'bot_buttons';
 
-    public const ACTION_NEXT_NODE  = 'next_node';
+    public const ACTION_NEXT_NODE = 'next_node';
+
     public const ACTION_FLOW_START = 'flow_start';
-    public const ACTION_HANDOFF    = 'handoff';
-    public const ACTION_URL        = 'url';
-    public const ACTION_BACK       = 'back';
-    public const ACTION_CLOSE      = 'close';
+
+    public const ACTION_HANDOFF = 'handoff';
+
+    public const ACTION_URL = 'url';
+
+    public const ACTION_BACK = 'back';
+
+    public const ACTION_CLOSE = 'close';
 
     protected $fillable = [
         'node_id',

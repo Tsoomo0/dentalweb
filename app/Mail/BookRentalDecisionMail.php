@@ -17,8 +17,9 @@ class BookRentalDecisionMail extends Mailable
 
     public function envelope(): Envelope
     {
-        $book   = $this->rental->book->title;
+        $book = $this->rental->book->title;
         $status = $this->rental->status === 'approved' ? '✅ Зөвшөөрөгдлөө' : '❌ Цуцлагдлаа';
+
         return new Envelope(subject: "📚 Номын түрээс {$status} — {$book}");
     }
 

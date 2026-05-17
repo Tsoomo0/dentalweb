@@ -213,6 +213,22 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
                                 </div>
                             </div>
 
+                            {/* Replacement employee card */}
+                            <div style={{ background: 'var(--my-card-bg)', borderRadius: 24, overflow: 'hidden', boxShadow: 'var(--my-shadow)' }}>
+                                <div style={{ padding: '13px 18px 11px', borderBottom: '1px solid var(--my-divider)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#0ea5e9' }} />
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--my-muted)', letterSpacing: 0.5 }}>ОРЛОХ АЖИЛТАН</span>
+                                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--my-faint)', marginLeft: 'auto' }}>(заавал биш)</span>
+                                </div>
+                                <div style={{ padding: '12px 18px 14px' }}>
+                                    <select value={data.replacement_employee_id ?? ''} onChange={e => setData('replacement_employee_id', e.target.value)}
+                                        style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontSize: 15, fontWeight: 600, color: 'var(--my-input-text)', padding: '4px 0', fontFamily: 'inherit', appearance: 'auto' } as React.CSSProperties}>
+                                        <option value="">— Сонгоогүй —</option>
+                                        {replacements.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
                             {/* Reason card */}
                             <div style={{ background: 'var(--my-card-bg)', borderRadius: 24, overflow: 'hidden', boxShadow: 'var(--my-shadow)' }}>
                                 <div style={{ padding: '13px 18px 11px', borderBottom: '1px solid var(--my-divider)', display: 'flex', alignItems: 'center', gap: 7 }}>

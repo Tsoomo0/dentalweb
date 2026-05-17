@@ -33,7 +33,7 @@ class BotBuilderController extends Controller
             ->first();
 
         return Inertia::render('admin/BotBuilder/Index', [
-            'flows'       => $flows,
+            'flows' => $flows,
             'welcomeNode' => $welcomeNode,
         ]);
     }
@@ -66,28 +66,28 @@ class BotBuilderController extends Controller
             $sort = (int) (BotFlow::max('sort_order') ?? 0) + 1;
 
             $flow = BotFlow::create([
-                'key'        => $key,
-                'name'       => $data['name'],
-                'icon'       => $data['icon'] ?? null,
-                'is_active'  => true,
+                'key' => $key,
+                'name' => $data['name'],
+                'icon' => $data['icon'] ?? null,
+                'is_active' => true,
                 'sort_order' => $sort,
             ]);
 
             // Auto-create the topic's menu node.
             $menu = BotNode::create([
-                'flow_id'    => $flow->id,
-                'key'        => 'menu',
-                'title'      => $flow->name,
-                'body'       => ($flow->icon ? $flow->icon . ' ' : '') . $flow->name . " — асуултаа сонгоно уу:",
+                'flow_id' => $flow->id,
+                'key' => 'menu',
+                'title' => $flow->name,
+                'body' => ($flow->icon ? $flow->icon.' ' : '').$flow->name.' — асуултаа сонгоно уу:',
                 'is_welcome' => true,
             ]);
 
             // Add a default "go back" button on the menu.
             BotButton::create([
-                'node_id'    => $menu->id,
-                'label'      => 'Үндсэн цэс',
-                'icon'       => '🔙',
-                'action'     => BotButton::ACTION_BACK,
+                'node_id' => $menu->id,
+                'label' => 'Үндсэн цэс',
+                'icon' => '🔙',
+                'action' => BotButton::ACTION_BACK,
                 'sort_order' => 99,
             ]);
 
@@ -119,7 +119,7 @@ class BotBuilderController extends Controller
                     ->where('target_flow_id', $flow->id)
                     ->update([
                         'label' => $flow->name,
-                        'icon'  => $flow->icon,
+                        'icon' => $flow->icon,
                     ]);
             }
 
@@ -135,6 +135,7 @@ class BotBuilderController extends Controller
             // Cascade deletes the flow's nodes, which cascade their own buttons.
             $flow->delete();
         });
+
         return response()->json(['ok' => true]);
     }
 
@@ -144,8 +145,8 @@ class BotBuilderController extends Controller
     {
         $data = $request->validate([
             'flow_id' => 'required|integer|exists:bot_flows,id',
-            'title'   => 'required|string|max:120',
-            'body'    => 'required|string|max:4000',
+            'title' => 'required|string|max:120',
+            'body' => 'required|string|max:4000',
         ]);
 
         return DB::transaction(function () use ($data) {
@@ -155,32 +156,32 @@ class BotBuilderController extends Controller
             $key = $this->uniqueNodeKey($flow->id, $data['title']);
             $node = BotNode::create([
                 'flow_id' => $flow->id,
-                'key'     => $key,
-                'title'   => $data['title'],
-                'body'    => $data['body'],
+                'key' => $key,
+                'title' => $data['title'],
+                'body' => $data['body'],
             ]);
 
             // Default back-buttons under the answer.
             BotButton::create([
-                'node_id'        => $node->id,
-                'label'          => 'Өөр асуулт',
-                'icon'           => '🔁',
-                'action'         => BotButton::ACTION_NEXT_NODE,
+                'node_id' => $node->id,
+                'label' => 'Өөр асуулт',
+                'icon' => '🔁',
+                'action' => BotButton::ACTION_NEXT_NODE,
                 'target_node_id' => $menu?->id,
-                'sort_order'     => 1,
+                'sort_order' => 1,
             ]);
             BotButton::create([
-                'node_id'    => $node->id,
-                'label'      => 'Админтай холбогдох',
-                'icon'       => '👨‍💼',
-                'action'     => BotButton::ACTION_HANDOFF,
+                'node_id' => $node->id,
+                'label' => 'Админтай холбогдох',
+                'icon' => '👨‍💼',
+                'action' => BotButton::ACTION_HANDOFF,
                 'sort_order' => 2,
             ]);
             BotButton::create([
-                'node_id'    => $node->id,
-                'label'      => 'Үндсэн цэс',
-                'icon'       => '🔙',
-                'action'     => BotButton::ACTION_BACK,
+                'node_id' => $node->id,
+                'label' => 'Үндсэн цэс',
+                'icon' => '🔙',
+                'action' => BotButton::ACTION_BACK,
                 'sort_order' => 3,
             ]);
 
@@ -192,12 +193,12 @@ class BotBuilderController extends Controller
                     ->max('sort_order') ?? 0) + 1;
 
                 BotButton::create([
-                    'node_id'        => $menu->id,
-                    'label'          => $node->title,
-                    'icon'           => null,
-                    'action'         => BotButton::ACTION_NEXT_NODE,
+                    'node_id' => $menu->id,
+                    'label' => $node->title,
+                    'icon' => null,
+                    'action' => BotButton::ACTION_NEXT_NODE,
                     'target_node_id' => $node->id,
-                    'sort_order'     => $nextSort,
+                    'sort_order' => $nextSort,
                 ]);
             }
 
@@ -209,7 +210,7 @@ class BotBuilderController extends Controller
     {
         $data = $request->validate([
             'title' => 'sometimes|string|max:120',
-            'body'  => 'sometimes|string|max:4000',
+            'body' => 'sometimes|string|max:4000',
         ]);
 
         return DB::transaction(function () use ($node, $data) {
@@ -234,6 +235,7 @@ class BotBuilderController extends Controller
             BotButton::query()->where('target_node_id', $node->id)->delete();
             $node->delete();
         });
+
         return response()->json(['ok' => true]);
     }
 
@@ -244,6 +246,7 @@ class BotBuilderController extends Controller
         $data = $request->validate(['body' => 'required|string|max:4000']);
         $menu = $flow->nodes()->where('is_welcome', true)->firstOrFail();
         $menu->update($data);
+
         return response()->json(['node' => $menu->fresh()]);
     }
 
@@ -255,8 +258,9 @@ class BotBuilderController extends Controller
         $candidate = $base;
         $i = 2;
         while (BotFlow::query()->where('key', $candidate)->exists()) {
-            $candidate = $base . '-' . $i++;
+            $candidate = $base.'-'.$i++;
         }
+
         return $candidate;
     }
 
@@ -267,8 +271,9 @@ class BotBuilderController extends Controller
         $candidate = $base;
         $i = 2;
         while (BotNode::query()->where('flow_id', $flowId)->where('key', $candidate)->exists()) {
-            $candidate = $base . '-' . $i++;
+            $candidate = $base.'-'.$i++;
         }
+
         return $candidate;
     }
 
@@ -279,7 +284,9 @@ class BotBuilderController extends Controller
             ->where('target_flow_id', $flow->id)
             ->exists();
 
-        if ($exists) return;
+        if ($exists) {
+            return;
+        }
 
         // Insert before the handoff button (sort_order=99).
         $maxBeforeHandoff = (int) (BotButton::query()
@@ -288,12 +295,12 @@ class BotBuilderController extends Controller
             ->max('sort_order') ?? 0) + 1;
 
         BotButton::create([
-            'node_id'        => $welcome->id,
-            'label'          => $flow->name,
-            'icon'           => $flow->icon,
-            'action'         => BotButton::ACTION_FLOW_START,
+            'node_id' => $welcome->id,
+            'label' => $flow->name,
+            'icon' => $flow->icon,
+            'action' => BotButton::ACTION_FLOW_START,
             'target_flow_id' => $flow->id,
-            'sort_order'     => $maxBeforeHandoff,
+            'sort_order' => $maxBeforeHandoff,
         ]);
     }
 }

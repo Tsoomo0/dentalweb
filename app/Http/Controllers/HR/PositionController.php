@@ -16,12 +16,12 @@ class PositionController extends Controller
         $positions = Position::withCount('employees')
             ->orderBy('name')
             ->get()
-            ->map(fn(Position $p) => [
-                'id'             => $p->id,
-                'name'           => $p->name,
-                'portal'         => $p->portal,
-                'is_active'      => $p->is_active,
-                'employees_count'=> $p->employees_count,
+            ->map(fn (Position $p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'portal' => $p->portal,
+                'is_active' => $p->is_active,
+                'employees_count' => $p->employees_count,
             ]);
 
         return Inertia::render('hr/positions/index', [
@@ -32,13 +32,13 @@ class PositionController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'name'   => 'required|string|max:100|unique:positions,name',
+            'name' => 'required|string|max:100|unique:positions,name',
             'portal' => 'required|in:doctor,reception,staff,hr,admin',
         ]);
 
         Position::create([
-            'name'      => $request->name,
-            'portal'    => $request->portal,
+            'name' => $request->name,
+            'portal' => $request->portal,
             'is_active' => true,
         ]);
 
@@ -48,13 +48,13 @@ class PositionController extends Controller
     public function update(Request $request, Position $position): RedirectResponse
     {
         $request->validate([
-            'name'   => 'required|string|max:100|unique:positions,name,' . $position->id,
+            'name' => 'required|string|max:100|unique:positions,name,'.$position->id,
             'portal' => 'required|in:doctor,reception,staff,hr,admin',
         ]);
 
         $position->update([
-            'name'      => $request->name,
-            'portal'    => $request->portal,
+            'name' => $request->name,
+            'portal' => $request->portal,
             'is_active' => $request->boolean('is_active', true),
         ]);
 

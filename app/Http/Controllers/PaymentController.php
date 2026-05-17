@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\GenerateMeetLink;
-use App\Jobs\SendAppointmentEmails;
 use App\Models\Appointment;
 use App\Services\GoogleMeetService;
 use App\Services\QPayService;
@@ -16,7 +15,7 @@ use Inertia\Response;
 class PaymentController extends Controller
 {
     public function __construct(
-        private readonly QPayService       $qpay,
+        private readonly QPayService $qpay,
         private readonly GoogleMeetService $meet
     ) {}
 
@@ -35,7 +34,7 @@ class PaymentController extends Controller
         return Inertia::render('payment', [
             'appointment' => $this->appointmentData($appointment),
             'already_paid' => false,
-            'test_mode'    => (bool) config('services.qpay.test_mode', false),
+            'test_mode' => (bool) config('services.qpay.test_mode', false),
         ]);
     }
 
@@ -50,6 +49,7 @@ class PaymentController extends Controller
         // ── Тест горим: QPay-г тойрч шууд баталгаажуулна ──────────────────
         if (config('services.qpay.test_mode', false)) {
             $this->confirmPayment($appointment);
+
             return response()->json(['paid' => true, 'meet_link' => $appointment->meet_link]);
         }
 
@@ -59,6 +59,7 @@ class PaymentController extends Controller
                 $paid = $this->qpay->checkPayment($appointment->qpay_invoice_id);
                 if ($paid) {
                     $this->confirmPayment($appointment);
+
                     return response()->json(['paid' => true, 'meet_link' => $appointment->meet_link]);
                 }
             }
@@ -68,15 +69,16 @@ class PaymentController extends Controller
             $appointment->update(['qpay_invoice_id' => $invoice['invoice_id']]);
 
             return response()->json([
-                'paid'          => false,
-                'invoice_id'    => $invoice['invoice_id'],
-                'qr_image'      => $invoice['qr_image']      ?? null,
-                'qr_text'       => $invoice['qr_text']       ?? null,
+                'paid' => false,
+                'invoice_id' => $invoice['invoice_id'],
+                'qr_image' => $invoice['qr_image'] ?? null,
+                'qr_text' => $invoice['qr_text'] ?? null,
                 'qpay_deeplink' => $invoice['qpay_deeplink'] ?? [],
             ]);
         } catch (\Throwable $e) {
             Log::error('QPay createInvoice failed', ['appointment' => $appointment->id, 'error' => $e->getMessage()]);
-            return response()->json(['error' => 'QPay холбогдоход алдаа гарлаа: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'QPay холбогдоход алдаа гарлаа: '.$e->getMessage()], 500);
         }
     }
 
@@ -88,7 +90,7 @@ class PaymentController extends Controller
             return response()->json(['paid' => true, 'meet_link' => $appointment->meet_link]);
         }
 
-        if (!$appointment->qpay_invoice_id) {
+        if (! $appointment->qpay_invoice_id) {
             return response()->json(['paid' => false, 'error' => 'Invoice олдсонгүй']);
         }
 
@@ -96,6 +98,7 @@ class PaymentController extends Controller
 
         if ($paid) {
             $this->confirmPayment($appointment);
+
             return response()->json(['paid' => true, 'meet_link' => $appointment->meet_link]);
         }
 
@@ -108,11 +111,11 @@ class PaymentController extends Controller
     {
         $appointment = Appointment::find($appointmentId);
 
-        if (!$appointment || $appointment->payment_status === 'paid') {
+        if (! $appointment || $appointment->payment_status === 'paid') {
             return response()->json(['status' => 'ok']);
         }
 
-        if (!$appointment->qpay_invoice_id) {
+        if (! $appointment->qpay_invoice_id) {
             return response()->json(['status' => 'ok']);
         }
 
@@ -138,7 +141,7 @@ class PaymentController extends Controller
 
         $appointment->update([
             'payment_status' => 'paid',
-            'status'         => 'confirmed',
+            'status' => 'confirmed',
         ]);
 
         // Meet link болон имэйлийг дараалсан queue job-аар гүйцэтгэнэ
@@ -150,17 +153,17 @@ class PaymentController extends Controller
     private function appointmentData(Appointment $appointment): array
     {
         return [
-            'id'                   => $appointment->id,
-            'appointment_number'   => $appointment->appointment_number,
-            'patient_name'         => $appointment->patient_name,
-            'patient_email'        => $appointment->patient_email,
-            'doctor_name'          => $appointment->doctor?->name,
-            'appointment_date'     => $appointment->appointment_date?->format('Y.m.d') ?? '—',
-            'appointment_time'     => $appointment->appointment_time,
+            'id' => $appointment->id,
+            'appointment_number' => $appointment->appointment_number,
+            'patient_name' => $appointment->patient_name,
+            'patient_email' => $appointment->patient_email,
+            'doctor_name' => $appointment->doctor?->name,
+            'appointment_date' => $appointment->appointment_date?->format('Y.m.d') ?? '—',
+            'appointment_time' => $appointment->appointment_time,
             'appointment_time_end' => $appointment->appointment_time_end,
-            'payment_status'       => $appointment->payment_status,
-            'payment_amount'       => $appointment->payment_amount,
-            'meet_link'            => $appointment->meet_link,
+            'payment_status' => $appointment->payment_status,
+            'payment_amount' => $appointment->payment_amount,
+            'meet_link' => $appointment->meet_link,
         ];
     }
 }

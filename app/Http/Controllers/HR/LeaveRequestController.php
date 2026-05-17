@@ -23,24 +23,24 @@ class LeaveRequestController extends Controller
         $requests = LeaveRequest::with(['employee.position', 'employee.branch', 'replacement', 'reviewer'])
             ->latest()
             ->get()
-            ->map(fn($r) => [
-                'id'               => $r->id,
-                'employee_name'    => $r->employee->full_name,
-                'employee_number'  => $r->employee->employee_number,
-                'photo_url'        => $r->employee->photo_url,
-                'position'         => $r->employee->position?->name,
-                'branch'           => $r->employee->branch?->name,
-                'start_date'       => $r->start_date->toDateString(),
-                'end_date'         => $r->end_date->toDateString(),
-                'days'             => $r->days,
-                'leave_type'       => $r->leave_type,
-                'reason'           => $r->reason,
-                'replacement'      => $r->replacement?->full_name,
-                'status'           => $r->status,
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'employee_name' => $r->employee->full_name,
+                'employee_number' => $r->employee->employee_number,
+                'photo_url' => $r->employee->photo_url,
+                'position' => $r->employee->position?->name,
+                'branch' => $r->employee->branch?->name,
+                'start_date' => $r->start_date->toDateString(),
+                'end_date' => $r->end_date->toDateString(),
+                'days' => $r->days,
+                'leave_type' => $r->leave_type,
+                'reason' => $r->reason,
+                'replacement' => $r->replacement?->full_name,
+                'status' => $r->status,
                 'rejection_reason' => $r->rejection_reason,
-                'reviewed_by'      => $r->reviewer?->name,
-                'reviewed_at'      => $r->reviewed_at?->toDateString(),
-                'created_at'       => $r->created_at->toDateString(),
+                'reviewed_by' => $r->reviewer?->name,
+                'reviewed_at' => $r->reviewed_at?->toDateString(),
+                'created_at' => $r->created_at->toDateString(),
             ]);
 
         return Inertia::render('hr/leave-requests/index', [
@@ -50,12 +50,12 @@ class LeaveRequestController extends Controller
 
     public function approve(LeaveRequest $leaveRequest): RedirectResponse
     {
-        if (!$leaveRequest->isPending()) {
+        if (! $leaveRequest->isPending()) {
             return back()->with('error', 'Энэ хүсэлт аль хэдийн шийдвэрлэгдсэн байна.');
         }
 
         $leaveRequest->update([
-            'status'      => 'approved',
+            'status' => 'approved',
             'reviewed_by' => Auth::id(),
             'reviewed_at' => now(),
         ]);
@@ -71,7 +71,7 @@ class LeaveRequestController extends Controller
 
     public function reject(Request $request, LeaveRequest $leaveRequest): RedirectResponse
     {
-        if (!$leaveRequest->isPending()) {
+        if (! $leaveRequest->isPending()) {
             return back()->with('error', 'Энэ хүсэлт аль хэдийн шийдвэрлэгдсэн байна.');
         }
 
@@ -80,10 +80,10 @@ class LeaveRequestController extends Controller
         ]);
 
         $leaveRequest->update([
-            'status'           => 'rejected',
+            'status' => 'rejected',
             'rejection_reason' => $request->rejection_reason,
-            'reviewed_by'      => Auth::id(),
-            'reviewed_at'      => now(),
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
         ]);
 
         $this->notifyEmployee($leaveRequest);
@@ -97,9 +97,9 @@ class LeaveRequestController extends Controller
 
     public function destroy(LeaveRequest $leaveRequest): RedirectResponse
     {
-        $emp    = $leaveRequest->employee?->full_name ?? '—';
+        $emp = $leaveRequest->employee?->full_name ?? '—';
         $status = $leaveRequest->status;
-        $period = $leaveRequest->start_date->toDateString() . ' → ' . $leaveRequest->end_date->toDateString();
+        $period = $leaveRequest->start_date->toDateString().' → '.$leaveRequest->end_date->toDateString();
 
         $leaveRequest->delete();
 
@@ -113,25 +113,24 @@ class LeaveRequestController extends Controller
     {
         $leaveRequest->load(['employee.position', 'employee.branch', 'replacement', 'reviewer']);
 
-        $settings = Cache::remember('inertia_site_settings', 3600, fn () =>
-            Setting::whereIn('key', ['site_name', 'site_logo'])->pluck('value', 'key')->toArray()
+        $settings = Cache::remember('inertia_site_settings', 3600, fn () => Setting::whereIn('key', ['site_name', 'site_logo'])->pluck('value', 'key')->toArray()
         );
 
         $logoPath = null;
-        if (!empty($settings['site_logo'])) {
-            $path = public_path('storage/' . ltrim($settings['site_logo'], '/'));
+        if (! empty($settings['site_logo'])) {
+            $path = public_path('storage/'.ltrim($settings['site_logo'], '/'));
             if (file_exists($path)) {
-                $logoPath = 'data:image/' . pathinfo($path, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($path));
+                $logoPath = 'data:image/'.pathinfo($path, PATHINFO_EXTENSION).';base64,'.base64_encode(file_get_contents($path));
             }
         }
 
         $pdf = Pdf::loadView('hr.leave-request-pdf', [
-            'r'        => $leaveRequest,
+            'r' => $leaveRequest,
             'logoPath' => $logoPath,
             'siteName' => $settings['site_name'] ?? 'Dental Clinic',
         ])->setPaper('a4', 'portrait');
 
-        $name = $leaveRequest->employee->full_name . ' - Чөлөөний хүсэлт.pdf';
+        $name = $leaveRequest->employee->full_name.' - Чөлөөний хүсэлт.pdf';
 
         return $pdf->download($name);
     }
@@ -141,12 +140,12 @@ class LeaveRequestController extends Controller
         $requests = LeaveRequest::with(['employee.position', 'employee.branch', 'replacement', 'reviewer'])
             ->latest()->get();
 
-        $html     = view('hr.leave-requests-excel', compact('requests'))->render();
+        $html = view('hr.leave-requests-excel', compact('requests'))->render();
         $filename = 'Чөлөөний хүсэлт.xls';
-        $encoded  = rawurlencode($filename);
+        $encoded = rawurlencode($filename);
 
-        return response("\xEF\xBB\xBF" . $html, 200, [
-            'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
+        return response("\xEF\xBB\xBF".$html, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
             'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
         ]);
     }

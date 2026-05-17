@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Notifications\LeasingPaidByPatient;
 use App\Services\QPayService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +24,7 @@ class PatientLeasingPaymentController extends Controller
     public function createInvoice(LeasingPlan $plan): JsonResponse
     {
         $patient = Auth::user()->patient;
-        if (!$patient || $plan->patient_id !== $patient->id) {
+        if (! $patient || $plan->patient_id !== $patient->id) {
             abort(403);
         }
 
@@ -37,7 +36,7 @@ class PatientLeasingPaymentController extends Controller
             ->orderBy('installment_number')
             ->first();
 
-        if (!$unpaid) {
+        if (! $unpaid) {
             return response()->json(['paid' => true]);
         }
 
@@ -47,6 +46,7 @@ class PatientLeasingPaymentController extends Controller
                 $paid = $this->qpay->checkPayment($plan->qpay_invoice_id);
                 if ($paid) {
                     $this->processPayment($plan);
+
                     return response()->json(['paid' => true]);
                 }
             } catch (\Throwable) {
@@ -55,7 +55,7 @@ class PatientLeasingPaymentController extends Controller
         }
 
         try {
-            $invoiceNo   = 'LS-' . $plan->id . '-' . $unpaid->installment_number . '-' . time();
+            $invoiceNo = 'LS-'.$plan->id.'-'.$unpaid->installment_number.'-'.time();
             $description = "Лизинг #{$plan->id} — {$unpaid->installment_number}-р сар";
             $callbackUrl = route('patient.leasing.callback', ['planId' => $plan->id]);
 
@@ -64,17 +64,18 @@ class PatientLeasingPaymentController extends Controller
             $plan->update(['qpay_invoice_id' => $invoice['invoice_id']]);
 
             return response()->json([
-                'paid'               => false,
-                'invoice_id'         => $invoice['invoice_id'],
-                'qr_image'           => $invoice['qr_image']      ?? null,
-                'qr_text'            => $invoice['qr_text']       ?? null,
-                'qpay_deeplink'      => $invoice['qpay_deeplink'] ?? [],
-                'amount'             => $unpaid->amount,
+                'paid' => false,
+                'invoice_id' => $invoice['invoice_id'],
+                'qr_image' => $invoice['qr_image'] ?? null,
+                'qr_text' => $invoice['qr_text'] ?? null,
+                'qpay_deeplink' => $invoice['qpay_deeplink'] ?? [],
+                'amount' => $unpaid->amount,
                 'installment_number' => $unpaid->installment_number,
             ]);
         } catch (\Throwable $e) {
             Log::error('Patient leasing QPay invoice error', ['plan' => $plan->id, 'error' => $e->getMessage()]);
-            return response()->json(['error' => 'QPay холбогдоход алдаа гарлаа: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'QPay холбогдоход алдаа гарлаа: '.$e->getMessage()], 500);
         }
     }
 
@@ -83,11 +84,11 @@ class PatientLeasingPaymentController extends Controller
     public function checkStatus(LeasingPlan $plan): JsonResponse
     {
         $patient = Auth::user()->patient;
-        if (!$patient || $plan->patient_id !== $patient->id) {
+        if (! $patient || $plan->patient_id !== $patient->id) {
             abort(403);
         }
 
-        if (!$plan->qpay_invoice_id) {
+        if (! $plan->qpay_invoice_id) {
             return response()->json(['paid' => false, 'error' => 'Invoice олдсонгүй']);
         }
 
@@ -95,6 +96,7 @@ class PatientLeasingPaymentController extends Controller
             $paid = $this->qpay->checkPayment($plan->qpay_invoice_id);
             if ($paid) {
                 $this->processPayment($plan);
+
                 return response()->json(['paid' => true]);
             }
         } catch (\Throwable $e) {
@@ -110,7 +112,7 @@ class PatientLeasingPaymentController extends Controller
     {
         $plan = LeasingPlan::find($planId);
 
-        if (!$plan || !$plan->qpay_invoice_id) {
+        if (! $plan || ! $plan->qpay_invoice_id) {
             return response()->json(['status' => 'ok']);
         }
 
@@ -135,15 +137,18 @@ class PatientLeasingPaymentController extends Controller
             $plan = LeasingPlan::where('id', $plan->id)->lockForUpdate()->first();
 
             // Invoice аль хэдийн цэвэрлэгдсэн бол → давхар боловсруулалтаас зайлсхийх
-            if (!$plan->qpay_invoice_id) return;
+            if (! $plan->qpay_invoice_id) {
+                return;
+            }
 
             $unpaid = $plan->installments()
                 ->whereNull('paid_at')
                 ->orderBy('installment_number')
                 ->first();
 
-            if (!$unpaid) {
+            if (! $unpaid) {
                 $plan->update(['qpay_invoice_id' => null]);
+
                 return;
             }
 
@@ -154,14 +159,14 @@ class PatientLeasingPaymentController extends Controller
 
             // TreatmentRecord.paid_amount шинэчлэх
             $record = $plan->treatmentRecord()->with(['patient', 'doctor', 'appointment'])->first();
-            $newPaidAmount  = ($record->paid_amount ?? 0) + $unpaid->amount;
+            $newPaidAmount = ($record->paid_amount ?? 0) + $unpaid->amount;
             $remainingCount = $plan->installments()->whereNull('paid_at')->count();
 
             if ($remainingCount === 0) {
                 $record->update([
                     'payment_status' => 'paid',
-                    'paid_amount'    => $newPaidAmount,
-                    'paid_at'        => now(),
+                    'paid_amount' => $newPaidAmount,
+                    'paid_at' => now(),
                     'payment_method' => 'qpay',
                 ]);
             } else {
@@ -188,20 +193,20 @@ class PatientLeasingPaymentController extends Controller
         );
 
         DailySheetEntry::create([
-            'daily_sheet_id'     => $sheet->id,
-            'user_id'            => null,
-            'row_order'          => $sheet->entries()->max('row_order') + 1,
-            'patient_name'       => $record->patient ? trim("{$record->patient->last_name} {$record->patient->first_name}") : null,
-            'diagnosis'          => "Лизинг {$installmentNum}-р сар (QPay — портал)",
+            'daily_sheet_id' => $sheet->id,
+            'user_id' => null,
+            'row_order' => $sheet->entries()->max('row_order') + 1,
+            'patient_name' => $record->patient ? trim("{$record->patient->last_name} {$record->patient->first_name}") : null,
+            'diagnosis' => "Лизинг {$installmentNum}-р сар (QPay — портал)",
             'appointment_number' => $record->appointment?->appointment_number,
-            'discount'           => 0,
-            'cash_amount'        => 0,
-            'card_amount'        => 0,
-            'mobile_amount'      => $amount,
-            'storepay_amount'    => 0,
-            'total_amount'       => $amount,
+            'discount' => 0,
+            'cash_amount' => 0,
+            'card_amount' => 0,
+            'mobile_amount' => $amount,
+            'storepay_amount' => 0,
+            'total_amount' => $amount,
             'outstanding_amount' => 0,
-            'doctor_id'          => $record->doctor_id,
+            'doctor_id' => $record->doctor_id,
         ]);
     }
 
@@ -209,22 +214,21 @@ class PatientLeasingPaymentController extends Controller
 
     private function notifyReception(LeasingPlan $plan, TreatmentRecord $record, int $amount, int $installmentNum): void
     {
-        $patient     = $plan->patient;
+        $patient = $plan->patient;
         $patientName = $patient ? trim("{$patient->last_name} {$patient->first_name}") : '—';
-        $branchId    = $record->doctor?->branch_id;
+        $branchId = $record->doctor?->branch_id;
 
-        $staffUsers = User::whereHas('role', fn($q) => $q->whereIn('name', ['receptionist', 'admin']))
-            ->when($branchId, fn($q) => $q->where(fn($q2) =>
-                $q2->where('branch_id', $branchId)->orWhereNull('branch_id')
+        $staffUsers = User::whereHas('role', fn ($q) => $q->whereIn('name', ['receptionist', 'admin']))
+            ->when($branchId, fn ($q) => $q->where(fn ($q2) => $q2->where('branch_id', $branchId)->orWhereNull('branch_id')
             ))
             ->get();
 
         foreach ($staffUsers as $staff) {
             $staff->notify(new LeasingPaidByPatient(
-                patientName:       $patientName,
-                amount:            $amount,
+                patientName: $patientName,
+                amount: $amount,
                 installmentNumber: $installmentNum,
-                planId:            $plan->id,
+                planId: $plan->id,
             ));
         }
     }

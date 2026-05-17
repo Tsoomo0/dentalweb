@@ -20,6 +20,7 @@ class LeaveRequestDecisionMail extends Mailable
         $subject = $this->leaveRequest->isApproved()
             ? '✅ Чөлөөний хүсэлт зөвшөөрөгдлөө'
             : '❌ Чөлөөний хүсэлт цуцлагдлаа';
+
         return new Envelope(subject: $subject);
     }
 

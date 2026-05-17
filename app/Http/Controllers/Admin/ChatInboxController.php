@@ -37,9 +37,9 @@ class ChatInboxController extends Controller
 
         $handoffs = Handoff::query()
             ->whereIn('status', match ($status) {
-                'all'     => ['pending', 'assigned', 'closed'],
-                'open'    => ['pending', 'assigned'],
-                default   => [$status],
+                'all' => ['pending', 'assigned', 'closed'],
+                'open' => ['pending', 'assigned'],
+                default => [$status],
             })
             ->with([
                 'user:id,name',
@@ -52,16 +52,16 @@ class ChatInboxController extends Controller
 
         return response()->json([
             'handoffs' => $handoffs->map(fn (Handoff $h) => [
-                'id'                     => $h->id,
-                'status'                 => $h->status,
-                'reason'                 => $h->reason,
-                'user'                   => $h->user ? ['id' => $h->user->id, 'name' => $h->user->name] : null,
-                'assigned_admin'         => $h->assignedAdmin ? ['id' => $h->assignedAdmin->id, 'name' => $h->assignedAdmin->name] : null,
-                'bot_conversation_id'    => $h->bot_conversation_id,
+                'id' => $h->id,
+                'status' => $h->status,
+                'reason' => $h->reason,
+                'user' => $h->user ? ['id' => $h->user->id, 'name' => $h->user->name] : null,
+                'assigned_admin' => $h->assignedAdmin ? ['id' => $h->assignedAdmin->id, 'name' => $h->assignedAdmin->name] : null,
+                'bot_conversation_id' => $h->bot_conversation_id,
                 'direct_conversation_id' => $h->direct_conversation_id,
-                'assigned_at'            => $h->assigned_at?->toIso8601String(),
-                'closed_at'              => $h->closed_at?->toIso8601String(),
-                'created_at'             => $h->created_at?->toIso8601String(),
+                'assigned_at' => $h->assigned_at?->toIso8601String(),
+                'closed_at' => $h->closed_at?->toIso8601String(),
+                'created_at' => $h->created_at?->toIso8601String(),
             ]),
         ]);
     }
@@ -89,16 +89,16 @@ class ChatInboxController extends Controller
             if ($h->direct_conversation_id) {
                 $directConv = Conversation::find($h->direct_conversation_id);
             }
-            if (!$directConv) {
+            if (! $directConv) {
                 $user = User::findOrFail($h->user_id);
                 $directConv = $this->chat->findOrCreateDirect($admin, $user);
             }
 
             $h->update([
-                'assigned_admin_id'      => $admin->id,
+                'assigned_admin_id' => $admin->id,
                 'direct_conversation_id' => $directConv->id,
-                'status'                 => Handoff::STATUS_ASSIGNED,
-                'assigned_at'            => now(),
+                'status' => Handoff::STATUS_ASSIGNED,
+                'assigned_at' => now(),
             ]);
 
             // Tell the user their handoff was picked up — they can now message in the new direct chat.
@@ -110,8 +110,8 @@ class ChatInboxController extends Controller
 
             return response()->json([
                 'handoff' => [
-                    'id'                     => $h->id,
-                    'status'                 => $h->status,
+                    'id' => $h->id,
+                    'status' => $h->status,
                     'direct_conversation_id' => $h->direct_conversation_id,
                 ],
             ]);
@@ -121,9 +121,10 @@ class ChatInboxController extends Controller
     public function closeHandoff(Handoff $handoff): JsonResponse
     {
         $handoff->update([
-            'status'    => Handoff::STATUS_CLOSED,
+            'status' => Handoff::STATUS_CLOSED,
             'closed_at' => now(),
         ]);
+
         return response()->json(['ok' => true]);
     }
 
@@ -133,15 +134,15 @@ class ChatInboxController extends Controller
     public function createGroup(Request $request): JsonResponse
     {
         $user = Auth::user();
-        if (!$user->isStaff()) {
+        if (! $user->isStaff()) {
             abort(403, 'Группын чат үүсгэх эрх алга.');
         }
 
         $data = $request->validate([
-            'name'      => 'required|string|max:120',
-            'user_ids'  => 'required|array|min:1',
+            'name' => 'required|string|max:120',
+            'user_ids' => 'required|array|min:1',
             'user_ids.*' => 'integer|exists:users,id',
-            'avatar'    => 'nullable|string',
+            'avatar' => 'nullable|string',
         ]);
 
         $conv = $this->chat->createGroup(
@@ -177,11 +178,11 @@ class ChatInboxController extends Controller
 
         return response()->json([
             'employees' => $employees->map(fn (Employee $e) => [
-                'user_id'  => $e->user_id,
-                'name'     => trim($e->last_name . ' ' . $e->first_name) ?: $e->user?->name,
+                'user_id' => $e->user_id,
+                'name' => trim($e->last_name.' '.$e->first_name) ?: $e->user?->name,
                 'position' => $e->position?->name,
-                'branch'   => $e->branch?->name,
-                'photo'    => $e->photo_url,
+                'branch' => $e->branch?->name,
+                'photo' => $e->photo_url,
             ]),
         ]);
     }

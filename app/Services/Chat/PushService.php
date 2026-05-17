@@ -14,21 +14,25 @@ class PushService
 
     protected function client(): ?WebPush
     {
-        if ($this->client) return $this->client;
+        if ($this->client) {
+            return $this->client;
+        }
 
-        $public  = (string) config('webpush.vapid.public_key');
+        $public = (string) config('webpush.vapid.public_key');
         $private = (string) config('webpush.vapid.private_key');
         $subject = (string) config('webpush.vapid.subject');
-        if (!$public || !$private) return null;
+        if (! $public || ! $private) {
+            return null;
+        }
 
         return $this->client = new WebPush([
             'VAPID' => [
-                'subject'    => $subject,
-                'publicKey'  => $public,
+                'subject' => $subject,
+                'publicKey' => $public,
                 'privateKey' => $private,
             ],
         ], defaultOptions: [
-            'TTL'     => (int) config('webpush.ttl', 86400),
+            'TTL' => (int) config('webpush.ttl', 86400),
             'urgency' => (string) config('webpush.urgency', 'normal'),
         ]);
     }
@@ -39,20 +43,24 @@ class PushService
     public function sendToUser(User|int $user, array $payload): void
     {
         $client = $this->client();
-        if (!$client) return;
+        if (! $client) {
+            return;
+        }
 
         $userId = $user instanceof User ? $user->id : $user;
         $subs = PushSubscription::query()->where('user_id', $userId)->get();
-        if ($subs->isEmpty()) return;
+        if ($subs->isEmpty()) {
+            return;
+        }
 
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
 
         foreach ($subs as $sub) {
             try {
                 $subscription = Subscription::create([
-                    'endpoint'        => $sub->endpoint,
-                    'publicKey'       => $sub->p256dh_key,
-                    'authToken'       => $sub->auth_token,
+                    'endpoint' => $sub->endpoint,
+                    'publicKey' => $sub->p256dh_key,
+                    'authToken' => $sub->auth_token,
                     'contentEncoding' => 'aesgcm',
                 ]);
                 $client->queueNotification($subscription, $json);
@@ -64,7 +72,7 @@ class PushService
         foreach ($client->flush() as $report) {
             $endpoint = $report->getRequest()->getUri()->__toString();
             $sub = $subs->firstWhere('endpoint', $endpoint);
-            if (!$report->isSuccess()) {
+            if (! $report->isSuccess()) {
                 if ($report->isSubscriptionExpired() && $sub) {
                     $sub->delete();
                 } else {

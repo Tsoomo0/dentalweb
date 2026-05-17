@@ -20,10 +20,10 @@ class LeasingPlan extends Model
     ];
 
     protected $casts = [
-        'total_amount'   => 'integer',
-        'months'         => 'integer',
+        'total_amount' => 'integer',
+        'months' => 'integer',
         'monthly_amount' => 'integer',
-        'paid_months'    => 'integer',
+        'paid_months' => 'integer',
     ];
 
     public function treatmentRecord(): BelongsTo

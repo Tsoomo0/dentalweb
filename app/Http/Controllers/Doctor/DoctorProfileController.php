@@ -24,7 +24,7 @@ class DoctorProfileController extends Controller
                 'experience_years', 'experiences', 'description',
                 'phone', 'is_active',
             ]), [
-                'photo_url'   => $doctor->photo ? Storage::url($doctor->photo) : null,
+                'photo_url' => $doctor->photo ? Storage::url($doctor->photo) : null,
                 'branch_name' => $doctor->branch?->name,
             ]),
         ]);
@@ -34,7 +34,7 @@ class DoctorProfileController extends Controller
     {
         $request->validate([
             'current_password' => ['required', 'string'],
-            'password'         => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', Password::min(8)],
         ]);
 
         $doctor = Auth::guard('doctor')->user();

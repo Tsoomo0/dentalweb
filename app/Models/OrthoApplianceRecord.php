@@ -18,7 +18,7 @@ class OrthoApplianceRecord extends Model
 
     protected $casts = [
         'attached_date' => 'date',
-        'removed_date'  => 'date',
+        'removed_date' => 'date',
     ];
 
     public function doctor(): BelongsTo

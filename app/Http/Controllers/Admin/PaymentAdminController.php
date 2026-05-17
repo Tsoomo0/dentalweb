@@ -30,7 +30,7 @@ class PaymentAdminController extends Controller
         }
         if ($request->filled('search')) {
             $s = $request->search;
-            $query->where(fn($q) => $q
+            $query->where(fn ($q) => $q
                 ->where('patient_name', 'like', "%{$s}%")
                 ->orWhere('patient_email', 'like', "%{$s}%")
                 ->orWhere('appointment_number', 'like', "%{$s}%")
@@ -48,19 +48,19 @@ class PaymentAdminController extends Controller
         // Stats
         $allOnline = Appointment::where('type', 'online');
         $stats = [
-            'total_revenue'  => (clone $allOnline)->where('payment_status', 'paid')->sum('payment_amount'),
-            'paid_count'     => (clone $allOnline)->where('payment_status', 'paid')->count(),
-            'pending_count'  => (clone $allOnline)->where('payment_status', 'pending')->count(),
-            'failed_count'   => (clone $allOnline)->whereIn('payment_status', ['failed', 'cancelled'])->count(),
+            'total_revenue' => (clone $allOnline)->where('payment_status', 'paid')->sum('payment_amount'),
+            'paid_count' => (clone $allOnline)->where('payment_status', 'paid')->count(),
+            'pending_count' => (clone $allOnline)->where('payment_status', 'pending')->count(),
+            'failed_count' => (clone $allOnline)->whereIn('payment_status', ['failed', 'cancelled'])->count(),
             'with_meet_link' => (clone $allOnline)->where('payment_status', 'paid')->whereNotNull('meet_link')->count(),
-            'today_revenue'  => (clone $allOnline)->where('payment_status', 'paid')
+            'today_revenue' => (clone $allOnline)->where('payment_status', 'paid')
                 ->whereDate('updated_at', today())->sum('payment_amount'),
         ];
 
         return Inertia::render('admin/payments/index', [
-            'payments' => $payments->through(fn($a) => $this->mapPayment($a)),
-            'stats'    => $stats,
-            'filters'  => $request->only(['payment_status', 'search', 'date_from', 'date_to']),
+            'payments' => $payments->through(fn ($a) => $this->mapPayment($a)),
+            'stats' => $stats,
+            'filters' => $request->only(['payment_status', 'search', 'date_from', 'date_to']),
         ]);
     }
 
@@ -76,8 +76,8 @@ class PaymentAdminController extends Controller
 
         $appointment->update([
             'payment_status' => 'paid',
-            'status'         => 'confirmed',
-            'meet_link'      => $meetLink,
+            'status' => 'confirmed',
+            'meet_link' => $meetLink,
         ]);
 
         $this->sendEmails($appointment);
@@ -98,7 +98,7 @@ class PaymentAdminController extends Controller
 
         $this->sendEmails($appointment);
 
-        return back()->with('success', "Meet линк шинэчлэгдлээ. Имэйл дахин явуулсан.");
+        return back()->with('success', 'Meet линк шинэчлэгдлээ. Имэйл дахин явуулсан.');
     }
 
     // ─── Нэг төлбөрийн дэлгэрэнгүй (JSON) ─────────────────────────────────
@@ -113,21 +113,21 @@ class PaymentAdminController extends Controller
     private function mapPayment(Appointment $a): array
     {
         return [
-            'id'                   => $a->id,
-            'appointment_number'   => $a->appointment_number,
-            'patient_name'         => $a->patient_name,
-            'patient_phone'        => $a->patient_phone,
-            'patient_email'        => $a->patient_email,
-            'doctor_name'          => $a->doctor?->name,
-            'appointment_date'     => $a->appointment_date->format('Y.m.d'),
-            'appointment_time'     => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
+            'id' => $a->id,
+            'appointment_number' => $a->appointment_number,
+            'patient_name' => $a->patient_name,
+            'patient_phone' => $a->patient_phone,
+            'patient_email' => $a->patient_email,
+            'doctor_name' => $a->doctor?->name,
+            'appointment_date' => $a->appointment_date->format('Y.m.d'),
+            'appointment_time' => $a->appointment_time ? substr($a->appointment_time, 0, 5) : '',
             'appointment_time_end' => $a->appointment_time_end ? substr($a->appointment_time_end, 0, 5) : null,
-            'payment_status'       => $a->payment_status ?? 'pending',
-            'payment_amount'       => $a->payment_amount ?? 0,
-            'qpay_invoice_id'      => $a->qpay_invoice_id,
-            'meet_link'            => $a->meet_link,
-            'status'               => $a->status,
-            'created_at'           => $a->created_at?->format('Y.m.d H:i'),
+            'payment_status' => $a->payment_status ?? 'pending',
+            'payment_amount' => $a->payment_amount ?? 0,
+            'qpay_invoice_id' => $a->qpay_invoice_id,
+            'meet_link' => $a->meet_link,
+            'status' => $a->status,
+            'created_at' => $a->created_at?->format('Y.m.d H:i'),
         ];
     }
 

@@ -7,12 +7,13 @@ use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\HR\Employee;
 use App\Models\HR\EmployeeContract;
-use App\Services\AuditService;
 use App\Models\HR\EmployeeFamilyMember;
 use App\Models\HR\EmployeeLicense;
 use App\Models\HR\PayrollEntry;
 use App\Models\HR\Position;
+use App\Models\Role;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,9 +31,9 @@ class EmployeeController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%$search%")
-                  ->orWhere('last_name', 'like', "%$search%")
-                  ->orWhere('employee_number', 'like', "%$search%")
-                  ->orWhereHas('position', fn($q) => $q->where('name', 'like', "%$search%"));
+                    ->orWhere('last_name', 'like', "%$search%")
+                    ->orWhere('employee_number', 'like', "%$search%")
+                    ->orWhereHas('position', fn ($q) => $q->where('name', 'like', "%$search%"));
             });
         }
 
@@ -45,25 +46,25 @@ class EmployeeController extends Controller
         }
 
         $employees = $query->paginate(20)->withQueryString()
-            ->through(fn(Employee $e) => [
-                'id'              => $e->id,
+            ->through(fn (Employee $e) => [
+                'id' => $e->id,
                 'employee_number' => $e->employee_number,
-                'full_name'       => $e->full_name,
-                'photo_url'       => $e->photo_url,
-                'position'        => $e->position?->name,
-                'branch'          => $e->branch?->name,
-                'branch_id'       => $e->branch_id,
-                'phone'           => $e->phone,
-                'gender'          => $e->gender,
-                'children_count'  => $e->children_count ?? 0,
-                'status'          => $e->status,
-                'hired_date'      => $e->hired_date?->format('Y.m.d'),
+                'full_name' => $e->full_name,
+                'photo_url' => $e->photo_url,
+                'position' => $e->position?->name,
+                'branch' => $e->branch?->name,
+                'branch_id' => $e->branch_id,
+                'phone' => $e->phone,
+                'gender' => $e->gender,
+                'children_count' => $e->children_count ?? 0,
+                'status' => $e->status,
+                'hired_date' => $e->hired_date?->format('Y.m.d'),
             ]);
 
         return Inertia::render('hr/employees/index', [
             'employees' => $employees,
-            'branches'  => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'filters'   => $request->only(['search', 'status', 'branch_id']),
+            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'filters' => $request->only(['search', 'status', 'branch_id']),
         ]);
     }
 
@@ -72,11 +73,11 @@ class EmployeeController extends Controller
         $employees = Employee::with(['branch', 'position'])
             ->orderBy('last_name')->get();
 
-        $html    = view('hr.employees-excel', compact('employees'))->render();
+        $html = view('hr.employees-excel', compact('employees'))->render();
         $encoded = rawurlencode('Ажилтнууд.xls');
 
-        return response("\xEF\xBB\xBF" . $html, 200, [
-            'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
+        return response("\xEF\xBB\xBF".$html, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
             'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
         ]);
     }
@@ -84,7 +85,7 @@ class EmployeeController extends Controller
     public function create(): Response
     {
         return Inertia::render('hr/employees/create', [
-            'branches'  => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'positions' => Position::where('is_active', true)->orderBy('name')->get(['id', 'name', 'portal', 'department']),
         ]);
     }
@@ -92,34 +93,34 @@ class EmployeeController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'last_name'       => 'required|string|max:100',
-            'first_name'      => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
             'register_number' => 'required|string|max:20|unique:employees',
-            'birth_date'      => 'required|date',
-            'gender'          => 'required|in:male,female',
-            'phone'           => 'required|string|max:20',
-            'branch_id'       => 'required|exists:branches,id',
-            'position_id'     => 'required|exists:positions,id',
-            'hired_date'      => 'required|date',
-            'salary'          => 'required|numeric|min:0',
+            'birth_date' => 'required|date',
+            'gender' => 'required|in:male,female',
+            'phone' => 'required|string|max:20',
+            'branch_id' => 'required|exists:branches,id',
+            'position_id' => 'required|exists:positions,id',
+            'hired_date' => 'required|date',
+            'salary' => 'required|numeric|min:0',
             // Нэвтрэх
-            'username'        => 'required|string|unique:users,name',
-            'password'        => 'required|string|min:6',
+            'username' => 'required|string|unique:users,name',
+            'password' => 'required|string|min:6',
         ]);
 
         $createdEmployee = DB::transaction(function () use ($request) {
             // 1. User үүсгэх
-            $position       = Position::findOrFail($request->position_id);
-            $role           = $this->portalToRole($position->portal);
+            $position = Position::findOrFail($request->position_id);
+            $role = $this->portalToRole($position->portal);
             $hashedPassword = Hash::make($request->password);
-            $loginEmail     = $request->email ?? $request->username . '@dental.mn';
+            $loginEmail = $request->email ?? $request->username.'@dental.mn';
 
             $user = User::create([
-                'name'      => $request->username,
-                'email'     => $loginEmail,
-                'password'  => $hashedPassword,
-                'role_id'   => $role,
-                'phone'     => $request->phone,
+                'name' => $request->username,
+                'email' => $loginEmail,
+                'password' => $hashedPassword,
+                'role_id' => $role,
+                'phone' => $request->phone,
                 'branch_id' => $request->branch_id,
                 'is_active' => true,
             ]);
@@ -132,42 +133,42 @@ class EmployeeController extends Controller
 
             // 3. Employee үүсгэх
             $employee = Employee::create([
-                'user_id'         => $user->id,
-                'photo'           => $photo,
-                'last_name'       => $request->last_name,
-                'first_name'      => $request->first_name,
+                'user_id' => $user->id,
+                'photo' => $photo,
+                'last_name' => $request->last_name,
+                'first_name' => $request->first_name,
                 'register_number' => $request->register_number,
-                'birth_date'      => $request->birth_date,
-                'gender'          => $request->gender,
-                'family_name'     => $request->family_name,
-                'ethnicity'       => $request->ethnicity,
-                'birth_place'     => $request->birth_place,
-                'blood_type'      => $request->blood_type,
-                'driver_license'  => $request->driver_license,
-                'military_service'=> $request->boolean('military_service'),
-                'education_degree'=> $request->education_degree,
-                'education_school'=> $request->education_school,
+                'birth_date' => $request->birth_date,
+                'gender' => $request->gender,
+                'family_name' => $request->family_name,
+                'ethnicity' => $request->ethnicity,
+                'birth_place' => $request->birth_place,
+                'blood_type' => $request->blood_type,
+                'driver_license' => $request->driver_license,
+                'military_service' => $request->boolean('military_service'),
+                'education_degree' => $request->education_degree,
+                'education_school' => $request->education_school,
                 'education_major' => $request->education_major,
-                'phone'           => $request->phone,
-                'email'           => $request->email,
-                'address'         => $request->address,
-                'emergency_name'  => $request->emergency_name,
+                'phone' => $request->phone,
+                'email' => $request->email,
+                'address' => $request->address,
+                'emergency_name' => $request->emergency_name,
                 'emergency_phone' => $request->emergency_phone,
                 'emergency_relation' => $request->emergency_relation,
-                'branch_id'       => $request->branch_id,
-                'position_id'     => $request->position_id,
-                'salary'          => $request->salary,
-                'hired_date'      => $request->hired_date,
+                'branch_id' => $request->branch_id,
+                'position_id' => $request->position_id,
+                'salary' => $request->salary,
+                'hired_date' => $request->hired_date,
                 'probation_end_date' => $request->probation_end_date,
-                'status'              => 'active',
+                'status' => 'active',
                 'vacation_extra_days' => $request->vacation_extra_days ?? 0,
-                'bank_name'           => $request->bank_name,
-                'bank_account'        => $request->bank_account,
-                'bank_account_name'   => $request->bank_account_name,
-                'is_married'          => $request->boolean('is_married'),
-                'has_children'        => $request->boolean('has_children'),
-                'children_count'      => $request->children_count ?? 0,
-                'notes'               => $request->notes,
+                'bank_name' => $request->bank_name,
+                'bank_account' => $request->bank_account,
+                'bank_account_name' => $request->bank_account_name,
+                'is_married' => $request->boolean('is_married'),
+                'has_children' => $request->boolean('has_children'),
+                'children_count' => $request->children_count ?? 0,
+                'notes' => $request->notes,
             ]);
 
             // 4. Гэрээ хадгалах
@@ -178,31 +179,33 @@ class EmployeeController extends Controller
                         ->store('employees/contracts', 'public');
                 }
                 EmployeeContract::create([
-                    'employee_id'   => $employee->id,
+                    'employee_id' => $employee->id,
                     'contract_type' => $request->contract_type ?? 'fixed',
-                    'file_path'     => $contractFile,
-                    'start_date'    => $request->contract_start_date,
-                    'end_date'      => $request->contract_end_date,
-                    'notes'         => $request->contract_notes,
+                    'file_path' => $contractFile,
+                    'start_date' => $request->contract_start_date,
+                    'end_date' => $request->contract_end_date,
+                    'notes' => $request->contract_notes,
                 ]);
             }
 
             // 5. Лиценз хадгалах
             if ($request->filled('licenses')) {
                 foreach ($request->licenses as $lic) {
-                    if (empty($lic['name'])) continue;
+                    if (empty($lic['name'])) {
+                        continue;
+                    }
                     $licFile = null;
-                    if (!empty($lic['file'])) {
+                    if (! empty($lic['file'])) {
                         $licFile = $lic['file']->store('employees/licenses', 'public');
                     }
                     EmployeeLicense::create([
                         'employee_id' => $employee->id,
-                        'name'        => $lic['name'],
-                        'issuer'      => $lic['issuer'] ?? null,
-                        'file_path'   => $licFile,
-                        'start_date'  => $lic['start_date'] ?? null,
-                        'end_date'    => $lic['end_date'] ?? null,
-                        'notes'       => $lic['notes'] ?? null,
+                        'name' => $lic['name'],
+                        'issuer' => $lic['issuer'] ?? null,
+                        'file_path' => $licFile,
+                        'start_date' => $lic['start_date'] ?? null,
+                        'end_date' => $lic['end_date'] ?? null,
+                        'notes' => $lic['notes'] ?? null,
                     ]);
                 }
             }
@@ -210,15 +213,17 @@ class EmployeeController extends Controller
             // 6. Гэр бүлийн гишүүд хадгалах
             if ($request->filled('family_members')) {
                 foreach ($request->family_members as $fm) {
-                    if (empty($fm['first_name'])) continue;
+                    if (empty($fm['first_name'])) {
+                        continue;
+                    }
                     EmployeeFamilyMember::create([
-                        'employee_id'      => $employee->id,
-                        'last_name'        => $fm['last_name'] ?? '',
-                        'first_name'       => $fm['first_name'],
-                        'phone'            => $fm['phone'] ?? null,
-                        'relationship'     => $fm['relationship'] ?? '',
-                        'birth_date'       => $fm['birth_date'] ?? null,
-                        'employment_status'=> $fm['employment_status'] ?? null,
+                        'employee_id' => $employee->id,
+                        'last_name' => $fm['last_name'] ?? '',
+                        'first_name' => $fm['first_name'],
+                        'phone' => $fm['phone'] ?? null,
+                        'relationship' => $fm['relationship'] ?? '',
+                        'birth_date' => $fm['birth_date'] ?? null,
+                        'employment_status' => $fm['employment_status'] ?? null,
                     ]);
                 }
             }
@@ -226,15 +231,15 @@ class EmployeeController extends Controller
             // 7. Эмчийн тушаалтай бол Doctor record автоматаар үүсгэх
             if ($position->portal === 'doctor') {
                 $doctor = Doctor::create([
-                    'employee_id'    => $employee->id,
-                    'branch_id'      => $employee->branch_id,
-                    'name'           => $employee->full_name,
+                    'employee_id' => $employee->id,
+                    'branch_id' => $employee->branch_id,
+                    'name' => $employee->full_name,
                     'specialization' => $position->name,
-                    'phone'          => $employee->phone,
-                    'email'          => $loginEmail,
-                    'photo'          => $employee->photo,
-                    'is_active'      => true,
-                    'password'       => $hashedPassword,
+                    'phone' => $employee->phone,
+                    'email' => $loginEmail,
+                    'photo' => $employee->photo,
+                    'is_active' => true,
+                    'password' => $hashedPassword,
                 ]);
                 if ($employee->branch_id) {
                     $doctor->branches()->sync([$employee->branch_id]);
@@ -263,21 +268,21 @@ class EmployeeController extends Controller
             ->whereHas('run')
             ->orderByDesc('payroll_run_id')
             ->get()
-            ->map(fn($e) => [
-                'run_id'       => $e->payroll_run_id,
-                'run_title'    => $e->run->title,
-                'status'       => $e->run->status,
+            ->map(fn ($e) => [
+                'run_id' => $e->payroll_run_id,
+                'run_title' => $e->run->title,
+                'status' => $e->run->status,
                 'basic_salary' => $e->basic_salary,
-                'calc_salary'  => $e->calc_salary,
-                'net_hand'     => $e->net_hand,
-                'bank_salary'  => $e->bank_salary,
-                'ndsh'         => $e->ndsh,
-                'income_tax'   => $e->income_tax,
+                'calc_salary' => $e->calc_salary,
+                'net_hand' => $e->net_hand,
+                'bank_salary' => $e->bank_salary,
+                'ndsh' => $e->ndsh,
+                'income_tax' => $e->income_tax,
             ]);
 
         return Inertia::render('hr/employees/show', [
-            'employee'          => $this->formatEmployee($employee),
-            'payrollHistory'    => $payrollHistory,
+            'employee' => $this->formatEmployee($employee),
+            'payrollHistory' => $payrollHistory,
             'exit_checklist_id' => $employee->exitChecklist?->id,
         ]);
     }
@@ -287,8 +292,8 @@ class EmployeeController extends Controller
         $employee->load(['contracts', 'licenses', 'familyMembers']);
 
         return Inertia::render('hr/employees/edit', [
-            'employee'  => $this->formatEmployee($employee),
-            'branches'  => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'employee' => $this->formatEmployee($employee),
+            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'positions' => Position::where('is_active', true)->orderBy('name')->get(['id', 'name', 'portal', 'department']),
         ]);
     }
@@ -296,68 +301,72 @@ class EmployeeController extends Controller
     public function update(Request $request, Employee $employee): RedirectResponse
     {
         $request->validate([
-            'last_name'  => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
             'first_name' => 'required|string|max:100',
-            'phone'      => 'required|string|max:20',
-            'branch_id'  => 'required|exists:branches,id',
-            'position_id'=> 'required|exists:positions,id',
-            'salary'     => 'required|numeric|min:0',
+            'phone' => 'required|string|max:20',
+            'branch_id' => 'required|exists:branches,id',
+            'position_id' => 'required|exists:positions,id',
+            'salary' => 'required|numeric|min:0',
         ]);
 
         DB::transaction(function () use ($request, $employee) {
             if ($request->hasFile('photo')) {
-                if ($employee->photo) Storage::disk('public')->delete($employee->photo);
+                if ($employee->photo) {
+                    Storage::disk('public')->delete($employee->photo);
+                }
                 $employee->photo = $request->file('photo')->store('employees/photos', 'public');
             }
 
             $employee->update([
-                'last_name'           => $request->last_name,
-                'first_name'          => $request->first_name,
-                'register_number'     => $request->register_number,
-                'birth_date'          => $request->birth_date ?: null,
-                'gender'              => $request->gender,
-                'family_name'         => $request->family_name ?: null,
-                'ethnicity'           => $request->ethnicity ?: null,
-                'birth_place'         => $request->birth_place ?: null,
-                'blood_type'          => $request->blood_type ?: null,
-                'driver_license'      => $request->driver_license ?: null,
-                'military_service'    => filter_var($request->military_service, FILTER_VALIDATE_BOOLEAN),
-                'education_degree'    => $request->education_degree ?: null,
-                'education_school'    => $request->education_school ?: null,
-                'education_major'     => $request->education_major ?: null,
-                'phone'               => $request->phone,
-                'email'               => $request->email ?: null,
-                'address'             => $request->address ?: null,
-                'emergency_name'      => $request->emergency_name ?: null,
-                'emergency_phone'     => $request->emergency_phone ?: null,
-                'emergency_relation'  => $request->emergency_relation ?: null,
-                'branch_id'           => $request->branch_id,
-                'position_id'         => $request->position_id,
-                'salary'              => $request->salary,
-                'hired_date'          => $request->hired_date ?: null,
-                'probation_end_date'  => $request->probation_end_date ?: null,
-                'status'              => $request->status,
+                'last_name' => $request->last_name,
+                'first_name' => $request->first_name,
+                'register_number' => $request->register_number,
+                'birth_date' => $request->birth_date ?: null,
+                'gender' => $request->gender,
+                'family_name' => $request->family_name ?: null,
+                'ethnicity' => $request->ethnicity ?: null,
+                'birth_place' => $request->birth_place ?: null,
+                'blood_type' => $request->blood_type ?: null,
+                'driver_license' => $request->driver_license ?: null,
+                'military_service' => filter_var($request->military_service, FILTER_VALIDATE_BOOLEAN),
+                'education_degree' => $request->education_degree ?: null,
+                'education_school' => $request->education_school ?: null,
+                'education_major' => $request->education_major ?: null,
+                'phone' => $request->phone,
+                'email' => $request->email ?: null,
+                'address' => $request->address ?: null,
+                'emergency_name' => $request->emergency_name ?: null,
+                'emergency_phone' => $request->emergency_phone ?: null,
+                'emergency_relation' => $request->emergency_relation ?: null,
+                'branch_id' => $request->branch_id,
+                'position_id' => $request->position_id,
+                'salary' => $request->salary,
+                'hired_date' => $request->hired_date ?: null,
+                'probation_end_date' => $request->probation_end_date ?: null,
+                'status' => $request->status,
                 'vacation_extra_days' => (int) $request->vacation_extra_days,
-                'bank_name'           => $request->bank_name ?: null,
-                'bank_account'        => $request->bank_account ?: null,
-                'bank_account_name'   => $request->bank_account_name ?: null,
-                'is_married'          => filter_var($request->is_married, FILTER_VALIDATE_BOOLEAN),
-                'has_children'        => filter_var($request->has_children, FILTER_VALIDATE_BOOLEAN),
-                'children_count'      => (int) $request->children_count,
-                'notes'               => $request->notes ?: null,
+                'bank_name' => $request->bank_name ?: null,
+                'bank_account' => $request->bank_account ?: null,
+                'bank_account_name' => $request->bank_account_name ?: null,
+                'is_married' => filter_var($request->is_married, FILTER_VALIDATE_BOOLEAN),
+                'has_children' => filter_var($request->has_children, FILTER_VALIDATE_BOOLEAN),
+                'children_count' => (int) $request->children_count,
+                'notes' => $request->notes ?: null,
             ]);
 
             // Шинэ лицензүүд нэмэх
             if ($request->filled('licenses')) {
                 foreach ($request->licenses as $lic) {
-                    if (empty($lic['name'])) continue;
+                    if (empty($lic['name'])) {
+                        continue;
+                    }
                     EmployeeLicense::create([
                         'employee_id' => $employee->id,
-                        'name'        => $lic['name'],
-                        'issuer'      => $lic['issuer'] ?? null,
-                        'start_date'  => $lic['start_date'] ?: null,
-                        'end_date'    => $lic['end_date'] ?: null,
-                        'notes'       => $lic['notes'] ?? null,
+                        'name' => $lic['name'],
+                        'issuer' => $lic['issuer'] ?? null,
+                        'start_date' => $lic['start_date'] ?: null,
+                        'end_date' => $lic['end_date'] ?: null,
+                        'notes' => $lic['notes'] ?? null,
                     ]);
                 }
             }
@@ -365,14 +374,16 @@ class EmployeeController extends Controller
             // Шинэ гэр бүлийн гишүүд нэмэх
             if ($request->filled('family_members')) {
                 foreach ($request->family_members as $fm) {
-                    if (empty($fm['first_name'])) continue;
+                    if (empty($fm['first_name'])) {
+                        continue;
+                    }
                     EmployeeFamilyMember::create([
-                        'employee_id'       => $employee->id,
-                        'last_name'         => $fm['last_name'] ?? '',
-                        'first_name'        => $fm['first_name'],
-                        'phone'             => $fm['phone'] ?? null,
-                        'relationship'      => $fm['relationship'] ?? '',
-                        'birth_date'        => $fm['birth_date'] ?: null,
+                        'employee_id' => $employee->id,
+                        'last_name' => $fm['last_name'] ?? '',
+                        'first_name' => $fm['first_name'],
+                        'phone' => $fm['phone'] ?? null,
+                        'relationship' => $fm['relationship'] ?? '',
+                        'birth_date' => $fm['birth_date'] ?: null,
                         'employment_status' => $fm['employment_status'] ?? null,
                     ]);
                 }
@@ -385,11 +396,11 @@ class EmployeeController extends Controller
             $employee->refresh();
             if ($employee->doctor) {
                 $syncData = [
-                    'branch_id'      => $employee->branch_id,
-                    'name'           => $employee->full_name,
+                    'branch_id' => $employee->branch_id,
+                    'name' => $employee->full_name,
                     'specialization' => $employee->position?->name ?? $employee->doctor->specialization,
-                    'phone'          => $employee->phone,
-                    'email'          => $employee->email,
+                    'phone' => $employee->phone,
+                    'email' => $employee->email,
                 ];
                 if ($request->hasFile('photo')) {
                     $syncData['photo'] = $employee->photo;
@@ -430,7 +441,7 @@ class EmployeeController extends Controller
         $employee->update(['status' => $employee->status === 'active' ? 'inactive' : 'active']);
 
         AuditService::log('status_changed', $employee, ['status' => $old], ['status' => $employee->status],
-            "Ажилтны статус өөрчлөв: {$employee->full_name} → " . ($employee->status === 'active' ? 'идэвхтэй' : 'идэвхгүй'));
+            "Ажилтны статус өөрчлөв: {$employee->full_name} → ".($employee->status === 'active' ? 'идэвхтэй' : 'идэвхгүй'));
 
         return back();
     }
@@ -440,80 +451,80 @@ class EmployeeController extends Controller
     private function portalToRole(string $portal): int
     {
         // roles хүснэгтээс role_id авна
-        return \App\Models\Role::where('name', $portal)->value('id')
-            ?? \App\Models\Role::where('name', 'staff')->value('id')
+        return Role::where('name', $portal)->value('id')
+            ?? Role::where('name', 'staff')->value('id')
             ?? 1;
     }
 
     private function formatEmployee(Employee $e): array
     {
         return [
-            'id'              => $e->id,
+            'id' => $e->id,
             'employee_number' => $e->employee_number,
-            'photo_url'       => $e->photo_url,
-            'last_name'       => $e->last_name,
-            'first_name'      => $e->first_name,
-            'full_name'       => $e->full_name,
+            'photo_url' => $e->photo_url,
+            'last_name' => $e->last_name,
+            'first_name' => $e->first_name,
+            'full_name' => $e->full_name,
             'register_number' => $e->register_number,
-            'birth_date'      => $e->birth_date?->format('Y-m-d'),
-            'gender'          => $e->gender,
-            'family_name'     => $e->family_name,
-            'ethnicity'       => $e->ethnicity,
-            'birth_place'     => $e->birth_place,
-            'blood_type'      => $e->blood_type,
-            'driver_license'  => $e->driver_license,
-            'military_service'=> $e->military_service,
-            'education_degree'=> $e->education_degree,
-            'education_school'=> $e->education_school,
+            'birth_date' => $e->birth_date?->format('Y-m-d'),
+            'gender' => $e->gender,
+            'family_name' => $e->family_name,
+            'ethnicity' => $e->ethnicity,
+            'birth_place' => $e->birth_place,
+            'blood_type' => $e->blood_type,
+            'driver_license' => $e->driver_license,
+            'military_service' => $e->military_service,
+            'education_degree' => $e->education_degree,
+            'education_school' => $e->education_school,
             'education_major' => $e->education_major,
-            'phone'           => $e->phone,
-            'email'           => $e->email,
-            'address'         => $e->address,
-            'emergency_name'  => $e->emergency_name,
+            'phone' => $e->phone,
+            'email' => $e->email,
+            'address' => $e->address,
+            'emergency_name' => $e->emergency_name,
             'emergency_phone' => $e->emergency_phone,
             'emergency_relation' => $e->emergency_relation,
-            'branch_id'       => $e->branch_id,
-            'branch'          => $e->branch?->name,
-            'position_id'     => $e->position_id,
-            'position'        => $e->position?->name,
-            'salary'          => $e->salary,
-            'hired_date'      => $e->hired_date?->format('Y-m-d'),
+            'branch_id' => $e->branch_id,
+            'branch' => $e->branch?->name,
+            'position_id' => $e->position_id,
+            'position' => $e->position?->name,
+            'salary' => $e->salary,
+            'hired_date' => $e->hired_date?->format('Y-m-d'),
             'probation_end_date' => $e->probation_end_date?->format('Y-m-d'),
-            'status'          => $e->status,
-            'bank_name'       => $e->bank_name,
-            'bank_account'    => $e->bank_account,
+            'status' => $e->status,
+            'bank_name' => $e->bank_name,
+            'bank_account' => $e->bank_account,
             'bank_account_name' => $e->bank_account_name,
-            'is_married'      => $e->is_married,
-            'has_children'    => $e->has_children,
-            'children_count'  => $e->children_count,
-            'notes'               => $e->notes,
-            'vacation_days'       => $e->vacation_days,
+            'is_married' => $e->is_married,
+            'has_children' => $e->has_children,
+            'children_count' => $e->children_count,
+            'notes' => $e->notes,
+            'vacation_days' => $e->vacation_days,
             'vacation_extra_days' => $e->vacation_extra_days,
-            'contracts'           => $e->contracts->map(fn($c) => [
-                'id'            => $c->id,
+            'contracts' => $e->contracts->map(fn ($c) => [
+                'id' => $c->id,
                 'contract_type' => $c->contract_type,
-                'start_date'    => $c->start_date?->format('Y-m-d'),
-                'end_date'      => $c->end_date?->format('Y-m-d'),
-                'notes'         => $c->notes,
+                'start_date' => $c->start_date?->format('Y-m-d'),
+                'end_date' => $c->end_date?->format('Y-m-d'),
+                'notes' => $c->notes,
                 'days_until_expiry' => $c->days_until_expiry,
             ]),
-            'licenses'        => $e->licenses->map(fn($l) => [
-                'id'         => $l->id,
-                'name'       => $l->name,
-                'issuer'     => $l->issuer,
+            'licenses' => $e->licenses->map(fn ($l) => [
+                'id' => $l->id,
+                'name' => $l->name,
+                'issuer' => $l->issuer,
                 'start_date' => $l->start_date?->format('Y-m-d'),
-                'end_date'   => $l->end_date?->format('Y-m-d'),
-                'notes'      => $l->notes,
+                'end_date' => $l->end_date?->format('Y-m-d'),
+                'notes' => $l->notes,
                 'days_until_expiry' => $l->days_until_expiry,
             ]),
-            'family_members'  => $e->familyMembers->map(fn($f) => [
-                'id'               => $f->id,
-                'last_name'        => $f->last_name,
-                'first_name'       => $f->first_name,
-                'phone'            => $f->phone,
-                'relationship'     => $f->relationship,
-                'birth_date'       => $f->birth_date?->format('Y-m-d'),
-                'employment_status'=> $f->employment_status,
+            'family_members' => $e->familyMembers->map(fn ($f) => [
+                'id' => $f->id,
+                'last_name' => $f->last_name,
+                'first_name' => $f->first_name,
+                'phone' => $f->phone,
+                'relationship' => $f->relationship,
+                'birth_date' => $f->birth_date?->format('Y-m-d'),
+                'employment_status' => $f->employment_status,
             ]),
         ];
     }

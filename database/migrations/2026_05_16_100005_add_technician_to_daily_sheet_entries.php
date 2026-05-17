@@ -10,12 +10,12 @@ return new class extends Migration
     public function up(): void
     {
         // "Рентген техникч" position үүсгэнэ (байхгүй бол)
-        if (!DB::table('positions')->where('name', 'Рентген техникч')->exists()) {
+        if (! DB::table('positions')->where('name', 'Рентген техникч')->exists()) {
             DB::table('positions')->insert([
-                'name'       => 'Рентген техникч',
-                'portal'     => null,
+                'name' => 'Рентген техникч',
+                'portal' => null,
                 'department' => null,
-                'is_active'  => true,
+                'is_active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

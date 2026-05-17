@@ -412,6 +412,21 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
         } catch { /* silent */ }
     };
 
+    const btnRef      = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const dropdownStyle = useMemo(() => {
+        if (!btnRef.current) return {};
+        const rect = btnRef.current.getBoundingClientRect();
+        return {
+            position: 'fixed' as const,
+            top: rect.bottom + 8,
+            right: window.innerWidth - rect.right,
+            zIndex: 9999,
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+
     if (!initial) return null;
 
     /* ── Bell button ─────────────────────────────────────────────────── */
@@ -526,21 +541,6 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
             )}
         </div>
     );
-
-    const btnRef      = useRef<HTMLDivElement>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-
-    const dropdownStyle = useMemo(() => {
-        if (!btnRef.current) return {};
-        const rect = btnRef.current.getBoundingClientRect();
-        return {
-            position: 'fixed' as const,
-            top: rect.bottom + 8,
-            right: window.innerWidth - rect.right,
-            zIndex: 9999,
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open]);
 
     return (
         <div ref={ref} className="relative">

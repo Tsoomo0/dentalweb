@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Doctor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,16 +20,16 @@ class DoctorSlotController extends Controller
     {
         return Inertia::render('admin/doctors/slots', [
             'doctor' => [
-                'id'             => $doctor->id,
-                'name'           => $doctor->name,
+                'id' => $doctor->id,
+                'name' => $doctor->name,
                 'specialization' => $doctor->specialization,
-                'email'          => $doctor->email,
-                'photo_url'      => $doctor->photo
-                    ? \Illuminate\Support\Facades\Storage::url($doctor->photo)
+                'email' => $doctor->email,
+                'photo_url' => $doctor->photo
+                    ? Storage::url($doctor->photo)
                     : null,
             ],
             'slots' => collect($doctor->online_slots ?? [])
-                ->sortBy(fn($s) => $s['date'] . $s['start_time'])
+                ->sortBy(fn ($s) => $s['date'].$s['start_time'])
                 ->values()
                 ->toArray(),
         ]);
@@ -40,26 +41,26 @@ class DoctorSlotController extends Controller
     public function store(Request $request, Doctor $doctor): RedirectResponse
     {
         $request->validate([
-            'date'       => 'required|date',
+            'date' => 'required|date',
             'start_time' => 'required|date_format:H:i',
-            'end_time'   => 'required|date_format:H:i|after:start_time',
+            'end_time' => 'required|date_format:H:i|after:start_time',
         ], [
-            'date.required'       => 'Огноо оруулна уу.',
+            'date.required' => 'Огноо оруулна уу.',
             'start_time.required' => 'Эхлэх цаг оруулна уу.',
-            'end_time.required'   => 'Дуусах цаг оруулна уу.',
-            'end_time.after'      => 'Дуусах цаг эхлэх цагаас хойш байх ёстой.',
+            'end_time.required' => 'Дуусах цаг оруулна уу.',
+            'end_time.after' => 'Дуусах цаг эхлэх цагаас хойш байх ёстой.',
         ]);
 
-        $slots   = $doctor->online_slots ?? [];
+        $slots = $doctor->online_slots ?? [];
         $slots[] = [
-            'id'         => (string) Str::uuid(),
-            'date'       => $request->date,
+            'id' => (string) Str::uuid(),
+            'date' => $request->date,
             'start_time' => $request->start_time,
-            'end_time'   => $request->end_time,
-            'is_booked'  => false,
+            'end_time' => $request->end_time,
+            'is_booked' => false,
         ];
 
-        usort($slots, fn($a, $b) => strcmp($a['date'] . $a['start_time'], $b['date'] . $b['start_time']));
+        usort($slots, fn ($a, $b) => strcmp($a['date'].$a['start_time'], $b['date'].$b['start_time']));
 
         $doctor->update(['online_slots' => $slots]);
 
@@ -72,15 +73,15 @@ class DoctorSlotController extends Controller
     public function update(Request $request, Doctor $doctor, string $slotId): RedirectResponse
     {
         $request->validate([
-            'date'       => 'required|date',
+            'date' => 'required|date',
             'start_time' => 'required|date_format:H:i',
-            'end_time'   => 'required|date_format:H:i|after:start_time',
+            'end_time' => 'required|date_format:H:i|after:start_time',
         ], [
             'end_time.after' => 'Дуусах цаг эхлэх цагаас хойш байх ёстой.',
         ]);
 
-        $slots   = $doctor->online_slots ?? [];
-        $found   = false;
+        $slots = $doctor->online_slots ?? [];
+        $found = false;
 
         foreach ($slots as &$slot) {
             if ($slot['id'] !== $slotId) {
@@ -89,19 +90,19 @@ class DoctorSlotController extends Controller
             if ($slot['is_booked'] ?? false) {
                 return back()->withErrors(['error' => 'Захиалгатай цагийг засах боломжгүй.']);
             }
-            $slot['date']       = $request->date;
+            $slot['date'] = $request->date;
             $slot['start_time'] = $request->start_time;
-            $slot['end_time']   = $request->end_time;
+            $slot['end_time'] = $request->end_time;
             $found = true;
             break;
         }
         unset($slot);
 
-        if (!$found) {
+        if (! $found) {
             return back()->withErrors(['error' => 'Цаг олдсонгүй.']);
         }
 
-        usort($slots, fn($a, $b) => strcmp($a['date'] . $a['start_time'], $b['date'] . $b['start_time']));
+        usort($slots, fn ($a, $b) => strcmp($a['date'].$a['start_time'], $b['date'].$b['start_time']));
 
         $doctor->update(['online_slots' => $slots]);
 
@@ -114,9 +115,9 @@ class DoctorSlotController extends Controller
     public function destroy(Doctor $doctor, string $slotId): RedirectResponse
     {
         $slots = $doctor->online_slots ?? [];
-        $slot  = collect($slots)->firstWhere('id', $slotId);
+        $slot = collect($slots)->firstWhere('id', $slotId);
 
-        if (!$slot) {
+        if (! $slot) {
             return back()->withErrors(['error' => 'Цаг олдсонгүй.']);
         }
 
@@ -124,7 +125,7 @@ class DoctorSlotController extends Controller
             return back()->withErrors(['error' => 'Захиалгатай цагийг устгах боломжгүй.']);
         }
 
-        $slots = array_values(array_filter($slots, fn($s) => $s['id'] !== $slotId));
+        $slots = array_values(array_filter($slots, fn ($s) => $s['id'] !== $slotId));
 
         $doctor->update(['online_slots' => $slots]);
 

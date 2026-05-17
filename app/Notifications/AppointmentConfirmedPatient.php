@@ -7,9 +7,9 @@ use Illuminate\Notifications\Notification;
 class AppointmentConfirmedPatient extends Notification
 {
     public function __construct(
-        public readonly string  $appointmentNumber,
-        public readonly string  $appointmentDate,
-        public readonly string  $appointmentTime,
+        public readonly string $appointmentNumber,
+        public readonly string $appointmentDate,
+        public readonly string $appointmentTime,
         public readonly ?string $doctorName,
         public readonly ?string $branchName,
     ) {}
@@ -23,10 +23,10 @@ class AppointmentConfirmedPatient extends Notification
     {
         return [
             'appointment_number' => $this->appointmentNumber,
-            'appointment_date'   => $this->appointmentDate,
-            'appointment_time'   => $this->appointmentTime,
-            'doctor_name'        => $this->doctorName,
-            'branch_name'        => $this->branchName,
+            'appointment_date' => $this->appointmentDate,
+            'appointment_time' => $this->appointmentTime,
+            'doctor_name' => $this->doctorName,
+            'branch_name' => $this->branchName,
         ];
     }
 }

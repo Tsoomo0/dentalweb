@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\AuditLog;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -15,14 +17,14 @@ Schedule::command('appointments:cancel-unpaid')->everyFiveMinutes();
 Schedule::command('appointments:send-reminders')->hourly();
 
 // Notification 30 хоноос хуучин бичлэгийг өдөр бүр цэвэрлэх
-Schedule::call(fn () => \Illuminate\Support\Facades\DB::table('notifications')
+Schedule::call(fn () => DB::table('notifications')
     ->where('created_at', '<', now()->subDays(30))->delete())
     ->daily()
     ->name('notifications:prune')
     ->description('30 хоноос хуучин notification устгах');
 
 // Audit log 25 хоноос хуучин бичлэгийг өдөр бүр шөнө цэвэрлэх
-Schedule::call(fn () => \App\Models\AuditLog::where('created_at', '<', now()->subDays(25))->delete())
+Schedule::call(fn () => AuditLog::where('created_at', '<', now()->subDays(25))->delete())
     ->daily()
     ->name('audit-logs:prune')
     ->description('Audit log 25 хоноос хуучин бичлэгийг устгах');

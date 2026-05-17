@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -34,7 +33,7 @@ class PatientUserController extends Controller
 
         return Inertia::render('reception/patient-users/index', [
             'patients' => $patients,
-            'search'   => $search,
+            'search' => $search,
         ]);
     }
 
@@ -45,23 +44,23 @@ class PatientUserController extends Controller
         }
 
         $data = $request->validate([
-            'email'    => ['required', 'email', 'unique:users,email'],
+            'email' => ['required', 'email', 'unique:users,email'],
             'password' => ['required', 'min:8'],
         ], [
-            'email.required'  => 'Имэйл хаяг оруулна уу',
-            'email.email'     => 'Имэйл хаяг буруу байна',
-            'email.unique'    => 'Энэ имэйл хаяг аль хэдийн бүртгэлтэй байна',
+            'email.required' => 'Имэйл хаяг оруулна уу',
+            'email.email' => 'Имэйл хаяг буруу байна',
+            'email.unique' => 'Энэ имэйл хаяг аль хэдийн бүртгэлтэй байна',
             'password.required' => 'Нууц үг оруулна уу',
-            'password.min'    => 'Нууц үг хамгийн багадаа 8 тэмдэгттэй байна',
+            'password.min' => 'Нууц үг хамгийн багадаа 8 тэмдэгттэй байна',
         ]);
 
         $patientRole = Role::where('name', 'patient')->firstOrFail();
 
         $user = User::create([
-            'name'     => $patient->last_name . ' ' . $patient->first_name,
-            'email'    => $data['email'],
+            'name' => $patient->last_name.' '.$patient->first_name,
+            'email' => $data['email'],
             'password' => Hash::make($data['password']),
-            'role_id'  => $patientRole->id,
+            'role_id' => $patientRole->id,
         ]);
 
         $patient->update(['user_id' => $user->id]);
@@ -75,7 +74,7 @@ class PatientUserController extends Controller
 
     public function revokeAccess(Patient $patient): RedirectResponse
     {
-        if (!$patient->user_id) {
+        if (! $patient->user_id) {
             return back()->withErrors(['error' => 'Нэвтрэх эрх олгогдоогүй байна']);
         }
 

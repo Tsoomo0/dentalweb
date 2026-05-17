@@ -15,7 +15,7 @@ class EquipmentAssignmentResponseMail extends Mailable
 
     public function build(): self
     {
-        $emp  = $this->assignment->employee->full_name;
+        $emp = $this->assignment->employee->full_name;
         $name = $this->assignment->equipment->name;
         $subj = $this->assignment->isAccepted()
             ? "✅ {$emp} тоног төхөөрөмж хүлээн авлаа — {$name}"

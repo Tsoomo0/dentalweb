@@ -41,11 +41,11 @@ class WorkSchedule extends Model
     public function getShiftLabelAttribute(): string
     {
         return match ($this->shift_type) {
-            'morning'   => 'Өглөөний ээлж',
+            'morning' => 'Өглөөний ээлж',
             'afternoon' => 'Өдрийн ээлж',
-            'full'      => 'Бүтэн өдөр',
-            'off'       => 'Амралт',
-            default     => $this->shift_type,
+            'full' => 'Бүтэн өдөр',
+            'off' => 'Амралт',
+            default => $this->shift_type,
         };
     }
 }

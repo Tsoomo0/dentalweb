@@ -27,7 +27,7 @@ class BotEngine
     {
         $welcome = BotNode::query()->where('is_welcome', true)->whereNull('flow_id')->first();
 
-        if (!$welcome) {
+        if (! $welcome) {
             return $this->chat->sendMessage(
                 $conv,
                 null,
@@ -51,13 +51,13 @@ class BotEngine
         $body = $this->resolver->apply($node->body, $data);
 
         $buttons = $node->buttons->map(fn (BotButton $b) => [
-            'id'             => $b->id,
-            'label'          => $b->label,
-            'icon'           => $b->icon,
-            'action'         => $b->action,
+            'id' => $b->id,
+            'label' => $b->label,
+            'icon' => $b->icon,
+            'action' => $b->action,
             'target_node_id' => $b->target_node_id,
             'target_flow_id' => $b->target_flow_id,
-            'target_url'     => $b->target_url,
+            'target_url' => $b->target_url,
         ])->all();
 
         return $this->chat->sendMessage(
@@ -121,14 +121,14 @@ class BotEngine
                 $this->chat->sendMessage(
                     $support,
                     null,
-                    ($user->name ?? 'Хэрэглэгч') . ' админтай холбогдохыг хүсэв.',
+                    ($user->name ?? 'Хэрэглэгч').' админтай холбогдохыг хүсэв.',
                     senderType: Message::SENDER_SYSTEM,
                     type: Message::TYPE_SYSTEM,
                 );
                 $botMessage = $this->chat->sendMessage(
                     $conv,
                     null,
-                    "Таны хүсэлтийг админд дамжууллаа. Хариу ирэхэд танд мэдэгдэх болно. 💬",
+                    'Таны хүсэлтийг админд дамжууллаа. Хариу ирэхэд танд мэдэгдэх болно. 💬',
                     senderType: Message::SENDER_BOT,
                     type: Message::TYPE_TEXT,
                 );
@@ -138,7 +138,7 @@ class BotEngine
                 $botMessage = $this->chat->sendMessage(
                     $conv,
                     null,
-                    "Танд баярлалаа. Дахин санал хэрэгтэй бол энд бичээрэй. 🙏",
+                    'Танд баярлалаа. Дахин санал хэрэгтэй бол энд бичээрэй. 🙏',
                     senderType: Message::SENDER_BOT,
                     type: Message::TYPE_TEXT,
                 );
@@ -151,8 +151,8 @@ class BotEngine
 
         return [
             'user_message' => $userMessage,
-            'bot_message'  => $botMessage,
-            'handoff'      => $handoff,
+            'bot_message' => $botMessage,
+            'handoff' => $handoff,
         ];
     }
 
@@ -161,9 +161,9 @@ class BotEngine
         return DB::transaction(function () use ($user, $botConv, $reason) {
             $handoff = Handoff::create([
                 'bot_conversation_id' => $botConv->id,
-                'user_id'             => $user->id,
-                'reason'              => $reason,
-                'status'              => Handoff::STATUS_PENDING,
+                'user_id' => $user->id,
+                'reason' => $reason,
+                'status' => Handoff::STATUS_PENDING,
             ]);
 
             broadcast(new HandoffRequested($handoff));

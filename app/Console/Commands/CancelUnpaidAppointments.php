@@ -8,7 +8,8 @@ use Illuminate\Console\Command;
 
 class CancelUnpaidAppointments extends Command
 {
-    protected $signature   = 'appointments:cancel-unpaid';
+    protected $signature = 'appointments:cancel-unpaid';
+
     protected $description = '10 минутын дотор төлбөр төлөгдөөгүй онлайн захиалгуудыг устгах';
 
     public function handle(): void
@@ -21,6 +22,7 @@ class CancelUnpaidAppointments extends Command
 
         if ($expiredAppointments->isEmpty()) {
             $this->info('Устгах захиалга байхгүй байна.');
+
             return;
         }
 
@@ -34,6 +36,7 @@ class CancelUnpaidAppointments extends Command
                             if ($s['id'] === $appointment->online_slot_id) {
                                 $s['is_booked'] = false;
                             }
+
                             return $s;
                         })
                         ->toArray();

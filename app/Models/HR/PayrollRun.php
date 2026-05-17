@@ -40,8 +40,9 @@ class PayrollRun extends Model
     public function getTitleAttribute(): string
     {
         $months = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-        $half   = $this->half === 'first' ? 'эхний' : 'сүүл';
-        $label  = $this->label ? " · {$this->label}" : '';
+        $half = $this->half === 'first' ? 'эхний' : 'сүүл';
+        $label = $this->label ? " · {$this->label}" : '';
+
         return "{$this->year} оны {$months[$this->month]}-р сар {$half} цалин{$label}";
     }
 }

@@ -21,29 +21,29 @@ class JobApplicationController extends Controller
             $s = $request->search;
             $query->where(function ($q) use ($s) {
                 $q->where('first_name', 'like', "%$s%")
-                  ->orWhere('last_name', 'like', "%$s%")
-                  ->orWhere('email', 'like', "%$s%")
-                  ->orWhere('phone_mobile', 'like', "%$s%");
+                    ->orWhere('last_name', 'like', "%$s%")
+                    ->orWhere('email', 'like', "%$s%")
+                    ->orWhere('phone_mobile', 'like', "%$s%");
             });
         }
 
-        $applications = $query->get()->map(fn($a) => [
-            'id'           => $a->id,
-            'full_name'    => $a->last_name . ' ' . $a->first_name,
-            'email'        => $a->email,
+        $applications = $query->get()->map(fn ($a) => [
+            'id' => $a->id,
+            'full_name' => $a->last_name.' '.$a->first_name,
+            'email' => $a->email,
             'phone_mobile' => $a->phone_mobile,
-            'status'       => $a->status,
-            'created_at'   => $a->created_at->format('Y.m.d H:i'),
+            'status' => $a->status,
+            'created_at' => $a->created_at->format('Y.m.d H:i'),
         ]);
 
         return Inertia::render('admin/job-applications/index', [
             'applications' => $applications,
             'stats' => [
-                'total'       => JobApplication::count(),
-                'pending'     => JobApplication::where('status', 'pending')->count(),
-                'reviewed'    => JobApplication::where('status', 'reviewed')->count(),
+                'total' => JobApplication::count(),
+                'pending' => JobApplication::where('status', 'pending')->count(),
+                'reviewed' => JobApplication::where('status', 'reviewed')->count(),
                 'shortlisted' => JobApplication::where('status', 'shortlisted')->count(),
-                'rejected'    => JobApplication::where('status', 'rejected')->count(),
+                'rejected' => JobApplication::where('status', 'rejected')->count(),
             ],
             'filters' => $request->only(['status', 'search']),
         ]);
@@ -65,7 +65,7 @@ class JobApplicationController extends Controller
     public function update(Request $request, JobApplication $jobApplication)
     {
         $request->validate([
-            'status'      => 'required|in:pending,reviewed,shortlisted,rejected',
+            'status' => 'required|in:pending,reviewed,shortlisted,rejected',
             'admin_notes' => 'nullable|string|max:2000',
         ]);
 
@@ -77,6 +77,7 @@ class JobApplicationController extends Controller
     public function destroy(JobApplication $jobApplication)
     {
         $jobApplication->delete();
+
         return redirect()->route('admin.job-applications.index')
             ->with('success', 'Анкет устгагдлаа.');
     }
@@ -92,8 +93,8 @@ class JobApplicationController extends Controller
         $applications = $query->get();
 
         $headers = [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="job_applications_' . now()->format('Y-m-d') . '.csv"',
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="job_applications_'.now()->format('Y-m-d').'.csv"',
         ];
 
         $callback = function () use ($applications) {

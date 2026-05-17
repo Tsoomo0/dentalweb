@@ -21,12 +21,12 @@ class PasswordController extends Controller
     {
         $request->validate([
             'current_password' => 'required|string',
-            'password'         => 'required|string|min:6|confirmed',
+            'password' => 'required|string|min:6|confirmed',
         ]);
 
         if (Auth::guard('doctor')->check()) {
             $doctor = Auth::guard('doctor')->user();
-            if (!Hash::check($request->current_password, $doctor->password)) {
+            if (! Hash::check($request->current_password, $doctor->password)) {
                 return back()->withErrors(['current_password' => 'Одоогийн нууц үг буруу байна.']);
             }
             $newHash = Hash::make($request->password);
@@ -35,7 +35,7 @@ class PasswordController extends Controller
             $doctor->employee?->user?->update(['password' => $newHash]);
         } else {
             $user = Auth::user();
-            if (!Hash::check($request->current_password, $user->password)) {
+            if (! Hash::check($request->current_password, $user->password)) {
                 return back()->withErrors(['current_password' => 'Одоогийн нууц үг буруу байна.']);
             }
             $newHash = Hash::make($request->password);

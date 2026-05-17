@@ -16,10 +16,10 @@ class FaqController extends Controller
         $faqs = Faq::orderBy('order')->orderByDesc('created_at')->get();
 
         return Inertia::render('admin/Faqs/Index', [
-            'faqs'  => $faqs,
+            'faqs' => $faqs,
             'stats' => [
-                'total'    => $faqs->count(),
-                'active'   => $faqs->where('is_active', true)->count(),
+                'total' => $faqs->count(),
+                'active' => $faqs->where('is_active', true)->count(),
                 'inactive' => $faqs->where('is_active', false)->count(),
             ],
         ]);
@@ -33,18 +33,18 @@ class FaqController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'question'  => 'required|string|max:500',
-            'answer'    => 'required|string',
-            'category'  => 'nullable|string|max:100',
+            'question' => 'required|string|max:500',
+            'answer' => 'required|string',
+            'category' => 'nullable|string|max:100',
             'is_active' => 'boolean',
         ]);
 
         Faq::create([
-            'question'  => $request->question,
-            'answer'    => $request->answer,
-            'category'  => $request->category,
+            'question' => $request->question,
+            'answer' => $request->answer,
+            'category' => $request->category,
             'is_active' => $request->boolean('is_active', true),
-            'order'     => Faq::max('order') + 1,
+            'order' => Faq::max('order') + 1,
         ]);
 
         return redirect()->route('admin.faqs.index')->with('success', 'Асуулт амжилттай нэмэгдлээ.');
@@ -60,16 +60,16 @@ class FaqController extends Controller
     public function update(Request $request, Faq $faq): RedirectResponse
     {
         $request->validate([
-            'question'  => 'required|string|max:500',
-            'answer'    => 'required|string',
-            'category'  => 'nullable|string|max:100',
+            'question' => 'required|string|max:500',
+            'answer' => 'required|string',
+            'category' => 'nullable|string|max:100',
             'is_active' => 'boolean',
         ]);
 
         $faq->update([
-            'question'  => $request->question,
-            'answer'    => $request->answer,
-            'category'  => $request->category,
+            'question' => $request->question,
+            'answer' => $request->answer,
+            'category' => $request->category,
             'is_active' => $request->boolean('is_active'),
         ]);
 
@@ -85,7 +85,7 @@ class FaqController extends Controller
 
     public function toggle(Faq $faq): RedirectResponse
     {
-        $faq->update(['is_active' => !$faq->is_active]);
+        $faq->update(['is_active' => ! $faq->is_active]);
 
         return back()->with('success', $faq->is_active ? 'Асуулт идэвхжлээ.' : 'Асуулт идэвхгүй боллоо.');
     }

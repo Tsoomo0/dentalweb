@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class TreatmentRecord extends Model
 {
@@ -36,10 +37,10 @@ class TreatmentRecord extends Model
     ];
 
     protected $casts = [
-        'record_date'    => 'date:Y-m-d',
+        'record_date' => 'date:Y-m-d',
         'amount_charged' => 'integer',
-        'paid_at'        => 'datetime',
-        'services'       => 'array',
+        'paid_at' => 'datetime',
+        'services' => 'array',
     ];
 
     public function patient(): BelongsTo
@@ -59,10 +60,10 @@ class TreatmentRecord extends Model
 
     public function paidBy(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'paid_by_id');
+        return $this->belongsTo(User::class, 'paid_by_id');
     }
 
-    public function leasingPlan(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function leasingPlan(): HasOne
     {
         return $this->hasOne(LeasingPlan::class);
     }

@@ -17,7 +17,7 @@ class PayrollSlipMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Цалингийн задаргаа — ' . $this->entry->run->title);
+        return new Envelope(subject: 'Цалингийн задаргаа — '.$this->entry->run->title);
     }
 
     public function content(): Content

@@ -55,28 +55,28 @@ class DailySheetEntry extends Model
     ];
 
     protected $casts = [
-        'gross_amount'             => 'integer',
-        'discount'                 => 'integer',
-        'total_amount'             => 'integer',
-        'cash_amount'              => 'integer',
-        'card_amount'              => 'integer',
-        'storepay_amount'          => 'integer',
-        'mobile_amount'            => 'integer',
-        'outstanding_amount'       => 'integer',
-        'outstanding_paid_at'         => 'datetime',
-        'outstanding_paid_amount'     => 'integer',
-        'supply_orthodontic_brush'    => 'integer',
-        'supply_interdental_brush'    => 'integer',
-        'supply_dental_floss'         => 'integer',
-        'supply_wax'                  => 'integer',
-        'supply_retainer_case'        => 'integer',
-        'supply_removable_app_case'   => 'integer',
-        'is_morning_entry'            => 'boolean',
-        'overpaid_amount'             => 'integer',
-        'overpaid_used_at'            => 'datetime',
-        'overpaid_used_amount'        => 'integer',
-        'refund_amount'               => 'integer',
-        'refunded_at'                 => 'datetime',
+        'gross_amount' => 'integer',
+        'discount' => 'integer',
+        'total_amount' => 'integer',
+        'cash_amount' => 'integer',
+        'card_amount' => 'integer',
+        'storepay_amount' => 'integer',
+        'mobile_amount' => 'integer',
+        'outstanding_amount' => 'integer',
+        'outstanding_paid_at' => 'datetime',
+        'outstanding_paid_amount' => 'integer',
+        'supply_orthodontic_brush' => 'integer',
+        'supply_interdental_brush' => 'integer',
+        'supply_dental_floss' => 'integer',
+        'supply_wax' => 'integer',
+        'supply_retainer_case' => 'integer',
+        'supply_removable_app_case' => 'integer',
+        'is_morning_entry' => 'boolean',
+        'overpaid_amount' => 'integer',
+        'overpaid_used_at' => 'datetime',
+        'overpaid_used_amount' => 'integer',
+        'refund_amount' => 'integer',
+        'refunded_at' => 'datetime',
     ];
 
     public function dailySheet(): BelongsTo
@@ -91,7 +91,7 @@ class DailySheetEntry extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class);
+        return $this->belongsTo(User::class);
     }
 
     public function appointment(): BelongsTo

@@ -17,8 +17,10 @@ class Conversation extends Model
     protected $table = 'chat_conversations';
 
     public const TYPE_DIRECT = 'direct';
-    public const TYPE_GROUP  = 'group';
-    public const TYPE_BOT    = 'bot';
+
+    public const TYPE_GROUP = 'group';
+
+    public const TYPE_BOT = 'bot';
 
     protected $fillable = [
         'type',
@@ -32,7 +34,7 @@ class Conversation extends Model
 
     protected $casts = [
         'last_message_at' => 'datetime',
-        'meta'            => 'array',
+        'meta' => 'array',
     ];
 
     public function creator(): BelongsTo
@@ -78,7 +80,18 @@ class Conversation extends Model
         });
     }
 
-    public function isDirect(): bool { return $this->type === self::TYPE_DIRECT; }
-    public function isGroup(): bool  { return $this->type === self::TYPE_GROUP; }
-    public function isBot(): bool    { return $this->type === self::TYPE_BOT; }
+    public function isDirect(): bool
+    {
+        return $this->type === self::TYPE_DIRECT;
+    }
+
+    public function isGroup(): bool
+    {
+        return $this->type === self::TYPE_GROUP;
+    }
+
+    public function isBot(): bool
+    {
+        return $this->type === self::TYPE_BOT;
+    }
 }

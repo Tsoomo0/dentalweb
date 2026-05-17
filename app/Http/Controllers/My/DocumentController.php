@@ -16,50 +16,50 @@ class DocumentController extends Controller
     public function index(Request $request): Response
     {
         $categories = HrDocumentCategory::orderBy('order')->orderBy('name')->get()
-            ->map(fn($c) => [
-                'id'    => $c->id,
-                'name'  => $c->name,
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
                 'color' => $c->color,
             ]);
 
         $query = HrDocument::with('category')
-            ->where(fn($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()))
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()))
             ->orderByDesc('created_at');
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
         if ($request->filled('q')) {
-            $query->where('title', 'like', '%' . $request->q . '%');
+            $query->where('title', 'like', '%'.$request->q.'%');
         }
 
-        $documents = $query->get()->map(fn($d) => [
-            'id'             => $d->id,
-            'title'          => $d->title,
-            'category_id'    => $d->category_id,
-            'category_name'  => $d->category?->name,
+        $documents = $query->get()->map(fn ($d) => [
+            'id' => $d->id,
+            'title' => $d->title,
+            'category_id' => $d->category_id,
+            'category_name' => $d->category?->name,
             'category_color' => $d->category?->color,
-            'description'    => $d->description,
-            'file_name'      => $d->file_name,
-            'file_size'      => $d->file_size_formatted,
-            'file_type'      => $d->file_type,
-            'expires_at'     => $d->expires_at?->format('Y-m-d'),
+            'description' => $d->description,
+            'file_name' => $d->file_name,
+            'file_size' => $d->file_size_formatted,
+            'file_type' => $d->file_type,
+            'expires_at' => $d->expires_at?->format('Y-m-d'),
             'download_count' => $d->download_count,
-            'created_at'     => $d->created_at->format('Y-m-d'),
+            'created_at' => $d->created_at->format('Y-m-d'),
         ]);
 
         $employee = ProfileController::resolveEmployee();
         $employee?->load(['position', 'branch']);
 
         return Inertia::render('my/documents', [
-            'documents'  => $documents,
+            'documents' => $documents,
             'categories' => $categories,
-            'filters'    => $request->only(['category_id', 'q']),
-            'employee'   => $employee ? [
+            'filters' => $request->only(['category_id', 'q']),
+            'employee' => $employee ? [
                 'full_name' => $employee->full_name,
-                'position'  => $employee->position?->name,
+                'position' => $employee->position?->name,
                 'photo_url' => $employee->photo_url,
-                'initials'  => mb_substr($employee->last_name ?? '', 0, 1) . mb_substr($employee->first_name ?? '', 0, 1),
+                'initials' => mb_substr($employee->last_name ?? '', 0, 1).mb_substr($employee->first_name ?? '', 0, 1),
             ] : null,
         ]);
     }
@@ -68,6 +68,7 @@ class DocumentController extends Controller
     {
         abort_if($document->isExpired(), 403);
         $document->increment('download_count');
+
         return Storage::disk('local')->download($document->file_path, $document->file_name);
     }
 
@@ -75,9 +76,10 @@ class DocumentController extends Controller
     {
         abort_if($document->isExpired(), 403);
         abort_unless(Storage::disk('local')->exists($document->file_path), 404, 'Файл олдсонгүй.');
+
         return response()->file(
             Storage::disk('local')->path($document->file_path),
-            ['Content-Disposition' => 'inline; filename="' . $document->file_name . '"']
+            ['Content-Disposition' => 'inline; filename="'.$document->file_name.'"']
         );
     }
 }

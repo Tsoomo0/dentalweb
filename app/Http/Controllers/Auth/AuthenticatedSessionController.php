@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
@@ -39,6 +40,7 @@ class AuthenticatedSessionController extends Controller
             $doctor = Auth::guard('doctor')->getLastAttempted();
             Auth::guard('doctor')->login($doctor, $request->boolean('remember'));
             $request->session()->regenerate();
+
             return $doctor->employee_id
                 ? redirect()->route('portal.select')
                 : redirect()->route('doctor.dashboard');
@@ -66,8 +68,13 @@ class AuthenticatedSessionController extends Controller
         Auth::guard('web')->login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 
-        if ($user->isAdmin())   return redirect()->route('admin.dashboard');
-        if ($user->isPatient()) return redirect()->route('patient.dashboard');
+        if ($user->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+        if ($user->isPatient()) {
+            return redirect()->route('patient.dashboard');
+        }
+
         return redirect()->route('portal.select');
     }
 
@@ -75,8 +82,8 @@ class AuthenticatedSessionController extends Controller
     {
         // Бүх guard-аас зэрэг гаргах + remember cookie арилгах
         foreach (['web', 'doctor'] as $guard) {
-            if (\Illuminate\Support\Facades\Auth::guard($guard)->check()) {
-                \Illuminate\Support\Facades\Auth::guard($guard)->logout();
+            if (Auth::guard($guard)->check()) {
+                Auth::guard($guard)->logout();
             }
         }
 
@@ -87,7 +94,7 @@ class AuthenticatedSessionController extends Controller
         $response = redirect('/');
         foreach ($request->cookies->all() as $name => $value) {
             if (str_starts_with($name, 'remember_')) {
-                $response->withCookie(\Illuminate\Support\Facades\Cookie::forget($name));
+                $response->withCookie(Cookie::forget($name));
             }
         }
 

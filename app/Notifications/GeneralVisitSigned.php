@@ -21,8 +21,8 @@ class GeneralVisitSigned extends Notification
     {
         return [
             'patient_name' => $this->patientName,
-            'visit_date'   => $this->visitDate,
-            'signer_name'  => $this->signerName,
+            'visit_date' => $this->visitDate,
+            'signer_name' => $this->signerName,
         ];
     }
 }

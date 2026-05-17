@@ -22,8 +22,8 @@ class Attachment extends Model
     ];
 
     protected $casts = [
-        'size'   => 'integer',
-        'width'  => 'integer',
+        'size' => 'integer',
+        'width' => 'integer',
         'height' => 'integer',
     ];
 

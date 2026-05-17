@@ -22,10 +22,10 @@ class VacationRequest extends Model
     ];
 
     protected $casts = [
-        'start_date'                 => 'date',
-        'end_date'                   => 'date',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'had_annual_leave_this_year' => 'boolean',
-        'reviewed_at'                => 'datetime',
+        'reviewed_at' => 'datetime',
     ];
 
     public function employee(): BelongsTo
@@ -45,7 +45,7 @@ class VacationRequest extends Model
 
     public function getDaysAttribute(): int
     {
-        $days    = 0;
+        $days = 0;
         $current = $this->start_date->copy();
         while ($current->lte($this->end_date)) {
             if ($current->isWeekday()) {
@@ -53,10 +53,22 @@ class VacationRequest extends Model
             }
             $current->addDay();
         }
+
         return $days;
     }
 
-    public function isPending(): bool  { return $this->status === 'pending'; }
-    public function isApproved(): bool { return $this->status === 'approved'; }
-    public function isRejected(): bool { return $this->status === 'rejected'; }
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === 'approved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
 }

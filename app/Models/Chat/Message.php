@@ -15,15 +15,21 @@ class Message extends Model
 
     protected $table = 'chat_messages';
 
-    public const SENDER_USER   = 'user';
-    public const SENDER_BOT    = 'bot';
+    public const SENDER_USER = 'user';
+
+    public const SENDER_BOT = 'bot';
+
     public const SENDER_SYSTEM = 'system';
 
-    public const TYPE_TEXT     = 'text';
-    public const TYPE_IMAGE    = 'image';
-    public const TYPE_FILE     = 'file';
+    public const TYPE_TEXT = 'text';
+
+    public const TYPE_IMAGE = 'image';
+
+    public const TYPE_FILE = 'file';
+
     public const TYPE_BOT_CARD = 'bot_card';
-    public const TYPE_SYSTEM   = 'system';
+
+    public const TYPE_SYSTEM = 'system';
 
     protected $fillable = [
         'conversation_id',
@@ -38,7 +44,7 @@ class Message extends Model
     ];
 
     protected $casts = [
-        'meta'      => 'array',
+        'meta' => 'array',
         'edited_at' => 'datetime',
     ];
 

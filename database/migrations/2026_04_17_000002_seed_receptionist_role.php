@@ -8,9 +8,9 @@ return new class extends Migration
     public function up(): void
     {
         // receptionist role бүртгэгдээгүй бол нэмнэ
-        if (!DB::table('roles')->where('name', 'receptionist')->exists()) {
+        if (! DB::table('roles')->where('name', 'receptionist')->exists()) {
             DB::table('roles')->insert([
-                'name'       => 'receptionist',
+                'name' => 'receptionist',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

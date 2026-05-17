@@ -16,8 +16,8 @@ class CustomMailManager extends MailManager
         if ($stream instanceof SocketStream) {
             $stream->setStreamOptions([
                 'ssl' => [
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
                     'allow_self_signed' => true,
                 ],
             ]);

@@ -20,73 +20,73 @@ class JobApplicationController extends Controller
     {
         $data = $request->validate([
             // 1. Үндсэн мэдээлэл
-            'last_name'             => 'required|string|max:100',
-            'first_name'            => 'required|string|max:100',
-            'family_name'           => 'nullable|string|max:100',
-            'gender'                => 'nullable|string|max:20',
-            'birth_city'            => 'nullable|string|max:100',
-            'birth_date'            => 'nullable|date',
-            'register_no'           => 'nullable|string|max:20',
-            'has_insurance'         => 'boolean',
-            'has_health_insurance'  => 'boolean',
-            'address'               => 'nullable|string|max:500',
-            'has_driving_license'   => 'boolean',
-            'driving_class'         => 'nullable|string|max:20',
-            'has_car'               => 'boolean',
-            'phone_home'            => 'nullable|string|max:20',
-            'phone_mobile'          => 'required|string|max:20',
-            'email'                 => 'nullable|email|max:150',
+            'last_name' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
+            'family_name' => 'nullable|string|max:100',
+            'gender' => 'nullable|string|max:20',
+            'birth_city' => 'nullable|string|max:100',
+            'birth_date' => 'nullable|date',
+            'register_no' => 'nullable|string|max:20',
+            'has_insurance' => 'boolean',
+            'has_health_insurance' => 'boolean',
+            'address' => 'nullable|string|max:500',
+            'has_driving_license' => 'boolean',
+            'driving_class' => 'nullable|string|max:20',
+            'has_car' => 'boolean',
+            'phone_home' => 'nullable|string|max:20',
+            'phone_mobile' => 'required|string|max:20',
+            'email' => 'nullable|email|max:150',
 
             // 2. Боловсрол
-            'education'             => 'nullable|array',
-            'education.*'           => 'array',
+            'education' => 'nullable|array',
+            'education.*' => 'array',
             'professional_training' => 'nullable|array',
             'professional_training.*' => 'array',
 
             // 3. Ажлын туршлага
-            'total_work_years'      => 'nullable|string|max:50',
+            'total_work_years' => 'nullable|string|max:50',
             'unverified_work_years' => 'nullable|string|max:50',
-            'employment_status'     => 'nullable|string|max:100',
-            'work_experience'       => 'nullable|array',
-            'work_experience.*'     => 'array',
+            'employment_status' => 'nullable|string|max:100',
+            'work_experience' => 'nullable|array',
+            'work_experience.*' => 'array',
 
             // 4. Ур чадвар
-            'skills_languages'      => 'nullable|array',
-            'skills_computer'       => 'nullable|array',
-            'skills_talents'        => 'nullable|array',
+            'skills_languages' => 'nullable|array',
+            'skills_computer' => 'nullable|array',
+            'skills_talents' => 'nullable|array',
 
             // 5. Гавъяа шагнал
-            'awards'                => 'nullable|array',
+            'awards' => 'nullable|array',
 
             // 6. Тодорхойлолт
-            'references'            => 'nullable|array',
+            'references' => 'nullable|array',
 
             // 7. Гэр бүл
-            'is_married'            => 'boolean',
-            'family_members'        => 'nullable|array',
-            'family_relatives'      => 'nullable|array',
+            'is_married' => 'boolean',
+            'family_members' => 'nullable|array',
+            'family_relatives' => 'nullable|array',
 
             // 8. Бусад
-            'health_status'         => 'nullable|string|max:200',
-            'goals_5years'          => 'nullable|string|max:1000',
-            'strengths'             => 'nullable|string|max:1000',
-            'weaknesses'            => 'nullable|string|max:1000',
-            'additional_info'       => 'nullable|string|max:2000',
-            'info_source'           => 'nullable|string|max:200',
+            'health_status' => 'nullable|string|max:200',
+            'goals_5years' => 'nullable|string|max:1000',
+            'strengths' => 'nullable|string|max:1000',
+            'weaknesses' => 'nullable|string|max:1000',
+            'additional_info' => 'nullable|string|max:2000',
+            'info_source' => 'nullable|string|max:200',
         ]);
 
         $application = JobApplication::create($data);
 
-        $admins = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->get();
+        $admins = User::whereHas('role', fn ($q) => $q->where('name', 'admin'))->get();
 
         if ($admins->isNotEmpty()) {
-            $fullName    = trim(($data['last_name'] ?? '') . ' ' . ($data['first_name'] ?? ''));
+            $fullName = trim(($data['last_name'] ?? '').' '.($data['first_name'] ?? ''));
             $notification = new NewJobApplication(
                 applicantName: $fullName,
-                phone:         $data['phone_mobile'],
-                email:         $data['email'] ?? null,
-                position:      null,
-                submittedAt:   now()->format('Y.m.d H:i'),
+                phone: $data['phone_mobile'],
+                email: $data['email'] ?? null,
+                position: null,
+                submittedAt: now()->format('Y.m.d H:i'),
             );
             Notification::send($admins, $notification);
         }

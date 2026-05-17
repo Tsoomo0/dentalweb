@@ -18,6 +18,7 @@ class BookRentalSubmittedMail extends Mailable
     public function envelope(): Envelope
     {
         $name = $this->rental->employee->full_name;
+
         return new Envelope(subject: "📚 Номын түрээсийн хүсэлт — {$name}");
     }
 

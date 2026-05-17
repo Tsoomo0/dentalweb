@@ -19,28 +19,28 @@ class BookRentalController extends Controller
         $rentals = BookRental::with(['book.category', 'employee.position', 'employee.branch', 'approver'])
             ->latest()
             ->get()
-            ->map(fn(BookRental $r) => [
-                'id'               => $r->id,
-                'book_id'          => $r->book_id,
-                'book_title'       => $r->book->title,
-                'book_author'      => $r->book->author,
-                'book_isbn'        => $r->book->isbn,
-                'book_cover_url'   => $r->book->cover_url,
-                'category_name'    => $r->book->category?->name,
-                'category_color'   => $r->book->category?->color ?? 'blue',
-                'employee_id'      => $r->employee_id,
-                'employee_name'    => $r->employee->full_name,
-                'employee_number'  => $r->employee->employee_number,
-                'employee_photo'   => $r->employee->photo_url,
-                'position'         => $r->employee->position?->name,
-                'branch'           => $r->employee->branch?->name,
-                'status'           => $r->status,
+            ->map(fn (BookRental $r) => [
+                'id' => $r->id,
+                'book_id' => $r->book_id,
+                'book_title' => $r->book->title,
+                'book_author' => $r->book->author,
+                'book_isbn' => $r->book->isbn,
+                'book_cover_url' => $r->book->cover_url,
+                'category_name' => $r->book->category?->name,
+                'category_color' => $r->book->category?->color ?? 'blue',
+                'employee_id' => $r->employee_id,
+                'employee_name' => $r->employee->full_name,
+                'employee_number' => $r->employee->employee_number,
+                'employee_photo' => $r->employee->photo_url,
+                'position' => $r->employee->position?->name,
+                'branch' => $r->employee->branch?->name,
+                'status' => $r->status,
                 'rejection_reason' => $r->rejection_reason,
-                'notes'            => $r->notes,
-                'approved_by'      => $r->approver?->name,
-                'approved_at'      => $r->approved_at?->toDateString(),
-                'returned_at'      => $r->returned_at?->toDateString(),
-                'created_at'       => $r->created_at->toDateString(),
+                'notes' => $r->notes,
+                'approved_by' => $r->approver?->name,
+                'approved_at' => $r->approved_at?->toDateString(),
+                'returned_at' => $r->returned_at?->toDateString(),
+                'created_at' => $r->created_at->toDateString(),
             ]);
 
         return Inertia::render('hr/book-rentals/index', [
@@ -50,7 +50,7 @@ class BookRentalController extends Controller
 
     public function approve(BookRental $bookRental): RedirectResponse
     {
-        if (!$bookRental->isPending()) {
+        if (! $bookRental->isPending()) {
             return back()->with('error', 'Энэ хүсэлт аль хэдийн шийдвэрлэгдсэн байна.');
         }
 
@@ -60,7 +60,7 @@ class BookRentalController extends Controller
         }
 
         $bookRental->update([
-            'status'      => 'approved',
+            'status' => 'approved',
             'approved_by' => Auth::id(),
             'approved_at' => now(),
         ]);
@@ -72,7 +72,7 @@ class BookRentalController extends Controller
 
     public function reject(Request $request, BookRental $bookRental): RedirectResponse
     {
-        if (!$bookRental->isPending()) {
+        if (! $bookRental->isPending()) {
             return back()->with('error', 'Энэ хүсэлт аль хэдийн шийдвэрлэгдсэн байна.');
         }
 
@@ -81,10 +81,10 @@ class BookRentalController extends Controller
         ]);
 
         $bookRental->update([
-            'status'           => 'rejected',
+            'status' => 'rejected',
             'rejection_reason' => $request->rejection_reason,
-            'approved_by'      => Auth::id(),
-            'approved_at'      => now(),
+            'approved_by' => Auth::id(),
+            'approved_at' => now(),
         ]);
 
         $this->notifyEmployee($bookRental);
@@ -94,12 +94,12 @@ class BookRentalController extends Controller
 
     public function markReturned(BookRental $bookRental): RedirectResponse
     {
-        if (!$bookRental->isApproved()) {
+        if (! $bookRental->isApproved()) {
             return back()->with('error', 'Зөвхөн зөвшөөрөгдсөн түрээсийг буцааж болно.');
         }
 
         $bookRental->update([
-            'status'      => 'returned',
+            'status' => 'returned',
             'returned_at' => now(),
         ]);
 
@@ -109,9 +109,9 @@ class BookRentalController extends Controller
     public function destroy(BookRental $bookRental): RedirectResponse
     {
         $bookRental->load('book', 'employee');
-        $emp   = $bookRental->employee?->full_name ?? '—';
-        $book  = $bookRental->book?->title ?? '—';
-        $stat  = $bookRental->status;
+        $emp = $bookRental->employee?->full_name ?? '—';
+        $book = $bookRental->book?->title ?? '—';
+        $stat = $bookRental->status;
 
         $bookRental->delete();
 

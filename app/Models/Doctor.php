@@ -26,12 +26,12 @@ class Doctor extends Authenticatable
     ];
 
     protected $casts = [
-        'is_active'            => 'boolean',
-        'has_online_booking'   => 'boolean',
-        'experiences'      => 'array',
-        'online_slots'     => 'array',
+        'is_active' => 'boolean',
+        'has_online_booking' => 'boolean',
+        'experiences' => 'array',
+        'online_slots' => 'array',
         'experience_years' => 'integer',
-        'password'         => 'hashed',
+        'password' => 'hashed',
     ];
 
     public function branch(): BelongsTo

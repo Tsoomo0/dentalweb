@@ -11,11 +11,11 @@ class HrMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return redirect('/login');
         }
 
-        $user   = Auth::user();
+        $user = Auth::user();
         $portal = $user->employee?->position?->portal;
 
         if ($user->isAdmin() || $portal === 'hr') {

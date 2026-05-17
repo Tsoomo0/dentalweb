@@ -23,10 +23,10 @@ class DailySheet extends Model
     ];
 
     protected $casts = [
-        'date'                 => 'date:Y-m-d',
-        'submitted_at'         => 'datetime',
+        'date' => 'date:Y-m-d',
+        'submitted_at' => 'datetime',
         'morning_submitted_at' => 'datetime',
-        'supplies'             => 'array',
+        'supplies' => 'array',
     ];
 
     public function branch(): BelongsTo

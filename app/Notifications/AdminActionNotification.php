@@ -16,11 +16,11 @@ class AdminActionNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        public readonly string  $event,           // created / updated / deleted / status_changed ...
-        public readonly string  $description,     // human-readable text
-        public readonly string  $actorName,
+        public readonly string $event,           // created / updated / deleted / status_changed ...
+        public readonly string $description,     // human-readable text
+        public readonly string $actorName,
         public readonly ?string $subjectType = null,
-        public readonly ?int    $subjectId = null,
+        public readonly ?int $subjectId = null,
         public readonly ?string $url = null,      // detail page URL (optional)
     ) {}
 
@@ -32,14 +32,14 @@ class AdminActionNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $eventLabel = match ($this->event) {
-            'created'        => 'Шинээр үүсгэв',
-            'updated'        => 'Шинэчлэв',
-            'deleted'        => 'Устгав',
+            'created' => 'Шинээр үүсгэв',
+            'updated' => 'Шинэчлэв',
+            'deleted' => 'Устгав',
             'status_changed' => 'Статус өөрчлөв',
-            'confirmed'      => 'Баталгаажуулав',
-            'rejected'       => 'Татгалзав',
-            'approved'       => 'Зөвшөөрөв',
-            default          => ucfirst($this->event),
+            'confirmed' => 'Баталгаажуулав',
+            'rejected' => 'Татгалзав',
+            'approved' => 'Зөвшөөрөв',
+            default => ucfirst($this->event),
         };
 
         $msg = (new MailMessage)
@@ -58,12 +58,12 @@ class AdminActionNotification extends Notification implements ShouldQueue
     public function toDatabase(object $notifiable): array
     {
         return [
-            'event'        => $this->event,
-            'description'  => $this->description,
-            'actor_name'   => $this->actorName,
+            'event' => $this->event,
+            'description' => $this->description,
+            'actor_name' => $this->actorName,
             'subject_type' => $this->subjectType,
-            'subject_id'   => $this->subjectId,
-            'url'          => $this->url,
+            'subject_id' => $this->subjectId,
+            'url' => $this->url,
         ];
     }
 }

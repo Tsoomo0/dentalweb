@@ -22,37 +22,37 @@ class JobApplication extends Model
     ];
 
     protected $casts = [
-        'birth_date'            => 'date',
-        'has_insurance'         => 'boolean',
-        'has_health_insurance'  => 'boolean',
-        'has_driving_license'   => 'boolean',
-        'has_car'               => 'boolean',
-        'is_married'            => 'boolean',
-        'education'             => 'array',
+        'birth_date' => 'date',
+        'has_insurance' => 'boolean',
+        'has_health_insurance' => 'boolean',
+        'has_driving_license' => 'boolean',
+        'has_car' => 'boolean',
+        'is_married' => 'boolean',
+        'education' => 'array',
         'professional_training' => 'array',
-        'work_experience'       => 'array',
-        'skills_languages'      => 'array',
-        'skills_computer'       => 'array',
-        'skills_talents'        => 'array',
-        'awards'                => 'array',
-        'references'            => 'array',
-        'family_members'        => 'array',
-        'family_relatives'      => 'array',
+        'work_experience' => 'array',
+        'skills_languages' => 'array',
+        'skills_computer' => 'array',
+        'skills_talents' => 'array',
+        'awards' => 'array',
+        'references' => 'array',
+        'family_members' => 'array',
+        'family_relatives' => 'array',
     ];
 
     public function getFullNameAttribute(): string
     {
-        return $this->last_name . ' ' . $this->first_name;
+        return $this->last_name.' '.$this->first_name;
     }
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
-            'pending'    => 'Хүлээгдэж буй',
-            'reviewed'   => 'Хянасан',
+        return match ($this->status) {
+            'pending' => 'Хүлээгдэж буй',
+            'reviewed' => 'Хянасан',
             'shortlisted' => 'Сонгогдсон',
-            'rejected'   => 'Татгалзсан',
-            default      => $this->status,
+            'rejected' => 'Татгалзсан',
+            default => $this->status,
         };
     }
 }

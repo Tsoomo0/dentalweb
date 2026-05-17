@@ -5,8 +5,6 @@ namespace App\Models\HR;
 use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\User;
-use App\Models\HR\LeaveRequest;
-use App\Models\HR\VacationRequest;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -42,13 +40,13 @@ class Employee extends Model
     ];
 
     protected $casts = [
-        'birth_date'         => 'date',
-        'hired_date'         => 'date',
+        'birth_date' => 'date',
+        'hired_date' => 'date',
         'probation_end_date' => 'date',
-        'military_service'   => 'boolean',
-        'is_married'         => 'boolean',
-        'has_children'       => 'boolean',
-        'salary'             => 'decimal:2',
+        'military_service' => 'boolean',
+        'is_married' => 'boolean',
+        'has_children' => 'boolean',
+        'salary' => 'decimal:2',
     ];
 
     // ── Relations ────────────────────────────────────────────────────────────
@@ -114,12 +112,12 @@ class Employee extends Model
 
     public function getFullNameAttribute(): string
     {
-        return $this->last_name . ' ' . $this->first_name;
+        return $this->last_name.' '.$this->first_name;
     }
 
     public function getPhotoUrlAttribute(): ?string
     {
-        return $this->photo ? asset('storage/' . $this->photo) : null;
+        return $this->photo ? asset('storage/'.$this->photo) : null;
     }
 
     /**
@@ -140,7 +138,7 @@ class Employee extends Model
         static::creating(function (Employee $employee) {
             $last = static::withTrashed()->orderByDesc('id')->value('employee_number');
             $next = $last ? (int) substr($last, 4) + 1 : 1;
-            $employee->employee_number = 'EMP-' . str_pad($next, 4, '0', STR_PAD_LEFT);
+            $employee->employee_number = 'EMP-'.str_pad($next, 4, '0', STR_PAD_LEFT);
         });
     }
 }

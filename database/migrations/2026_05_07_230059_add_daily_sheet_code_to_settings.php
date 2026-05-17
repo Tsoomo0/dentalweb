@@ -10,14 +10,14 @@ return new class extends Migration
         DB::table('settings')->updateOrInsert(
             ['key' => 'daily_sheet_code'],
             [
-                'value'        => '1234',
-                'group'        => 'system',
-                'label'        => 'Өдрийн тооцооны хамгаалалтын код',
-                'description'  => 'Тооцоо устгах, нээхэд шаардагдах PIN код',
-                'type'         => 'password',
+                'value' => '1234',
+                'group' => 'system',
+                'label' => 'Өдрийн тооцооны хамгаалалтын код',
+                'description' => 'Тооцоо устгах, нээхэд шаардагдах PIN код',
+                'type' => 'password',
                 'is_sensitive' => true,
-                'created_at'   => now(),
-                'updated_at'   => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]
         );
     }

@@ -16,7 +16,7 @@ class EquipmentAssignedMail extends Mailable
     public function build(): self
     {
         return $this
-            ->subject('📦 Тоног төхөөрөмж хүлээн авах хүсэлт — ' . $this->assignment->equipment->name)
+            ->subject('📦 Тоног төхөөрөмж хүлээн авах хүсэлт — '.$this->assignment->equipment->name)
             ->view('emails.equipment-assigned');
     }
 }

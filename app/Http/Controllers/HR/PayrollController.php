@@ -21,27 +21,27 @@ class PayrollController extends Controller
     public function index(): Response
     {
         $runs = PayrollRun::withCount('entries')
-            ->withCount(['entries as sent_entries_count' => fn($q) => $q->where('is_sent', true)])
+            ->withCount(['entries as sent_entries_count' => fn ($q) => $q->where('is_sent', true)])
             ->with('creator')
             ->latest()
             ->get()
-            ->map(fn($r) => [
-                'id'                 => $r->id,
-                'title'              => $r->title,
-                'year'               => $r->year,
-                'month'              => $r->month,
-                'half'               => $r->half,
-                'half_label'         => $r->half_label,
-                'label'              => $r->label,
-                'status'             => $r->status,
-                'entries_count'      => $r->entries_count,
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'title' => $r->title,
+                'year' => $r->year,
+                'month' => $r->month,
+                'half' => $r->half,
+                'half_label' => $r->half_label,
+                'label' => $r->label,
+                'status' => $r->status,
+                'entries_count' => $r->entries_count,
                 'sent_entries_count' => $r->sent_entries_count,
-                'created_at'         => $r->created_at->format('Y.m.d'),
-                'created_by'         => $r->creator?->name,
+                'created_at' => $r->created_at->format('Y.m.d'),
+                'created_by' => $r->creator?->name,
             ]);
 
         return Inertia::render('hr/payroll/index', [
-            'runs'     => $runs,
+            'runs' => $runs,
             'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -56,25 +56,25 @@ class PayrollController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'year'      => 'required|integer|min:2020|max:2100',
-            'month'     => 'required|integer|min:1|max:12',
-            'half'      => 'required|in:first,second',
+            'year' => 'required|integer|min:2020|max:2100',
+            'month' => 'required|integer|min:1|max:12',
+            'half' => 'required|in:first,second',
             'branch_id' => 'required|exists:branches,id',
-            'notes'     => 'nullable|string|max:500',
+            'notes' => 'nullable|string|max:500',
         ]);
 
         $run = DB::transaction(function () use ($request) {
             $branch = Branch::findOrFail($request->branch_id);
 
             $run = PayrollRun::create([
-                'year'       => $request->year,
-                'month'      => $request->month,
-                'half'       => $request->half,
-                'label'      => $branch->name,
-                'notes'      => $request->notes,
-                'status'     => 'draft',
+                'year' => $request->year,
+                'month' => $request->month,
+                'half' => $request->half,
+                'label' => $branch->name,
+                'notes' => $request->notes,
+                'status' => 'draft',
                 'created_by' => Auth::id(),
-                'branch_id'  => $request->branch_id,
+                'branch_id' => $request->branch_id,
             ]);
 
             // Тухайн салбарын идэвхтэй ажилтнуудаар entry үүсгэх
@@ -88,11 +88,11 @@ class PayrollController extends Controller
             foreach ($employees as $emp) {
                 PayrollEntry::create([
                     'payroll_run_id' => $run->id,
-                    'employee_id'    => $emp->id,
-                    'basic_salary'   => $emp->salary ?? 0,
-                    'nd_salary'      => $emp->salary ?? 0,
-                    'working_days'   => $request->half === 'first' ? 11 : 11,
-                    'worked_days'    => $request->half === 'first' ? 11 : 11,
+                    'employee_id' => $emp->id,
+                    'basic_salary' => $emp->salary ?? 0,
+                    'nd_salary' => $emp->salary ?? 0,
+                    'working_days' => $request->half === 'first' ? 11 : 11,
+                    'worked_days' => $request->half === 'first' ? 11 : 11,
                 ]);
             }
 
@@ -107,19 +107,19 @@ class PayrollController extends Controller
     {
         $payrollRun->load(['entries.employee.position', 'entries.employee.branch']);
 
-        $entries = $payrollRun->entries->map(fn($e) => $this->formatEntry($e));
+        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e));
 
         return Inertia::render('hr/payroll/show', [
-            'run'     => [
-                'id'         => $payrollRun->id,
-                'title'      => $payrollRun->title,
-                'year'       => $payrollRun->year,
-                'month'      => $payrollRun->month,
-                'half'       => $payrollRun->half,
+            'run' => [
+                'id' => $payrollRun->id,
+                'title' => $payrollRun->title,
+                'year' => $payrollRun->year,
+                'month' => $payrollRun->month,
+                'half' => $payrollRun->half,
                 'half_label' => $payrollRun->half_label,
-                'label'      => $payrollRun->label,
-                'status'     => $payrollRun->status,
-                'notes'      => $payrollRun->notes,
+                'label' => $payrollRun->label,
+                'status' => $payrollRun->status,
+                'notes' => $payrollRun->notes,
             ],
             'entries' => $entries,
         ]);
@@ -132,7 +132,7 @@ class PayrollController extends Controller
         }
 
         $request->validate([
-            'entries'     => 'required|array',
+            'entries' => 'required|array',
             'entries.*.id' => 'required|exists:payroll_entries,id',
         ]);
 
@@ -174,7 +174,9 @@ class PayrollController extends Controller
         DB::transaction(function () use ($request, $saveFields, $payrollRun) {
             if ($request->has('entries') && is_array($request->entries)) {
                 foreach ($request->entries as $data) {
-                    if (empty($data['id'])) continue;
+                    if (empty($data['id'])) {
+                        continue;
+                    }
                     $update = [];
                     foreach ($saveFields as $f) {
                         $update[$f] = isset($data[$f]) && $data[$f] !== '' ? (float) $data[$f] : 0;
@@ -192,19 +194,21 @@ class PayrollController extends Controller
         $payrollRun->load('entries.employee.user', 'entries.run');
         foreach ($payrollRun->entries as $entry) {
             $user = $entry->employee?->user;
-            if (!$user) continue;
+            if (! $user) {
+                continue;
+            }
 
             $entry->update(['is_sent' => true, 'sent_at' => now()]);
             try {
                 $user->notify(new PayrollSlipSent($entry));
             } catch (\Throwable $e) {
                 // Mail тохиргоо алдаатай байсан ч database notification хадгалагдсан байна
-                \Log::warning("PayrollSlipSent mail failed for user {$user->id}: " . $e->getMessage());
+                \Log::warning("PayrollSlipSent mail failed for user {$user->id}: ".$e->getMessage());
             }
         }
 
         AuditService::log('finalized', $payrollRun, null, ['title' => $payrollRun->title ?? "Run #{$payrollRun->id}"],
-            "Цалингийн тооцоо баталгаажуулав: " . ($payrollRun->title ?? "#{$payrollRun->id}"));
+            'Цалингийн тооцоо баталгаажуулав: '.($payrollRun->title ?? "#{$payrollRun->id}"));
 
         return back()->with('success', 'Цалингийн тооцоо баталгаажлаа. Бүх ажилтанд мэдэгдэл илгээлээ.');
     }
@@ -218,7 +222,7 @@ class PayrollController extends Controller
         $entry->load('employee.user', 'run');
         $user = $entry->employee?->user;
 
-        if (!$user) {
+        if (! $user) {
             return back()->with('error', 'Ажилтны системийн хэрэглэгч олдсонгүй.');
         }
 
@@ -226,7 +230,7 @@ class PayrollController extends Controller
         try {
             $user->notify(new PayrollSlipSent($entry));
         } catch (\Throwable $e) {
-            \Log::warning("PayrollSlipSent mail failed for user {$user->id}: " . $e->getMessage());
+            \Log::warning("PayrollSlipSent mail failed for user {$user->id}: ".$e->getMessage());
         }
 
         return back()->with('success', "{$entry->employee->full_name} ажилтанд цалингийн задаргаа илгээлээ.");
@@ -235,12 +239,14 @@ class PayrollController extends Controller
     public function reopen(PayrollRun $payrollRun): RedirectResponse
     {
         $payrollRun->update(['status' => 'draft']);
+
         return back()->with('success', 'Цалингийн тооцоо нээгдлээ.');
     }
 
     public function destroy(PayrollRun $payrollRun): RedirectResponse
     {
         $payrollRun->delete();
+
         return redirect()->route('hr.payroll.index')->with('success', 'Цалингийн тооцоо устгагдлаа.');
     }
 
@@ -281,11 +287,11 @@ class PayrollController extends Controller
         $csv = stream_get_contents($handle);
         fclose($handle);
 
-        $filename = $payrollRun->title . '_template.csv';
-        $encoded  = rawurlencode($filename);
+        $filename = $payrollRun->title.'_template.csv';
+        $encoded = rawurlencode($filename);
 
         return response($csv, 200, [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
         ]);
     }
@@ -310,9 +316,9 @@ class PayrollController extends Controller
 
         // col index → db field
         $map = [
-            3  => 'basic_salary',    4  => 'nd_salary',
-            5  => 'prev_paid',       6  => 'holiday_advance',
-            7  => 'ath_bonus',       8  => 'overtime_bonus',    9  => 'vacation_pay',
+            3 => 'basic_salary',    4 => 'nd_salary',
+            5 => 'prev_paid',       6 => 'holiday_advance',
+            7 => 'ath_bonus',       8 => 'overtime_bonus',    9 => 'vacation_pay',
             10 => 'working_days',    11 => 'worked_days',       12 => 'daily_rate',
             13 => 'food',            14 => 'transport',         15 => 'milk',
             16 => 'total_bonus',     17 => 'calc_salary',       18 => 'nd_total',
@@ -324,7 +330,9 @@ class PayrollController extends Controller
         DB::transaction(function () use ($handle, $map, $payrollRun) {
             while (($row = fgetcsv($handle)) !== false) {
                 $id = (int) ($row[0] ?? 0);
-                if (!$id) continue;
+                if (! $id) {
+                    continue;
+                }
 
                 $update = [];
                 foreach ($map as $col => $field) {
@@ -346,14 +354,14 @@ class PayrollController extends Controller
     public function exportExcel(PayrollRun $payrollRun): \Illuminate\Http\Response
     {
         $payrollRun->load(['entries.employee.position', 'entries.employee.branch']);
-        $entries = $payrollRun->entries->map(fn($e) => $this->formatEntry($e));
+        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e));
 
-        $html     = view('hr.payroll-excel', compact('payrollRun', 'entries'))->render();
-        $filename = $payrollRun->title . '.xls';
-        $encoded  = rawurlencode($filename);
+        $html = view('hr.payroll-excel', compact('payrollRun', 'entries'))->render();
+        $filename = $payrollRun->title.'.xls';
+        $encoded = rawurlencode($filename);
 
-        return response("\xEF\xBB\xBF" . $html, 200, [
-            'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
+        return response("\xEF\xBB\xBF".$html, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
             'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
         ]);
     }
@@ -363,37 +371,37 @@ class PayrollController extends Controller
     private function formatEntry(PayrollEntry $e): array
     {
         return [
-            'id'              => $e->id,
-            'employee_id'     => $e->employee_id,
-            'name'            => $e->employee->full_name,
+            'id' => $e->id,
+            'employee_id' => $e->employee_id,
+            'name' => $e->employee->full_name,
             'employee_number' => $e->employee->employee_number,
             'register_number' => $e->employee->register_number,
-            'position'        => $e->employee->position?->name,
-            'bank_account'    => $e->employee->bank_account,
-            'basic_salary'    => $e->basic_salary,
-            'nd_salary'       => $e->nd_salary,
-            'prev_paid'       => $e->prev_paid,
+            'position' => $e->employee->position?->name,
+            'bank_account' => $e->employee->bank_account,
+            'basic_salary' => $e->basic_salary,
+            'nd_salary' => $e->nd_salary,
+            'prev_paid' => $e->prev_paid,
             'holiday_advance' => $e->holiday_advance,
-            'ath_bonus'       => $e->ath_bonus,
-            'overtime_bonus'  => $e->overtime_bonus,
-            'vacation_pay'    => $e->vacation_pay,
-            'working_days'    => $e->working_days,
-            'worked_days'     => $e->worked_days,
-            'daily_rate'      => $e->daily_rate,
-            'food'            => $e->food,
-            'transport'       => $e->transport,
-            'milk'            => $e->milk,
-            'total_bonus'     => $e->total_bonus,
-            'calc_salary'     => $e->calc_salary,
-            'nd_total'        => $e->nd_total,
-            'ndsh'            => $e->ndsh,
-            'tardiness'       => $e->tardiness,
-            'no_fingerprint'  => $e->no_fingerprint,
+            'ath_bonus' => $e->ath_bonus,
+            'overtime_bonus' => $e->overtime_bonus,
+            'vacation_pay' => $e->vacation_pay,
+            'working_days' => $e->working_days,
+            'worked_days' => $e->worked_days,
+            'daily_rate' => $e->daily_rate,
+            'food' => $e->food,
+            'transport' => $e->transport,
+            'milk' => $e->milk,
+            'total_bonus' => $e->total_bonus,
+            'calc_salary' => $e->calc_salary,
+            'nd_total' => $e->nd_total,
+            'ndsh' => $e->ndsh,
+            'tardiness' => $e->tardiness,
+            'no_fingerprint' => $e->no_fingerprint,
             'other_deduction' => $e->other_deduction,
-            'income_tax'      => $e->income_tax ?? 0,
-            'net_hand'        => $e->net_hand,
-            'bank_salary'     => $e->bank_salary,
-            'is_sent'         => (bool) $e->is_sent,
+            'income_tax' => $e->income_tax ?? 0,
+            'net_hand' => $e->net_hand,
+            'bank_salary' => $e->bank_salary,
+            'is_sent' => (bool) $e->is_sent,
         ];
     }
 }

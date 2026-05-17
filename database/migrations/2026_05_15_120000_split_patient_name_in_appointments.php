@@ -5,7 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::table('appointments', function (Blueprint $table) {
@@ -17,17 +18,22 @@ return new class extends Migration {
         DB::table('appointments')->orderBy('id')->chunkById(500, function ($rows) {
             foreach ($rows as $r) {
                 $full = trim((string) $r->patient_name);
-                if ($full === '') continue;
+                if ($full === '') {
+                    continue;
+                }
 
                 $parts = preg_split('/\s+/u', $full, 2);
-                $last  = $parts[0] ?? null;
+                $last = $parts[0] ?? null;
                 $first = $parts[1] ?? null;
 
                 // Нэг үг бол бүгдийг нэр гэж үзнэ
-                if (!$first) { $first = $last; $last = null; }
+                if (! $first) {
+                    $first = $last;
+                    $last = null;
+                }
 
                 DB::table('appointments')->where('id', $r->id)->update([
-                    'patient_last_name'  => $last,
+                    'patient_last_name' => $last,
                     'patient_first_name' => $first,
                 ]);
             }

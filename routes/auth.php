@@ -36,9 +36,9 @@ Route::middleware('guest')->group(function () {
 });
 
 // 2FA — guest ч биш, auth ч биш (нэвтрэлтийн дундын алхам)
-Route::get('two-factor',        [TwoFactorController::class, 'show'])->name('two-factor');
-Route::post('two-factor',       [TwoFactorController::class, 'verify'])->middleware('throttle:10,1')->name('two-factor.verify');
-Route::post('two-factor/resend',[TwoFactorController::class, 'resend'])->middleware('throttle:3,1')->name('two-factor.resend');
+Route::get('two-factor', [TwoFactorController::class, 'show'])->name('two-factor');
+Route::post('two-factor', [TwoFactorController::class, 'verify'])->middleware('throttle:10,1')->name('two-factor.verify');
+Route::post('two-factor/resend', [TwoFactorController::class, 'resend'])->middleware('throttle:3,1')->name('two-factor.resend');
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)

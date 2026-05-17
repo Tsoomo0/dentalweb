@@ -18,6 +18,7 @@ class VacationRequestSubmittedMail extends Mailable
     public function envelope(): Envelope
     {
         $name = $this->vacationRequest->employee->full_name;
+
         return new Envelope(subject: "🏖️ Ээлжийн амралтын хүсэлт — {$name}");
     }
 

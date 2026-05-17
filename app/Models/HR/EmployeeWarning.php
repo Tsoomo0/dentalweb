@@ -17,7 +17,7 @@ class EmployeeWarning extends Model
     ];
 
     protected $casts = [
-        'incident_date'   => 'date',
+        'incident_date' => 'date',
         'acknowledged_at' => 'datetime',
     ];
 
@@ -34,19 +34,19 @@ class EmployeeWarning extends Model
     public function getTypeLabelAttribute(): string
     {
         return match ($this->type) {
-            'warning'   => 'Сануулга',
+            'warning' => 'Сануулга',
             'violation' => 'Зөрчил',
-            default     => $this->type,
+            default => $this->type,
         };
     }
 
     public function getSeverityLabelAttribute(): string
     {
         return match ($this->severity) {
-            'low'    => 'Бага',
+            'low' => 'Бага',
             'medium' => 'Дунд',
-            'high'   => 'Өндөр',
-            default  => $this->severity,
+            'high' => 'Өндөр',
+            default => $this->severity,
         };
     }
 
@@ -54,23 +54,30 @@ class EmployeeWarning extends Model
     {
         return match ($this->action) {
             'written_warning' => 'Бичгээр сануулга',
-            'salary_deduction'=> 'Цалин суутгал',
-            'suspension'      => 'Түр чөлөөлөх',
-            'termination'     => 'Ажлаас халах',
-            'other'           => 'Бусад',
-            default           => $this->action,
+            'salary_deduction' => 'Цалин суутгал',
+            'suspension' => 'Түр чөлөөлөх',
+            'termination' => 'Ажлаас халах',
+            'other' => 'Бусад',
+            default => $this->action,
         };
     }
 
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
-            'sent'         => 'Илгээгдсэн',
+            'sent' => 'Илгээгдсэн',
             'acknowledged' => 'Хүлээн зөвшөөрсөн',
-            default        => $this->status,
+            default => $this->status,
         };
     }
 
-    public function isPending(): bool { return $this->status === 'sent'; }
-    public function isAcknowledged(): bool { return $this->status === 'acknowledged'; }
+    public function isPending(): bool
+    {
+        return $this->status === 'sent';
+    }
+
+    public function isAcknowledged(): bool
+    {
+        return $this->status === 'acknowledged';
+    }
 }

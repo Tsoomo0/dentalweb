@@ -19,21 +19,21 @@ class PushSubscriptionController extends Controller
     public function subscribe(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'endpoint'     => 'required|string',
-            'keys.p256dh'  => 'required|string',
-            'keys.auth'    => 'required|string',
-            'user_agent'   => 'nullable|string',
+            'endpoint' => 'required|string',
+            'keys.p256dh' => 'required|string',
+            'keys.auth' => 'required|string',
+            'user_agent' => 'nullable|string',
         ]);
 
         $sub = PushSubscription::updateOrCreate(
             [
-                'user_id'   => Auth::id(),
+                'user_id' => Auth::id(),
                 'p256dh_key' => $data['keys']['p256dh'],
             ],
             [
-                'endpoint'     => $data['endpoint'],
-                'auth_token'   => $data['keys']['auth'],
-                'user_agent'   => $data['user_agent'] ?? $request->userAgent(),
+                'endpoint' => $data['endpoint'],
+                'auth_token' => $data['keys']['auth'],
+                'user_agent' => $data['user_agent'] ?? $request->userAgent(),
                 'last_used_at' => now(),
             ]
         );
@@ -48,6 +48,7 @@ class PushSubscriptionController extends Controller
             ->where('user_id', Auth::id())
             ->where('endpoint', $data['endpoint'])
             ->delete();
+
         return response()->json(['ok' => true]);
     }
 }

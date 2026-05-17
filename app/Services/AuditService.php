@@ -22,28 +22,28 @@ class AuditService
     ];
 
     public static function log(
-        string  $event,
-        ?Model  $subject    = null,
-        ?array  $oldValues  = null,
-        ?array  $newValues  = null,
+        string $event,
+        ?Model $subject = null,
+        ?array $oldValues = null,
+        ?array $newValues = null,
         ?string $description = null,
-        bool    $notify      = true,
+        bool $notify = true,
     ): void {
         $actor = Auth::guard('doctor')->check()
             ? Auth::guard('doctor')->user()
             : Auth::user();
 
         AuditLog::create([
-            'event'          => $event,
+            'event' => $event,
             'auditable_type' => $subject ? get_class($subject) : null,
-            'auditable_id'   => $subject?->id,
-            'actor_type'     => $actor ? class_basename($actor) : null,
-            'actor_id'       => $actor?->id,
-            'actor_name'     => $actor?->name,
-            'old_values'     => $oldValues,
-            'new_values'     => $newValues,
-            'ip_address'     => Request::ip(),
-            'description'    => $description,
+            'auditable_id' => $subject?->id,
+            'actor_type' => $actor ? class_basename($actor) : null,
+            'actor_id' => $actor?->id,
+            'actor_name' => $actor?->name,
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
+            'ip_address' => Request::ip(),
+            'description' => $description,
         ]);
 
         // Email + database notification to OTHER admins (not the actor).
@@ -58,11 +58,11 @@ class AuditService
 
                 if ($otherAdmins->isNotEmpty()) {
                     Notification::send($otherAdmins, new AdminActionNotification(
-                        event:       $event,
-                        description: $description ?? ($event . ' — ' . ($subject ? class_basename($subject) : '')),
-                        actorName:   $actor->name ?? 'Тодорхойгүй',
+                        event: $event,
+                        description: $description ?? ($event.' — '.($subject ? class_basename($subject) : '')),
+                        actorName: $actor->name ?? 'Тодорхойгүй',
                         subjectType: $subject ? class_basename($subject) : null,
-                        subjectId:   $subject?->id,
+                        subjectId: $subject?->id,
                     ));
                 }
             } catch (\Throwable $e) {

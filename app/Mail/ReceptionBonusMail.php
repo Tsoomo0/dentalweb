@@ -18,7 +18,7 @@ class ReceptionBonusMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Урамшууллын задаргаа — ' . $this->entry->run?->title,
+            subject: 'Урамшууллын задаргаа — '.$this->entry->run?->title,
         );
     }
 

@@ -18,7 +18,10 @@ class ReceptionBonusSent extends Notification implements ShouldQueue
     public function via(object $notifiable): array
     {
         $channels = ['database'];
-        if (!empty($notifiable->email)) $channels[] = 'mail';
+        if (! empty($notifiable->email)) {
+            $channels[] = 'mail';
+        }
+
         return $channels;
     }
 
@@ -30,14 +33,15 @@ class ReceptionBonusSent extends Notification implements ShouldQueue
     public function toDatabase(object $notifiable): array
     {
         $run = $this->entry->run;
+
         return [
-            'type'         => 'reception_bonus_sent',
-            'run_id'       => $run?->id,
-            'run_title'    => $run?->title,
-            'half_label'   => $run?->half_label,
+            'type' => 'reception_bonus_sent',
+            'run_id' => $run?->id,
+            'run_title' => $run?->title,
+            'half_label' => $run?->half_label,
             'total_amount' => $this->entry->total_amount,
-            'message'      => 'Урамшууллын задаргаа ирлээ',
-            'url'          => '/my/reception-bonus',
+            'message' => 'Урамшууллын задаргаа ирлээ',
+            'url' => '/my/reception-bonus',
         ];
     }
 }

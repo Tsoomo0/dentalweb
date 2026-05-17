@@ -11,11 +11,9 @@ class AdminMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if(Auth::check() && Auth::user()->isAdmin()){
+        if (Auth::check() && Auth::user()->isAdmin()) {
             return $next($request);
-        }
-        else
-        {
+        } else {
             return redirect('/')->with('error', 'Та админ эрхтэй байх ёстой.');
         }
     }

@@ -57,7 +57,7 @@
     </div>
 
     <div class="btn-block">
-        <a href="{{ config('app.url') }}/hr/leave-requests/{{ $leaveRequest->id }}" class="btn btn-blue">
+        <a href="{{ config('app.url') }}/hr/leave-requests" class="btn btn-blue">
             Хүсэлтийг харах →
         </a>
     </div>

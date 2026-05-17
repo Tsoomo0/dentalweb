@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +23,7 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email'    => ['required', 'string', 'email'],
+            'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
         ];
     }
@@ -63,23 +65,27 @@ class LoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => [ceil($seconds / 60) . ' минутын дараа дахин оролдоно уу.'],
+            'email' => [ceil($seconds / 60).' минутын дараа дахин оролдоно уу.'],
         ]);
     }
 
     public function sendFailedLoginWarning(string $email): void
     {
-        $user = \App\Models\User::where('email', $email)->first();
-        if (! $user) return;
+        $user = User::where('email', $email)->first();
+        if (! $user) {
+            return;
+        }
 
         // 5 минутад нэг удаа л мэдэгдэл явуулна
-        $throttleKey = 'login_warn:' . md5($email);
-        if (Cache::has($throttleKey)) return;
+        $throttleKey = 'login_warn:'.md5($email);
+        if (Cache::has($throttleKey)) {
+            return;
+        }
         Cache::put($throttleKey, true, now()->addMinutes(5));
 
-        $ip   = $this->ip();
+        $ip = $this->ip();
         $time = now()->setTimezone('Asia/Ulaanbaatar')->format('Y-m-d H:i:s');
-        $siteName = \App\Models\Setting::get('site_name', 'Dental Clinic');
+        $siteName = Setting::get('site_name', 'Dental Clinic');
 
         Mail::send([], [], function ($msg) use ($user, $ip, $time, $siteName) {
             $html = "
@@ -103,11 +109,11 @@ class LoginRequest extends FormRequest
 
     public function throttleKey(): string
     {
-        return 'login:' . Str::transliterate(Str::lower($this->string('email'))) . '|' . $this->ip();
+        return 'login:'.Str::transliterate(Str::lower($this->string('email'))).'|'.$this->ip();
     }
 
     public function ipThrottleKey(): string
     {
-        return 'login_ip:' . $this->ip();
+        return 'login_ip:'.$this->ip();
     }
 }

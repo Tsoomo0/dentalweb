@@ -12,14 +12,16 @@ use Illuminate\Queue\SerializesModels;
 class BookRentalSubmitted extends Notification implements ShouldQueue
 {
     use Queueable, SerializesModels;
+
     public function __construct(public readonly BookRental $rental) {}
 
     public function via(object $notifiable): array
     {
         $channels = ['database'];
-        if (!empty($notifiable->email)) {
+        if (! empty($notifiable->email)) {
             $channels[] = 'mail';
         }
+
         return $channels;
     }
 
@@ -30,16 +32,17 @@ class BookRentalSubmitted extends Notification implements ShouldQueue
 
     public function toDatabase(object $notifiable): array
     {
-        $emp  = $this->rental->employee;
+        $emp = $this->rental->employee;
         $book = $this->rental->book;
+
         return [
-            'type'            => 'book_rental_submitted',
-            'book_rental_id'  => $this->rental->id,
-            'employee_name'   => $emp->full_name,
+            'type' => 'book_rental_submitted',
+            'book_rental_id' => $this->rental->id,
+            'employee_name' => $emp->full_name,
             'employee_number' => $emp->employee_number,
-            'book_title'      => $book->title,
-            'book_author'     => $book->author,
-            'message'         => "{$emp->full_name} номын түрээсийн хүсэлт илгээлээ",
+            'book_title' => $book->title,
+            'book_author' => $book->author,
+            'message' => "{$emp->full_name} номын түрээсийн хүсэлт илгээлээ",
         ];
     }
 }

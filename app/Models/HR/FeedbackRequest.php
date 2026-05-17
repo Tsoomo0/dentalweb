@@ -34,24 +34,35 @@ class FeedbackRequest extends Model
     {
         return match ($this->type) {
             'suggestion' => 'Санал',
-            'request'    => 'Хүсэлт',
-            'complaint'  => 'Гомдол',
-            default      => $this->type,
+            'request' => 'Хүсэлт',
+            'complaint' => 'Гомдол',
+            default => $this->type,
         };
     }
 
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
-            'pending'  => 'Хүлээгдэж байна',
+            'pending' => 'Хүлээгдэж байна',
             'reviewed' => 'Хянагдсан',
             'resolved' => 'Шийдвэрлэсэн',
             'rejected' => 'Татгалзсан',
-            default    => $this->status,
+            default => $this->status,
         };
     }
 
-    public function isPending(): bool  { return $this->status === 'pending'; }
-    public function isResolved(): bool { return $this->status === 'resolved'; }
-    public function isRejected(): bool { return $this->status === 'rejected'; }
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isResolved(): bool
+    {
+        return $this->status === 'resolved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
 }

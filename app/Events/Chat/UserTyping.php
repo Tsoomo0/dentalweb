@@ -33,9 +33,9 @@ class UserTyping implements ShouldBroadcastNow
     {
         return [
             'conversation_id' => $this->conversationId,
-            'user_id'         => $this->userId,
-            'user_name'       => $this->userName,
-            'is_typing'       => $this->isTyping,
+            'user_id' => $this->userId,
+            'user_name' => $this->userName,
+            'is_typing' => $this->isTyping,
         ];
     }
 }

@@ -17,7 +17,9 @@ class LeaveRequestController extends Controller
     public function index(): Response|RedirectResponse
     {
         $employee = ProfileController::resolveEmployee();
-        if (!$employee) return redirect()->route('portal.select');
+        if (! $employee) {
+            return redirect()->route('portal.select');
+        }
 
         $employee->load(['position', 'branch']);
 
@@ -25,36 +27,36 @@ class LeaveRequestController extends Controller
             ->where('employee_id', $employee->id)
             ->latest()
             ->get()
-            ->map(fn($r) => [
-                'id'               => $r->id,
-                'start_date'       => $r->start_date->toDateString(),
-                'end_date'         => $r->end_date->toDateString(),
-                'days'             => $r->days,
-                'leave_type'       => $r->leave_type,
-                'reason'           => $r->reason,
-                'replacement'      => $r->replacement?->full_name,
-                'status'           => $r->status,
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'start_date' => $r->start_date->toDateString(),
+                'end_date' => $r->end_date->toDateString(),
+                'days' => $r->days,
+                'leave_type' => $r->leave_type,
+                'reason' => $r->reason,
+                'replacement' => $r->replacement?->full_name,
+                'status' => $r->status,
                 'rejection_reason' => $r->rejection_reason,
-                'reviewed_at'      => $r->reviewed_at?->toDateString(),
-                'created_at'       => $r->created_at->toDateString(),
+                'reviewed_at' => $r->reviewed_at?->toDateString(),
+                'created_at' => $r->created_at->toDateString(),
             ]);
 
         $replacements = Employee::where('id', '!=', $employee->id)
             ->whereNull('deleted_at')
             ->orderBy('last_name')
             ->get(['id', 'last_name', 'first_name'])
-            ->map(fn($e) => ['id' => $e->id, 'name' => $e->full_name]);
+            ->map(fn ($e) => ['id' => $e->id, 'name' => $e->full_name]);
 
         return Inertia::render('my/leave-requests', [
             'employee' => [
-                'id'       => $employee->id,
-                'name'     => $employee->full_name,
+                'id' => $employee->id,
+                'name' => $employee->full_name,
                 'position' => $employee->position?->name,
-                'branch'   => $employee->branch?->name,
-                'initials' => mb_substr($employee->last_name ?? '', 0, 1) . mb_substr($employee->first_name ?? '', 0, 1),
-                'photo_url'=> $employee->photo_url,
+                'branch' => $employee->branch?->name,
+                'initials' => mb_substr($employee->last_name ?? '', 0, 1).mb_substr($employee->first_name ?? '', 0, 1),
+                'photo_url' => $employee->photo_url,
             ],
-            'requests'     => $requests,
+            'requests' => $requests,
             'replacements' => $replacements,
         ]);
     }
@@ -62,26 +64,28 @@ class LeaveRequestController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $employee = ProfileController::resolveEmployee();
-        if (!$employee) abort(403);
+        if (! $employee) {
+            abort(403);
+        }
 
         $data = $request->validate([
-            'start_date'              => 'required|date|after_or_equal:today',
-            'end_date'                => 'required|date|after_or_equal:start_date',
-            'leave_type'              => 'required|in:sick,personal',
-            'reason'                  => 'required|string|max:1000',
+            'start_date' => 'required|date|after_or_equal:today',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'leave_type' => 'required|in:sick,personal',
+            'reason' => 'required|string|max:1000',
             'replacement_employee_id' => 'nullable|exists:employees,id',
         ]);
 
         $leave = LeaveRequest::create([
             ...$data,
             'employee_id' => $employee->id,
-            'status'      => 'pending',
+            'status' => 'pending',
         ]);
 
         $leave->load('employee.position', 'employee.branch', 'replacement');
 
         // Notify all admins
-        $admins = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->get();
+        $admins = User::whereHas('role', fn ($q) => $q->where('name', 'admin'))->get();
         foreach ($admins as $admin) {
             $admin->notify(new LeaveRequestSubmitted($leave));
         }

@@ -18,8 +18,8 @@ class LeaveRequest extends Model
     ];
 
     protected $casts = [
-        'start_date'  => 'date',
-        'end_date'    => 'date',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'reviewed_at' => 'datetime',
     ];
 
@@ -43,7 +43,18 @@ class LeaveRequest extends Model
         return $this->start_date->diffInDays($this->end_date) + 1;
     }
 
-    public function isPending(): bool  { return $this->status === 'pending'; }
-    public function isApproved(): bool { return $this->status === 'approved'; }
-    public function isRejected(): bool { return $this->status === 'rejected'; }
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === 'approved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
 }

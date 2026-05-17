@@ -19,17 +19,17 @@ class DoctorController extends Controller
         $doctors = Doctor::with(['branch', 'branches'])
             ->orderBy('order')
             ->get()
-            ->map(fn($d) => array_merge($d->toArray(), [
-                'photo_url'    => $d->photo ? Storage::url($d->photo) : null,
-                'has_login'    => !empty($d->password),
+            ->map(fn ($d) => array_merge($d->toArray(), [
+                'photo_url' => $d->photo ? Storage::url($d->photo) : null,
+                'has_login' => ! empty($d->password),
                 'branch_names' => $d->branches->pluck('name')->join(', '),
             ]));
 
         return Inertia::render('admin/doctors/index', [
-            'doctors'  => $doctors,
+            'doctors' => $doctors,
             'branches' => Branch::orderBy('order')->get(['id', 'name']),
-            'stats'    => [
-                'total'  => Doctor::count(),
+            'stats' => [
+                'total' => Doctor::count(),
                 'active' => Doctor::where('is_active', true)->count(),
             ],
         ]);
@@ -39,30 +39,30 @@ class DoctorController extends Controller
     {
         return Inertia::render('admin/doctors/create', [
             'branches' => Branch::where('is_active', true)->orderBy('order')->get(['id', 'name']),
-            'doctors'  => Doctor::where('is_active', true)->orderBy('name')->get(['id', 'name', 'specialization']),
+            'doctors' => Doctor::where('is_active', true)->orderBy('name')->get(['id', 'name', 'specialization']),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'branch_id'           => 'required|exists:branches,id',
-            'senior_doctor_ids'   => 'nullable|array',
+            'branch_id' => 'required|exists:branches,id',
+            'senior_doctor_ids' => 'nullable|array',
             'senior_doctor_ids.*' => 'exists:doctors,id',
-            'extra_branch_ids'    => 'nullable|array',
-            'extra_branch_ids.*'  => 'exists:branches,id',
-            'name'             => 'required|string|max:255',
-            'specialization'   => 'nullable|string|max:255',
-            'degree'           => 'nullable|string|max:255',
+            'extra_branch_ids' => 'nullable|array',
+            'extra_branch_ids.*' => 'exists:branches,id',
+            'name' => 'required|string|max:255',
+            'specialization' => 'nullable|string|max:255',
+            'degree' => 'nullable|string|max:255',
             'experience_years' => 'nullable|integer|min:0',
-            'experiences'      => 'nullable|array',
-            'experiences.*.year'        => 'nullable|string|max:50',
-            'experiences.*.title'       => 'required_with:experiences|string|max:255',
+            'experiences' => 'nullable|array',
+            'experiences.*.year' => 'nullable|string|max:50',
+            'experiences.*.title' => 'required_with:experiences|string|max:255',
             'experiences.*.institution' => 'nullable|string|max:255',
-            'photo'               => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-            'description'         => 'nullable|string',
-            'is_active'           => 'boolean',
-            'has_online_booking'  => 'boolean',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'description' => 'nullable|string',
+            'is_active' => 'boolean',
+            'has_online_booking' => 'boolean',
         ]);
 
         $data = $request->only('branch_id', 'name', 'specialization', 'degree', 'experience_years', 'experiences', 'description', 'is_active', 'has_online_booking');
@@ -89,43 +89,45 @@ class DoctorController extends Controller
     public function edit(Doctor $doctor): Response
     {
         $doctor->load('branches', 'seniorDoctors');
-        $doctor->photo_url         = $doctor->photo ? Storage::url($doctor->photo) : null;
-        $doctor->branch_ids        = $doctor->branches->pluck('id')->toArray();
+        $doctor->photo_url = $doctor->photo ? Storage::url($doctor->photo) : null;
+        $doctor->branch_ids = $doctor->branches->pluck('id')->toArray();
         $doctor->senior_doctor_ids = $doctor->seniorDoctors->pluck('id')->toArray();
 
         return Inertia::render('admin/doctors/edit', [
-            'doctor'   => $doctor,
+            'doctor' => $doctor,
             'branches' => Branch::where('is_active', true)->orderBy('order')->get(['id', 'name']),
-            'doctors'  => Doctor::where('is_active', true)->where('id', '!=', $doctor->id)->orderBy('name')->get(['id', 'name', 'specialization']),
+            'doctors' => Doctor::where('is_active', true)->where('id', '!=', $doctor->id)->orderBy('name')->get(['id', 'name', 'specialization']),
         ]);
     }
 
     public function update(Request $request, Doctor $doctor): RedirectResponse
     {
         $request->validate([
-            'branch_id'           => 'required|exists:branches,id',
-            'senior_doctor_ids'   => 'nullable|array',
+            'branch_id' => 'required|exists:branches,id',
+            'senior_doctor_ids' => 'nullable|array',
             'senior_doctor_ids.*' => 'exists:doctors,id',
-            'extra_branch_ids'    => 'nullable|array',
-            'extra_branch_ids.*'  => 'exists:branches,id',
-            'name'             => 'required|string|max:255',
-            'specialization'   => 'nullable|string|max:255',
-            'degree'           => 'nullable|string|max:255',
+            'extra_branch_ids' => 'nullable|array',
+            'extra_branch_ids.*' => 'exists:branches,id',
+            'name' => 'required|string|max:255',
+            'specialization' => 'nullable|string|max:255',
+            'degree' => 'nullable|string|max:255',
             'experience_years' => 'nullable|integer|min:0',
-            'experiences'      => 'nullable|array',
-            'experiences.*.year'        => 'nullable|string|max:50',
-            'experiences.*.title'       => 'required_with:experiences|string|max:255',
+            'experiences' => 'nullable|array',
+            'experiences.*.year' => 'nullable|string|max:50',
+            'experiences.*.title' => 'required_with:experiences|string|max:255',
             'experiences.*.institution' => 'nullable|string|max:255',
-            'photo'               => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-            'description'         => 'nullable|string',
-            'is_active'           => 'boolean',
-            'has_online_booking'  => 'boolean',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'description' => 'nullable|string',
+            'is_active' => 'boolean',
+            'has_online_booking' => 'boolean',
         ]);
 
         $data = $request->only('branch_id', 'name', 'specialization', 'degree', 'experience_years', 'experiences', 'description', 'is_active', 'has_online_booking');
 
         if ($request->hasFile('photo')) {
-            if ($doctor->photo) Storage::disk('public')->delete($doctor->photo);
+            if ($doctor->photo) {
+                Storage::disk('public')->delete($doctor->photo);
+            }
             $data['photo'] = $request->file('photo')->store('doctors', 'public');
         }
 
@@ -146,7 +148,9 @@ class DoctorController extends Controller
     public function destroy(Doctor $doctor): RedirectResponse
     {
         AuditService::log('deleted', $doctor, ['name' => $doctor->name, 'email' => $doctor->email], null, "Эмч устгав: {$doctor->name}");
-        if ($doctor->photo) Storage::disk('public')->delete($doctor->photo);
+        if ($doctor->photo) {
+            Storage::disk('public')->delete($doctor->photo);
+        }
         $doctor->delete();
 
         return back()->with('success', 'Эмч устгагдлаа.');

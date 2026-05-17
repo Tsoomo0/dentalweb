@@ -30,12 +30,12 @@ class HandoffRequested implements ShouldBroadcastNow
         $h = $this->handoff->loadMissing(['user:id,name', 'botConversation']);
 
         return [
-            'id'                  => $h->id,
+            'id' => $h->id,
             'bot_conversation_id' => $h->bot_conversation_id,
-            'user'                => $h->user ? ['id' => $h->user->id, 'name' => $h->user->name] : null,
-            'reason'              => $h->reason,
-            'status'              => $h->status,
-            'created_at'          => $h->created_at?->toIso8601String(),
+            'user' => $h->user ? ['id' => $h->user->id, 'name' => $h->user->name] : null,
+            'reason' => $h->reason,
+            'status' => $h->status,
+            'created_at' => $h->created_at?->toIso8601String(),
         ];
     }
 }

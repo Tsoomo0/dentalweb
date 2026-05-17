@@ -19,7 +19,7 @@ class ConsentFormTemplate extends Model
 
     protected $casts = [
         'requires_guardian' => 'boolean',
-        'is_active'         => 'boolean',
+        'is_active' => 'boolean',
     ];
 
     public function signedForms(): HasMany
@@ -30,12 +30,12 @@ class ConsentFormTemplate extends Model
     public static function categories(): array
     {
         return [
-            'treat'   => 'Treat - Ерөнхий эмчилгээ',
-            'endo'    => 'Endo - Сувгийн эмчилгээ',
-            'ortho'   => 'Ortho - Зэр засал',
-            'perio'   => 'Perio - Буйлны эмчилгээ',
+            'treat' => 'Treat - Ерөнхий эмчилгээ',
+            'endo' => 'Endo - Сувгийн эмчилгээ',
+            'ortho' => 'Ortho - Зэр засал',
+            'perio' => 'Perio - Буйлны эмчилгээ',
             'prostho' => 'Prostho - Протез',
-            'surg'    => 'Surg - Мэс засал',
+            'surg' => 'Surg - Мэс засал',
             'prevent' => 'Prevent - Урьдчилан сэргийлэх',
         ];
     }

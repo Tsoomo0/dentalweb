@@ -14,19 +14,29 @@ return new class extends Migration
             $table->foreignId('confirmed_by_id')->nullable()->constrained('users')->nullOnDelete()->after('created_by_id');
         });
 
-        DB::statement("
-            UPDATE appointments a
-            JOIN users u ON u.name = a.created_by
-            SET a.created_by_id = u.id
-            WHERE a.created_by IS NOT NULL AND a.created_by_id IS NULL
-        ");
-
-        DB::statement("
-            UPDATE appointments a
-            JOIN users u ON u.name = a.confirmed_by
-            SET a.confirmed_by_id = u.id
-            WHERE a.confirmed_by IS NOT NULL AND a.confirmed_by_id IS NULL
-        ");
+        $driver = DB::getDriverName();
+        if ($driver === 'mysql') {
+            DB::statement('
+                UPDATE appointments a
+                JOIN users u ON u.name = a.created_by
+                SET a.created_by_id = u.id
+                WHERE a.created_by IS NOT NULL AND a.created_by_id IS NULL
+            ');
+            DB::statement('
+                UPDATE appointments a
+                JOIN users u ON u.name = a.confirmed_by
+                SET a.confirmed_by_id = u.id
+                WHERE a.confirmed_by IS NOT NULL AND a.confirmed_by_id IS NULL
+            ');
+        } else {
+            // SQLite/PostgreSQL portable backfill
+            DB::table('users')->whereNotNull('name')->orderBy('id')->chunk(500, function ($users) {
+                foreach ($users as $u) {
+                    DB::table('appointments')->whereNull('created_by_id')->where('created_by', $u->name)->update(['created_by_id' => $u->id]);
+                    DB::table('appointments')->whereNull('confirmed_by_id')->where('confirmed_by', $u->name)->update(['confirmed_by_id' => $u->id]);
+                }
+            });
+        }
     }
 
     public function down(): void

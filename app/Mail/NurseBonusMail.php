@@ -18,7 +18,7 @@ class NurseBonusMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Сувилагчийн урамшуулал — ' . $this->entry->run?->title,
+            subject: 'Сувилагчийн урамшуулал — '.$this->entry->run?->title,
         );
     }
 

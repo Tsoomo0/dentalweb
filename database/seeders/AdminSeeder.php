@@ -3,9 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\Role;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class AdminSeeder extends Seeder
 {
@@ -19,12 +18,12 @@ class AdminSeeder extends Seeder
         Role::firstOrCreate(['name' => 'receptionist']);
         Role::firstOrCreate(['name' => 'patient']);
 
-        \App\Models\User::firstOrCreate(
+        User::firstOrCreate(
             ['email' => 'admin@gmail.com'],
             [
-                'name'     => 'Admin',
+                'name' => 'Admin',
                 'password' => bcrypt('12345678'),
-                'role_id'  => $adminRole->id,
+                'role_id' => $adminRole->id,
             ]
         );
     }

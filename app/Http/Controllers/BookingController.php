@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -31,14 +32,14 @@ class BookingController extends Controller
             'doctors' => Doctor::where('is_active', true)
                 ->orderBy('name')
                 ->get()
-                ->map(fn($d) => [
-                    'id'             => $d->id,
-                    'name'           => $d->name,
+                ->map(fn ($d) => [
+                    'id' => $d->id,
+                    'name' => $d->name,
                     'specialization' => $d->specialization,
-                    'branch_id'      => $d->branch_id,
-                    'photo_url'      => $d->photo ? \Illuminate\Support\Facades\Storage::url($d->photo) : null,
-                    'online_slots'   => collect($d->online_slots ?? [])
-                        ->filter(fn($s) => !($s['is_booked'] ?? false) && $s['date'] >= $today)
+                    'branch_id' => $d->branch_id,
+                    'photo_url' => $d->photo ? Storage::url($d->photo) : null,
+                    'online_slots' => collect($d->online_slots ?? [])
+                        ->filter(fn ($s) => ! ($s['is_booked'] ?? false) && $s['date'] >= $today)
                         ->values()
                         ->toArray(),
                 ]),
@@ -64,10 +65,10 @@ class BookingController extends Controller
         if ($patient) {
             return response()->json([
                 'patient_id' => $patient->id,
-                'last_name'  => $patient->last_name,
+                'last_name' => $patient->last_name,
                 'first_name' => $patient->first_name,
-                'name'       => trim(($patient->last_name ?? '') . ' ' . ($patient->first_name ?? '')),
-                'email'      => $patient->email ?? '',
+                'name' => trim(($patient->last_name ?? '').' '.($patient->first_name ?? '')),
+                'email' => $patient->email ?? '',
             ]);
         }
 
@@ -77,14 +78,14 @@ class BookingController extends Controller
             ->orderByDesc('created_at')
             ->first(['patient_name', 'patient_email', 'patient_id']);
 
-        if (!$apt) {
+        if (! $apt) {
             return response()->json([]);
         }
 
         return response()->json([
             'patient_id' => $apt->patient_id,
-            'name'       => $apt->patient_name,
-            'email'      => $apt->patient_email ?? '',
+            'name' => $apt->patient_name,
+            'email' => $apt->patient_email ?? '',
         ]);
     }
 
@@ -107,7 +108,8 @@ class BookingController extends Controller
         if ($request->booking_type === 'in_person') {
             return redirect()->route('booking')->with('inperson_success', true);
         }
-        return redirect()->route('booking')->with('booking_success', 'BOT-' . rand(1000, 9999));
+
+        return redirect()->route('booking')->with('booking_success', 'BOT-'.rand(1000, 9999));
     }
 
     private function storeOnline(Request $request): RedirectResponse
@@ -119,19 +121,19 @@ class BookingController extends Controller
         $advanceDays = (int) Setting::get('appointment_advance_days', 30);
 
         $request->validate([
-            'patient_last_name'    => 'nullable|string|max:255',
-            'patient_first_name'   => 'required|string|max:255',
-            'patient_phone'        => 'required|string|max:50',
-            'patient_email'        => 'required|email|max:255',
-            'doctor_id'            => 'required|exists:doctors,id',
-            'online_slot_id'       => 'required|string',
-            'appointment_date'     => 'required|date|after_or_equal:today|before_or_equal:' . now()->addDays($advanceDays)->toDateString(),
-            'appointment_time'     => 'required',
+            'patient_last_name' => 'nullable|string|max:255',
+            'patient_first_name' => 'required|string|max:255',
+            'patient_phone' => 'required|string|max:50',
+            'patient_email' => 'required|email|max:255',
+            'doctor_id' => 'required|exists:doctors,id',
+            'online_slot_id' => 'required|string',
+            'appointment_date' => 'required|date|after_or_equal:today|before_or_equal:'.now()->addDays($advanceDays)->toDateString(),
+            'appointment_time' => 'required',
             'appointment_time_end' => 'nullable|date_format:H:i',
-            'notes'                => 'nullable|string|max:1000',
+            'notes' => 'nullable|string|max:1000',
         ], [
-            'patient_email.required'        => 'Google Meet линк илгээхийн тулд и-мэйл хаяг заавал шаардлагатай.',
-            'patient_email.email'           => 'Зөв и-мэйл хаяг оруулна уу.',
+            'patient_email.required' => 'Google Meet линк илгээхийн тулд и-мэйл хаяг заавал шаардлагатай.',
+            'patient_email.email' => 'Зөв и-мэйл хаяг оруулна уу.',
             'appointment_date.before_or_equal' => "Цаг захиалга {$advanceDays} хоногоос хэтрэхгүй байх ёстой.",
         ]);
 
@@ -143,6 +145,7 @@ class BookingController extends Controller
                     if ($s['id'] === $request->online_slot_id) {
                         $s['is_booked'] = true;
                     }
+
                     return $s;
                 })
                 ->toArray();
@@ -152,97 +155,98 @@ class BookingController extends Controller
         // Email-тай portal хэрэглэгч байвал patient_id-г урьдчилан тодорхойлно
         $linkedPatientId = null;
         $portalUser = User::where('email', $request->patient_email)
-            ->whereHas('role', fn($q) => $q->where('name', 'patient'))
+            ->whereHas('role', fn ($q) => $q->where('name', 'patient'))
             ->first();
         if ($portalUser) {
             $linkedPatientId = $portalUser->patient?->id;
         }
 
-        $lastName    = trim((string) $request->patient_last_name);
-        $firstName   = trim((string) $request->patient_first_name);
-        $patientName = trim($lastName . ' ' . $firstName);
+        $lastName = trim((string) $request->patient_last_name);
+        $firstName = trim((string) $request->patient_first_name);
+        $patientName = trim($lastName.' '.$firstName);
 
         $appointment = Appointment::create([
-            'appointment_number'   => Appointment::generateNumber(),
-            'patient_name'         => $patientName,
-            'patient_last_name'    => $lastName,
-            'patient_first_name'   => $firstName,
-            'patient_phone'        => $request->patient_phone,
-            'patient_email'        => $request->patient_email,
-            'patient_id'           => $linkedPatientId,
-            'doctor_id'            => $request->doctor_id,
-            'branch_id'            => $request->branch_id ?: $doctor?->branch_id,
-            'service'              => 'Онлайн зөвлөгөө',
-            'type'                 => 'online',
-            'online_slot_id'       => $request->online_slot_id,
-            'appointment_date'     => $request->appointment_date,
-            'appointment_time'     => $request->appointment_time,
+            'appointment_number' => Appointment::generateNumber(),
+            'patient_name' => $patientName,
+            'patient_last_name' => $lastName,
+            'patient_first_name' => $firstName,
+            'patient_phone' => $request->patient_phone,
+            'patient_email' => $request->patient_email,
+            'patient_id' => $linkedPatientId,
+            'doctor_id' => $request->doctor_id,
+            'branch_id' => $request->branch_id ?: $doctor?->branch_id,
+            'service' => 'Онлайн зөвлөгөө',
+            'type' => 'online',
+            'online_slot_id' => $request->online_slot_id,
+            'appointment_date' => $request->appointment_date,
+            'appointment_time' => $request->appointment_time,
             'appointment_time_end' => $request->appointment_time_end,
-            'status'               => 'pending',
-            'payment_status'       => 'pending',
-            'payment_amount'       => (int) Setting::get('online_consultation_fee', 50000),
-            'notes'                => $request->notes,
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'payment_amount' => (int) Setting::get('online_consultation_fee', 50000),
+            'notes' => $request->notes,
         ]);
 
         $appointment->load('branch');
         $this->notifyStaff($appointment, $doctor?->name);
 
         session()->flash('success', 'Цаг амжилттай захиалагдлаа! Та доорх товчийг дарж төлбөрөө төлнө үү.');
+
         return redirect()->route('payment.show', $appointment->id);
     }
 
     private function storeInPerson(Request $request): RedirectResponse
     {
         $request->validate([
-            'patient_last_name'  => 'nullable|string|max:255',
+            'patient_last_name' => 'nullable|string|max:255',
             'patient_first_name' => 'required|string|max:255',
-            'patient_phone'      => 'required|string|max:50',
-            'patient_email'      => 'nullable|email|max:255',
-            'doctor_id'          => 'nullable|exists:doctors,id',
-            'service'            => 'nullable|string|max:255',
+            'patient_phone' => 'required|string|max:50',
+            'patient_email' => 'nullable|email|max:255',
+            'doctor_id' => 'nullable|exists:doctors,id',
+            'service' => 'nullable|string|max:255',
         ]);
 
-        $lastName    = trim((string) $request->patient_last_name);
-        $firstName   = trim((string) $request->patient_first_name);
-        $patientName = trim($lastName . ' ' . $firstName);
+        $lastName = trim((string) $request->patient_last_name);
+        $firstName = trim((string) $request->patient_first_name);
+        $patientName = trim($lastName.' '.$firstName);
 
         $patient = Patient::firstOrCreate(
             ['phone' => $request->patient_phone],
             [
                 'patient_number' => Patient::generateNumber(),
-                'last_name'      => $lastName,
-                'first_name'     => $firstName,
-                'email'          => $request->patient_email,
+                'last_name' => $lastName,
+                'first_name' => $firstName,
+                'email' => $request->patient_email,
             ]
         );
 
         $notes = collect([
-            $request->reason ? 'Шалтгаан: ' . $request->reason : null,
+            $request->reason ? 'Шалтгаан: '.$request->reason : null,
             $request->preferred_date
-                ? 'Хүссэн цаг: ' . $request->preferred_date . ($request->preferred_time ? ' ' . $request->preferred_time : '')
+                ? 'Хүссэн цаг: '.$request->preferred_date.($request->preferred_time ? ' '.$request->preferred_time : '')
                 : null,
         ])->filter()->implode("\n");
 
-        $doctor    = $request->doctor_id ? Doctor::find($request->doctor_id) : null;
-        $branchId  = $request->branch_id ?: $doctor?->branch_id ?: null;
+        $doctor = $request->doctor_id ? Doctor::find($request->doctor_id) : null;
+        $branchId = $request->branch_id ?: $doctor?->branch_id ?: null;
 
         $appointment = Appointment::create([
-            'appointment_number'   => Appointment::generateNumber(),
-            'patient_id'           => $patient->id,
-            'patient_name'         => $patientName,
-            'patient_last_name'    => $lastName,
-            'patient_first_name'   => $firstName,
-            'patient_phone'        => $request->patient_phone,
-            'patient_email'        => $request->patient_email,
-            'doctor_id'            => $doctor?->id,
-            'branch_id'            => $branchId,
-            'service'              => $request->service ?: null,
-            'type'                 => 'in_person',
-            'appointment_date'     => $request->preferred_date ?: null,
-            'appointment_time'     => $request->preferred_time ?: null,
-            'status'               => 'pending',
-            'payment_status'       => 'free',
-            'notes'                => $notes ?: null,
+            'appointment_number' => Appointment::generateNumber(),
+            'patient_id' => $patient->id,
+            'patient_name' => $patientName,
+            'patient_last_name' => $lastName,
+            'patient_first_name' => $firstName,
+            'patient_phone' => $request->patient_phone,
+            'patient_email' => $request->patient_email,
+            'doctor_id' => $doctor?->id,
+            'branch_id' => $branchId,
+            'service' => $request->service ?: null,
+            'type' => 'in_person',
+            'appointment_date' => $request->preferred_date ?: null,
+            'appointment_time' => $request->preferred_time ?: null,
+            'status' => 'pending',
+            'payment_status' => 'free',
+            'notes' => $notes ?: null,
         ]);
 
         $appointment->load('branch');
@@ -257,21 +261,21 @@ class BookingController extends Controller
 
         $notif = new NewAppointment(
             appointmentNumber: $appointment->appointment_number,
-            patientName:       $appointment->patient_name,
-            patientPhone:      $appointment->patient_phone,
-            appointmentType:   $appointment->type,
-            appointmentDate:   $appointment->appointment_date?->toDateString(),
-            appointmentTime:   $appointment->appointment_time,
-            doctorName:        $doctorName,
-            branchName:        $branchName,
+            patientName: $appointment->patient_name,
+            patientPhone: $appointment->patient_phone,
+            appointmentType: $appointment->type,
+            appointmentDate: $appointment->appointment_date?->toDateString(),
+            appointmentTime: $appointment->appointment_time,
+            doctorName: $doctorName,
+            branchName: $branchName,
         );
 
         // Зөвхөн тухайн салбарын ресепшнд л явуулна
-        $receptionists = User::whereHas('role', fn($q) => $q->where('name', 'receptionist'))
-            ->when($appointment->branch_id, fn($q) => $q->where('branch_id', $appointment->branch_id))
+        $receptionists = User::whereHas('role', fn ($q) => $q->where('name', 'receptionist'))
+            ->when($appointment->branch_id, fn ($q) => $q->where('branch_id', $appointment->branch_id))
             ->get();
 
-        $admins = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->get();
+        $admins = User::whereHas('role', fn ($q) => $q->where('name', 'admin'))->get();
 
         $recipients = $admins->merge($receptionists)->unique('id');
 

@@ -20,6 +20,7 @@ class VacationRequestDecisionMail extends Mailable
         $subject = $this->vacationRequest->isApproved()
             ? '✅ Ээлжийн амралтын хүсэлт зөвшөөрөгдлөө'
             : '❌ Ээлжийн амралтын хүсэлт цуцлагдлаа';
+
         return new Envelope(subject: $subject);
     }
 

@@ -12,7 +12,7 @@ class GoogleMeetService
 
     public function __construct()
     {
-        $this->client = new Client();
+        $this->client = new Client;
         $this->client->setClientId(config('services.google.client_id'));
         $this->client->setClientSecret(config('services.google.client_secret'));
         $this->client->setAccessType('offline');
@@ -24,11 +24,13 @@ class GoogleMeetService
     {
         try {
             $service = new Meet($this->client);
-            $space   = new Space();
+            $space = new Space;
             $created = $service->spaces->create($space);
+
             return $created->getMeetingUri();
         } catch (\Exception $e) {
-            \Log::error('Google Meet link үүсгэхэд алдаа: ' . $e->getMessage());
+            \Log::error('Google Meet link үүсгэхэд алдаа: '.$e->getMessage());
+
             return null;
         }
     }

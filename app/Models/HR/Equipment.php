@@ -41,12 +41,12 @@ class Equipment extends Model
     public function getConditionLabelAttribute(): string
     {
         return match ($this->condition) {
-            'new'     => 'Шинэ',
-            'good'    => 'Сайн',
-            'fair'    => 'Хэвийн',
-            'poor'    => 'Муу',
+            'new' => 'Шинэ',
+            'good' => 'Сайн',
+            'fair' => 'Хэвийн',
+            'poor' => 'Муу',
             'damaged' => 'Эвдэрсэн',
-            default   => $this->condition,
+            default => $this->condition,
         };
     }
 }

@@ -23,7 +23,7 @@ class PatientOutstandingController extends Controller
     public function createInvoice(TreatmentRecord $record): JsonResponse
     {
         $patient = Auth::user()->patient;
-        if (!$patient || $record->patient_id !== $patient->id) {
+        if (! $patient || $record->patient_id !== $patient->id) {
             abort(403);
         }
 
@@ -44,6 +44,7 @@ class PatientOutstandingController extends Controller
                 $paid = $this->qpay->checkPayment($record->qpay_invoice_id);
                 if ($paid) {
                     $this->processPayment($record);
+
                     return response()->json(['paid' => true]);
                 }
             } catch (\Throwable) {
@@ -52,8 +53,8 @@ class PatientOutstandingController extends Controller
         }
 
         try {
-            $invoiceNo   = 'OUT-' . $record->id . '-' . time();
-            $description = 'Дутуу тооцоо #' . $record->id;
+            $invoiceNo = 'OUT-'.$record->id.'-'.time();
+            $description = 'Дутуу тооцоо #'.$record->id;
             $callbackUrl = route('patient.outstanding.callback', ['recordId' => $record->id]);
 
             $invoice = $this->qpay->createLeasingInvoice($invoiceNo, $description, $remaining, $callbackUrl);
@@ -61,16 +62,17 @@ class PatientOutstandingController extends Controller
             $record->update(['qpay_invoice_id' => $invoice['invoice_id']]);
 
             return response()->json([
-                'paid'       => false,
+                'paid' => false,
                 'invoice_id' => $invoice['invoice_id'],
-                'qr_image'   => $invoice['qr_image']      ?? null,
-                'qr_text'    => $invoice['qr_text']       ?? null,
+                'qr_image' => $invoice['qr_image'] ?? null,
+                'qr_text' => $invoice['qr_text'] ?? null,
                 'qpay_deeplink' => $invoice['qpay_deeplink'] ?? [],
-                'amount'     => $remaining,
+                'amount' => $remaining,
             ]);
         } catch (\Throwable $e) {
             Log::error('Patient outstanding QPay invoice error', ['record' => $record->id, 'error' => $e->getMessage()]);
-            return response()->json(['error' => 'QPay холбогдоход алдаа гарлаа: ' . $e->getMessage()], 500);
+
+            return response()->json(['error' => 'QPay холбогдоход алдаа гарлаа: '.$e->getMessage()], 500);
         }
     }
 
@@ -79,11 +81,11 @@ class PatientOutstandingController extends Controller
     public function checkStatus(TreatmentRecord $record): JsonResponse
     {
         $patient = Auth::user()->patient;
-        if (!$patient || $record->patient_id !== $patient->id) {
+        if (! $patient || $record->patient_id !== $patient->id) {
             abort(403);
         }
 
-        if (!$record->qpay_invoice_id) {
+        if (! $record->qpay_invoice_id) {
             return response()->json(['paid' => false, 'error' => 'Invoice олдсонгүй']);
         }
 
@@ -91,6 +93,7 @@ class PatientOutstandingController extends Controller
             $paid = $this->qpay->checkPayment($record->qpay_invoice_id);
             if ($paid) {
                 $this->processPayment($record);
+
                 return response()->json(['paid' => true]);
             }
         } catch (\Throwable $e) {
@@ -106,7 +109,7 @@ class PatientOutstandingController extends Controller
     {
         $record = TreatmentRecord::find($recordId);
 
-        if (!$record || !$record->qpay_invoice_id) {
+        if (! $record || ! $record->qpay_invoice_id) {
             return response()->json(['status' => 'ok']);
         }
 
@@ -129,19 +132,22 @@ class PatientOutstandingController extends Controller
         DB::transaction(function () use ($record) {
             $record = TreatmentRecord::where('id', $record->id)->lockForUpdate()->first();
 
-            if (!$record->qpay_invoice_id) return;
+            if (! $record->qpay_invoice_id) {
+                return;
+            }
             if ($record->payment_status !== 'partial') {
                 $record->update(['qpay_invoice_id' => null]);
+
                 return;
             }
 
             $remaining = max(0, ($record->amount_charged ?? 0) - ($record->paid_amount ?? 0));
 
             $record->update([
-                'payment_status'  => 'paid',
-                'paid_amount'     => $record->amount_charged,
-                'paid_at'         => now(),
-                'payment_method'  => 'qpay',
+                'payment_status' => 'paid',
+                'paid_amount' => $record->amount_charged,
+                'paid_at' => now(),
+                'payment_method' => 'qpay',
                 'qpay_invoice_id' => null,
             ]);
 
@@ -163,21 +169,21 @@ class PatientOutstandingController extends Controller
 
         // Хаагдсан sheet-д ч нэмнэ — шөнийн төлбөрт зориулж guard хасав
         DailySheetEntry::create([
-            'daily_sheet_id'     => $sheet->id,
-            'user_id'            => null,
-            'source'             => 'outstanding',
-            'row_order'          => $sheet->entries()->max('row_order') + 1,
-            'patient_name'       => $record->patient ? trim("{$record->patient->last_name} {$record->patient->first_name}") : null,
-            'diagnosis'          => 'Дутуу тооцоо (QPay — портал)',
+            'daily_sheet_id' => $sheet->id,
+            'user_id' => null,
+            'source' => 'outstanding',
+            'row_order' => $sheet->entries()->max('row_order') + 1,
+            'patient_name' => $record->patient ? trim("{$record->patient->last_name} {$record->patient->first_name}") : null,
+            'diagnosis' => 'Дутуу тооцоо (QPay — портал)',
             'appointment_number' => $record->appointment?->appointment_number,
-            'discount'           => 0,
-            'cash_amount'        => 0,
-            'card_amount'        => 0,
-            'mobile_amount'      => $amount,
-            'storepay_amount'    => 0,
-            'total_amount'       => $amount,
+            'discount' => 0,
+            'cash_amount' => 0,
+            'card_amount' => 0,
+            'mobile_amount' => $amount,
+            'storepay_amount' => 0,
+            'total_amount' => $amount,
             'outstanding_amount' => 0,
-            'doctor_id'          => $record->doctor_id,
+            'doctor_id' => $record->doctor_id,
         ]);
     }
 
@@ -185,21 +191,20 @@ class PatientOutstandingController extends Controller
 
     private function notifyReception(TreatmentRecord $record, int $amount): void
     {
-        $patient     = $record->patient;
+        $patient = $record->patient;
         $patientName = $patient ? trim("{$patient->last_name} {$patient->first_name}") : '—';
-        $branchId    = $record->doctor?->branch_id;
+        $branchId = $record->doctor?->branch_id;
 
-        $staffUsers = User::whereHas('role', fn($q) => $q->whereIn('name', ['receptionist', 'admin']))
-            ->when($branchId, fn($q) => $q->where(fn($q2) =>
-                $q2->where('branch_id', $branchId)->orWhereNull('branch_id')
+        $staffUsers = User::whereHas('role', fn ($q) => $q->whereIn('name', ['receptionist', 'admin']))
+            ->when($branchId, fn ($q) => $q->where(fn ($q2) => $q2->where('branch_id', $branchId)->orWhereNull('branch_id')
             ))
             ->get();
 
         foreach ($staffUsers as $staff) {
             $staff->notify(new OutstandingPaidByPatient(
                 patientName: $patientName,
-                amount:      $amount,
-                recordId:    $record->id,
+                amount: $amount,
+                recordId: $record->id,
             ));
         }
     }

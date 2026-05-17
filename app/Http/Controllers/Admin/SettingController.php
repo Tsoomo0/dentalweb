@@ -18,20 +18,20 @@ class SettingController extends Controller
 
     public function index(): Response
     {
-        $settings = Setting::orderBy('group')->orderBy('id')->get()->map(fn($s) => [
-            'id'           => $s->id,
-            'key'          => $s->key,
-            'value'        => $s->is_sensitive ? '' : $s->value, // нууц утгийг хоосон буцаана
-            'group'        => $s->group,
-            'label'        => $s->label,
-            'description'  => $s->description,
-            'type'         => $s->type,
+        $settings = Setting::orderBy('group')->orderBy('id')->get()->map(fn ($s) => [
+            'id' => $s->id,
+            'key' => $s->key,
+            'value' => $s->is_sensitive ? '' : $s->value, // нууц утгийг хоосон буцаана
+            'group' => $s->group,
+            'label' => $s->label,
+            'description' => $s->description,
+            'type' => $s->type,
             'is_sensitive' => $s->is_sensitive,
         ]);
 
         return Inertia::render('admin/settings/index', [
-            'settings'          => $settings,
-            'google_connected'  => ! empty(config('services.google.refresh_token')),
+            'settings' => $settings,
+            'google_connected' => ! empty(config('services.google.refresh_token')),
         ]);
     }
 
@@ -40,12 +40,12 @@ class SettingController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $request->validate([
-            'group'    => 'required|string|in:general,payment,email,system,branding',
+            'group' => 'required|string|in:general,payment,email,system,branding',
             'settings' => 'required|array|max:50',
         ]);
 
         $group = $request->input('group');
-        $data  = $request->input('settings', []);
+        $data = $request->input('settings', []);
 
         $keys = Setting::where('group', $group)->pluck('key')->toArray();
 
@@ -55,16 +55,18 @@ class SettingController extends Controller
             }
 
             $setting = Setting::where('key', $key)->first();
-            if (! $setting) continue;
+            if (! $setting) {
+                continue;
+            }
 
             if ($setting->is_sensitive && $value === '') {
                 continue;
             }
 
             $sanitized = match ($setting->type) {
-                'integer'  => (string) abs((int) $value),
-                'boolean'  => in_array($value, ['true', '1', true, 1], true) ? '1' : '0',
-                default    => strip_tags((string) $value),
+                'integer' => (string) abs((int) $value),
+                'boolean' => in_array($value, ['true', '1', true, 1], true) ? '1' : '0',
+                default => strip_tags((string) $value),
             };
 
             $setting->update(['value' => $sanitized]);
@@ -73,9 +75,9 @@ class SettingController extends Controller
         Setting::clearCache();
         Cache::forget('inertia_site_settings');
 
-        AuditService::log('updated', null, null, ['group' => $group], $this->groupLabel($group) . ' тохиргоо шинэчлэв');
+        AuditService::log('updated', null, null, ['group' => $group], $this->groupLabel($group).' тохиргоо шинэчлэв');
 
-        return back()->with('success', $this->groupLabel($group) . ' тохиргоо амжилттай хадгаллаа.');
+        return back()->with('success', $this->groupLabel($group).' тохиргоо амжилттай хадгаллаа.');
     }
 
     // ─── Брэнд (лого, favicon) upload ───────────────────────────────────────
@@ -83,7 +85,7 @@ class SettingController extends Controller
     public function uploadBranding(Request $request): RedirectResponse
     {
         $request->validate([
-            'site_logo'    => ['nullable', 'image', 'mimes:jpeg,png,svg,webp', 'max:2048'],
+            'site_logo' => ['nullable', 'image', 'mimes:jpeg,png,svg,webp', 'max:2048'],
             'site_favicon' => ['nullable', 'image', 'mimes:jpeg,png,ico,webp', 'max:512'],
         ]);
 
@@ -102,14 +104,14 @@ class SettingController extends Controller
                 Setting::updateOrCreate(
                     ['key' => $key],
                     [
-                        'value'       => '/storage/' . $path,
-                        'group'       => 'branding',
-                        'label'       => $key === 'site_logo' ? 'Вэбсайтын лого' : 'Favicon',
+                        'value' => '/storage/'.$path,
+                        'group' => 'branding',
+                        'label' => $key === 'site_logo' ? 'Вэбсайтын лого' : 'Favicon',
                         'description' => $key === 'site_logo'
                             ? 'Навигац болон имэйлд харагдах лого'
                             : 'Хөтчийн таб дахь дүрс',
-                        'type'        => 'image',
-                        'is_sensitive'=> false,
+                        'type' => 'image',
+                        'is_sensitive' => false,
                     ]
                 );
                 $uploaded++;
@@ -133,12 +135,12 @@ class SettingController extends Controller
     private function groupLabel(string $group): string
     {
         return match ($group) {
-            'general'  => 'Ерөнхий',
-            'payment'  => 'Төлбөр',
-            'email'    => 'Имэйл',
-            'system'   => 'Системийн',
+            'general' => 'Ерөнхий',
+            'payment' => 'Төлбөр',
+            'email' => 'Имэйл',
+            'system' => 'Системийн',
             'branding' => 'Брэнд',
-            default    => ucfirst($group),
+            default => ucfirst($group),
         };
     }
 }

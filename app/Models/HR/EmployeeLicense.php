@@ -14,7 +14,7 @@ class EmployeeLicense extends Model
 
     protected $casts = [
         'start_date' => 'date',
-        'end_date'   => 'date',
+        'end_date' => 'date',
     ];
 
     public function employee(): BelongsTo
@@ -24,7 +24,10 @@ class EmployeeLicense extends Model
 
     public function getDaysUntilExpiryAttribute(): ?int
     {
-        if (!$this->end_date) return null;
+        if (! $this->end_date) {
+            return null;
+        }
+
         return now()->diffInDays($this->end_date, false);
     }
 }

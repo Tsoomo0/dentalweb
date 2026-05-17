@@ -17,13 +17,24 @@ return new class extends Migration
                 ->after('appointment_number');
         });
 
-        DB::statement("
-            UPDATE daily_sheet_entries dse
-            JOIN appointments a ON a.appointment_number = dse.appointment_number
-            SET dse.appointment_id = a.id
-            WHERE dse.appointment_number IS NOT NULL
-              AND dse.appointment_id IS NULL
-        ");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('
+                UPDATE daily_sheet_entries dse
+                JOIN appointments a ON a.appointment_number = dse.appointment_number
+                SET dse.appointment_id = a.id
+                WHERE dse.appointment_number IS NOT NULL
+                  AND dse.appointment_id IS NULL
+            ');
+        } else {
+            DB::table('appointments')->whereNotNull('appointment_number')->orderBy('id')->chunk(500, function ($apts) {
+                foreach ($apts as $a) {
+                    DB::table('daily_sheet_entries')
+                        ->whereNull('appointment_id')
+                        ->where('appointment_number', $a->appointment_number)
+                        ->update(['appointment_id' => $a->id]);
+                }
+            });
+        }
     }
 
     public function down(): void

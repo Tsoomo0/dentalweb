@@ -18,8 +18,8 @@ class EquipmentAssignment extends Model
     ];
 
     protected $casts = [
-        'accepted_at'  => 'datetime',
-        'returned_at'  => 'datetime',
+        'accepted_at' => 'datetime',
+        'returned_at' => 'datetime',
     ];
 
     public function equipment(): BelongsTo
@@ -37,8 +37,23 @@ class EquipmentAssignment extends Model
         return $this->belongsTo(User::class, 'assigned_by');
     }
 
-    public function isPending(): bool  { return $this->status === 'pending'; }
-    public function isAccepted(): bool { return $this->status === 'accepted'; }
-    public function isRejected(): bool { return $this->status === 'rejected'; }
-    public function isReturned(): bool { return $this->status === 'returned'; }
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isAccepted(): bool
+    {
+        return $this->status === 'accepted';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
+
+    public function isReturned(): bool
+    {
+        return $this->status === 'returned';
+    }
 }

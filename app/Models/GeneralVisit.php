@@ -10,7 +10,7 @@ class GeneralVisit extends Model
 
     protected $casts = [
         'visit_date' => 'date',
-        'data'       => 'array',
+        'data' => 'array',
     ];
 
     public function patient()

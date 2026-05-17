@@ -20,18 +20,18 @@ class GalleryController extends Controller
             ->orderBy('order')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn($item) => array_merge($item->toArray(), [
-                'before_url'    => Storage::url($item->before_image),
-                'after_url'     => Storage::url($item->after_image),
+            ->map(fn ($item) => array_merge($item->toArray(), [
+                'before_url' => Storage::url($item->before_image),
+                'after_url' => Storage::url($item->after_image),
                 'category_name' => $item->category?->name,
             ]));
 
         return Inertia::render('admin/gallery/index', [
-            'items'      => $items,
+            'items' => $items,
             'categories' => TreatmentCategory::orderBy('order')->get(['id', 'name']),
-            'stats'      => [
-                'total'    => GalleryItem::count(),
-                'active'   => GalleryItem::where('is_active', true)->count(),
+            'stats' => [
+                'total' => GalleryItem::count(),
+                'active' => GalleryItem::where('is_active', true)->count(),
                 'featured' => GalleryItem::where('is_featured', true)->count(),
             ],
         ]);
@@ -47,24 +47,24 @@ class GalleryController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'title'        => 'required|string|max:255',
-            'description'  => 'nullable|string',
-            'category_id'  => 'nullable|exists:treatment_categories,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'category_id' => 'nullable|exists:treatment_categories,id',
             'before_image' => 'required|image|mimes:jpg,jpeg,png,webp|max:8192',
-            'after_image'  => 'required|image|mimes:jpg,jpeg,png,webp|max:8192',
-            'is_featured'  => 'boolean',
-            'is_active'    => 'boolean',
+            'after_image' => 'required|image|mimes:jpg,jpeg,png,webp|max:8192',
+            'is_featured' => 'boolean',
+            'is_active' => 'boolean',
         ]);
 
         $item = GalleryItem::create([
-            'title'        => $request->title,
-            'description'  => $request->description,
-            'category_id'  => $request->category_id,
+            'title' => $request->title,
+            'description' => $request->description,
+            'category_id' => $request->category_id,
             'before_image' => $request->file('before_image')->store('gallery', 'public'),
-            'after_image'  => $request->file('after_image')->store('gallery', 'public'),
-            'is_featured'  => $request->boolean('is_featured'),
-            'is_active'    => $request->boolean('is_active', true),
-            'order'        => GalleryItem::max('order') + 1,
+            'after_image' => $request->file('after_image')->store('gallery', 'public'),
+            'is_featured' => $request->boolean('is_featured'),
+            'is_active' => $request->boolean('is_active', true),
+            'order' => GalleryItem::max('order') + 1,
         ]);
 
         AuditService::log('created', $item, null, ['title' => $item->title], "Галерей зураг нэмэв: {$item->title}");
@@ -75,10 +75,10 @@ class GalleryController extends Controller
     public function edit(GalleryItem $gallery): Response
     {
         $gallery->before_url = Storage::url($gallery->before_image);
-        $gallery->after_url  = Storage::url($gallery->after_image);
+        $gallery->after_url = Storage::url($gallery->after_image);
 
         return Inertia::render('admin/gallery/edit', [
-            'item'       => $gallery,
+            'item' => $gallery,
             'categories' => TreatmentCategory::orderBy('order')->get(['id', 'name']),
         ]);
     }
@@ -86,21 +86,21 @@ class GalleryController extends Controller
     public function update(Request $request, GalleryItem $gallery): RedirectResponse
     {
         $request->validate([
-            'title'        => 'required|string|max:255',
-            'description'  => 'nullable|string',
-            'category_id'  => 'nullable|exists:treatment_categories,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'category_id' => 'nullable|exists:treatment_categories,id',
             'before_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
-            'after_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
-            'is_featured'  => 'boolean',
-            'is_active'    => 'boolean',
+            'after_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
+            'is_featured' => 'boolean',
+            'is_active' => 'boolean',
         ]);
 
         $data = [
-            'title'       => $request->title,
+            'title' => $request->title,
             'description' => $request->description,
             'category_id' => $request->category_id,
             'is_featured' => $request->boolean('is_featured'),
-            'is_active'   => $request->boolean('is_active'),
+            'is_active' => $request->boolean('is_active'),
         ];
 
         if ($request->hasFile('before_image')) {

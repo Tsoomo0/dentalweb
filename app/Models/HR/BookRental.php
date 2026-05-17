@@ -37,8 +37,23 @@ class BookRental extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function isPending(): bool  { return $this->status === 'pending'; }
-    public function isApproved(): bool { return $this->status === 'approved'; }
-    public function isRejected(): bool { return $this->status === 'rejected'; }
-    public function isReturned(): bool { return $this->status === 'returned'; }
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === 'approved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === 'rejected';
+    }
+
+    public function isReturned(): bool
+    {
+        return $this->status === 'returned';
+    }
 }

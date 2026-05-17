@@ -2,8 +2,8 @@
 
 namespace App\Notifications;
 
-use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
 
 class NewJobApplication extends Notification
 {
@@ -24,23 +24,23 @@ class NewJobApplication extends Notification
     {
         return [
             'applicant_name' => $this->applicantName,
-            'phone'          => $this->phone,
-            'email'          => $this->email,
-            'position'       => $this->position,
-            'submitted_at'   => $this->submittedAt,
+            'phone' => $this->phone,
+            'email' => $this->email,
+            'position' => $this->position,
+            'submitted_at' => $this->submittedAt,
         ];
     }
 
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('📋 Шинэ ажлын анкет ирлээ — ' . $this->applicantName)
+            ->subject('📋 Шинэ ажлын анкет ирлээ — '.$this->applicantName)
             ->view('emails.job-application-received', [
                 'applicantName' => $this->applicantName,
-                'phone'         => $this->phone,
-                'email'         => $this->email,
-                'position'      => $this->position,
-                'submittedAt'   => $this->submittedAt,
+                'phone' => $this->phone,
+                'email' => $this->email,
+                'position' => $this->position,
+                'submittedAt' => $this->submittedAt,
             ]);
     }
 }

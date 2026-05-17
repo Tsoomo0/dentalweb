@@ -8,6 +8,7 @@ use App\Models\Doctor;
 use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\NewAppointment;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +22,7 @@ class PatientOnlineConsultationController extends Controller
     public function index(): Response
     {
         $today = now()->toDateString();
-        $fee   = (int) Setting::get('online_consultation_fee', 50000);
+        $fee = (int) Setting::get('online_consultation_fee', 50000);
 
         $doctors = Doctor::where('has_online_booking', true)
             ->where('is_active', true)
@@ -29,25 +30,25 @@ class PatientOnlineConsultationController extends Controller
             ->get()
             ->map(function ($doctor) use ($today) {
                 $slots = collect($doctor->online_slots ?? [])
-                    ->filter(fn($s) => !($s['is_booked'] ?? false) && ($s['date'] ?? '') >= $today)
+                    ->filter(fn ($s) => ! ($s['is_booked'] ?? false) && ($s['date'] ?? '') >= $today)
                     ->sortBy('date')
                     ->values()
                     ->toArray();
 
                 return [
-                    'id'              => $doctor->id,
-                    'name'            => $doctor->name,
-                    'specialization'  => $doctor->specialization,
-                    'photo_url'       => $doctor->photo ? Storage::url($doctor->photo) : null,
+                    'id' => $doctor->id,
+                    'name' => $doctor->name,
+                    'specialization' => $doctor->specialization,
+                    'photo_url' => $doctor->photo ? Storage::url($doctor->photo) : null,
                     'available_slots' => $slots,
                 ];
             })
-            ->filter(fn($d) => count($d['available_slots']) > 0)
+            ->filter(fn ($d) => count($d['available_slots']) > 0)
             ->values();
 
         return Inertia::render('patient/online-consultation', [
             'doctors' => $doctors,
-            'fee'     => $fee,
+            'fee' => $fee,
         ]);
     }
 
@@ -61,19 +62,19 @@ class PatientOnlineConsultationController extends Controller
 
         $validated = $request->validate([
             'doctor_id' => 'required|exists:doctors,id',
-            'slot_id'   => 'required|string',
-            'notes'     => 'nullable|string|max:1000',
+            'slot_id' => 'required|string',
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         $doctor = Doctor::find($validated['doctor_id']);
-        $slots  = $doctor->online_slots ?? [];
+        $slots = $doctor->online_slots ?? [];
 
         $slotIdx = null;
-        $slot    = null;
+        $slot = null;
         foreach ($slots as $i => $s) {
             if ($s['id'] === $validated['slot_id']) {
                 $slotIdx = $i;
-                $slot    = $s;
+                $slot = $s;
                 break;
             }
         }
@@ -86,44 +87,44 @@ class PatientOnlineConsultationController extends Controller
             return back()->with('error', 'Энэ цаг аль хэдийн захиалагдсан байна.');
         }
 
-        $slotDate = \Carbon\Carbon::parse($slot['date']);
+        $slotDate = Carbon::parse($slot['date']);
         if ($slotDate->isBefore(today()) || $slotDate->isAfter(today()->addDays($advanceDays))) {
             return back()->with('error', 'Цагийн хугацаа хүчингүй байна.');
         }
 
         // Patient info from authenticated portal user
-        $user    = Auth::user();
+        $user = Auth::user();
         $patient = $user->patient;
 
-        $patientName  = $patient
-            ? trim($patient->last_name . ' ' . $patient->first_name)
+        $patientName = $patient
+            ? trim($patient->last_name.' '.$patient->first_name)
             : $user->name;
         $patientPhone = $patient?->phone ?? '';
         $patientEmail = $patient?->email ?? $user->email ?? '';
-        $patientId    = $patient?->id;
+        $patientId = $patient?->id;
 
         // Mark slot as booked
         $slots[$slotIdx]['is_booked'] = true;
         $doctor->update(['online_slots' => $slots]);
 
         $appointment = Appointment::create([
-            'appointment_number'   => Appointment::generateNumber(),
-            'patient_name'         => $patientName,
-            'patient_phone'        => $patientPhone,
-            'patient_email'        => $patientEmail,
-            'patient_id'           => $patientId,
-            'doctor_id'            => $doctor->id,
-            'branch_id'            => $doctor->branch_id,
-            'service'              => 'Онлайн зөвлөгөө',
-            'type'                 => 'online',
-            'online_slot_id'       => $validated['slot_id'],
-            'appointment_date'     => $slot['date'],
-            'appointment_time'     => $slot['start_time'],
+            'appointment_number' => Appointment::generateNumber(),
+            'patient_name' => $patientName,
+            'patient_phone' => $patientPhone,
+            'patient_email' => $patientEmail,
+            'patient_id' => $patientId,
+            'doctor_id' => $doctor->id,
+            'branch_id' => $doctor->branch_id,
+            'service' => 'Онлайн зөвлөгөө',
+            'type' => 'online',
+            'online_slot_id' => $validated['slot_id'],
+            'appointment_date' => $slot['date'],
+            'appointment_time' => $slot['start_time'],
             'appointment_time_end' => $slot['end_time'] ?? null,
-            'status'               => 'pending',
-            'payment_status'       => 'pending',
-            'payment_amount'       => (int) Setting::get('online_consultation_fee', 50000),
-            'notes'                => $validated['notes'] ?? null,
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'payment_amount' => (int) Setting::get('online_consultation_fee', 50000),
+            'notes' => $validated['notes'] ?? null,
         ]);
 
         $appointment->load('branch');
@@ -137,20 +138,20 @@ class PatientOnlineConsultationController extends Controller
     {
         $notif = new NewAppointment(
             appointmentNumber: $appointment->appointment_number,
-            patientName:       $appointment->patient_name,
-            patientPhone:      $appointment->patient_phone,
-            appointmentType:   $appointment->type,
-            appointmentDate:   $appointment->appointment_date?->toDateString(),
-            appointmentTime:   $appointment->appointment_time,
-            doctorName:        $doctorName,
-            branchName:        $appointment->branch?->name,
+            patientName: $appointment->patient_name,
+            patientPhone: $appointment->patient_phone,
+            appointmentType: $appointment->type,
+            appointmentDate: $appointment->appointment_date?->toDateString(),
+            appointmentTime: $appointment->appointment_time,
+            doctorName: $doctorName,
+            branchName: $appointment->branch?->name,
         );
 
-        $receptionists = User::whereHas('role', fn($q) => $q->where('name', 'receptionist'))
-            ->when($appointment->branch_id, fn($q) => $q->where('branch_id', $appointment->branch_id))
+        $receptionists = User::whereHas('role', fn ($q) => $q->where('name', 'receptionist'))
+            ->when($appointment->branch_id, fn ($q) => $q->where('branch_id', $appointment->branch_id))
             ->get();
 
-        $admins = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->get();
+        $admins = User::whereHas('role', fn ($q) => $q->where('name', 'admin'))->get();
 
         $recipients = $admins->merge($receptionists)->unique('id');
 

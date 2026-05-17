@@ -27,7 +27,7 @@ class AppointmentReminder extends Mailable
                 ? "🦷 Таны үзүүлэх цаг маргааш болно — #{$number}"
                 : "🦷 Таны үзүүлэх цаг удахгүй болно — #{$number}";
         } else {
-            $label   = $this->type === '24h' ? '24 цагийн' : '2 цагийн';
+            $label = $this->type === '24h' ? '24 цагийн' : '2 цагийн';
             $subject = "⏰ Онлайн зөвлөгөөний сануулга ({$label} үлдлээ) — #{$number}";
         }
 

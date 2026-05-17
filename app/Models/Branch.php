@@ -15,10 +15,10 @@ class Branch extends Model
 
     protected $casts = [
         'is_featured' => 'boolean',
-        'is_active'   => 'boolean',
-        'lat'         => 'float',
-        'lng'         => 'float',
-        'radius_m'    => 'integer',
+        'is_active' => 'boolean',
+        'lat' => 'float',
+        'lng' => 'float',
+        'radius_m' => 'integer',
     ];
 
     /**

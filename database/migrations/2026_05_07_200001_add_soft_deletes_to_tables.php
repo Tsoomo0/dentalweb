@@ -27,9 +27,9 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('doctors', fn(Blueprint $t) => $t->dropSoftDeletes());
-        Schema::table('appointments', fn(Blueprint $t) => $t->dropSoftDeletes());
-        Schema::table('daily_sheets', fn(Blueprint $t) => $t->dropSoftDeletes());
-        Schema::table('daily_sheet_entries', fn(Blueprint $t) => $t->dropSoftDeletes());
+        Schema::table('doctors', fn (Blueprint $t) => $t->dropSoftDeletes());
+        Schema::table('appointments', fn (Blueprint $t) => $t->dropSoftDeletes());
+        Schema::table('daily_sheets', fn (Blueprint $t) => $t->dropSoftDeletes());
+        Schema::table('daily_sheet_entries', fn (Blueprint $t) => $t->dropSoftDeletes());
     }
 };

@@ -21,6 +21,6 @@ class Article extends Model
 
     protected $casts = [
         'published_at' => 'datetime',
-        'views'        => 'integer',
+        'views' => 'integer',
     ];
 }

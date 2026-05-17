@@ -10,9 +10,11 @@ class Handoff extends Model
 {
     protected $table = 'chat_handoffs';
 
-    public const STATUS_PENDING  = 'pending';
+    public const STATUS_PENDING = 'pending';
+
     public const STATUS_ASSIGNED = 'assigned';
-    public const STATUS_CLOSED   = 'closed';
+
+    public const STATUS_CLOSED = 'closed';
 
     protected $fillable = [
         'bot_conversation_id',
@@ -27,7 +29,7 @@ class Handoff extends Model
 
     protected $casts = [
         'assigned_at' => 'datetime',
-        'closed_at'   => 'datetime',
+        'closed_at' => 'datetime',
     ];
 
     public function botConversation(): BelongsTo

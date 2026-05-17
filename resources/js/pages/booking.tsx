@@ -207,7 +207,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
 
     // ── Filtered doctors by branch ───────────────────────────────────
     const filteredDoctors = useMemo(() => {
-        let result = bookingType === 'online'
+        const result = bookingType === 'online'
             ? doctors.filter(d => d.online_slots.length > 0)
             : doctors;
         if (!selectedBranchId) return result;
