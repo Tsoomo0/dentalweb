@@ -9,10 +9,11 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
     const page = usePage<{ notifications?: boolean }>();
     const { notifications } = page.props;
     const isAdmin = page.url.startsWith('/admin');
+    const isHr    = page.url.startsWith('/hr');
     const isMy    = page.url.startsWith('/my');
-    // Chat зөвхөн админ ба HR (/my) хэсэгт байна.
-    const showChat = isAdmin || isMy;
-    const chatTarget = isAdmin ? '/admin/chat' : '/my/chat';
+    // Chat: админ, HR, болон ажилтны /my хэсэг бүгдэд харагдана.
+    const showChat = isAdmin || isHr || isMy;
+    const chatTarget = (isAdmin || isHr) ? '/admin/chat' : '/my/chat';
 
     return (
         <header className="sticky top-0 z-20 bg-background border-sidebar-border/50 flex h-16 shrink-0 items-center gap-2 border-b px-6 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4">
