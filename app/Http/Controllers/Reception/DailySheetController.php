@@ -582,6 +582,28 @@ class DailySheetController extends Controller
 
     private function mapSheet(DailySheet $sheet, int $currentUserId): array
     {
+        $entries = $sheet->entries;
+
+        // Batch: бүх entry-ийн applied credit-ийг нэг query-ээр татна (N+1 болохгүй)
+        $apptNumbers = $entries->pluck('appointment_number')->filter()->unique()->values()->all();
+        $creditsByReceipt = empty($apptNumbers)
+            ? collect()
+            : DailySheetEntry::whereIn('overpaid_used_receipt', $apptNumbers)
+                ->whereNotNull('overpaid_used_at')
+                ->with('dailySheet')
+                ->get()
+                ->groupBy('overpaid_used_receipt');
+
+        // Batch: технчийн нэрсийг нэг query-ээр татна
+        $techIds = $entries->pluck('technician_employee_id')->filter()->unique()->values()->all();
+        $techNameById = empty($techIds)
+            ? []
+            : DB::table('employees')
+                ->whereIn('id', $techIds)
+                ->get(['id', 'first_name', 'last_name'])
+                ->mapWithKeys(fn ($e) => [$e->id => trim($e->last_name.' '.$e->first_name)])
+                ->all();
+
         return [
             'id' => $sheet->id,
             'date' => $sheet->date->toDateString(),
@@ -592,12 +614,23 @@ class DailySheetController extends Controller
             'morning_submitted_at' => $sheet->morning_submitted_at?->toDateTimeString(),
             'morning_receptionist' => $sheet->morningReceptionist?->name,
             'supplies' => $sheet->supplies,
-            'entries' => $sheet->entries
+            'entries' => $entries
                 ->sortBy(fn ($e) => [$e->user_id === $currentUserId ? 0 : 1, $e->row_order])
                 ->values()
-                ->map(function ($e) use ($currentUserId) {
-                    // Credit-ийн мэдээлэл — Илүү багана дээр badge хэлбэрээр харуулна
-                    $appliedFrom = $this->appliedCreditDetails($e->appointment_number);
+                ->map(function ($e) use ($currentUserId, $creditsByReceipt, $techNameById) {
+                    // Credit-ийн мэдээлэл — batch-аас авна
+                    $appliedFrom = [];
+                    if ($e->appointment_number && $creditsByReceipt->has($e->appointment_number)) {
+                        foreach ($creditsByReceipt->get($e->appointment_number) as $c) {
+                            $appliedFrom[] = [
+                                'kind' => 'overpaid',
+                                'amount' => (int) $c->overpaid_used_amount,
+                                'method' => $c->overpaid_used_method,
+                                'from_date' => $c->dailySheet?->date?->toDateString(),
+                                'from_name' => $c->patient_name,
+                            ];
+                        }
+                    }
 
                     return [
                         'id' => $e->id,
@@ -620,7 +653,7 @@ class DailySheetController extends Controller
                         'doctor_id' => $e->doctor_id,
                         'doctor_name' => $e->doctor?->name,
                         'technician_employee_id' => $e->technician_employee_id,
-                        'technician_name' => $this->technicianName($e->technician_employee_id),
+                        'technician_name' => $techNameById[$e->technician_employee_id] ?? null,
                         'supply_orthodontic_brush' => $e->supply_orthodontic_brush,
                         'supply_interdental_brush' => $e->supply_interdental_brush,
                         'supply_dental_floss' => $e->supply_dental_floss,
