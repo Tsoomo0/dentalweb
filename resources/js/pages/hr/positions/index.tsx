@@ -17,6 +17,7 @@ interface Props { positions: Position[] }
 const PORTALS: { value: string; label: string; color: string }[] = [
     { value: 'doctor',    label: 'Эмчийн портал',   color: 'bg-blue-100 text-blue-700' },
     { value: 'reception', label: 'Ресепшн',          color: 'bg-purple-100 text-purple-700' },
+    { value: 'lab',       label: 'Лабораторийн портал', color: 'bg-violet-100 text-violet-700' },
     { value: 'staff',     label: 'Ажилтны портал',   color: 'bg-muted text-muted-foreground' },
     { value: 'hr',        label: 'HR портал',        color: 'bg-orange-100 text-orange-700' },
     { value: 'admin',     label: 'Админ портал',     color: 'bg-red-100 text-red-700' },

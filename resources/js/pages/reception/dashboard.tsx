@@ -5,8 +5,8 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertCircle, ArrowRight, Banknote, Bell, Building2,
     CalendarCheck2, CalendarClock, CheckCircle2, ChevronRight,
-    ClipboardList, Clock, CreditCard, MapPin, Phone,
-    Smartphone, Sparkles, TrendingUp, UserRound, Users, Wallet,
+    ClipboardList, Clock, CreditCard, MapPin, Percent, Phone,
+    Smartphone, Sparkles, TrendingUp, Undo2, UserRound, Users, Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -27,7 +27,10 @@ interface DailyStats {
     today_revenue: number; today_outstanding: number;
     today_cash: number; today_card: number; today_mobile: number; today_storepay: number;
     today_patients: number; is_confirmed: boolean;
+    today_discount: number; today_overpaid: number; today_refund: number; today_refund_count: number;
     outstanding_total: number; outstanding_count: number;
+    overpaid_total: number; overpaid_count: number;
+    refund_month_total: number; refund_month_count: number;
 }
 interface TreatmentStats {
     pending_count: number; partial_count: number; leasing_count: number; today_paid_amount: number;
@@ -464,9 +467,42 @@ export default function ReceptionDashboard({ branch, stats, today_appointments, 
                                     </div>
                                 ))}
                             </div>
+                            {/* Today discount/overpaid/refund chips */}
+                            {(daily_stats.today_discount > 0 || daily_stats.today_overpaid > 0 || daily_stats.today_refund > 0) && (
+                                <div className="grid grid-cols-3 gap-2">
+                                    {daily_stats.today_discount > 0 && (
+                                        <div className="rounded-xl bg-orange-50 dark:bg-orange-950/20 px-2.5 py-2 text-center">
+                                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                                                <Percent className="size-3 text-orange-600 dark:text-orange-400" />
+                                                <span className="text-[10px] text-muted-foreground">Хөнгөлсөн</span>
+                                            </div>
+                                            <p className="text-xs font-bold tabular-nums text-orange-700 dark:text-orange-400">−{(daily_stats.today_discount/1000).toFixed(0)}K</p>
+                                        </div>
+                                    )}
+                                    {daily_stats.today_overpaid > 0 && (
+                                        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 px-2.5 py-2 text-center">
+                                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                                                <TrendingUp className="size-3 text-emerald-600 dark:text-emerald-400" />
+                                                <span className="text-[10px] text-muted-foreground">Илүү</span>
+                                            </div>
+                                            <p className="text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-400">+{(daily_stats.today_overpaid/1000).toFixed(0)}K</p>
+                                        </div>
+                                    )}
+                                    {daily_stats.today_refund > 0 && (
+                                        <div className="rounded-xl bg-red-50 dark:bg-red-950/20 px-2.5 py-2 text-center">
+                                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                                                <Undo2 className="size-3 text-red-600 dark:text-red-400" />
+                                                <span className="text-[10px] text-muted-foreground">Буцаалт</span>
+                                            </div>
+                                            <p className="text-xs font-bold tabular-nums text-red-700 dark:text-red-400">−{(daily_stats.today_refund/1000).toFixed(0)}K</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Outstanding */}
                             {daily_stats.outstanding_count > 0 && (
-                                <div className="flex items-center gap-2 rounded-xl bg-yellow-50 dark:bg-yellow-950/20 px-3 py-2.5">
+                                <Link href="/reception/outstanding" className="flex items-center gap-2 rounded-xl bg-yellow-50 dark:bg-yellow-950/20 px-3 py-2.5 hover:bg-yellow-100 dark:hover:bg-yellow-950/30 transition-colors">
                                     <AlertCircle className="size-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-300">Дутуу тооцоо</p>
@@ -475,8 +511,40 @@ export default function ReceptionDashboard({ branch, stats, today_appointments, 
                                     <span className="text-sm font-black tabular-nums text-yellow-700 dark:text-yellow-400 shrink-0">
                                         {daily_stats.outstanding_total.toLocaleString()}₮
                                     </span>
-                                </div>
+                                    <ChevronRight className="size-3.5 text-yellow-600/50" />
+                                </Link>
                             )}
+
+                            {/* Overpaid pending */}
+                            {daily_stats.overpaid_count > 0 && (
+                                <Link href="/reception/overpaid" className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2.5 hover:bg-emerald-100 dark:hover:bg-emerald-950/30 transition-colors">
+                                    <TrendingUp className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Илүү тооцоо</p>
+                                        <p className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70">{daily_stats.overpaid_count} бичлэг хүлээгдэж буй</p>
+                                    </div>
+                                    <span className="text-sm font-black tabular-nums text-emerald-700 dark:text-emerald-400 shrink-0">
+                                        +{daily_stats.overpaid_total.toLocaleString()}₮
+                                    </span>
+                                    <ChevronRight className="size-3.5 text-emerald-600/50" />
+                                </Link>
+                            )}
+
+                            {/* Refund this month */}
+                            {daily_stats.refund_month_count > 0 && (
+                                <Link href="/reception/refunds" className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/20 px-3 py-2.5 hover:bg-red-100 dark:hover:bg-red-950/30 transition-colors">
+                                    <Undo2 className="size-4 text-red-600 dark:text-red-400 shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-semibold text-red-700 dark:text-red-300">Буцаалт ({now.getMonth() + 1}-р сар)</p>
+                                        <p className="text-[11px] text-red-600/70 dark:text-red-400/70">{daily_stats.refund_month_count} бичлэг</p>
+                                    </div>
+                                    <span className="text-sm font-black tabular-nums text-red-700 dark:text-red-400 shrink-0">
+                                        −{daily_stats.refund_month_total.toLocaleString()}₮
+                                    </span>
+                                    <ChevronRight className="size-3.5 text-red-600/50" />
+                                </Link>
+                            )}
+
                             <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-3">
                                 <span>Өнөөдрийн үйлчлүүлэгч</span>
                                 <span className="font-semibold text-foreground">{daily_stats.today_patients} хүн</span>

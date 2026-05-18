@@ -1,4 +1,4 @@
-import { NavReceptionUser } from '@/components/nav-reception-user';
+import { NavLabUser } from '@/components/nav-lab-user';
 import {
     Sidebar, SidebarContent, SidebarFooter, SidebarHeader,
     SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -6,57 +6,30 @@ import {
 } from '@/components/ui/sidebar';
 import { useAppearance } from '@/hooks/use-appearance';
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, Braces, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, FlaskConical, KeyRound, LayoutGrid, Monitor, Moon, Sun, TrendingUp, Undo2, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
+import { Eye, EyeOff, FlaskConical, KeyRound, LayoutGrid, Monitor, Moon, Sun, UserRound, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import AppLogo from './app-logo';
 
-interface NavItem { title: string; url: string; icon: any; badge: string | null }
+interface NavItem { title: string; url: string; icon: any }
 
 const navGroups: { label: string; items: NavItem[] }[] = [
     {
         label: 'Үндсэн',
         items: [
-            { title: 'Хяналтын самбар',    url: '/reception/dashboard',     icon: LayoutGrid,    badge: null },
-            { title: 'Цаг захиалга',       url: '/reception/appointments',  icon: CalendarClock, badge: null },
-        ],
-    },
-    {
-        label: 'Өвчтөн',
-        items: [
-            { title: 'Өвчтний карт',       url: '/reception/patients',         icon: Users,     badge: null },
-            { title: 'Ортодонт бүртгэл',   url: '/reception/ortho-appliances', icon: Braces,    badge: null },
-            { title: 'Лаб бүртгэл',        url: '/reception/lab-orders',       icon: FlaskConical, badge: null },
-            { title: 'Хэрэглэгч',          url: '/reception/patient-users',    icon: UserCheck, badge: null },
-        ],
-    },
-    {
-        label: 'Тооцоо',
-        items: [
-            { title: 'Эмчилгээний төлбөр', url: '/reception/treatment-payments', icon: CreditCard,    badge: 'pending_treatment_payments' },
-            { title: 'Өдрийн тооцоо',      url: '/reception/daily-sheet',        icon: ClipboardList, badge: null },
-            { title: 'Дутуу тооцоо',       url: '/reception/outstanding',        icon: AlertCircle,   badge: null },
-            { title: 'Илүү тооцоо',        url: '/reception/overpaid',           icon: TrendingUp,    badge: null },
-            { title: 'Буцаалт',            url: '/reception/refunds',            icon: Undo2,         badge: null },
-        ],
-    },
-    {
-        label: 'Хувийн',
-        items: [
-            { title: 'Миний профайл',      url: '/reception/profile',            icon: UserCircle2,   badge: null },
+            { title: 'Хяналтын самбар', url: '/lab/dashboard',  icon: LayoutGrid },
+            { title: 'Лаб бүртгэл',     url: '/lab/lab-orders', icon: FlaskConical },
         ],
     },
 ];
 
 interface PageProps {
     auth: { employee?: { full_name: string } | null };
-    pending_treatment_payments?: number;
     [key: string]: unknown;
 }
 
-export function ReceptionSidebar() {
+export function LabSidebar() {
     const { url, props } = usePage<PageProps>();
     const hasEmployee = !!props.auth?.employee;
-    const pendingPayments = props.pending_treatment_payments ?? 0;
     const { appearance, updateAppearance } = useAppearance();
 
     const [showModal,    setShowModal]    = useState(false);
@@ -86,7 +59,7 @@ export function ReceptionSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/reception/dashboard">
+                            <Link href="/lab/dashboard">
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -101,19 +74,13 @@ export function ReceptionSidebar() {
                         <SidebarGroupContent>
                             <SidebarMenu>
                                 {group.items.map((item) => {
-                                    const isActive = url === item.url || url.startsWith(item.url + '?') || (item.url !== '/reception/dashboard' && url.startsWith(item.url + '/'));
-                                    const badgeCount = item.badge === 'pending_treatment_payments' ? pendingPayments : 0;
+                                    const isActive = url === item.url || url.startsWith(item.url + '?') || (item.url !== '/lab/dashboard' && url.startsWith(item.url + '/'));
                                     return (
                                         <SidebarMenuItem key={item.url}>
                                             <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
                                                 <Link href={item.url}>
                                                     <item.icon className="size-4 shrink-0" />
                                                     <span className="flex-1">{item.title}</span>
-                                                    {badgeCount > 0 && (
-                                                        <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-                                                            {badgeCount > 9 ? '9+' : badgeCount}
-                                                        </span>
-                                                    )}
                                                 </Link>
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
@@ -146,7 +113,7 @@ export function ReceptionSidebar() {
                         </SidebarMenuItem>
                     )}
                 </SidebarMenu>
-                <NavReceptionUser />
+                <NavLabUser />
             </SidebarFooter>
         </Sidebar>
 

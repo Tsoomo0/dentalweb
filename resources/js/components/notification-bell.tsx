@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     AlertTriangle, Bell, BookOpen, BriefcaseBusiness, CalendarClock,
-    CalendarDays, CheckCheck, CheckCircle2, DollarSign, MessageSquare,
+    CalendarDays, CheckCheck, CheckCircle2, DollarSign, FlaskConical, MessageSquare,
     Package, RotateCcw, ShieldAlert, Smile, Stethoscope, Trash2,
     Umbrella, X, XCircle,
 } from 'lucide-react';
@@ -42,13 +42,16 @@ interface NotifData {
     signer_name?: string;
     // Treatment
     preferred_date?: string; preferred_time?: string; notes?: string;
+    // Lab order
+    lab_order_id?: number; lab_name?: string; work_description?: string;
+    order_date?: string; lab_ready_date?: string;
 }
 interface NotifItem {
     id: string; notif_type: string;
     data: NotifData; read_at: string | null; created_at: string;
 }
 interface NotificationsShared { unread_count: number; items: NotifItem[] }
-type Tab = 'all' | 'apt' | 'billing' | 'job' | 'leave' | 'payroll' | 'library' | 'equipment' | 'feedback' | 'warning' | 'consent' | 'treatment';
+type Tab = 'all' | 'apt' | 'billing' | 'job' | 'leave' | 'payroll' | 'library' | 'equipment' | 'feedback' | 'warning' | 'consent' | 'treatment' | 'lab';
 
 /* ── Filters ──────────────────────────────────────────────────────────── */
 const isApt        = (n: NotifItem) => ['NewAppointment','AppointmentBookedPatient','AppointmentConfirmedPatient','PatientAppointmentRequested'].includes(n.notif_type);
@@ -64,6 +67,7 @@ const isFeedback   = (n: NotifItem) => n.notif_type === 'FeedbackSubmitted' || n
 const isWarning    = (n: NotifItem) => n.notif_type === 'WarningIssued' || n.notif_type === 'WarningAcknowledged';
 const isConsent    = (n: NotifItem) => n.notif_type === 'ConsentRequestSent' || n.notif_type === 'ConsentFormSigned' || n.notif_type === 'OrthoSignatureRequested';
 const isTreatment  = (n: NotifItem) => n.notif_type === 'TreatmentSentToReception';
+const isLab        = (n: NotifItem) => n.notif_type === 'LabOrderCreated' || n.notif_type === 'LabOrderReady';
 const portalOf = () => {
     const p = window.location.pathname;
     if (p.startsWith('/patient/'))   return 'patient';
@@ -72,6 +76,7 @@ const portalOf = () => {
     if (p.startsWith('/doctor/'))    return 'doctor';
     if (p.startsWith('/hr/'))        return 'hr';
     if (p.startsWith('/admin/'))     return 'admin';
+    if (p.startsWith('/lab/'))       return 'lab';
     return 'other';
 };
 /* ── Tab config ───────────────────────────────────────────────────────── */
@@ -88,6 +93,7 @@ const TAB_META: Record<Tab, { label: string; icon: React.ElementType; color: str
     warning:   { label: 'Сануулга',        icon: AlertTriangle,     color: '#ef4444' },
     consent:   { label: 'Зөвшөөрөл',      icon: CheckCircle2,      color: '#10b981' },
     treatment: { label: 'Эмчилгээ',        icon: Stethoscope,       color: '#06b6d4' },
+    lab:       { label: 'Лаб',              icon: FlaskConical,      color: '#7c3aed' },
 };
 
 /* ── Notif icon + color helper ────────────────────────────────────────── */
@@ -133,6 +139,8 @@ function getNotifMeta(n: NotifItem): { icon: React.ElementType; bg: string; fg: 
         case 'ConsentRequestSent':             return { icon: CheckCircle2,     bg: 'bg-emerald-100 dark:bg-emerald-900/30', fg: 'text-emerald-600 dark:text-emerald-400' };
         case 'ConsentFormSigned':              return { icon: CheckCircle2,     bg: 'bg-green-100 dark:bg-green-900/30',    fg: 'text-green-600 dark:text-green-400' };
         case 'TreatmentSentToReception':       return { icon: Stethoscope,      bg: 'bg-cyan-100 dark:bg-cyan-900/30',      fg: 'text-cyan-600 dark:text-cyan-400' };
+        case 'LabOrderCreated':                return { icon: FlaskConical,     bg: 'bg-violet-100 dark:bg-violet-900/30',  fg: 'text-violet-600 dark:text-violet-400' };
+        case 'LabOrderReady':                  return { icon: CheckCircle2,     bg: 'bg-emerald-100 dark:bg-emerald-900/30', fg: 'text-emerald-600 dark:text-emerald-400' };
         case 'AppointmentBookedPatient':       return { icon: CalendarClock,    bg: 'bg-blue-100 dark:bg-blue-900/30',      fg: 'text-blue-600 dark:text-blue-400' };
         case 'AppointmentConfirmedPatient':    return { icon: CheckCircle2,     bg: 'bg-green-100 dark:bg-green-900/30',    fg: 'text-green-600 dark:text-green-400' };
         case 'PatientAppointmentRequested':    return { icon: CalendarClock,    bg: 'bg-indigo-100 dark:bg-indigo-900/30',  fg: 'text-indigo-600 dark:text-indigo-400' };
@@ -200,6 +208,10 @@ function NotifContent({ n }: { n: NotifItem }) {
             return <a href="/reception/patients" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.patient_name} — зөвшөөрлийн маягт зуралаа</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.template_title}</p></a>;
         case 'TreatmentSentToReception':
             return <a href="/reception/treatment-payments" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Эмчилгээний тооцоо ирлээ — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.doctor_name ? shortDoctorName(d.doctor_name) : ''}{d.appointment_number ? ` · ${d.appointment_number}` : ''}</p>{d.amount ? <p className="text-[11px] text-cyan-600 dark:text-cyan-400 mt-0.5 font-semibold">{d.amount.toLocaleString()}₮</p> : null}</a>;
+        case 'LabOrderCreated':
+            return <a href="/lab/lab-orders" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Шинэ лаб захиалга — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.lab_name, d.branch_name, d.doctor_name ? shortDoctorName(d.doctor_name) : undefined].filter(Boolean).join(' · ')}</p>{d.work_description ? <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{d.work_description}</p> : null}</a>;
+        case 'LabOrderReady':
+            return <a href="/reception/lab-orders" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Лаб ажил бэлэн боллоо — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.lab_name, d.branch_name].filter(Boolean).join(' · ')}</p>{d.work_description ? <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{d.work_description}</p> : null}</a>;
         case 'AppointmentBookedPatient':
             return <a href="/patient/appointments" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Цаг захиалга бүртгэгдлээ — {d.appointment_number}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.appointment_date, d.appointment_time, d.doctor_name ? shortDoctorName(d.doctor_name) : undefined, d.branch_name].filter(Boolean).join(' · ')}</p></a>;
         case 'AppointmentConfirmedPatient':
@@ -254,8 +266,9 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
     }, []);
 
     /* ── Portal-specific filters ─────────────────────────────────────────── */
-    const RECEPTION_TYPES = ['NewAppointment','DailySheetConfirmed','OutstandingPaid','TreatmentSentToReception','ConsentFormSigned','PatientAppointmentRequested'];
-    const ADMIN_TYPES     = [...RECEPTION_TYPES,'NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged'];
+    const RECEPTION_TYPES = ['NewAppointment','DailySheetConfirmed','OutstandingPaid','TreatmentSentToReception','ConsentFormSigned','PatientAppointmentRequested','LabOrderReady'];
+    const LAB_TYPES       = ['LabOrderCreated'];
+    const ADMIN_TYPES     = [...RECEPTION_TYPES,'NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged','LabOrderCreated'];
     const HR_TYPES        = ['NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged'];
     const DOCTOR_TYPES    = ['PayrollSlipSent','ReceptionBonusSent','NurseBonusSent','LeaveRequestDecision','VacationRequestDecision','BookRentalDecision','EquipmentAssigned','FeedbackResponded','WarningIssued','OrthoVisitSigned','GeneralVisitSigned'];
     const PATIENT_TYPES   = ['ConsentRequestSent','AppointmentBookedPatient','AppointmentConfirmedPatient','OrthoSignatureRequested','GeneralVisitSignatureRequested'];
@@ -269,6 +282,7 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
             portal === 'admin'     ? ADMIN_TYPES      :
             portal === 'hr'        ? HR_TYPES         :
             portal === 'doctor'    ? DOCTOR_TYPES     :
+            portal === 'lab'       ? LAB_TYPES        :
             null;
         return allowed ? list.filter(n => allowed.includes(n.notif_type)) : list;
     };
@@ -353,11 +367,12 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
     const visibleTabs: Tab[] =
         portal === 'patient'   ? ['all', 'apt'] :
         portal === 'my'        ? ['all', 'leave', 'payroll', 'library', 'equipment', 'feedback', 'warning'] :
-        portal === 'reception' ? ['all', 'apt', 'billing', 'treatment', 'consent'] :
-        portal === 'admin'     ? ['all', 'apt', 'billing', 'job', 'treatment', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning'] :
+        portal === 'reception' ? ['all', 'apt', 'billing', 'treatment', 'lab', 'consent'] :
+        portal === 'admin'     ? ['all', 'apt', 'billing', 'job', 'treatment', 'lab', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning'] :
         portal === 'hr'        ? ['all', 'job', 'leave', 'library', 'equipment', 'feedback', 'warning'] :
         portal === 'doctor'    ? ['all', 'leave', 'payroll', 'library', 'equipment', 'feedback', 'warning'] :
-        ['all', 'apt', 'billing', 'job', 'treatment', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning'];
+        portal === 'lab'       ? ['all', 'lab'] :
+        ['all', 'apt', 'billing', 'job', 'treatment', 'lab', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning'];
 
     const filteredItems = useMemo(() => {
         switch (tab) {
@@ -372,6 +387,7 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
             case 'warning':   return items.filter(isWarning);
             case 'consent':   return items.filter(isConsent);
             case 'treatment': return items.filter(isTreatment);
+            case 'lab':       return items.filter(isLab);
             default:          return items;
         }
     }, [items, tab]);
@@ -389,6 +405,7 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
         warning:   items.filter(n => isWarning(n)    && !n.read_at).length,
         consent:   items.filter(n => isConsent(n)    && !n.read_at).length,
         treatment: items.filter(n => isTreatment(n)  && !n.read_at).length,
+        lab:       items.filter(n => isLab(n)         && !n.read_at).length,
     };
 
     const markRead = async (id: string) => {

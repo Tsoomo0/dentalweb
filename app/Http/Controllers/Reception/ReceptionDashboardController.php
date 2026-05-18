@@ -34,6 +34,10 @@ class ReceptionDashboardController extends Controller
             ? DailySheetEntry::where('daily_sheet_id', $todaySheet->id)->get()
             : collect();
 
+        $todayDiscount = (int) $todayEntries->sum(function ($e) {
+            return (int) round(($e->gross_amount ?? 0) * (($e->discount ?? 0) / 100));
+        });
+
         $dailyStats = [
             'today_revenue' => (int) $todayEntries->sum('total_amount'),
             'today_outstanding' => (int) $todayEntries->sum('outstanding_amount'),
@@ -43,13 +47,43 @@ class ReceptionDashboardController extends Controller
             'today_storepay' => (int) $todayEntries->sum('storepay_amount'),
             'today_patients' => $todayEntries->filter(fn ($e) => $e->patient_name)->count(),
             'is_confirmed' => $todaySheet?->status === 'confirmed',
-            'outstanding_total' => (int) DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
+            // Шинэ статистик
+            'today_discount' => $todayDiscount,
+            'today_overpaid' => (int) $todayEntries->where('overpaid_amount', '>', 0)
+                ->sum('overpaid_amount'),
+            'today_refund' => (int) $todayEntries->whereNotNull('refunded_at')
+                ->sum('refund_amount'),
+            'today_refund_count' => (int) $todayEntries->whereNotNull('refunded_at')->count(),
+            // Outstanding (бүх submitted sheet)
+            'outstanding_total' => (int) DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId)->whereNotNull('submitted_at'))
                 ->where('outstanding_amount', '>', 0)
                 ->whereNull('outstanding_paid_at')
                 ->sum('outstanding_amount'),
-            'outstanding_count' => DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
+            'outstanding_count' => DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId)->whereNotNull('submitted_at'))
                 ->where('outstanding_amount', '>', 0)
                 ->whereNull('outstanding_paid_at')
+                ->count(),
+            // Overpaid (бүх sheet, ашиглагдаагүй)
+            'overpaid_total' => (int) DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
+                ->where('overpaid_amount', '>', 0)
+                ->whereNull('overpaid_used_at')
+                ->sum('overpaid_amount'),
+            'overpaid_count' => DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
+                ->where('overpaid_amount', '>', 0)
+                ->whereNull('overpaid_used_at')
+                ->count(),
+            // Энэ сарын буцаалт
+            'refund_month_total' => (int) DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
+                ->where('refund_amount', '>', 0)
+                ->whereNotNull('refunded_at')
+                ->whereYear('refunded_at', now()->year)
+                ->whereMonth('refunded_at', now()->month)
+                ->sum('refund_amount'),
+            'refund_month_count' => DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
+                ->where('refund_amount', '>', 0)
+                ->whereNotNull('refunded_at')
+                ->whereYear('refunded_at', now()->year)
+                ->whereMonth('refunded_at', now()->month)
                 ->count(),
         ];
 

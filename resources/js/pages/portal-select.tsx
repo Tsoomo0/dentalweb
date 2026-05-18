@@ -12,6 +12,7 @@ const PORTAL_LABEL: Record<string, string> = {
     reception: 'Ресепшн',
     hr:        'HR',
     admin:     'Админ',
+    lab:       'Лаборатори',
     staff:     'Ажилтан',
 };
 
@@ -66,6 +67,7 @@ export default function PortalSelect({ name, position, portal }: Props) {
                                 {portal === 'reception' && 'Ресепшний портал'}
                                 {portal === 'hr'        && 'HR удирдлага'}
                                 {portal === 'admin'     && 'Админ панел'}
+                                {portal === 'lab'       && 'Лабораторийн портал'}
                                 {portal === 'staff'     && 'Ажлын хэсэг'}
                             </p>
                         </div>

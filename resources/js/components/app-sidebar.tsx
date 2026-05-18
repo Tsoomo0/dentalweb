@@ -18,6 +18,7 @@ import {
     ClipboardList,
     CreditCard,
     DollarSign,
+    FlaskConical,
     HelpCircle,
     Images,
     LayoutGrid,
@@ -102,6 +103,11 @@ const schedulingItems: NavItem[] = [
         title: 'Ортодонт бүртгэл',
         url: '/admin/ortho-appliances',
         icon: Braces,
+    },
+    {
+        title: 'Лаб бүртгэл',
+        url: '/admin/lab-orders',
+        icon: FlaskConical,
     },
     {
         title: 'Төлбөр',

@@ -33,7 +33,7 @@ class PositionController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:100|unique:positions,name',
-            'portal' => 'required|in:doctor,reception,staff,hr,admin',
+            'portal' => 'required|in:doctor,reception,lab,staff,hr,admin',
         ]);
 
         Position::create([
@@ -49,7 +49,7 @@ class PositionController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:100|unique:positions,name,'.$position->id,
-            'portal' => 'required|in:doctor,reception,staff,hr,admin',
+            'portal' => 'required|in:doctor,reception,lab,staff,hr,admin',
         ]);
 
         $position->update([

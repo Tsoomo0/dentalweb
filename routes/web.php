@@ -294,6 +294,9 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Ортодонт аппарат бүртгэл (read-only admin view)
     Route::get('ortho-appliances', [OrthoApplianceController::class, 'adminIndex'])->name('ortho-appliances.index');
 
+    // Лаб бүртгэл (read-only admin view)
+    Route::get('lab-orders', [\App\Http\Controllers\Admin\LabOrderController::class, 'index'])->name('lab-orders.index');
+
     // ── Bot Builder ─────────────────────────────────────────────────────────
     Route::get('chatbot-flows', [BotBuilderController::class, 'index'])->name('chatbot-flows.index');
     Route::put('chatbot/welcome', [BotBuilderController::class, 'updateWelcome'])->name('chatbot.welcome.update');
@@ -378,6 +381,22 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     Route::put('/appointments/{appointment}', [ReceptionAppointmentController::class, 'update'])->name('appointments.update');
     Route::patch('/appointments/{appointment}/status', [ReceptionAppointmentController::class, 'changeStatus'])->name('appointments.status');
     Route::delete('/appointments/{appointment}', [ReceptionAppointmentController::class, 'destroy'])->name('appointments.destroy');
+
+    // ── Лаб бүртгэл ──────────────────────────────────────────────────────────
+    Route::get('/lab-orders', [\App\Http\Controllers\Reception\LabOrderController::class, 'index'])->name('lab-orders.index');
+    Route::post('/lab-orders', [\App\Http\Controllers\Reception\LabOrderController::class, 'store'])->name('lab-orders.store');
+    Route::patch('/lab-orders/{labOrder}', [\App\Http\Controllers\Reception\LabOrderController::class, 'update'])->name('lab-orders.update');
+    Route::delete('/lab-orders/{labOrder}', [\App\Http\Controllers\Reception\LabOrderController::class, 'destroy'])->name('lab-orders.destroy');
+});
+
+// ── Lab portal ───────────────────────────────────────────────────────────────
+// Лаб ажилтан зөвхөн ресепшн үүсгэсэн захиалга дээр ажиллана (нугалсан, өнгөлсөн, бэлэн огноо тэмдэглэх).
+// Шинэ захиалга үүсгэх, устгах, төлбөр зэргийг ресепшн л хийнэ.
+Route::middleware(['auth', 'lab'])->prefix('lab')->name('lab.')->group(function () {
+    Route::get('/dashboard', [\App\Http\Controllers\Lab\LabDashboardController::class, 'dashboard'])->name('dashboard');
+
+    Route::get('/lab-orders', [\App\Http\Controllers\Lab\LabOrderController::class, 'index'])->name('lab-orders.index');
+    Route::patch('/lab-orders/{labOrder}', [\App\Http\Controllers\Lab\LabOrderController::class, 'update'])->name('lab-orders.update');
 });
 
 // ── Doctor portal ────────────────────────────────────────────────────────────

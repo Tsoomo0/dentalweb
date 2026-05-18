@@ -39,7 +39,10 @@ class HandleInertiaRequests extends Middleware
             return ['NewJobApplication', 'LeaveRequestSubmitted', 'VacationRequestSubmitted', 'BookRentalSubmitted', 'EquipmentAssignmentResponse', 'FeedbackSubmitted', 'WarningAcknowledged'];
         }
         if (str_starts_with($path, 'reception/')) {
-            return ['NewAppointment', 'DailySheetConfirmed', 'OutstandingPaid', 'TreatmentSentToReception', 'ConsentFormSigned', 'PatientAppointmentRequested'];
+            return ['NewAppointment', 'DailySheetConfirmed', 'OutstandingPaid', 'TreatmentSentToReception', 'ConsentFormSigned', 'PatientAppointmentRequested', 'LabOrderReady'];
+        }
+        if (str_starts_with($path, 'lab/')) {
+            return ['LabOrderCreated'];
         }
         if (str_starts_with($path, 'patient/')) {
             return ['ConsentRequestSent', 'AppointmentBookedPatient', 'AppointmentConfirmedPatient', 'OrthoSignatureRequested', 'GeneralVisitSignatureRequested'];

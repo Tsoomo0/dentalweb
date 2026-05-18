@@ -49,6 +49,7 @@ class PortalController extends Controller
             'admin' => redirect()->route('admin.dashboard'),
             'reception' => redirect()->route('reception.dashboard'),
             'hr' => redirect()->route('hr.employees.index'),
+            'lab' => redirect()->route('lab.dashboard'),
             default => $user->isAdmin()
                             ? redirect()->route('admin.dashboard')
                             : redirect()->route('reception.dashboard'),

@@ -5,6 +5,7 @@ use App\Http\Middleware\DoctorMiddleware;
 use App\Http\Middleware\EitherAuthMiddleware;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\HrMiddleware;
+use App\Http\Middleware\LabMiddleware;
 use App\Http\Middleware\MaintenanceMiddleware;
 use App\Http\Middleware\PatientMiddleware;
 use App\Http\Middleware\ReceptionMiddleware;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'hr' => HrMiddleware::class,
             'doctor' => DoctorMiddleware::class,
             'reception' => ReceptionMiddleware::class,
+            'lab' => LabMiddleware::class,
             'patient' => PatientMiddleware::class,
             'either.auth' => EitherAuthMiddleware::class,
         ]);
