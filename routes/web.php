@@ -296,6 +296,7 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
 
     // Лаб бүртгэл (read-only admin view)
     Route::get('lab-orders', [\App\Http\Controllers\Admin\LabOrderController::class, 'index'])->name('lab-orders.index');
+    Route::get('lab-orders/export', [\App\Http\Controllers\Admin\LabOrderController::class, 'exportExcel'])->name('lab-orders.export');
 
     // ── Bot Builder ─────────────────────────────────────────────────────────
     Route::get('chatbot-flows', [BotBuilderController::class, 'index'])->name('chatbot-flows.index');

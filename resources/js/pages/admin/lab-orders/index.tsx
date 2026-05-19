@@ -3,7 +3,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
     AlertCircle, Building2, CalendarClock, CheckCircle2, CreditCard,
-    FlaskConical, Package, Receipt, Search, Send, Sparkles,
+    FileSpreadsheet, FlaskConical, Package, Receipt, Search, Send, Sparkles,
     Stethoscope, User, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -191,6 +191,12 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
                             </button>
                         ))}
                     </div>
+
+                    <a href={`/admin/lab-orders/export?status=${filters.status}&branch=${filters.branch ?? ''}&q=${encodeURIComponent(filters.search)}`}
+                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors">
+                        <FileSpreadsheet className="size-3.5" />
+                        Excel татах
+                    </a>
                 </div>
 
                 {/* Grouped tables */}

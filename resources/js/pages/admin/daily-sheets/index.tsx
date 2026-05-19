@@ -35,6 +35,7 @@ interface Entry {
     supply_retainer_case: number;
     supply_removable_app_case: number;
     entry_notes: string | null;
+    technician_name: string | null;
 }
 
 interface SheetTotals {
@@ -293,7 +294,7 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Storepay</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center bg-blue-50 dark:bg-blue-900/20">Нийт дүн</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center bg-yellow-50 dark:bg-yellow-900/20">Дутуу</th>
-                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Эмч</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left w-28">Эмч</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left">Ресепшн</th>
                         {SUPPLY_COLS.map(c => (
                             <th key={c.key} className="border-b border-gray-200 dark:border-gray-700 text-center" style={{ verticalAlign: 'bottom', height: 90 }}>
@@ -324,7 +325,18 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                             <td className={`border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right bg-yellow-50/60 dark:bg-yellow-900/10 ${e.outstanding_amount > 0 ? 'text-yellow-700 dark:text-yellow-400 font-semibold' : ''}`}>
                                 {fmt(e.outstanding_amount)}
                             </td>
-                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">{e.doctor_name ? shortDoctorName(e.doctor_name) : '—'}</td>
+                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">
+                                {e.doctor_name ? (
+                                    <>
+                                        <div>{shortDoctorName(e.doctor_name)}</div>
+                                        {e.technician_name && (
+                                            <div className="text-[10px] text-gray-400 mt-0.5">{e.technician_name}</div>
+                                        )}
+                                    </>
+                                ) : e.technician_name ? (
+                                    <div>{e.technician_name}</div>
+                                ) : '—'}
+                            </td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-gray-500">{e.receptionist_name ?? '—'}</td>
                             {SUPPLY_COLS.map(c => (
                                 <td key={c.key} className="border-b border-gray-100 dark:border-gray-800 px-1 py-1.5 text-center">
@@ -353,7 +365,12 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                         <td colSpan={4} className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">Нийт</td>
                         <td />
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.entries.reduce((s,e)=>s+e.gross_amount,0))}</td>
-                        <td />
+                        <td className="px-2 py-1.5 text-right text-orange-600 dark:text-orange-400">
+                            {(() => {
+                                const total = sheet.entries.reduce((s, e) => s + Math.round(e.gross_amount * (e.discount || 0) / 100), 0);
+                                return total > 0 ? `-${total.toLocaleString()}` : '—';
+                            })()}
+                        </td>
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.mobile_amount)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.card_amount)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.cash_amount)}</td>
@@ -674,17 +691,17 @@ export default function DailySheetsIndex({
                 {/* Totals cards — always visible */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                     {[
-                        { label: 'Мобайл',    value: grandTotals.mobile_amount,      color: 'text-gray-700 dark:text-gray-300' },
-                        { label: 'Карт',      value: grandTotals.card_amount,        color: 'text-gray-700 dark:text-gray-300' },
-                        { label: 'Бэлэн',     value: grandTotals.cash_amount,        color: 'text-gray-700 dark:text-gray-300' },
-                        { label: 'Storepay',  value: grandTotals.storepay_amount,    color: 'text-gray-700 dark:text-gray-300' },
-                        { label: 'Нийт дүн',  value: grandTotals.total_amount,       color: 'text-blue-700 dark:text-blue-400' },
-                        { label: 'Дутуу',     value: grandTotals.outstanding_amount, color: 'text-yellow-600 dark:text-yellow-400' },
-                        { label: 'Хөнгөлөлт', value: grandTotals.discount,           color: 'text-gray-500' },
-                    ].map(({ label, value, color }) => (
+                        { label: 'Мобайл',    value: grandTotals.mobile_amount,      color: 'text-gray-700 dark:text-gray-300',         prefix: '' },
+                        { label: 'Карт',      value: grandTotals.card_amount,        color: 'text-gray-700 dark:text-gray-300',         prefix: '' },
+                        { label: 'Бэлэн',     value: grandTotals.cash_amount,        color: 'text-gray-700 dark:text-gray-300',         prefix: '' },
+                        { label: 'Storepay',  value: grandTotals.storepay_amount,    color: 'text-gray-700 dark:text-gray-300',         prefix: '' },
+                        { label: 'Нийт дүн',  value: grandTotals.total_amount,       color: 'text-blue-700 dark:text-blue-400',         prefix: '' },
+                        { label: 'Дутуу',     value: grandTotals.outstanding_amount, color: 'text-yellow-600 dark:text-yellow-400',     prefix: '' },
+                        { label: 'Хөнгөлөлт', value: grandTotals.discount,           color: 'text-orange-600 dark:text-orange-400',     prefix: '-' },
+                    ].map(({ label, value, color, prefix }) => (
                         <div key={label} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5">
                             <div className="text-xs text-gray-500 mb-0.5">{label}</div>
-                            <div className={`text-sm font-bold ${color}`}>{value.toLocaleString()}₮</div>
+                            <div className={`text-sm font-bold ${color}`}>{value > 0 ? `${prefix}${value.toLocaleString()}₮` : '—'}</div>
                         </div>
                     ))}
                 </div>

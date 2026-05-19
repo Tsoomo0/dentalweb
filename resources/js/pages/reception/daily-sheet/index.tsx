@@ -792,6 +792,17 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
         return () => clearInterval(id);
     }, [isConfirmed]);
 
+    // Admin unlock хийсний дараа myRows-г server-ийн өгөгдлөөр дахин тохируул.
+    // myRows нь blank row л байвал (засварлаагүй) server-ийн бодит мөрүүдээр солино.
+    useEffect(() => {
+        const isBlank = myRows.length === 1 && myRows[0].id === undefined;
+        if (!isBlank) return;
+        const serverMine = sheet?.entries.filter(e => e.is_mine && !e.source && !e.is_morning_entry) ?? [];
+        if (serverMine.length > 0) {
+            setMyRows(serverMine.map(e => ({ ...e })));
+        }
+    }, [sheet?.entries]);
+
     /* ── Auto-save ── */
     const [saveState, setSaveState] = useState<'idle'|'saving'|'saved'|'error'>('idle');
     const timer            = useRef<ReturnType<typeof setTimeout>|null>(null);

@@ -126,10 +126,22 @@ class DailySheetController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $branchId, $userId, $date) {
-            $sheet = DailySheet::firstOrCreate(
-                ['branch_id' => $branchId, 'date' => $date],
-                ['status' => 'submitted']
-            );
+            $sheet = DailySheet::withTrashed()
+                ->where('branch_id', $branchId)
+                ->whereDate('date', $date)
+                ->first();
+
+            if ($sheet) {
+                if ($sheet->trashed()) {
+                    $sheet->restore();
+                }
+            } else {
+                $sheet = DailySheet::create([
+                    'branch_id' => $branchId,
+                    'date'      => $date,
+                    'status'    => 'submitted',
+                ]);
+            }
 
             if ($sheet->submitted_at !== null) {
                 return;
@@ -291,10 +303,11 @@ class DailySheetController extends Controller
 
         $request->validate(['date' => 'required|date']);
 
-        $sheet = DailySheet::firstOrCreate(
-            ['branch_id' => $branchId, 'date' => $date],
-            ['status' => 'submitted']
-        );
+        $sheet = DailySheet::withTrashed()->where('branch_id', $branchId)->whereDate('date', $date)->first()
+            ?? DailySheet::create(['branch_id' => $branchId, 'date' => $date, 'status' => 'submitted']);
+        if ($sheet->trashed()) {
+            $sheet->restore();
+        }
 
         if ($sheet->morning_submitted_at !== null) {
             return back()->with('info', 'Өглөөний баталгаажуулалт хийгдсэн байна.');
@@ -453,10 +466,12 @@ class DailySheetController extends Controller
         ]);
 
         // Өнөөдрийн daily sheet-д шинэ мөр нэмнэ (balance)
-        $sheet = DailySheet::firstOrCreate(
-            ['branch_id' => $branchId, 'date' => today()->toDateString()],
-            ['status' => 'submitted']
-        );
+        $todayDate = today()->toDateString();
+        $sheet = DailySheet::withTrashed()->where('branch_id', $branchId)->whereDate('date', $todayDate)->first()
+            ?? DailySheet::create(['branch_id' => $branchId, 'date' => $todayDate, 'status' => 'submitted']);
+        if ($sheet->trashed()) {
+            $sheet->restore();
+        }
 
         if ($sheet->submitted_at === null) {
             $method = $validated['paid_method'];
@@ -872,10 +887,12 @@ class DailySheetController extends Controller
         $amount = $entry->overpaid_amount;
 
         // Өнөөдрийн илгээгдээгүй өдрийн тооцоог олж/үүсгэнэ
-        $sheet = DailySheet::firstOrCreate(
-            ['branch_id' => $branchId, 'date' => today()->toDateString()],
-            ['status' => 'submitted']
-        );
+        $todayStr = today()->toDateString();
+        $sheet = DailySheet::withTrashed()->where('branch_id', $branchId)->whereDate('date', $todayStr)->first()
+            ?? DailySheet::create(['branch_id' => $branchId, 'date' => $todayStr, 'status' => 'submitted']);
+        if ($sheet->trashed()) {
+            $sheet->restore();
+        }
 
         if ($sheet->submitted_at !== null) {
             return back()->with('error', 'Өнөөдрийн тооцоо аль хэдийн илгээгдсэн байна. Илүү тооцоог одоо ашиглах боломжгүй.');

@@ -362,16 +362,26 @@ class DailySheetAdminController extends Controller
             return back()->withErrors(['code' => 'Код буруу байна.']);
         }
 
+        // Шатлалтай нээлт: өдөр → өглөө
+        if ($sheet->submitted_at !== null) {
+            // 1-р шат: өдрийн баталгаажуулалт тайлна, өглөөних хэвээр хадгална
+            $sheet->update([
+                'submitted_at' => null,
+                'receptionist_id' => null,
+            ]);
+
+            return back()->with('success', 'Өдрийн баталгаажуулалт тайлагдлаа. Өглөөний мөрүүд хэвээр байна.');
+        }
+
+        // 2-р шат: өглөөний баталгаажуулалт тайлна
         $sheet->update([
-            'submitted_at' => null,
-            'receptionist_id' => null,
             'morning_submitted_at' => null,
             'morning_receptionist_id' => null,
         ]);
 
         $sheet->entries()->update(['is_morning_entry' => false]);
 
-        return back()->with('success', 'Тооцоо нээгдлээ. Ресепшн засварлах боломжтой болов.');
+        return back()->with('success', 'Өглөөний баталгаажуулалт тайлагдлаа. Бүх мөрүүд засварлагдах боломжтой болов.');
     }
 
     public function exportExcel(Request $request): StreamedResponse
@@ -445,7 +455,7 @@ class DailySheetAdminController extends Controller
 
         $totals = [
             'total_amount' => $entries->sum('total_amount'),
-            'discount' => $entries->sum('discount'),
+            'discount' => $entries->sum(fn ($e) => (int) round($e->gross_amount * $e->discount / 100)),
             'mobile_amount' => $entries->sum('mobile_amount'),
             'card_amount' => $entries->sum('card_amount'),
             'cash_amount' => $entries->sum('cash_amount'),
@@ -483,9 +493,13 @@ class DailySheetAdminController extends Controller
                 'doctor_name' => $e->doctor?->name,
                 'technician_employee_id' => $e->technician_employee_id,
                 'technician_name' => $e->technician_employee_id
-                    ? (fn ($emp) => $emp ? trim($emp->last_name.' '.$emp->first_name) : null)(
-                        \DB::table('employees')->where('id', $e->technician_employee_id)->first(['first_name', 'last_name'])
-                    )
+                    ? (function ($emp) {
+                        if (! $emp) {
+                            return null;
+                        }
+                        $last = preg_match('/^[\-—\s]+$/', trim((string) $emp->last_name)) ? '' : trim((string) $emp->last_name);
+                        return trim($last.' '.$emp->first_name) ?: null;
+                    })(\DB::table('employees')->where('id', $e->technician_employee_id)->first(['first_name', 'last_name']))
                     : null,
                 'receptionist_name' => $e->user?->name,
                 'supply_orthodontic_brush' => (int) $e->supply_orthodontic_brush,

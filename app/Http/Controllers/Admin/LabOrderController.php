@@ -11,6 +11,66 @@ use Inertia\Response;
 
 class LabOrderController extends Controller
 {
+    public function exportExcel(Request $request): \Illuminate\Http\Response
+    {
+        $branchId = $request->integer('branch');
+        $status   = $request->get('status', 'all');
+        $search   = trim((string) $request->get('q', ''));
+
+        $orders = LabOrder::with(['branch', 'doctor', 'bender', 'polisher', 'creator'])
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
+            ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
+            ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
+                ->where('patient_first_name', 'like', "%{$search}%")
+                ->orWhere('patient_last_name', 'like', "%{$search}%")
+                ->orWhere('patient_phone', 'like', "%{$search}%")
+                ->orWhere('lab_name', 'like', "%{$search}%")
+                ->orWhere('work_description', 'like', "%{$search}%")
+                ->orWhere('final_payment_receipt', 'like', "%{$search}%")
+            ))
+            ->orderByDesc('order_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn ($o) => [
+                'id'                    => $o->id,
+                'order_date'            => $o->order_date?->toDateString(),
+                'sent_to_lab_date'      => $o->sent_to_lab_date?->toDateString(),
+                'lab_name'              => $o->lab_name,
+                'patient'               => trim(($o->patient_last_name ? $o->patient_last_name.' ' : '').$o->patient_first_name),
+                'patient_phone'         => $o->patient_phone,
+                'branch_name'           => $o->branch?->name,
+                'doctor_name'           => $o->doctor?->name,
+                'work_description'      => $o->work_description,
+                'amount_due'            => (int) $o->amount_due,
+                'amount_paid'           => (int) $o->amount_paid,
+                'outstanding'           => $o->outstanding_amount,
+                'bender_name'           => $o->bender ? trim($o->bender->last_name.' '.$o->bender->first_name) : null,
+                'polisher_name'         => $o->polisher ? trim($o->polisher->last_name.' '.$o->polisher->first_name) : null,
+                'lab_ready_date'        => $o->lab_ready_date?->toDateString(),
+                'arrived_date'          => $o->arrived_date?->toDateString(),
+                'pickup_date'           => $o->pickup_date?->toDateString(),
+                'final_payment_receipt' => $o->final_payment_receipt,
+                'final_payment_method'  => $o->final_payment_method,
+                'final_payment_at'      => $o->final_payment_at?->toDateString(),
+                'is_completed'          => $o->is_completed ? 'Дууссан' : 'Идэвхтэй',
+                'completed_at'          => $o->completed_at?->toDateString(),
+                'notes'                 => $o->notes,
+                'created_by_name'       => $o->creator?->name,
+            ]);
+
+        $filename = 'lab-orders-'.now()->format('Y-m-d').'.xls';
+
+        return response(
+            view('admin.lab-orders-excel', compact('orders', 'status', 'search'))->render(),
+            200,
+            [
+                'Content-Type'        => 'application/vnd.ms-excel',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            ]
+        );
+    }
+
     public function index(Request $request): Response
     {
         $branchId = $request->integer('branch');
