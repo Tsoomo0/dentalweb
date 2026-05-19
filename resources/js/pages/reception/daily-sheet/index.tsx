@@ -785,10 +785,10 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
     const refundedRows: Entry[] = sheet?.entries.filter(e => !!e.refunded_at && !e.source && !e.is_morning_entry) ?? [];
 
     useEffect(() => {
-        if (isConfirmed) return;
+        // Баталгаажсан үед ч polling хийж admin unlock илрүүлнэ (5с), үгүй бол 3с
         const id = setInterval(() => {
             router.reload({ only: ['sheet'], preserveState: true } as any);
-        }, 3_000);
+        }, isConfirmed ? 5_000 : 3_000);
         return () => clearInterval(id);
     }, [isConfirmed]);
 
