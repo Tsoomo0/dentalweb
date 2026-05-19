@@ -93,20 +93,46 @@ class EmployeeController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'last_name' => 'required|string|max:100',
-            'first_name' => 'required|string|max:100',
-            'register_number' => 'required|string|max:20|unique:employees',
-            'birth_date' => 'required|date',
-            'gender' => 'required|in:male,female',
-            'phone' => 'required|string|max:20',
-            'branch_id' => 'required|exists:branches,id',
-            'position_id' => 'required|exists:positions,id',
-            'hired_date' => 'required|date',
-            'salary' => 'required|numeric|min:0',
-            // Нэвтрэх
-            'username' => 'required|string|unique:users,name',
-            'password' => 'required|string|min:6',
+            'last_name'       => 'required|string|max:100',
+            'first_name'      => 'required|string|max:100',
+            'register_number' => 'required|string|max:20|unique:employees,register_number',
+            'birth_date'      => 'required|date',
+            'gender'          => 'required|in:male,female',
+            'phone'           => 'required|string|max:20',
+            'branch_id'       => 'required|exists:branches,id',
+            'position_id'     => 'required|exists:positions,id',
+            'hired_date'      => 'required|date',
+            'salary'          => 'required|numeric|min:0',
+            'username'        => 'required|string|unique:users,name',
+            'password'        => 'required|string|min:6',
+            'email'           => 'nullable|email|max:191|unique:users,email',
+        ], [
+            'last_name.required'       => 'Овог заавал бөглөнө үү.',
+            'first_name.required'      => 'Нэр заавал бөглөнө үү.',
+            'register_number.required' => 'Регистрийн дугаар заавал бөглөнө үү.',
+            'register_number.unique'   => 'Энэ регистрийн дугаар аль хэдийн бүртгэгдсэн байна.',
+            'birth_date.required'      => 'Төрсөн огноо заавал бөглөнө үү.',
+            'gender.required'          => 'Хүйс заавал сонгоно уу.',
+            'phone.required'           => 'Утасны дугаар заавал бөглөнө үү.',
+            'branch_id.required'       => 'Салбар заавал сонгоно уу.',
+            'position_id.required'     => 'Албан тушаал заавал сонгоно уу.',
+            'hired_date.required'      => 'Ажилд орсон огноо заавал бөглөнө үү.',
+            'salary.required'          => 'Цалин заавал бөглөнө үү.',
+            'username.required'        => 'Нэвтрэх нэр заавал бөглөнө үү.',
+            'username.unique'          => 'Энэ нэвтрэх нэр аль хэдийн бүртгэгдсэн байна.',
+            'password.required'        => 'Нууц үг заавал бөглөнө үү.',
+            'password.min'             => 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой.',
+            'email.unique'             => 'Энэ имэйл хаяг аль хэдийн бүртгэгдсэн байна.',
+            'email.email'              => 'Зөв имэйл хаяг оруулна уу.',
         ]);
+
+        // Email оруулаагүй бол auto-generated email-ийн uniqueness шалгах
+        if (! $request->filled('email')) {
+            $autoEmail = $request->username.'@dental.mn';
+            if (User::where('email', $autoEmail)->exists()) {
+                return back()->withErrors(['email' => "Системийн автомат имэйл ({$autoEmail}) аль хэдийн бүртгэгдсэн байна. Имэйл талбарт өөр хаяг оруулна уу."])->withInput();
+            }
+        }
 
         $createdEmployee = DB::transaction(function () use ($request) {
             // 1. User үүсгэх

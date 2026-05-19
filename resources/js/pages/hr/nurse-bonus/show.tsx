@@ -14,7 +14,9 @@ interface EntryRow {
     id: number; employee_id: number; name: string;
     employee_number: string; position: string | null;
     clothing: number; hand_hygiene: number; chair_sterilization: number;
-    equipment_prep: number; material_prep: number; card_issued: number;
+    equipment_prep: number; material_prep: number;
+    visit_count: number;
+    card_issued: number;
     card_collected: number; pre_exam_prep: number; exam_chair_prep: number;
     post_exam_chair_sterilize: number; tube_sterilization: number; suction_filter: number;
     quartz_before: number; quartz_after: number; xray: number; model_cast: number;
@@ -25,21 +27,39 @@ interface CriterionDef { label: string; unit: string; price: number }
 type CriteriaMap = Record<string, CriterionDef>;
 interface Props { run: BonusRun; entries: EntryRow[]; criteria: CriteriaMap }
 
-const KEYS = [
+const PRE_KEYS = [
     'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
+] as const;
+const POST_KEYS = [
     'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
     'post_exam_chair_sterilize', 'tube_sterilization', 'suction_filter',
     'quartz_before', 'quartz_after', 'xray', 'model_cast', 'implant',
     'blood_pressure', 'complaint', 'absent',
 ] as const;
+const KEYS = [...PRE_KEYS, ...POST_KEYS] as const;
 type CKey = typeof KEYS[number];
 
 function fmtMoney(n: number) {
     if (!n) return '';
     return Math.round(n).toLocaleString('en-US');
 }
-function calcTotal(entry: EntryRow, criteria: CriteriaMap): number {
-    return KEYS.reduce((acc, k) => acc + (entry[k] || 0) * (criteria[k]?.price || 0), 0);
+
+function calcNiilberOnoo(entry: EntryRow): number {
+    const sumCounts = PRE_KEYS.reduce((acc, k) => acc + (entry[k] || 0), 0);
+    return (entry.visit_count || 0) * sumCounts;
+}
+
+const DEDUCT_KEYS = ['complaint', 'absent'] as const;
+
+function calcTotal(entry: EntryRow, _criteria: CriteriaMap): number {
+    const niilberOnoo = calcNiilberOnoo(entry);
+    // Нийлбэр оноогоос хойших баганууд: зөвхөн count нэмнэ
+    const postAdd = POST_KEYS
+        .filter(k => !(DEDUCT_KEYS as readonly string[]).includes(k))
+        .reduce((acc, k) => acc + (entry[k] || 0), 0);
+    // complaint, absent: 10,000 оноо тус бүр хасна
+    const deduct = DEDUCT_KEYS.reduce((acc, k) => acc + (entry[k] || 0) * 10000, 0);
+    return niilberOnoo + postAdd - deduct;
 }
 
 function CountCell({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled: boolean }) {
@@ -175,7 +195,7 @@ export default function NurseBonusShow({ run, entries: initial, criteria }: Prop
         return () => { el.removeEventListener('scroll', check); window.removeEventListener('resize', check); };
     }, []);
 
-    function setField(idx: number, field: CKey, value: number) {
+    function setField(idx: number, field: CKey | 'visit_count', value: number) {
         setSaved(false);
         setEntries(prev => prev.map((e, i) => {
             if (i !== idx) return e;
@@ -323,12 +343,30 @@ export default function NurseBonusShow({ run, entries: initial, criteria }: Prop
                             <thead>
                                 <tr className="border-b bg-muted/30">
                                     <th className="sticky left-0 z-10 bg-muted/30 border-r px-3 py-1.5 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground min-w-[150px]">Ажилтан</th>
-                                    {criteriaList.map(([key, c]) => (
-                                        <th key={key} className="border-r px-2 py-1.5 text-center">
-                                            <p className="text-[10px] font-semibold text-foreground/80 whitespace-nowrap">{c.label}</p>
-                                            <p className="text-[10px] text-muted-foreground">{Math.abs(c.price).toLocaleString('en-US')}₮ / {c.unit}</p>
-                                        </th>
-                                    ))}
+                                    {criteriaList.map(([key, c]) => {
+                                        const isPreLast = key === 'material_prep';
+                                        return (
+                                            <th key={key} className={`border-r px-2 py-1.5 text-center ${isPreLast ? '' : ''}`}>
+                                                <p className="text-[10px] font-semibold text-foreground/80 whitespace-nowrap">{c.label}</p>
+                                                <p className="text-[10px] text-muted-foreground">{Math.abs(c.price).toLocaleString('en-US')}₮ / {c.unit}</p>
+                                            </th>
+                                        );
+                                    }).reduce((acc: React.ReactNode[], node, i, arr) => {
+                                        acc.push(node);
+                                        if (criteriaList[i]?.[0] === 'material_prep') {
+                                            acc.push(
+                                                <th key="visit_count" className="border-r border-l-2 border-l-blue-300 dark:border-l-blue-700 px-2 py-1.5 text-center bg-blue-50/50 dark:bg-blue-950/20 min-w-[80px]">
+                                                    <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 whitespace-nowrap">Нийт үзлэгийн тоо</p>
+                                                    <p className="text-[10px] text-muted-foreground">удаа</p>
+                                                </th>,
+                                                <th key="niilber_onoo" className="border-r px-2 py-1.5 text-center bg-emerald-50/50 dark:bg-emerald-950/20 min-w-[90px]">
+                                                    <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">Нийлбэр оноо</p>
+                                                    <p className="text-[10px] text-muted-foreground">= тоо × нийлбэр</p>
+                                                </th>
+                                            );
+                                        }
+                                        return acc;
+                                    }, [])}
                                     <th className="px-3 py-1.5 text-right text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 whitespace-nowrap min-w-[100px]">Нийт ₮</th>
                                 </tr>
                             </thead>
@@ -351,11 +389,26 @@ export default function NurseBonusShow({ run, entries: initial, criteria }: Prop
                                             </div>
                                             <p className="text-[10px] text-muted-foreground">{e.position ?? e.employee_number}</p>
                                         </td>
-                                        {KEYS.map(key => (
-                                            <td key={key} className="border-r">
-                                                <CountCell value={e[key] as number} disabled={isFinal} onChange={v => setField(idx, key, v)} />
-                                            </td>
-                                        ))}
+                                        {KEYS.map(key => {
+                                            const cell = (
+                                                <td key={key} className="border-r">
+                                                    <CountCell value={e[key] as number} disabled={isFinal} onChange={v => setField(idx, key, v)} />
+                                                </td>
+                                            );
+                                            if (key === 'material_prep') {
+                                                const niilberOnoo = calcNiilberOnoo(e);
+                                                return [
+                                                    cell,
+                                                    <td key="visit_count" className="border-r border-l-2 border-l-blue-300 dark:border-l-blue-700 bg-blue-50/30 dark:bg-blue-950/10">
+                                                        <CountCell value={e.visit_count || 0} disabled={isFinal} onChange={v => setField(idx, 'visit_count', v)} />
+                                                    </td>,
+                                                    <td key="niilber_onoo" className="border-r px-2 py-2 text-right text-xs tabular-nums font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10 whitespace-nowrap">
+                                                        {niilberOnoo ? niilberOnoo.toLocaleString('en-US') : '—'}
+                                                    </td>,
+                                                ];
+                                            }
+                                            return cell;
+                                        })}
                                         <td className="px-3 py-2 text-right text-xs tabular-nums font-bold text-violet-700 dark:text-violet-400 bg-violet-50/20 dark:bg-violet-950/5 whitespace-nowrap">
                                             {e.total_amount ? fmtMoney(e.total_amount) + '₮' : '—'}
                                         </td>
@@ -366,8 +419,18 @@ export default function NurseBonusShow({ run, entries: initial, criteria }: Prop
                                 <tr className="border-t-2 bg-muted/40 font-bold">
                                     <td className="sticky left-0 z-10 bg-muted/40 border-r px-3 py-2 text-[10px] font-bold uppercase text-muted-foreground">Нийт</td>
                                     {KEYS.map(key => {
-                                        const total = entries.reduce((s, e) => s + (e[key] || 0), 0);
-                                        return <td key={key} className="border-r px-2 py-2 text-right text-xs tabular-nums text-muted-foreground">{total || ''}</td>;
+                                        const total = entries.reduce((s, e) => s + (e[key as keyof EntryRow] as number || 0), 0);
+                                        const cell = <td key={key} className="border-r px-2 py-2 text-right text-xs tabular-nums text-muted-foreground">{total || ''}</td>;
+                                        if (key === 'material_prep') {
+                                            const totalVisit = entries.reduce((s, e) => s + (e.visit_count || 0), 0);
+                                            const totalNiilber = entries.reduce((s, e) => s + calcNiilberOnoo(e), 0);
+                                            return [
+                                                cell,
+                                                <td key="visit_count" className="border-r border-l-2 border-l-blue-300 dark:border-l-blue-700 px-2 py-2 text-right text-xs tabular-nums text-blue-700 dark:text-blue-400 bg-blue-50/40 dark:bg-blue-950/10">{totalVisit || ''}</td>,
+                                                <td key="niilber_onoo" className="border-r px-2 py-2 text-right text-xs tabular-nums font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/10 whitespace-nowrap">{totalNiilber ? totalNiilber.toLocaleString('en-US') : ''}</td>,
+                                            ];
+                                        }
+                                        return cell;
                                     })}
                                     <td className="px-3 py-2 text-right text-xs tabular-nums font-bold text-violet-700 dark:text-violet-400 bg-violet-50/40 dark:bg-violet-950/10">
                                         {fmtMoney(entries.reduce((s, e) => s + (e.total_amount || 0), 0))}₮

@@ -125,6 +125,7 @@ class NurseBonusController extends Controller
 
         $fields = [
             'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
+            'visit_count',
             'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
             'post_exam_chair_sterilize', 'tube_sterilization', 'suction_filter',
             'quartz_before', 'quartz_after', 'xray', 'model_cast', 'implant',
@@ -151,6 +152,7 @@ class NurseBonusController extends Controller
     {
         $fields = [
             'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
+            'visit_count',
             'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
             'post_exam_chair_sterilize', 'tube_sterilization', 'suction_filter',
             'quartz_before', 'quartz_after', 'xray', 'model_cast', 'implant',
@@ -264,6 +266,7 @@ class NurseBonusController extends Controller
             'chair_sterilization' => $e->chair_sterilization,
             'equipment_prep' => $e->equipment_prep,
             'material_prep' => $e->material_prep,
+            'visit_count' => $e->visit_count,
             'card_issued' => $e->card_issued,
             'card_collected' => $e->card_collected,
             'pre_exam_prep' => $e->pre_exam_prep,

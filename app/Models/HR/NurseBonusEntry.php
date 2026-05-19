@@ -12,6 +12,7 @@ class NurseBonusEntry extends Model
     protected $fillable = [
         'nurse_bonus_run_id', 'employee_id',
         'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
+        'visit_count',
         'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
         'post_exam_chair_sterilize', 'tube_sterilization', 'suction_filter',
         'quartz_before', 'quartz_after', 'xray', 'model_cast', 'implant',
@@ -57,13 +58,33 @@ class NurseBonusEntry extends Model
         return $this->belongsTo(Employee::class);
     }
 
+    public const PRE_KEYS = ['clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep'];
+
+    public const DEDUCT_KEYS = ['complaint', 'absent'];
+
     public function calcTotal(): float
     {
-        $total = 0;
+        // Нийлбэр оноо = visit_count × (pre-group count-уудын нийлбэр)
+        $sumCounts = 0;
+        foreach (self::PRE_KEYS as $key) {
+            $sumCounts += ($this->{$key} ?? 0);
+        }
+        $niilberOnoo = ($this->visit_count ?? 0) * $sumCounts;
+
+        // Post-group: зөвхөн count нэмнэ (үнэгүй)
+        $postAdd = 0;
         foreach (self::CRITERIA as $key => $c) {
-            $total += ($this->{$key} ?? 0) * $c['price'];
+            if (! in_array($key, self::PRE_KEYS) && ! in_array($key, self::DEDUCT_KEYS)) {
+                $postAdd += ($this->{$key} ?? 0);
+            }
         }
 
-        return $total;
+        // complaint, absent: 10,000 оноо тус бүр хасна
+        $deduct = 0;
+        foreach (self::DEDUCT_KEYS as $key) {
+            $deduct += ($this->{$key} ?? 0) * 10000;
+        }
+
+        return $niilberOnoo + $postAdd - $deduct;
     }
 }

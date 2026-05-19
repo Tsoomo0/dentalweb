@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
-    Briefcase, ChevronLeft, ChevronRight, CreditCard,
+    AlertCircle, Briefcase, ChevronLeft, ChevronRight, CreditCard,
     FileText, Heart, Plus, Save, Trash2, User, Users,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -33,16 +33,44 @@ type TabKey = typeof TABS[number]['key'];
 
 // ── Shared UI components ──────────────────────────────────────────────────────
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">
                 {label}{required && <span className="ml-0.5 text-red-500">*</span>}
             </label>
             {children}
+            {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
         </div>
     );
 }
+
+const FIELD_LABELS: Record<string, string> = {
+    last_name: 'Овог', first_name: 'Нэр', register_number: 'Регистрийн дугаар',
+    birth_date: 'Төрсөн огноо', gender: 'Хүйс',
+    username: 'Нэвтрэх нэр', password: 'Нууц үг',
+    phone: 'Утасны дугаар', email: 'Имэйл',
+    branch_id: 'Салбар', position_id: 'Албан тушаал',
+    salary: 'Цалин', hired_date: 'Ажилд орсон огноо',
+};
+
+function translateError(key: string, msg: string): string {
+    const name = FIELD_LABELS[key] ?? key;
+    if (msg.includes('already been taken') || msg.includes('unique')) return `${name} аль хэдийн бүртгэгдсэн байна`;
+    if (msg.includes('required')) return `${name} заавал бөглөнө үү`;
+    if (msg.includes('at least 6') || msg.includes('min:6')) return 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой';
+    if (msg.includes('must be a date') || msg.includes('valid date')) return 'Зөв огноо оруулна уу';
+    return msg;
+}
+
+const TAB_FIELDS: Record<string, string[]> = {
+    personal: ['last_name', 'first_name', 'register_number', 'birth_date', 'gender'],
+    contact:  ['username', 'password', 'phone', 'email'],
+    work:     ['branch_id', 'position_id', 'salary', 'hired_date'],
+    docs:     ['contract_start_date', 'contract_end_date'],
+    finance:  ['bank_name', 'bank_account'],
+    family:   [],
+};
 
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     return (
@@ -88,6 +116,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
     const [tab, setTab]     = useState<TabKey>('personal');
     const [licenses, setLicenses] = useState<License[]>([{ name: '', issuer: '', start_date: '', end_date: '', notes: '' }]);
     const [family, setFamily]     = useState<FamilyMember[]>([{ last_name: '', first_name: '', phone: '', relationship: '', birth_date: '', employment_status: '' }]);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
     const { data, setData, processing } = useForm<any>({
         photo: null as File | null,
@@ -117,6 +146,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        setFormErrors({});
         const fd = new FormData();
         Object.entries(data).forEach(([k, v]) => {
             if (v !== null && v !== undefined) {
@@ -126,7 +156,18 @@ export default function CreateEmployee({ branches, positions }: Props) {
         });
         licenses.forEach((l, i) => Object.entries(l).forEach(([k, v]) => fd.append(`licenses[${i}][${k}]`, v)));
         family.forEach((f, i) => Object.entries(f).forEach(([k, v]) => fd.append(`family_members[${i}][${k}]`, v)));
-        router.post('/hr/employees', fd as any);
+        router.post('/hr/employees', fd as any, {
+            onError: (errors) => {
+                setFormErrors(errors);
+                // Алдаатай таб руу автоматаар шилжих
+                for (const [tabKey, fields] of Object.entries(TAB_FIELDS)) {
+                    if (fields.some(f => errors[f])) {
+                        setTab(tabKey as TabKey);
+                        break;
+                    }
+                }
+            },
+        });
     }
 
     function addLicense() { setLicenses(p => [...p, { name: '', issuer: '', start_date: '', end_date: '', notes: '' }]); }
@@ -156,6 +197,26 @@ export default function CreateEmployee({ branches, positions }: Props) {
                         <p className="text-sm text-muted-foreground">Бүх хэсгийг бөглөөд хадгална уу</p>
                     </div>
                 </div>
+
+                {Object.keys(formErrors).length > 0 && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 px-4 py-3">
+                        <div className="flex items-start gap-2">
+                            <AlertCircle className="size-4 text-red-500 mt-0.5 shrink-0" />
+                            <div>
+                                <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
+                                    Бүртгэл амжилтгүй болов. Дараах алдаануудыг засна уу:
+                                </p>
+                                <ul className="space-y-0.5">
+                                    {Object.entries(formErrors).map(([key, msg]) => (
+                                        <li key={key} className="text-xs text-red-600 dark:text-red-400">
+                                            • {translateError(key, msg)}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="flex flex-1 flex-col">
                     <div className="flex flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
@@ -215,8 +276,9 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                         <Field label="Нэр" required>
                                             <Input value={data.first_name} onChange={e => setData('first_name', e.target.value)} placeholder="Мөнхбаяр" />
                                         </Field>
-                                        <Field label="Регистрийн дугаар" required>
-                                            <Input value={data.register_number} onChange={e => setData('register_number', e.target.value)} placeholder="УВ88010112" />
+                                        <Field label="Регистрийн дугаар" required error={formErrors.register_number ? translateError('register_number', formErrors.register_number) : undefined}>
+                                            <Input value={data.register_number} onChange={e => setData('register_number', e.target.value)} placeholder="УВ88010112"
+                                                className={`w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-muted ${formErrors.register_number ? 'border-red-400' : ''}`} />
                                         </Field>
                                         <Field label="Төрсөн огноо" required>
                                             <Input type="date" value={data.birth_date} onChange={e => setData('birth_date', e.target.value)} />
@@ -285,11 +347,13 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                 <div className="space-y-6">
                                     <SectionTitle>Нэвтрэх мэдээлэл</SectionTitle>
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        <Field label="Нэвтрэх нэр (username)" required>
-                                            <Input value={data.username} onChange={e => setData('username', e.target.value)} placeholder="bold.erdene" />
+                                        <Field label="Нэвтрэх нэр (username)" required error={formErrors.username ? translateError('username', formErrors.username) : undefined}>
+                                            <Input value={data.username} onChange={e => setData('username', e.target.value)} placeholder="bold.erdene"
+                                                className={`w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-muted ${formErrors.username ? 'border-red-400' : ''}`} />
                                         </Field>
-                                        <Field label="Нууц үг" required>
-                                            <Input type="password" value={data.password} onChange={e => setData('password', e.target.value)} placeholder="••••••••" />
+                                        <Field label="Нууц үг" required error={formErrors.password ? translateError('password', formErrors.password) : undefined}>
+                                            <Input type="password" value={data.password} onChange={e => setData('password', e.target.value)} placeholder="••••••••"
+                                                className={`w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-muted ${formErrors.password ? 'border-red-400' : ''}`} />
                                         </Field>
                                     </div>
 
@@ -298,8 +362,9 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                         <Field label="Утасны дугаар" required>
                                             <Input value={data.phone} onChange={e => setData('phone', e.target.value)} placeholder="99001122" />
                                         </Field>
-                                        <Field label="Имэйл">
-                                            <Input type="email" value={data.email} onChange={e => setData('email', e.target.value)} placeholder="name@dental.mn" />
+                                        <Field label="Имэйл" error={formErrors.email ? translateError('email', formErrors.email) : undefined}>
+                                            <Input type="email" value={data.email} onChange={e => setData('email', e.target.value)} placeholder="name@dental.mn"
+                                                className={`w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-muted ${formErrors.email ? 'border-red-400' : ''}`} />
                                         </Field>
                                         <Field label="Оршин суугаа хаяг">
                                             <Input value={data.address} onChange={e => setData('address', e.target.value)} placeholder="БЗД, 4-р хороо" />
