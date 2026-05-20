@@ -337,15 +337,29 @@ function DoctorSelect({ value, onChange, doctors, technicians }: {
     technicians: Technician[];
 }) {
     const [open, setOpen] = useState(false);
-    const [pos, setPos] = useState({ top: 0, left: 0, minWidth: 176 });
+    const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; minWidth: number; maxHeight: number }>({
+        top: 0, left: 0, minWidth: 176, maxHeight: 256,
+    });
     const btnRef  = useRef<HTMLButtonElement>(null);
     const dropRef = useRef<HTMLDivElement>(null);
 
-    const handleOpen = () => {
-        if (!open && btnRef.current) {
-            const r = btnRef.current.getBoundingClientRect();
-            setPos({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, minWidth: Math.max(r.width, 176) });
+    const recalc = () => {
+        if (!btnRef.current) return;
+        const r = btnRef.current.getBoundingClientRect();
+        const vh = window.innerHeight;
+        const spaceBelow = vh - r.bottom;
+        const spaceAbove = r.top;
+        const desired = Math.min(320, Math.max(spaceBelow, spaceAbove) - 16); // viewport-аас гарахгүйгээр
+        const openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
+        if (openUp) {
+            setPos({ bottom: vh - r.top + 4, left: r.left, minWidth: Math.max(r.width, 176), maxHeight: Math.max(160, Math.min(desired, spaceAbove - 16)) });
+        } else {
+            setPos({ top: r.bottom + 4, left: r.left, minWidth: Math.max(r.width, 176), maxHeight: Math.max(160, Math.min(desired, spaceBelow - 16)) });
         }
+    };
+
+    const handleOpen = () => {
+        if (!open) recalc();
         setOpen(v => !v);
     };
 
@@ -355,8 +369,15 @@ function DoctorSelect({ value, onChange, doctors, technicians }: {
             const t = e.target as Node;
             if (!btnRef.current?.contains(t) && !dropRef.current?.contains(t)) setOpen(false);
         };
+        const onScroll = () => { recalc(); };
         document.addEventListener('mousedown', fn);
-        return () => document.removeEventListener('mousedown', fn);
+        window.addEventListener('scroll', onScroll, true);
+        window.addEventListener('resize', onScroll);
+        return () => {
+            document.removeEventListener('mousedown', fn);
+            window.removeEventListener('scroll', onScroll, true);
+            window.removeEventListener('resize', onScroll);
+        };
     }, [open]);
 
     const displayName = value.startsWith('d:')
@@ -383,8 +404,15 @@ function DoctorSelect({ value, onChange, doctors, technicians }: {
             </button>
             {open && createPortal(
                 <div ref={dropRef}
-                    style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: pos.minWidth, zIndex: 9999 }}
-                    className="max-h-64 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl">
+                    style={{
+                        position: 'fixed',
+                        ...(pos.top !== undefined ? { top: pos.top } : { bottom: pos.bottom }),
+                        left: pos.left,
+                        minWidth: pos.minWidth,
+                        maxHeight: pos.maxHeight,
+                        zIndex: 9999,
+                    }}
+                    className="overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl premium-scroll">
                     <div className={itemCls('')} onClick={() => pick('')}>—</div>
                     {technicians.length === 0 ? (
                         doctors.map(d => (
@@ -1102,7 +1130,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
 
                 {/* ── Хүснэгт ── */}
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                    <div ref={scrollRef} className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '72vh' }}>
+                    <div ref={scrollRef} className="overflow-x-auto overflow-y-auto premium-scroll" style={{ maxHeight: '72vh' }}>
                         <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed', minWidth: 1400 }}>
                             <colgroup>
                                 <col style={{ width: 30 }} />   {/* № */}
