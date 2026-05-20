@@ -21,7 +21,9 @@ interface EmployeeInfo {
 
 interface BonusEntry {
     id: number; run_id: number; run_title: string; half_label: string;
+    date: string | null;
     year: number; month: number; half: string;
+    visit_count: number;
     clothing: number; hand_hygiene: number; chair_sterilization: number;
     equipment_prep: number; material_prep: number; card_issued: number;
     card_collected: number; pre_exam_prep: number; exam_chair_prep: number;
@@ -29,6 +31,23 @@ interface BonusEntry {
     quartz_before: number; quartz_after: number; xray: number; model_cast: number;
     implant: number; blood_pressure: number; complaint: number; absent: number;
     total_amount: number;
+}
+
+const PRE_KEYS = ['clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep'];
+const DEDUCT_KEYS = ['complaint', 'absent'];
+
+/**
+ * Эмчилгээний урамшууллын мөр бүрийн бодит хувь нэмрийг тооцно (админ талтай ижил логик):
+ *  - Pre-key (хувцаслалт, гарын ариун цэвэр, ...): visit_count × count
+ *  - Deduct-key (complaint, absent): count × -10,000₮
+ *  - Бусад (post-key — карт, рентген, ...): зөвхөн count (үнэгүй нэмэгдэх оноо)
+ */
+function rowAmount(entry: BonusEntry, key: string): number {
+    const count = (entry[key as keyof BonusEntry] as number) || 0;
+    if (!count) return 0;
+    if (PRE_KEYS.includes(key)) return count * (entry.visit_count || 0);
+    if (DEDUCT_KEYS.includes(key)) return -count * 10000;
+    return count;
 }
 
 interface CriterionDef { label: string; unit: string; price: number }
@@ -43,19 +62,25 @@ function fmtMoney(n: number) {
 
 function MobileBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: CriteriaMap }) {
     const [open, setOpen] = useState(false);
-    const criteriaList = Object.entries(criteria) as [string, CriterionDef][];
+    // Зөвхөн тоо оруулсан шалгуурыг харуулна (бөглөөгүй мөрийг харуулахгүй)
+    const criteriaList = (Object.entries(criteria) as [string, CriterionDef][])
+        .filter(([key]) => ((entry[key as keyof BonusEntry] as number) || 0) > 0);
 
     return (
         <div style={{ background: 'var(--my-card-bg)', borderRadius: 22, overflow: 'hidden', boxShadow: 'var(--my-shadow)', border: '1px solid var(--my-card-border)' }}>
             <button onClick={() => setOpen(v => !v)}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '14px 16px', gap: 13, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ width: 50, height: 50, borderRadius: 16, background: 'linear-gradient(145deg, #fef2f2, #fee2e2)', border: '1.5px solid #fecaca', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, gap: 1 }}>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: RED, lineHeight: 1 }}>{entry.month}</span>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: RED2, letterSpacing: 0.3 }}>{entry.year}</span>
+                    <span style={{ fontSize: 22, fontWeight: 900, color: RED, lineHeight: 1 }}>{entry.date ? Number(entry.date.split('-')[2]) : entry.month}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: RED2, letterSpacing: 0.3 }}>{entry.month}-р сар</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--my-input-text)', margin: 0 }}>{entry.month}-р сар</p>
-                    <p style={{ fontSize: 11, color: 'var(--my-faint)', margin: '3px 0 0' }}>{entry.half_label}</p>
+                    <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--my-input-text)', margin: 0 }}>
+                        {entry.date ? `${entry.month}-р сарын ${Number(entry.date.split('-')[2])}` : `${entry.month}-р сар`}
+                    </p>
+                    <p style={{ fontSize: 11, color: 'var(--my-faint)', margin: '3px 0 0' }}>
+                        {entry.date ? `${entry.year} он · ${entry.date}` : entry.half_label}
+                    </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <div style={{ textAlign: 'right' }}>
@@ -76,27 +101,26 @@ function MobileBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cri
                     </div>
 
                     <div style={{ background: 'var(--my-page-bg)', borderRadius: 16, overflow: 'hidden' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--my-divider)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--my-divider)' }}>
                             <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--my-faint)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Шалгуур</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--my-faint)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Тоо</span>
                             <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--my-faint)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Дүн</span>
                         </div>
-                        {criteriaList.map(([key, c]) => {
-                            const count  = entry[key as keyof BonusEntry] as number || 0;
-                            const amount = count * c.price;
+                        {criteriaList.length === 0 ? (
+                            <div style={{ padding: '20px', textAlign: 'center', fontSize: 12, color: 'var(--my-faint)' }}>
+                                Бүртгэгдсэн ажил байхгүй
+                            </div>
+                        ) : criteriaList.map(([key, c]) => {
+                            const amount = rowAmount(entry, key);
                             return (
-                                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, padding: '11px 14px', borderBottom: '1px solid var(--my-divider)', alignItems: 'center' }}>
+                                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, padding: '11px 14px', borderBottom: '1px solid var(--my-divider)', alignItems: 'center' }}>
                                     <div>
                                         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--my-input-text)', margin: 0, lineHeight: 1.2 }}>{c.label}</p>
                                         <p style={{ fontSize: 10, color: 'var(--my-faint)', margin: '2px 0 0' }}>
-                                            {c.price < 0 ? `-${Math.abs(c.price).toLocaleString('en-US')}₮` : `+${c.price.toLocaleString('en-US')}₮`} / {c.unit}
+                                            {PRE_KEYS.includes(key) ? `× ${entry.visit_count || 0} үзлэг` : DEDUCT_KEYS.includes(key) ? '−10,000₮ тус бүр' : '+1 оноо / тус бүр'}
                                         </p>
                                     </div>
-                                    <span style={{ fontSize: 12, color: 'var(--my-muted)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                        {count ? `${count} ${c.unit}` : '—'}
-                                    </span>
                                     <span style={{ fontSize: 13, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: amount < 0 ? '#dc2626' : amount > 0 ? 'var(--my-input-text)' : 'var(--my-faint)' }}>
-                                        {amount ? `${Math.round(amount).toLocaleString('en-US')}₮` : '—'}
+                                        {amount !== 0 ? (amount < 0 ? `${Math.round(amount).toLocaleString('en-US')}₮` : `+${Math.round(amount).toLocaleString('en-US')}`) : '—'}
                                     </span>
                                 </div>
                             );
@@ -110,7 +134,9 @@ function MobileBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cri
 
 function DesktopBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: CriteriaMap }) {
     const [open, setOpen] = useState(false);
-    const criteriaList = Object.entries(criteria) as [string, CriterionDef][];
+    // Зөвхөн тоо оруулсан шалгуурыг харуулна
+    const criteriaList = (Object.entries(criteria) as [string, CriterionDef][])
+        .filter(([key]) => ((entry[key as keyof BonusEntry] as number) || 0) > 0);
 
     return (
         <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
@@ -122,7 +148,7 @@ function DesktopBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cr
                     </div>
                     <div>
                         <p className="text-sm font-bold text-foreground">{entry.run_title}</p>
-                        <p className="text-xs text-muted-foreground">{entry.half_label}</p>
+                        <p className="text-xs text-muted-foreground">{entry.date ?? entry.half_label}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-6">
@@ -136,32 +162,32 @@ function DesktopBonusCard({ entry, criteria }: { entry: BonusEntry; criteria: Cr
             {open && (
                 <div className="border-t px-5 py-4">
                     <div className="rounded-xl border overflow-hidden">
-                        <div className="grid grid-cols-4 bg-muted/40 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b">
+                        <div className="grid grid-cols-3 bg-muted/40 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b">
                             <div className="col-span-2">Шалгуур</div>
-                            <div className="text-right">Тоо</div>
                             <div className="text-right">Дүн</div>
                         </div>
-                        {criteriaList.map(([key, c], i) => {
-                            const count  = entry[key as keyof BonusEntry] as number || 0;
-                            const amount = count * c.price;
+                        {criteriaList.length === 0 ? (
+                            <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                                Бүртгэгдсэн ажил байхгүй
+                            </div>
+                        ) : criteriaList.map(([key, c], i) => {
+                            const amount = rowAmount(entry, key);
                             return (
-                                <div key={key} className={`grid grid-cols-4 px-4 py-2.5 text-xs border-b last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/10'}`}>
+                                <div key={key} className={`grid grid-cols-3 px-4 py-2.5 text-xs border-b last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/10'}`}>
                                     <div className="col-span-2">
                                         <p className="font-medium text-foreground leading-snug">{c.label}</p>
                                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                                            {c.price < 0 ? `-${Math.abs(c.price).toLocaleString('en-US')}₮` : `+${c.price.toLocaleString('en-US')}₮`} / {c.unit}
+                                            {PRE_KEYS.includes(key) ? `× ${entry.visit_count || 0} үзлэг` : DEDUCT_KEYS.includes(key) ? '−10,000₮ тус бүр' : '+1 оноо / тус бүр'}
                                         </p>
                                     </div>
-                                    <div className="text-right tabular-nums text-muted-foreground self-center">{count ? `${count} ${c.unit}` : '—'}</div>
                                     <div className={`text-right tabular-nums font-semibold self-center ${amount < 0 ? 'text-red-600 dark:text-red-400' : amount > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                        {amount ? `${Math.round(amount).toLocaleString('en-US')}₮` : '—'}
+                                        {amount !== 0 ? (amount < 0 ? `${Math.round(amount).toLocaleString('en-US')}₮` : `+${Math.round(amount).toLocaleString('en-US')}`) : '—'}
                                     </div>
                                 </div>
                             );
                         })}
-                        <div className="grid grid-cols-4 px-4 py-3 bg-red-50/50 dark:bg-red-950/10 border-t-2 border-red-200 dark:border-red-800">
+                        <div className="grid grid-cols-3 px-4 py-3 bg-red-50/50 dark:bg-red-950/10 border-t-2 border-red-200 dark:border-red-800">
                             <div className="col-span-2 text-sm font-bold text-foreground">Нийт</div>
-                            <div />
                             <div className="text-right text-sm font-bold text-red-700 dark:text-red-400 tabular-nums">{fmtMoney(entry.total_amount)}</div>
                         </div>
                     </div>

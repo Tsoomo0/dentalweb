@@ -17,9 +17,9 @@ class NurseBonusController extends Controller
             return redirect()->route('portal.select');
         }
 
-        // Зөвхөн сувилагч албан тушаал
-        $position = $employee->position?->name ?? '';
-        if (mb_stripos($position, 'сувилагч') === false) {
+        // Зөвхөн "Сувилагч" албан тушаал (ариутгалын сувилагч гэх мэт хасагдана)
+        $position = mb_strtolower(trim($employee->position?->name ?? ''));
+        if ($position !== 'сувилагч') {
             return redirect()->route('portal.select');
         }
 
@@ -34,9 +34,11 @@ class NurseBonusController extends Controller
                 'run_id' => $e->nurse_bonus_run_id,
                 'run_title' => $e->run->title,
                 'half_label' => $e->run->half_label,
+                'date' => $e->run->date?->toDateString(),
                 'year' => $e->run->year,
                 'month' => $e->run->month,
                 'half' => $e->run->half,
+                'visit_count' => $e->visit_count,
                 'clothing' => $e->clothing,
                 'hand_hygiene' => $e->hand_hygiene,
                 'chair_sterilization' => $e->chair_sterilization,

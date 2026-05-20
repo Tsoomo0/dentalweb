@@ -16,7 +16,11 @@ class NurseBonusRun extends Model
     protected $table = 'nurse_bonus_runs';
 
     protected $fillable = [
-        'year', 'month', 'half', 'label', 'branch_id', 'status', 'notes', 'created_by',
+        'date', 'year', 'month', 'half', 'label', 'branch_id', 'status', 'notes', 'created_by',
+    ];
+
+    protected $casts = [
+        'date' => 'date:Y-m-d',
     ];
 
     public function branch(): BelongsTo
@@ -41,9 +45,15 @@ class NurseBonusRun extends Model
 
     public function getTitleAttribute(): string
     {
+        $label = $this->label ? " · {$this->label}" : '';
+
+        if ($this->date) {
+            return $this->date->format('Y оны n-р сарын j').$label;
+        }
+
+        // Хуучин run-уудад date байхгүй бол month/half-аас зохионо
         $months = ['', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
         $half = $this->half === 'first' ? 'эхэн' : 'сүүл';
-        $label = $this->label ? " · {$this->label}" : '';
 
         return "{$this->year} оны {$months[$this->month]}-р сар {$half}{$label}";
     }

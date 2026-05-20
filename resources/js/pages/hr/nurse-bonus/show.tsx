@@ -2,14 +2,16 @@ import AppLayout from '@/layouts/app-layout';
 import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { CheckCircle2, ChevronDown, ChevronUp, FileSpreadsheet, Lock, Save, Send, Unlock } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, FileSpreadsheet, Lock, Plus, Save, Send, Unlock, UserMinus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface BonusRun {
-    id: number; title: string; year: number; month: number;
+    id: number; title: string; date: string | null;
+    year: number; month: number;
     half: 'first' | 'second'; half_label: string;
     label: string | null; status: 'draft' | 'final'; notes: string | null;
 }
+interface AvailableEmployee { id: number; name: string; employee_number: string }
 interface EntryRow {
     id: number; employee_id: number; name: string;
     employee_number: string; position: string | null;
@@ -25,7 +27,7 @@ interface EntryRow {
 }
 interface CriterionDef { label: string; unit: string; price: number }
 type CriteriaMap = Record<string, CriterionDef>;
-interface Props { run: BonusRun; entries: EntryRow[]; criteria: CriteriaMap }
+interface Props { run: BonusRun; entries: EntryRow[]; criteria: CriteriaMap; available_employees: AvailableEmployee[] }
 
 const PRE_KEYS = [
     'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
@@ -166,12 +168,42 @@ function MobileEntryCard({ entry, idx, criteria, isFinal, runId, onSetField }: {
     );
 }
 
-export default function NurseBonusShow({ run, entries: initial, criteria }: Props) {
+export default function NurseBonusShow({ run, entries: initial, criteria, available_employees }: Props) {
     const [entries, setEntries] = useState<EntryRow[]>(initial.map(e => ({ ...e })));
     const [saving, setSaving]   = useState(false);
     const [saved, setSaved]     = useState(false);
     const [scrollEdge, setScrollEdge] = useState({ left: false, right: true });
+    const [showAddEmp, setShowAddEmp] = useState(false);
+    const [removeEmpId, setRemoveEmpId] = useState<number | null>(null);
     const tableRef = useRef<HTMLDivElement>(null);
+
+    // Inertia-аас шинэ entries prop ирэхэд (ажилтан нэмэх/хасах үед) local state-ийг шинэчлэнэ.
+    // Зөвхөн мөрүүдийн ID-ийн жагсаалт өөрчлөгдсөн үед бүрэн солино,
+    // ингэснээр хэрэглэгчийн засаж буй тоо хэвээр үлдэнэ.
+    useEffect(() => {
+        setEntries(prev => {
+            const prevIds = prev.map(e => e.id).join(',');
+            const nextIds = initial.map(e => e.id).join(',');
+            if (prevIds === nextIds) return prev;
+            return initial.map(srv => {
+                const local = prev.find(p => p.id === srv.id);
+                return local ? { ...srv, ...local } : { ...srv };
+            });
+        });
+    }, [initial]);
+
+    function addEmployee(employeeId: number) {
+        router.post(`/hr/nurse-bonus/${run.id}/entries`, { employee_id: employeeId }, {
+            preserveScroll: true,
+            onSuccess: () => setShowAddEmp(false),
+        });
+    }
+    function removeEmployee(entryId: number) {
+        router.delete(`/hr/nurse-bonus/${run.id}/entries/${entryId}`, {
+            preserveScroll: true,
+            onSuccess: () => setRemoveEmpId(null),
+        });
+    }
 
     const isFinal   = run.status === 'final';
     const sentCount = entries.filter(e => e.is_sent).length;
@@ -319,6 +351,12 @@ export default function NurseBonusShow({ run, entries: initial, criteria }: Prop
                             </button>
                         ) : (
                             <>
+                                {available_employees.length > 0 && (
+                                    <button onClick={() => setShowAddEmp(true)}
+                                        className="flex items-center gap-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                                        <Plus className="size-3.5" /> Ажилтан нэмэх
+                                    </button>
+                                )}
                                 <button onClick={save} disabled={saving}
                                     className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-50">
                                     {saving
@@ -379,11 +417,18 @@ export default function NurseBonusShow({ run, entries: initial, criteria }: Prop
                                                 {e.is_sent
                                                     ? <span title="Илгээсэн"><CheckCircle2 className="size-3 text-emerald-500 shrink-0" /></span>
                                                     : !isFinal && (
-                                                        <button title="Энэ ажилтанд илгээх"
-                                                            onClick={() => router.post(`/hr/nurse-bonus/${run.id}/entries/${e.id}/send`)}
-                                                            className="rounded p-0.5 text-muted-foreground hover:text-violet-600 hover:bg-violet-50 transition-colors">
-                                                            <Send className="size-3" />
-                                                        </button>
+                                                        <>
+                                                            <button title="Энэ ажилтанд илгээх"
+                                                                onClick={() => router.post(`/hr/nurse-bonus/${run.id}/entries/${e.id}/send`)}
+                                                                className="rounded p-0.5 text-muted-foreground hover:text-violet-600 hover:bg-violet-50 transition-colors">
+                                                                <Send className="size-3" />
+                                                            </button>
+                                                            <button title="Энэ ажилтныг хасах"
+                                                                onClick={() => setRemoveEmpId(e.id)}
+                                                                className="rounded p-0.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                                                                <UserMinus className="size-3" />
+                                                            </button>
+                                                        </>
                                                     )
                                                 }
                                             </div>
@@ -444,6 +489,70 @@ export default function NurseBonusShow({ run, entries: initial, criteria }: Prop
                     Тоо оруулахад дүн автоматаар тооцогдоно · Хадгалах товч дарж хадгална
                 </p>
             </div>
+
+            {/* Ажилтан нэмэх modal */}
+            {showAddEmp && (
+                <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 md:p-4"
+                    onClick={() => setShowAddEmp(false)}>
+                    <div className="w-full md:max-w-md bg-white dark:bg-zinc-900 rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="md:hidden flex justify-center pt-3 pb-1">
+                            <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-zinc-700" />
+                        </div>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-zinc-800">
+                            <div>
+                                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Ажилтан нэмэх</h2>
+                                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Энэ өдрийн урамшуулалд нэмэх Сувилагчийг сонгоно уу</p>
+                            </div>
+                            <button onClick={() => setShowAddEmp(false)}
+                                className="size-8 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
+                                <X className="size-4 text-gray-500" />
+                            </button>
+                        </div>
+                        <div className="px-5 py-3 max-h-[60vh] overflow-y-auto divide-y divide-gray-100 dark:divide-zinc-800">
+                            {available_employees.length === 0 ? (
+                                <p className="py-8 text-center text-sm text-muted-foreground">Нэмж болох Сувилагч ажилтан байхгүй байна</p>
+                            ) : available_employees.map(emp => (
+                                <button key={emp.id} onClick={() => addEmployee(emp.id)}
+                                    className="w-full flex items-center justify-between gap-2 py-3 hover:bg-muted/30 transition-colors -mx-2 px-2 rounded-lg">
+                                    <div className="text-left">
+                                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{emp.name}</p>
+                                        <p className="text-xs text-muted-foreground">{emp.employee_number}</p>
+                                    </div>
+                                    <span className="rounded-lg bg-blue-100 dark:bg-blue-950/40 p-1.5">
+                                        <Plus className="size-3.5 text-blue-600 dark:text-blue-400" />
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Ажилтан хасах баталгаажуулалт */}
+            {removeEmpId !== null && (
+                <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 md:p-4"
+                    onClick={() => setRemoveEmpId(null)}>
+                    <div className="w-full md:max-w-xs bg-white dark:bg-zinc-900 rounded-t-3xl md:rounded-2xl shadow-2xl p-6 space-y-4"
+                        onClick={e => e.stopPropagation()}>
+                        <div className="md:hidden flex justify-center mb-2">
+                            <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-zinc-700" />
+                        </div>
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Энэ ажилтныг хасах уу?</p>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400">Тухайн өдрийн урамшууллаас энэ ажилтны мөр устгагдана. Дараа дахин нэмэх боломжтой.</p>
+                        <div className="flex gap-2">
+                            <button onClick={() => removeEmployee(removeEmpId)}
+                                className="flex-1 rounded-2xl bg-red-500 py-3 text-sm font-bold text-white active:scale-[0.98] transition-transform">
+                                Хасах
+                            </button>
+                            <button onClick={() => setRemoveEmpId(null)}
+                                className="flex-1 rounded-2xl bg-gray-100 dark:bg-zinc-800 py-3 text-sm font-semibold text-gray-600 dark:text-zinc-300 active:scale-[0.98] transition-transform">
+                                Болих
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <ToastContainer />
         </AppLayout>

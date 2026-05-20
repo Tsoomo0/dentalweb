@@ -8,7 +8,8 @@ import {
 import { useState } from 'react';
 
 interface BonusRun {
-    id: number; title: string; year: number; month: number;
+    id: number; title: string; date: string | null;
+    year: number; month: number;
     half: 'first' | 'second'; half_label: string; label: string | null;
     status: 'draft' | 'final'; entries_count: number; sent_entries_count: number;
     created_at: string; created_by: string | null;
@@ -21,11 +22,10 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Сувилагчийн урамшуулал', href: '/hr/nurse-bonus' },
 ];
 
-const MONTHS = [
-    { v:1,l:'1-р сар'},{v:2,l:'2-р сар'},{v:3,l:'3-р сар'},{v:4,l:'4-р сар'},
-    {v:5,l:'5-р сар'},{v:6,l:'6-р сар'},{v:7,l:'7-р сар'},{v:8,l:'8-р сар'},
-    {v:9,l:'9-р сар'},{v:10,l:'10-р сар'},{v:11,l:'11-р сар'},{v:12,l:'12-р сар'},
-];
+function today(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 
 function StatusBadge({ run }: { run: BonusRun }) {
     if (run.status === 'final') return (
@@ -46,10 +46,10 @@ function StatusBadge({ run }: { run: BonusRun }) {
 }
 
 function CreateForm({ branches, onClose }: { branches: Branch[]; onClose: () => void }) {
-    const now = new Date();
     const form = useForm({
-        year: now.getFullYear(), month: now.getMonth() + 1,
-        half: 'second' as 'first'|'second', branch_id: '' as string|number, notes: '',
+        date: today(),
+        branch_id: '' as string|number,
+        notes: '',
     });
     const selectedBranch = branches.find(b => b.id == form.data.branch_id);
 
@@ -66,38 +66,17 @@ function CreateForm({ branches, onClose }: { branches: Branch[]; onClose: () => 
                         <div className="flex size-6 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-950/40">
                             <CalendarDays className="size-3.5 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider">Хугацаа</p>
+                        <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider">Огноо</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-zinc-400">Он *</label>
-                            <input type="number" min={2020} max={2100} value={form.data.year}
-                                onChange={e => form.setData('year', Number(e.target.value))}
-                                className="w-full rounded-xl border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                        </div>
-                        <div>
-                            <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-zinc-400">Сар *</label>
-                            <select value={form.data.month} onChange={e => form.setData('month', Number(e.target.value))}
-                                className="w-full rounded-xl border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                                {MONTHS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        {[
-                            { v:'first',  l:'Сарын эхэн', sub:'1–15-ний хооронд',  active:'border-sky-400 bg-sky-50/60 dark:bg-sky-950/20' },
-                            { v:'second', l:'Сарын сүүл', sub:'16–31-ний хооронд', active:'border-violet-400 bg-violet-50/60 dark:bg-violet-950/20' },
-                        ].map(opt => (
-                            <button key={opt.v} type="button"
-                                onClick={() => form.setData('half', opt.v as 'first'|'second')}
-                                className={`relative rounded-xl border-2 px-4 py-2.5 text-left transition-all ${
-                                    form.data.half === opt.v ? opt.active + ' shadow-sm' : 'border-border text-muted-foreground hover:bg-muted'
-                                }`}>
-                                {form.data.half === opt.v && <span className="absolute top-2 right-2 size-1.5 rounded-full bg-current opacity-60" />}
-                                <p className="font-semibold text-sm">{opt.l}</p>
-                                <p className="text-[11px] opacity-60 mt-0.5">{opt.sub}</p>
-                            </button>
-                        ))}
+                    <div>
+                        <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-zinc-400">Урамшууллын өдөр *</label>
+                        <input type="date" value={form.data.date}
+                            onChange={e => form.setData('date', e.target.value)}
+                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                        {form.errors.date && <p className="mt-1 text-xs text-red-500">{form.errors.date}</p>}
+                        <p className="mt-1.5 text-[11px] text-muted-foreground">
+                            💡 Сар бүрт олон удаа үүсгэх боломжтой — өдөр өдрөөр оруулна
+                        </p>
                     </div>
                 </div>
                 <div className="border-t border-gray-100 dark:border-zinc-800" />
@@ -118,7 +97,7 @@ function CreateForm({ branches, onClose }: { branches: Branch[]; onClose: () => 
                         <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2">
                             <ChevronRight className="size-3 text-emerald-500 shrink-0" />
                             <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                                <strong>{selectedBranch.name}</strong> салбарын сувилагч ажилтнуудын мөр үүснэ
+                                <strong>{selectedBranch.name}</strong> салбарын Сувилагч ажилтнуудын мөр үүснэ
                             </p>
                         </div>
                     )}
@@ -207,7 +186,7 @@ export default function NurseBonusIndex({ runs, branches }: Props) {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-xl font-bold text-foreground">Сувилагчийн урамшуулал</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">Сард 2 удаа урамшуулал бүртгэх</p>
+                        <p className="text-sm text-muted-foreground mt-0.5">Өдөр өдрөөр урамшуулал бүртгэх</p>
                     </div>
                     <button onClick={() => setCreateOpen(true)}
                         className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition-colors">
@@ -237,7 +216,7 @@ export default function NurseBonusIndex({ runs, branches }: Props) {
                                         onClick={() => router.visit(`/hr/nurse-bonus/${r.id}`)}>
                                         <td className="px-5 py-3.5">
                                             <p className="font-semibold text-foreground text-sm">{r.title}</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">{r.half === 'first' ? '1–15' : '16–31'}</p>
+                                            {r.date && <p className="text-xs text-muted-foreground mt-0.5">{r.date}</p>}
                                         </td>
                                         <td className="px-4 py-3.5 hidden sm:table-cell"><StatusBadge run={r} /></td>
                                         <td className="px-4 py-3.5 text-center hidden md:table-cell">
@@ -273,7 +252,7 @@ export default function NurseBonusIndex({ runs, branches }: Props) {
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-zinc-800">
                             <div>
                                 <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">Шинэ урамшууллын тооцоо</h2>
-                                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Сувилагч ажилтнуудаар автоматаар мөр үүснэ</p>
+                                <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Тухайн өдрийн Сувилагч ажилтнуудаар автоматаар мөр үүснэ</p>
                             </div>
                             <button onClick={() => setCreateOpen(false)}
                                 className="size-8 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">

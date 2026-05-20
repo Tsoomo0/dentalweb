@@ -27,6 +27,7 @@ class NurseBonusController extends Controller
             ->map(fn ($r) => [
                 'id' => $r->id,
                 'title' => $r->title,
+                'date' => $r->date?->toDateString(),
                 'year' => $r->year,
                 'month' => $r->month,
                 'half' => $r->half,
@@ -48,20 +49,21 @@ class NurseBonusController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'year' => 'required|integer|min:2020|max:2100',
-            'month' => 'required|integer|min:1|max:12',
-            'half' => 'required|in:first,second',
+            'date' => 'required|date',
             'branch_id' => 'required|exists:branches,id',
             'notes' => 'nullable|string|max:500',
         ]);
 
         $run = DB::transaction(function () use ($request) {
             $branch = Branch::findOrFail($request->branch_id);
+            $date = \Carbon\Carbon::parse($request->date);
 
             $run = NurseBonusRun::create([
-                'year' => $request->year,
-                'month' => $request->month,
-                'half' => $request->half,
+                'date' => $date->toDateString(),
+                // Хуучин баганатай нийцэхийн тулд month/half-ийг автомат тооцоонд бөглөнө
+                'year' => $date->year,
+                'month' => $date->month,
+                'half' => $date->day <= 15 ? 'first' : 'second',
                 'label' => $branch->name,
                 'branch_id' => $request->branch_id,
                 'notes' => $request->notes,
@@ -69,12 +71,13 @@ class NurseBonusController extends Controller
                 'created_by' => Auth::id(),
             ]);
 
-            // Тухайн салбарын сувилагч ажилтнуудаар entry үүсгэх
+            // Тухайн салбарын ЗӨВХӨН "Сувилагч" албан тушаалтай ажилтнуудаар entry үүсгэх
+            // (ариутгалын сувилагч, эмчилгээний сувилагч гэх мэт хасагдана)
             Employee::with('position')
                 ->whereNull('deleted_at')
                 ->where('status', 'active')
                 ->where('branch_id', $request->branch_id)
-                ->whereHas('position', fn ($q) => $q->whereRaw('LOWER(name) LIKE ?', ['%сувилагч%']))
+                ->whereHas('position', fn ($q) => $q->whereRaw('LOWER(TRIM(name)) = ?', ['сувилагч']))
                 ->orderBy('last_name')
                 ->get()
                 ->each(fn ($emp) => NurseBonusEntry::create([
@@ -95,10 +98,28 @@ class NurseBonusController extends Controller
 
         $entries = $nurseBonusRun->entries->map(fn ($e) => $this->formatEntry($e));
 
+        // Энэ run-д хараахан нэмэгдээгүй (тухайн салбарын ЗӨВХӨН "Сувилагч") ажилтнуудыг харуулна
+        $existingEmployeeIds = $nurseBonusRun->entries->pluck('employee_id')->all();
+        $availableEmployees = Employee::with('position')
+            ->whereNull('deleted_at')
+            ->where('status', 'active')
+            ->when($nurseBonusRun->branch_id, fn ($q) => $q->where('branch_id', $nurseBonusRun->branch_id))
+            ->whereHas('position', fn ($q) => $q->whereRaw('LOWER(TRIM(name)) = ?', ['сувилагч']))
+            ->whereNotIn('id', $existingEmployeeIds)
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn ($e) => [
+                'id' => $e->id,
+                'name' => $e->full_name,
+                'employee_number' => $e->employee_number,
+            ])
+            ->values();
+
         return Inertia::render('hr/nurse-bonus/show', [
             'run' => [
                 'id' => $nurseBonusRun->id,
                 'title' => $nurseBonusRun->title,
+                'date' => $nurseBonusRun->date?->toDateString(),
                 'year' => $nurseBonusRun->year,
                 'month' => $nurseBonusRun->month,
                 'half' => $nurseBonusRun->half,
@@ -108,8 +129,54 @@ class NurseBonusController extends Controller
                 'notes' => $nurseBonusRun->notes,
             ],
             'entries' => $entries,
+            'available_employees' => $availableEmployees,
             'criteria' => NurseBonusEntry::CRITERIA,
         ]);
+    }
+
+    /** Хасах: тухайн өдрийн урамшууллаас ажилтны мөрийг устгана */
+    public function removeEntry(NurseBonusRun $nurseBonusRun, NurseBonusEntry $entry): RedirectResponse
+    {
+        if ($entry->nurse_bonus_run_id !== $nurseBonusRun->id) {
+            return back()->with('error', 'Алдаатай хүсэлт.');
+        }
+        if ($nurseBonusRun->status === 'final') {
+            return back()->with('error', 'Баталгаажсан тооцоог засах боломжгүй.');
+        }
+        if ($entry->is_sent) {
+            return back()->with('error', 'Илгээсэн ажилтны мөрийг хасах боломжгүй.');
+        }
+
+        $entry->delete();
+
+        return back()->with('success', 'Ажилтан хасагдлаа.');
+    }
+
+    /** Нэмэх: тухайн өдрийн урамшуулалд шинэ ажилтан нэмнэ */
+    public function addEntry(Request $request, NurseBonusRun $nurseBonusRun): RedirectResponse
+    {
+        if ($nurseBonusRun->status === 'final') {
+            return back()->with('error', 'Баталгаажсан тооцоог засах боломжгүй.');
+        }
+
+        $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+        ]);
+
+        // Аль хэдийн нэмэгдсэн эсэхийг шалгана
+        $exists = NurseBonusEntry::where('nurse_bonus_run_id', $nurseBonusRun->id)
+            ->where('employee_id', $request->employee_id)
+            ->exists();
+        if ($exists) {
+            return back()->with('error', 'Энэ ажилтан аль хэдийн нэмэгдсэн байна.');
+        }
+
+        NurseBonusEntry::create([
+            'nurse_bonus_run_id' => $nurseBonusRun->id,
+            'employee_id' => $request->employee_id,
+        ]);
+
+        return back()->with('success', 'Ажилтан нэмэгдлээ.');
     }
 
     public function update(Request $request, NurseBonusRun $nurseBonusRun): RedirectResponse

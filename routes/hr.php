@@ -96,6 +96,8 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     Route::delete('nurse-bonus/{nurseBonusRun}', [NurseBonusController::class, 'destroy'])->name('nurse-bonus.destroy');
     Route::get('nurse-bonus/{nurseBonusRun}/excel', [NurseBonusController::class, 'exportExcel'])->name('nurse-bonus.excel');
     Route::post('nurse-bonus/{nurseBonusRun}/entries/{entry}/send', [NurseBonusController::class, 'sendEntry'])->name('nurse-bonus.send-entry');
+    Route::delete('nurse-bonus/{nurseBonusRun}/entries/{entry}', [NurseBonusController::class, 'removeEntry'])->name('nurse-bonus.entries.remove');
+    Route::post('nurse-bonus/{nurseBonusRun}/entries', [NurseBonusController::class, 'addEntry'])->name('nurse-bonus.entries.add');
 
     // ── Санал хүсэлт гомдол ─────────────────────────────────────────────────
     Route::get('feedback', [FeedbackController::class, 'index'])->name('feedback.index');

@@ -95,6 +95,8 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
         || url === '/my/warnings'          || url.startsWith('/my/warnings?')
         || url === '/my/documents'         || url.startsWith('/my/documents?')
         || url === '/my/profile'           || url.startsWith('/my/profile?')
+        || url === '/my/nurse-bonus'       || url.startsWith('/my/nurse-bonus?')
+        || url === '/my/reception-bonus'   || url.startsWith('/my/reception-bonus?')
         || url === '/my/change-password'   || url.startsWith('/my/change-password?');
     // Чат хуудсан дээр top bar + bottom nav-ыг нуугаад full-screen чат болгоно.
     const isChat = url === '/my/chat' || url.startsWith('/my/chat?');
