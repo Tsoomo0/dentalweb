@@ -127,8 +127,12 @@ class AppointmentController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // patient_name эсвэл patient_first_name (+ optional last_name) аль аль форматыг хүлээж авна
         $request->validate([
-            'patient_name' => 'required|string|max:255',
+            'patient_id' => 'nullable|exists:patients,id',
+            'patient_name' => 'nullable|string|max:255',
+            'patient_last_name' => 'nullable|string|max:255',
+            'patient_first_name' => 'nullable|string|max:255',
             'patient_phone' => 'required|string|max:50',
             'patient_email' => 'nullable|email|max:255',
             'doctor_id' => 'nullable|exists:doctors,id',
@@ -147,23 +151,45 @@ class AppointmentController extends Controller
             'admin_notes' => 'nullable|string',
         ]);
 
-        $nameParts = explode(' ', trim($request->patient_name), 2);
-        $patient = Patient::create([
-            'patient_number' => Patient::generateNumber(),
-            'last_name' => $nameParts[0] ?? '',
-            'first_name' => $nameParts[1] ?? '',
-            'phone' => $request->patient_phone,
-            'email' => $request->patient_email,
-            'created_by' => Auth::id(),
-        ]);
+        // Нэр шинжилгээ — first_name + last_name эсвэл patient_name-аас зохионо
+        $lastName  = trim((string) $request->patient_last_name);
+        $firstName = trim((string) $request->patient_first_name);
+        if (! $firstName && ! $lastName && $request->patient_name) {
+            $parts = preg_split('/\s+/', trim($request->patient_name), 2);
+            $lastName  = $parts[0] ?? '';
+            $firstName = $parts[1] ?? $parts[0] ?? '';
+        }
+        if (! $firstName) {
+            return back()->withErrors(['patient_first_name' => 'Үйлчлүүлэгчийн нэр оруулна уу.'])->withInput();
+        }
+        $patientName = trim($lastName.' '.$firstName);
+
+        // Хуучин patient_id ирвэл түүнийг ашиглана, үгүй бол утсаар хайж firstOrCreate
+        $patientId = $request->patient_id;
+        if (! $patientId) {
+            $patient = Patient::firstOrCreate(
+                ['phone' => $request->patient_phone],
+                [
+                    'patient_number' => Patient::generateNumber(),
+                    'last_name' => $lastName,
+                    'first_name' => $firstName,
+                    'email' => $request->patient_email,
+                    'created_by' => Auth::id(),
+                ]
+            );
+            $patientId = $patient->id;
+        }
 
         $appointment = Appointment::create([
             'appointment_number' => Appointment::generateNumber(),
             'created_by' => Auth::user()?->name ?? 'Админ',
             'created_by_id' => Auth::id(),
-            'patient_id' => $patient->id,
+            'patient_id' => $patientId,
+            'patient_name' => $patientName,
+            'patient_last_name' => $lastName,
+            'patient_first_name' => $firstName,
             ...$request->only(
-                'patient_name', 'patient_phone', 'patient_email',
+                'patient_phone', 'patient_email',
                 'doctor_id', 'branch_id', 'service', 'type',
                 'appointment_date', 'appointment_time', 'appointment_time_end',
                 'status', 'notes', 'admin_notes'
@@ -200,7 +226,9 @@ class AppointmentController extends Controller
     public function update(Request $request, Appointment $appointment): RedirectResponse
     {
         $request->validate([
-            'patient_name' => 'required|string|max:255',
+            'patient_name' => 'nullable|string|max:255',
+            'patient_last_name' => 'nullable|string|max:255',
+            'patient_first_name' => 'nullable|string|max:255',
             'patient_phone' => 'required|string|max:50',
             'patient_email' => 'nullable|email|max:255',
             'doctor_id' => 'nullable|exists:doctors,id',
@@ -219,13 +247,30 @@ class AppointmentController extends Controller
             'admin_notes' => 'nullable|string',
         ]);
 
+        $lastName  = trim((string) $request->patient_last_name);
+        $firstName = trim((string) $request->patient_first_name);
+        if (! $firstName && ! $lastName && $request->patient_name) {
+            $parts = preg_split('/\s+/', trim($request->patient_name), 2);
+            $lastName  = $parts[0] ?? '';
+            $firstName = $parts[1] ?? $parts[0] ?? '';
+        }
+        if (! $firstName) {
+            return back()->withErrors(['patient_first_name' => 'Үйлчлүүлэгчийн нэр оруулна уу.'])->withInput();
+        }
+        $patientName = trim($lastName.' '.$firstName);
+
         $old = $appointment->only('status', 'doctor_id', 'appointment_date', 'appointment_time');
-        $appointment->update($request->only(
-            'patient_name', 'patient_phone', 'patient_email',
-            'doctor_id', 'branch_id', 'service', 'type',
-            'appointment_date', 'appointment_time', 'appointment_time_end',
-            'status', 'notes', 'admin_notes'
-        ));
+        $appointment->update([
+            'patient_name' => $patientName,
+            'patient_last_name' => $lastName,
+            'patient_first_name' => $firstName,
+            ...$request->only(
+                'patient_phone', 'patient_email',
+                'doctor_id', 'branch_id', 'service', 'type',
+                'appointment_date', 'appointment_time', 'appointment_time_end',
+                'status', 'notes', 'admin_notes'
+            ),
+        ]);
 
         AuditService::log('updated', $appointment, $old, $appointment->fresh()->only('status', 'doctor_id', 'appointment_date', 'appointment_time'), "Захиалга шинэчлэв: {$appointment->appointment_number}");
 

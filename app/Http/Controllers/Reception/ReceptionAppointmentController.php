@@ -135,8 +135,9 @@ class ReceptionAppointmentController extends Controller
 
         $request->validate([
             'patient_id' => 'nullable|exists:patients,id',
+            'patient_name' => 'nullable|string|max:255',
             'patient_last_name' => 'nullable|string|max:255',
-            'patient_first_name' => 'required|string|max:255',
+            'patient_first_name' => 'nullable|string|max:255',
             'patient_phone' => 'required|string|max:50',
             'patient_email' => 'nullable|email|max:255',
             'doctor_id' => 'nullable|exists:doctors,id',
@@ -158,6 +159,15 @@ class ReceptionAppointmentController extends Controller
         $patientId = $request->patient_id;
         $lastName = trim((string) $request->patient_last_name);
         $firstName = trim((string) $request->patient_first_name);
+        // Fallback: зөвхөн patient_name ирвэл түүнийг хувааж first/last name болгох
+        if (! $firstName && ! $lastName && $request->patient_name) {
+            $parts = preg_split('/\s+/', trim($request->patient_name), 2);
+            $lastName  = $parts[0] ?? '';
+            $firstName = $parts[1] ?? $parts[0] ?? '';
+        }
+        if (! $firstName) {
+            return back()->withErrors(['patient_first_name' => 'Үйлчлүүлэгчийн нэр оруулна уу.'])->withInput();
+        }
         $patientName = trim($lastName.' '.$firstName);
 
         if (! $patientId) {
@@ -208,8 +218,9 @@ class ReceptionAppointmentController extends Controller
 
         $request->validate([
             'patient_id' => 'nullable|exists:patients,id',
+            'patient_name' => 'nullable|string|max:255',
             'patient_last_name' => 'nullable|string|max:255',
-            'patient_first_name' => 'required|string|max:255',
+            'patient_first_name' => 'nullable|string|max:255',
             'patient_phone' => 'required|string|max:50',
             'patient_email' => 'nullable|email|max:255',
             'doctor_id' => 'nullable|exists:doctors,id',
@@ -231,6 +242,15 @@ class ReceptionAppointmentController extends Controller
         $oldStatus = $appointment->status;
         $lastName = trim((string) $request->patient_last_name);
         $firstName = trim((string) $request->patient_first_name);
+        // Fallback: зөвхөн patient_name ирвэл түүнийг хувааж first/last name болгох
+        if (! $firstName && ! $lastName && $request->patient_name) {
+            $parts = preg_split('/\s+/', trim($request->patient_name), 2);
+            $lastName  = $parts[0] ?? '';
+            $firstName = $parts[1] ?? $parts[0] ?? '';
+        }
+        if (! $firstName) {
+            return back()->withErrors(['patient_first_name' => 'Үйлчлүүлэгчийн нэр оруулна уу.'])->withInput();
+        }
         $patientName = trim($lastName.' '.$firstName);
 
         $patientId = $request->filled('patient_id') ? (int) $request->patient_id : $appointment->patient_id;

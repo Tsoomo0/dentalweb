@@ -51,12 +51,16 @@ class PatientController extends Controller
             }
         }
 
+        // Зөвхөн тухайн эмчид цаг авсан өвчтнүүд харагдана
         $patients = Patient::query()
+            ->whereHas('appointments', fn ($q) => $q->where('doctor_id', $doctor->id))
             ->when($search, function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('patient_number', 'like', "%{$search}%");
+                $q->where(function ($q2) use ($search) {
+                    $q2->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('patient_number', 'like', "%{$search}%");
+                });
             })
             ->orderByDesc('created_at')
             ->paginate(20)
@@ -523,10 +527,16 @@ class PatientController extends Controller
     public function search(Request $request)
     {
         $q = $request->input('q', '');
-        $patients = Patient::where('phone', 'like', "%{$q}%")
-            ->orWhere('first_name', 'like', "%{$q}%")
-            ->orWhere('last_name', 'like', "%{$q}%")
-            ->orWhere('patient_number', 'like', "%{$q}%")
+        $doctor = auth('doctor')->user();
+
+        // Зөвхөн тухайн эмчид цаг авсан өвчтнүүдээс хайна
+        $patients = Patient::whereHas('appointments', fn ($qa) => $qa->where('doctor_id', $doctor->id))
+            ->where(function ($qq) use ($q) {
+                $qq->where('phone', 'like', "%{$q}%")
+                    ->orWhere('first_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%")
+                    ->orWhere('patient_number', 'like', "%{$q}%");
+            })
             ->limit(10)
             ->get(['id', 'patient_number', 'first_name', 'last_name', 'phone', 'date_of_birth']);
 
