@@ -92,6 +92,13 @@ class EmployeeController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // multipart form-аас "extra_portals" нь null/empty string болж ирж магадгүй
+        // тул array болгож normalize хийнэ
+        if ($request->has('extra_portals') && ! is_array($request->extra_portals)) {
+            $val = $request->input('extra_portals');
+            $request->merge(['extra_portals' => $val ? (array) $val : []]);
+        }
+
         $request->validate([
             'last_name'       => 'required|string|max:100',
             'first_name'      => 'required|string|max:100',
@@ -106,6 +113,8 @@ class EmployeeController extends Controller
             'username'        => 'required|string|unique:users,name',
             'password'        => 'required|string|min:6',
             'email'           => 'nullable|email|max:191|unique:users,email',
+            'extra_portals'   => 'nullable|array',
+            'extra_portals.*' => 'in:reception,lab,hr',
         ], [
             'last_name.required'       => 'Овог заавал бөглөнө үү.',
             'first_name.required'      => 'Нэр заавал бөглөнө үү.',
@@ -195,6 +204,7 @@ class EmployeeController extends Controller
                 'has_children' => $request->boolean('has_children'),
                 'children_count' => $request->children_count ?? 0,
                 'notes' => $request->notes,
+                'extra_portals' => $request->extra_portals ?? [],
             ]);
 
             // 4. Гэрээ хадгалах
@@ -326,6 +336,12 @@ class EmployeeController extends Controller
 
     public function update(Request $request, Employee $employee): RedirectResponse
     {
+        // multipart form-аас "extra_portals" нь null/empty string болж ирж магадгүй
+        if ($request->has('extra_portals') && ! is_array($request->extra_portals)) {
+            $val = $request->input('extra_portals');
+            $request->merge(['extra_portals' => $val ? (array) $val : []]);
+        }
+
         $request->validate([
             'last_name' => 'required|string|max:100',
             'first_name' => 'required|string|max:100',
@@ -333,6 +349,8 @@ class EmployeeController extends Controller
             'branch_id' => 'required|exists:branches,id',
             'position_id' => 'required|exists:positions,id',
             'salary' => 'required|numeric|min:0',
+            'extra_portals' => 'nullable|array',
+            'extra_portals.*' => 'in:reception,lab,hr',
         ]);
 
         DB::transaction(function () use ($request, $employee) {
@@ -378,6 +396,7 @@ class EmployeeController extends Controller
                 'has_children' => filter_var($request->has_children, FILTER_VALIDATE_BOOLEAN),
                 'children_count' => (int) $request->children_count,
                 'notes' => $request->notes ?: null,
+                'extra_portals' => $request->input('extra_portals', []),
             ]);
 
             // Шинэ лицензүүд нэмэх
@@ -513,6 +532,7 @@ class EmployeeController extends Controller
             'branch' => $e->branch?->name,
             'position_id' => $e->position_id,
             'position' => $e->position?->name,
+            'extra_portals' => $e->extra_portals ?? [],
             'salary' => $e->salary,
             'hired_date' => $e->hired_date?->format('Y-m-d'),
             'probation_end_date' => $e->probation_end_date?->format('Y-m-d'),

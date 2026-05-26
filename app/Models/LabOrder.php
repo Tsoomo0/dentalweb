@@ -16,7 +16,7 @@ class LabOrder extends Model
         'patient_last_name', 'patient_first_name', 'patient_phone',
         'branch_id', 'doctor_id',
         'work_description',
-        'amount_due', 'amount_paid',
+        'amount_due', 'discount_percent', 'amount_paid',
         'final_payment_receipt', 'final_payment_method', 'final_payment_at',
         'bender_employee_id', 'polisher_employee_id',
         'lab_ready_date', 'arrived_date', 'pickup_date',
@@ -34,6 +34,7 @@ class LabOrder extends Model
         'completed_at'      => 'datetime',
         'is_completed'      => 'boolean',
         'amount_due'        => 'integer',
+        'discount_percent'  => 'integer',
         'amount_paid'       => 'integer',
     ];
 
@@ -67,8 +68,16 @@ class LabOrder extends Model
         return trim(($this->patient_last_name ?? '').' '.$this->patient_first_name);
     }
 
+    /** Хөнгөлөлт хасагдсаны дараах төлөх дүн */
+    public function getEffectiveDueAttribute(): int
+    {
+        $due = (int) $this->amount_due;
+        $pct = max(0, min(100, (int) $this->discount_percent));
+        return (int) round($due * (100 - $pct) / 100);
+    }
+
     public function getOutstandingAmountAttribute(): int
     {
-        return max(0, (int) $this->amount_due - (int) $this->amount_paid);
+        return max(0, $this->effective_due - (int) $this->amount_paid);
     }
 }

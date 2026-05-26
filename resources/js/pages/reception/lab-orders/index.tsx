@@ -23,6 +23,8 @@ interface LabOrder {
     doctor_name: string | null;
     work_description: string;
     amount_due: number;
+    discount_percent: number;
+    effective_due: number;
     amount_paid: number;
     outstanding: number;
     final_payment_receipt: string | null;
@@ -52,11 +54,15 @@ function paymentMethodLabel(m: string | null): string {
     return PAYMENT_METHODS.find(p => p.value === m)?.label ?? m ?? '—';
 }
 
-interface Stats { active: number; completed: number; total_due: number; total_paid: number; total_outstanding: number }
+interface Stats {
+    active: number; completed: number;
+    sent_to_lab: number; lab_ready: number;
+    total_due: number; total_paid: number; total_outstanding: number;
+}
 interface Branch { id: number; name: string }
 interface Doctor { id: number; name: string }
 interface Employee { id: number; name: string }
-interface Filters { status: 'active' | 'completed' | 'all'; search: string }
+interface Filters { status: 'active' | 'sent_to_lab' | 'lab_ready' | 'completed' | 'all'; search: string }
 interface Props { orders: LabOrder[]; stats: Stats; branches: Branch[]; doctors: Doctor[]; employees: Employee[]; filters: Filters }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -65,6 +71,16 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const API_BASE = '/reception/lab-orders';
+
+const LAB_NAMES = [
+    'Кутикул лаб',
+    'Дөрвөн бэрх лаб',
+    '13-н лаб',
+    'Эвада лаб',
+    'Pro connect D лаб',
+];
+
+const PAGE_SIZE = 30;
 
 function today(): string {
     const d = new Date();
@@ -99,6 +115,7 @@ export default function LabOrdersIndex({ orders, stats, branches: _branches, doc
     void _branches; void _employees; // controller-аас ирдэг боловч ресепшнд хэрэгсэхгүй
     const [search, setSearch] = useState(filters.search ?? '');
     const [openId, setOpenId] = useState<number | 'new' | null>(null);
+    const [page, setPage] = useState(1);
 
     // Realtime — 5 секунд тутамд orders, stats, notifications шинэчилнэ
     useEffect(() => {
@@ -107,6 +124,9 @@ export default function LabOrdersIndex({ orders, stats, branches: _branches, doc
         }, 5000);
         return () => clearInterval(id);
     }, []);
+
+    // Filter өөрчлөгдсөн үед pagination reset
+    useEffect(() => { setPage(1); }, [search, filters.status]);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -122,171 +142,174 @@ export default function LabOrdersIndex({ orders, stats, branches: _branches, doc
     }, [orders, search]);
 
     const openOrder = openId !== null && openId !== 'new' ? orders.find(o => o.id === openId) ?? null : null;
+    const visible = filtered.slice(0, page * PAGE_SIZE);
+    const hasMore = page * PAGE_SIZE < filtered.length;
 
     return (
         <ReceptionLayout breadcrumbs={breadcrumbs}>
             <Head title="Лаб бүртгэл" />
 
-            <div className="flex flex-col gap-5 p-4 md:p-6">
-                {/* Premium Header */}
-                <div className="relative overflow-hidden rounded-2xl border border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:from-violet-950/40 dark:via-gray-900 dark:to-fuchsia-950/30 p-5 shadow-sm">
-                    <div className="absolute -right-8 -top-8 size-32 rounded-full bg-violet-200/40 dark:bg-violet-700/20 blur-2xl" />
-                    <div className="absolute -bottom-8 -left-8 size-24 rounded-full bg-fuchsia-200/40 dark:bg-fuchsia-700/20 blur-2xl" />
-
-                    <div className="relative flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                            <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg shadow-violet-500/30">
-                                <FlaskConical className="size-6" />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                                    Лаб бүртгэл
-                                    <Sparkles className="size-4 text-violet-500" />
-                                </h1>
-                                <p className="text-xs text-muted-foreground mt-0.5">Мөр дээр дарж бүх дэлгэрэнгүйг харж засна</p>
-                            </div>
+            <div className="flex flex-col gap-4 p-4 md:p-6">
+                {/* Compact Header */}
+                <div className="rounded-2xl border border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-br from-violet-50/80 via-white to-fuchsia-50/60 dark:from-violet-950/30 dark:via-gray-900 dark:to-fuchsia-950/20 shadow-sm overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 md:px-5 py-3 border-b border-violet-100/60 dark:border-violet-900/40">
+                        <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm">
+                            <FlaskConical className="size-4" />
                         </div>
-
-                        <div className="flex gap-2 flex-wrap items-center">
-                            <div className="rounded-xl bg-white/70 dark:bg-gray-900/60 backdrop-blur px-4 py-2.5 text-right border border-violet-100/80 dark:border-violet-900/50">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Идэвхтэй</p>
-                                <p className="text-lg font-bold text-violet-700 dark:text-violet-400 tabular-nums">{stats.active}</p>
-                            </div>
-                            <div className="rounded-xl bg-white/70 dark:bg-gray-900/60 backdrop-blur px-4 py-2.5 text-right border border-emerald-100/80 dark:border-emerald-900/50">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Дууссан</p>
-                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">{stats.completed}</p>
-                            </div>
-                            <div className="rounded-xl bg-white/70 dark:bg-gray-900/60 backdrop-blur px-4 py-2.5 text-right border border-red-100/80 dark:border-red-900/50">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Дутуу</p>
-                                <p className="text-lg font-bold text-red-700 dark:text-red-400 tabular-nums">{stats.total_outstanding.toLocaleString()}₮</p>
-                            </div>
-                            <button onClick={() => setOpenId('new')}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/30 transition-colors">
-                                <Plus className="size-4" /> Шинэ бүртгэл
-                            </button>
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-base font-bold text-foreground inline-flex items-center gap-1.5">
+                                Лаб бүртгэл
+                                <Sparkles className="size-3.5 text-violet-500" />
+                            </h1>
+                            <p className="text-[11px] text-muted-foreground truncate">Мөр дээр дарж дэлгэрэнгүйг харах · засах</p>
                         </div>
+                        <button onClick={() => setOpenId('new')}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors">
+                            <Plus className="size-3.5" /> Шинэ бүртгэл
+                        </button>
+                    </div>
+
+                    {/* Compact inline stats */}
+                    <div className="grid grid-cols-3 divide-x divide-violet-100/60 dark:divide-violet-900/30">
+                        <RInlineStat label="Идэвхтэй" value={stats.active.toLocaleString()} accent="violet" />
+                        <RInlineStat label="Дууссан" value={stats.completed.toLocaleString()} accent="emerald" />
+                        <RInlineStat label="Дутуу" value={`${stats.total_outstanding > 999 ? (stats.total_outstanding / 1000).toFixed(0) + 'K' : stats.total_outstanding}₮`} title={`${stats.total_outstanding.toLocaleString()}₮`} accent="red" />
                     </div>
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card p-3 shadow-sm">
-                    <div className="relative flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-background px-3 py-1.5 flex-1 min-w-60">
-                        <Search className="size-4 text-muted-foreground" />
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-card p-2 shadow-sm">
+                    <div className="relative flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-background px-3 py-1.5 flex-1 min-w-60">
+                        <Search className="size-3.5 text-muted-foreground" />
                         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                             placeholder="Өвчтөн, лаб, эмч, ажлаар хайх..."
                             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
                     </div>
 
-                    <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                    <div className="flex flex-wrap rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                         {([
-                            { key: 'active',    label: 'Идэвхтэй',  count: stats.active,    color: 'bg-violet-600' },
-                            { key: 'completed', label: 'Дууссан',   count: stats.completed, color: 'bg-emerald-600' },
-                            { key: 'all',       label: 'Бүгд',      count: stats.active + stats.completed, color: 'bg-gray-700' },
+                            { key: 'active',      label: 'Идэвхтэй',      count: stats.active,     color: 'bg-violet-600' },
+                            { key: 'sent_to_lab', label: 'Лаб руу',       count: stats.sent_to_lab, color: 'bg-violet-500' },
+                            { key: 'lab_ready',   label: 'Лабаас ирсэн',  count: stats.lab_ready,   color: 'bg-indigo-600' },
+                            { key: 'completed',   label: 'Дууссан',        count: stats.completed,   color: 'bg-emerald-600' },
+                            { key: 'all',         label: 'Бүгд',           count: stats.active + stats.completed, color: 'bg-gray-700' },
                         ] as const).map(t => (
                             <button key={t.key} onClick={() => go({ status: t.key }, filters)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all ${
+                                className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold transition-all ${
                                     filters.status === t.key
                                         ? `${t.color} text-white`
                                         : 'bg-white dark:bg-gray-900 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800'
                                 }`}>
                                 {t.label}
-                                <span className={`rounded-full px-1.5 py-0 text-[10px] tabular-nums ${
+                                <span className={`rounded-full px-1.5 text-[9px] tabular-nums ${
                                     filters.status === t.key ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800'
                                 }`}>{t.count}</span>
                             </button>
                         ))}
                     </div>
+
+                    <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
+                        {filtered.length} бичлэг
+                    </span>
                 </div>
 
                 {/* Compact Table */}
-                <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wide">
-                                <th className="px-3 py-3 text-center font-semibold w-10">№</th>
-                                <th className="px-3 py-3 text-left font-semibold w-28">Захиалсан</th>
-                                <th className="px-3 py-3 text-left font-semibold">Өвчтөн</th>
-                                <th className="px-3 py-3 text-left font-semibold">Лаб / Ажил</th>
-                                <th className="px-3 py-3 text-left font-semibold w-32">Эмч</th>
-                                <th className="px-3 py-3 text-right font-semibold w-28">Дутуу</th>
-                                <th className="px-3 py-3 text-center font-semibold w-28">Статус</th>
-                                <th className="px-3 py-3 text-center font-semibold w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.map((o, idx) => {
-                                const overdue = !o.is_completed && o.pickup_date && new Date(o.pickup_date) < new Date(today());
-                                const s = stage(o);
-                                const patient = combinePatient(o.patient_last_name, o.patient_first_name, o.patient_phone);
-                                return (
-                                    <tr key={o.id}
-                                        onClick={() => setOpenId(o.id)}
-                                        className={`cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
-                                            o.is_completed ? 'bg-emerald-50/20 dark:bg-emerald-950/5' :
-                                            overdue ? 'bg-red-50/30 dark:bg-red-950/10' :
-                                            idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50/40 dark:bg-gray-800/15'
-                                        }`}>
-                                        <td className="px-3 py-3 text-center text-gray-400 text-xs">{idx + 1}</td>
-                                        <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 tabular-nums">
-                                            {o.order_date ?? '—'}
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <div className="font-semibold text-foreground truncate">{patient || '—'}</div>
-                                            {o.branch_name && <div className="text-[11px] text-muted-foreground truncate">{o.branch_name}</div>}
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <div className="font-semibold text-foreground truncate">{o.lab_name}</div>
-                                            <div className="text-[11px] text-muted-foreground truncate">{o.work_description}</div>
-                                        </td>
-                                        <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 truncate">{o.doctor_name ?? '—'}</td>
-                                        <td className="px-3 py-3 text-right tabular-nums">
-                                            {o.outstanding > 0 ? (
-                                                <span className="rounded-lg bg-red-50 dark:bg-red-950/40 px-2 py-0.5 font-bold text-red-700 dark:text-red-400 text-xs">
-                                                    {o.outstanding.toLocaleString()}₮
-                                                </span>
-                                            ) : <span className="text-emerald-600 font-bold text-xs">✓</span>}
-                                        </td>
-                                        <td className="px-3 py-3 text-center">
-                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${s.color}`}>
-                                                {s.label}
-                                            </span>
-                                            {overdue && (
-                                                <div className="mt-0.5 text-[10px] text-red-600 font-semibold inline-flex items-center gap-0.5">
-                                                    <AlertCircle className="size-3" /> Хугацаа хэтэрсэн
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-3 py-3 text-center text-gray-400">›</td>
-                                    </tr>
-                                );
-                            })}
-                            {filtered.length === 0 && (
-                                <tr>
-                                    <td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">
-                                        <FlaskConical className="size-12 mx-auto mb-3 text-violet-300" />
-                                        <p className="text-sm font-semibold">Лаб бүртгэл байхгүй</p>
-                                        <p className="text-xs mt-1">"Шинэ бүртгэл" товч даран эхлүүлнэ үү</p>
-                                    </td>
-                                </tr>
+                <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm overflow-hidden">
+                    {filtered.length === 0 ? (
+                        <div className="px-4 py-16 text-center text-muted-foreground">
+                            <FlaskConical className="size-10 mx-auto mb-2 text-violet-300" />
+                            <p className="text-sm font-semibold">Лаб бүртгэл байхгүй</p>
+                            <p className="text-[11px] mt-1">"Шинэ бүртгэл" товч даран эхлүүлнэ үү</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="overflow-x-auto premium-scroll">
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-gray-50/70 dark:bg-gray-800/40 text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">
+                                            <th className="px-3 py-1.5 text-center font-semibold w-8">№</th>
+                                            <th className="px-2 py-1.5 text-left font-semibold w-24">Захиалсан</th>
+                                            <th className="px-2 py-1.5 text-left font-semibold">Өвчтөн</th>
+                                            <th className="px-2 py-1.5 text-left font-semibold">Лаб / Ажил</th>
+                                            <th className="px-2 py-1.5 text-left font-semibold w-28 hidden md:table-cell">Эмч</th>
+                                            <th className="px-2 py-1.5 text-right font-semibold w-24">Дутуу</th>
+                                            <th className="px-2 py-1.5 text-center font-semibold w-28">Статус</th>
+                                            <th className="px-2 py-1.5 text-center font-semibold w-6"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {visible.map((o, idx) => {
+                                            const overdue = !o.is_completed && o.pickup_date && new Date(o.pickup_date) < new Date(today());
+                                            const s = stage(o);
+                                            const patient = combinePatient(o.patient_last_name, o.patient_first_name, o.patient_phone);
+                                            return (
+                                                <tr key={o.id}
+                                                    onClick={() => setOpenId(o.id)}
+                                                    className={`cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
+                                                        o.is_completed ? 'bg-emerald-50/15 dark:bg-emerald-950/5' :
+                                                        overdue ? 'bg-red-50/25 dark:bg-red-950/10' :
+                                                        idx % 2 === 0 ? '' : 'bg-gray-50/30 dark:bg-gray-800/10'
+                                                    }`}>
+                                                    <td className="px-3 py-2 text-center text-gray-400 text-[11px] tabular-nums">{idx + 1}</td>
+                                                    <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 tabular-nums whitespace-nowrap">
+                                                        {o.order_date ?? '—'}
+                                                    </td>
+                                                    <td className="px-2 py-2 max-w-[200px]">
+                                                        <div className="font-semibold text-foreground truncate text-[12px]">{patient || '—'}</div>
+                                                    </td>
+                                                    <td className="px-2 py-2 max-w-[260px]">
+                                                        <div className="font-medium text-foreground truncate text-[12px]">{o.lab_name}</div>
+                                                        <div className="text-[10px] text-muted-foreground truncate">{o.work_description}</div>
+                                                    </td>
+                                                    <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 truncate hidden md:table-cell">{o.doctor_name ?? '—'}</td>
+                                                    <td className="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+                                                        {o.outstanding > 0 ? (
+                                                            <span className="rounded-md bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 font-bold text-red-700 dark:text-red-400 text-[11px]">
+                                                                {o.outstanding.toLocaleString()}₮
+                                                            </span>
+                                                        ) : <span className="text-emerald-600 font-bold text-[11px]">✓</span>}
+                                                    </td>
+                                                    <td className="px-2 py-2 text-center">
+                                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold whitespace-nowrap ${s.color}`}>
+                                                            {s.label}
+                                                        </span>
+                                                        {overdue && (
+                                                            <div className="mt-0.5 text-[9px] text-red-600 font-semibold inline-flex items-center gap-0.5">
+                                                                <AlertCircle className="size-2.5" /> Хугацаа хэтэрсэн
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-2 py-2 text-center text-gray-400">›</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="bg-gray-50 dark:bg-gray-800/60 border-t-2 border-violet-300 dark:border-violet-700">
+                                            <td colSpan={5} className="px-3 py-2 text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                                                Нийт {filtered.length} бичлэг
+                                            </td>
+                                            <td className="px-2 py-2 text-right tabular-nums font-bold text-red-700 dark:text-red-400 text-[11px]">
+                                                {filtered.reduce((s, o) => s + o.outstanding, 0).toLocaleString()}₮
+                                            </td>
+                                            <td colSpan={2}></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            {hasMore && (
+                                <div className="border-t border-border bg-muted/20">
+                                    <button onClick={() => setPage(p => p + 1)}
+                                        className="w-full px-3 py-2 text-xs text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 font-semibold transition-colors">
+                                        Үлдсэн {filtered.length - visible.length}-г харах
+                                    </button>
+                                </div>
                             )}
-                        </tbody>
-                        {filtered.length > 0 && (
-                            <tfoot>
-                                <tr className="bg-gray-50 dark:bg-gray-800/60 border-t-2 border-violet-300 dark:border-violet-700">
-                                    <td colSpan={5} className="px-3 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300">
-                                        Нийт {filtered.length} бичлэг
-                                    </td>
-                                    <td className="px-3 py-2.5 text-right tabular-nums font-bold text-red-700 dark:text-red-400 text-xs">
-                                        {filtered.reduce((s, o) => s + o.outstanding, 0).toLocaleString()}₮
-                                    </td>
-                                    <td colSpan={2}></td>
-                                </tr>
-                            </tfoot>
-                        )}
-                    </table>
+                        </>
+                    )}
                 </div>
 
-                <p className="text-[11px] text-muted-foreground text-center">
+                <p className="text-[10px] text-muted-foreground text-center">
                     💡 Мөр дээр дарж дэлгэрэнгүйг харах, засах
                 </p>
             </div>
@@ -326,6 +349,7 @@ type DrawerForm = {
     doctor_id: number | null;
     work_description: string;
     amount_due: number;
+    discount_percent: number;
     amount_paid: number;
     arrived_date: string | null;
     pickup_date: string | null;
@@ -345,6 +369,7 @@ function initialForm(order: LabOrder | null): DrawerForm {
             doctor_id: null,
             work_description: '',
             amount_due: 0,
+            discount_percent: 0,
             amount_paid: 0,
             arrived_date: null,
             pickup_date: null,
@@ -362,6 +387,7 @@ function initialForm(order: LabOrder | null): DrawerForm {
         doctor_id: order.doctor_id,
         work_description: order.work_description,
         amount_due: order.amount_due,
+        discount_percent: order.discount_percent ?? 0,
         amount_paid: order.amount_paid,
         arrived_date: order.arrived_date,
         pickup_date: order.pickup_date,
@@ -381,7 +407,10 @@ function LabOrderDrawer({ order, isNew, doctors, onClose }: DrawerProps) {
     const [paymentMethod,  setPaymentMethod]  = useState('cash');
 
     const locked = order?.is_completed ?? false;
-    const outstanding = Math.max(0, form.amount_due - form.amount_paid);
+    const pct = Math.max(0, Math.min(100, form.discount_percent || 0));
+    const effectiveDue = Math.round(form.amount_due * (100 - pct) / 100);
+    const discountAmount = form.amount_due - effectiveDue;
+    const outstanding = Math.max(0, effectiveDue - form.amount_paid);
     const canFinish = !isNew && order && !locked;
 
     function set<K extends keyof DrawerForm>(key: K, value: DrawerForm[K]) {
@@ -441,7 +470,7 @@ function LabOrderDrawer({ order, isNew, doctors, onClose }: DrawerProps) {
         setSaving(true);
         router.patch(`${API_BASE}/${order.id}`, {
             ...form,
-            amount_paid: form.amount_due, // дутуугүй болгох
+            amount_paid: effectiveDue, // хөнгөлөлт орсон цэвэр дүн = дутуугүй
             final_payment_receipt: paymentReceipt.trim(),
             final_payment_method: paymentMethod,
             is_completed: true,
@@ -512,10 +541,12 @@ function LabOrderDrawer({ order, isNew, doctors, onClose }: DrawerProps) {
                             </Field>
                         </Row>
                         <Field label="Лабын нэр *">
-                            <input type="text" value={form.lab_name} disabled={locked}
+                            <select value={form.lab_name} disabled={locked}
                                 onChange={e => set('lab_name', e.target.value)}
-                                placeholder="Лабын нэр"
-                                className={inputCls(locked)} />
+                                className={inputCls(locked)}>
+                                <option value="">— Лаб сонгоно уу —</option>
+                                {LAB_NAMES.map(l => <option key={l} value={l}>{l}</option>)}
+                            </select>
                         </Field>
                         <Field label="Өвчтөн (Овог Нэр Утас) *">
                             <input type="text" value={combinedPatient} disabled={locked}
@@ -539,26 +570,37 @@ function LabOrderDrawer({ order, isNew, doctors, onClose }: DrawerProps) {
                         </Field>
                     </Section>
 
-                    {/* Section: Лабораторид (READ-ONLY — лаб ажилтан өөрийн порталаасаа бөглөнө) */}
-                    <Section icon={<Send className="size-4" />} title="Лабораторид (лаб бөглөнө)" color="indigo">
-                        <Row>
-                            <ReadOnlyField label="Нугалсан" value={order?.bender_name ?? '—'} />
-                            <ReadOnlyField label="Өнгөлсөн" value={order?.polisher_name ?? '—'} />
-                        </Row>
-                        <ReadOnlyField label="Лабораторид бэлэн болсон огноо" value={order?.lab_ready_date ?? '—'} />
-                        <p className="text-[11px] text-muted-foreground italic">
-                            💡 Эдгээр талбарыг лаб ажилтан өөрийн порталаасаа бөглөнө.
-                        </p>
-                    </Section>
+                    {/* Section: Лабораторид — зөвхөн "Кутикул лаб"-ын ажилд харагдана
+                        (бусад гадны лабын ажлууд лаб портал-аар явахгүй) */}
+                    {form.lab_name === 'Кутикул лаб' && (
+                        <Section icon={<Send className="size-4" />} title="Лабораторид (лаб бөглөнө)" color="indigo">
+                            <Row>
+                                <ReadOnlyField label="Нугалсан" value={order?.bender_name ?? '—'} />
+                                <ReadOnlyField label="Өнгөлсөн" value={order?.polisher_name ?? '—'} />
+                            </Row>
+                            <ReadOnlyField label="Лабораторид бэлэн болсон огноо" value={order?.lab_ready_date ?? '—'} />
+                            <p className="text-[11px] text-muted-foreground italic">
+                                💡 Эдгээр талбарыг лаб ажилтан өөрийн порталаасаа бөглөнө.
+                            </p>
+                        </Section>
+                    )}
 
-                    {/* Section: Хүлээн авах — лабаас ирсний дараа л бөглөгдөнө */}
+                    {/* Section: Хүлээн авах
+                        - Кутикул лаб бол: лаб ажлаа дуусгаж lab_ready_date тэмдэглэснээс хойш идэвхжинэ
+                        - Гадны лаб бол: шууд идэвхтэй (ресепшний хариуцлагаар хүлээн авна) */}
                     {(() => {
-                        const canReceive = !locked && !isNew && !!order?.lab_ready_date;
+                        const isKuticul = form.lab_name === 'Кутикул лаб';
+                        const canReceive = !locked && !isNew && (isKuticul ? !!order?.lab_ready_date : true);
                         return (
                             <Section icon={<Package className="size-4" />} title="Хүлээн авах" color="blue">
-                                {!canReceive && !locked && (
+                                {!canReceive && !locked && isKuticul && (
                                     <div className="rounded-xl bg-muted/30 border border-dashed border-gray-200 dark:border-gray-700 p-3 text-xs text-muted-foreground italic">
                                         🔒 Лаб ажил бэлэн болсон гэдгээ тэмдэглэснээс хойш энэ хэсэг идэвхжинэ.
+                                    </div>
+                                )}
+                                {!canReceive && !locked && !isKuticul && isNew && (
+                                    <div className="rounded-xl bg-muted/30 border border-dashed border-gray-200 dark:border-gray-700 p-3 text-xs text-muted-foreground italic">
+                                        🔒 Захиалгаа хадгалсны дараа энэ хэсэг идэвхжинэ.
                                     </div>
                                 )}
                                 <Row>
@@ -579,18 +621,42 @@ function LabOrderDrawer({ order, isNew, doctors, onClose }: DrawerProps) {
 
                     {/* Section: Тооцоо */}
                     <Section icon={<CreditCard className="size-4" />} title="Тооцоо" color="emerald">
-                        <Row>
+                        <div className="grid grid-cols-[1fr_90px] gap-3">
                             <Field label="Төлөх дүн (₮)">
                                 <input type="number" min="0" value={form.amount_due || ''} disabled={locked}
                                     onChange={e => set('amount_due', parseInt(e.target.value) || 0)}
                                     className={`${inputCls(locked)} text-right tabular-nums`} />
                             </Field>
-                            <Field label="Төлсөн дүн (₮)">
-                                <input type="number" min="0" value={form.amount_paid || ''} disabled={locked}
-                                    onChange={e => set('amount_paid', parseInt(e.target.value) || 0)}
-                                    className={`${inputCls(locked)} text-right tabular-nums text-emerald-700 dark:text-emerald-400 font-bold`} />
+                            <Field label="Хөнг. %">
+                                <input type="number" min="0" max="100" value={form.discount_percent || ''} disabled={locked}
+                                    onChange={e => set('discount_percent', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                    placeholder="0"
+                                    className={`${inputCls(locked)} text-right tabular-nums`} />
                             </Field>
-                        </Row>
+                        </div>
+                        {pct > 0 && (
+                            <div className="flex items-center justify-between rounded-xl bg-orange-50/60 dark:bg-orange-950/15 border border-orange-200/60 dark:border-orange-800/40 px-4 py-2 text-xs">
+                                <span className="text-orange-700 dark:text-orange-300 font-medium">
+                                    Хөнгөлөлт ({pct}%)
+                                </span>
+                                <span className="text-orange-700 dark:text-orange-300 font-bold tabular-nums">
+                                    −{discountAmount.toLocaleString()}₮
+                                </span>
+                            </div>
+                        )}
+                        <div className="flex items-center justify-between rounded-xl bg-blue-50/60 dark:bg-blue-950/15 border border-blue-200/60 dark:border-blue-800/40 px-4 py-2 text-xs">
+                            <span className="text-blue-700 dark:text-blue-300 font-medium">
+                                Цэвэр төлөх дүн
+                            </span>
+                            <span className="text-blue-700 dark:text-blue-300 font-bold tabular-nums">
+                                {effectiveDue.toLocaleString()}₮
+                            </span>
+                        </div>
+                        <Field label="Төлсөн дүн (₮)">
+                            <input type="number" min="0" value={form.amount_paid || ''} disabled={locked}
+                                onChange={e => set('amount_paid', parseInt(e.target.value) || 0)}
+                                className={`${inputCls(locked)} text-right tabular-nums text-emerald-700 dark:text-emerald-400 font-bold`} />
+                        </Field>
                         <div className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
                             <span className="text-sm font-semibold text-muted-foreground">Дутуу үлдэгдэл</span>
                             <span className={`text-lg font-bold tabular-nums ${outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -755,4 +821,19 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 
 function inputCls(disabled: boolean) {
     return `w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-60 disabled:cursor-not-allowed border-gray-200 dark:border-gray-700`;
+}
+
+/* ── Compact inline stat ────────────────────────────────────────── */
+function RInlineStat({ label, value, accent, title }: { label: string; value: string; accent: 'violet' | 'emerald' | 'red'; title?: string }) {
+    const color = {
+        violet:  'text-violet-700 dark:text-violet-400',
+        emerald: 'text-emerald-700 dark:text-emerald-400',
+        red:     'text-red-700 dark:text-red-400',
+    }[accent];
+    return (
+        <div className="px-3 py-2 text-center" title={title}>
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold truncate">{label}</p>
+            <p className={`text-sm font-bold tabular-nums truncate ${color}`}>{value}</p>
+        </div>
+    );
 }

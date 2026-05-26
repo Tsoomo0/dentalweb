@@ -37,6 +37,8 @@ class Employee extends Model
         // Гэр бүл
         'is_married', 'has_children', 'children_count',
         'notes',
+        // Нэмэлт портал нэвтрэх эрх (жишээ: сувилагч → ['reception'])
+        'extra_portals',
     ];
 
     protected $casts = [
@@ -47,7 +49,21 @@ class Employee extends Model
         'is_married' => 'boolean',
         'has_children' => 'boolean',
         'salary' => 'decimal:2',
+        'extra_portals' => 'array',
     ];
+
+    /**
+     * Тухайн портал руу нэвтрэх эрхтэй эсэхийг шалгана.
+     * Үндсэн position.portal эсвэл extra_portals аль аль нь зөвшөөрнө.
+     */
+    public function canAccessPortal(string $portal): bool
+    {
+        if ($this->position?->portal === $portal) {
+            return true;
+        }
+        $extras = $this->extra_portals ?? [];
+        return is_array($extras) && in_array($portal, $extras, true);
+    }
 
     // ── Relations ────────────────────────────────────────────────────────────
 

@@ -25,13 +25,21 @@ class LabOrderController extends Controller
     public function index(Request $request): Response
     {
         $branchId = $this->branchId();
-        $status   = $request->get('status', 'active'); // active | completed | all
+        $status   = $request->get('status', 'active'); // active | sent_to_lab | lab_ready | completed | all
         $search   = trim((string) $request->get('q', ''));
 
         $orders = LabOrder::with(['branch', 'doctor', 'bender', 'polisher', 'creator'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
             ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
+            ->when($status === 'sent_to_lab', fn ($q) => $q
+                ->where('is_completed', false)
+                ->whereNotNull('sent_to_lab_date')
+                ->whereNull('lab_ready_date'))
+            ->when($status === 'lab_ready',   fn ($q) => $q
+                ->where('is_completed', false)
+                ->whereNotNull('lab_ready_date')
+                ->whereNull('arrived_date'))
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->where('patient_first_name', 'like', "%{$search}%")
                 ->orWhere('patient_last_name', 'like', "%{$search}%")
@@ -56,6 +64,8 @@ class LabOrderController extends Controller
                 'doctor_name'         => $o->doctor?->name,
                 'work_description'    => $o->work_description,
                 'amount_due'          => (int) $o->amount_due,
+                'discount_percent'    => (int) $o->discount_percent,
+                'effective_due'       => (int) $o->effective_due,
                 'amount_paid'         => (int) $o->amount_paid,
                 'outstanding'         => $o->outstanding_amount,
                 'final_payment_receipt' => $o->final_payment_receipt,
@@ -75,11 +85,25 @@ class LabOrderController extends Controller
             ])
             ->all();
 
+        $branchScope = fn () => LabOrder::when($branchId, fn ($q) => $q->where('branch_id', $branchId));
+
         $stats = [
-            'active'         => LabOrder::when($branchId, fn ($q) => $q->where('branch_id', $branchId))->where('is_completed', false)->count(),
-            'completed'      => LabOrder::when($branchId, fn ($q) => $q->where('branch_id', $branchId))->where('is_completed', true)->count(),
-            'total_due'      => (int) LabOrder::when($branchId, fn ($q) => $q->where('branch_id', $branchId))->where('is_completed', false)->sum('amount_due'),
-            'total_paid'     => (int) LabOrder::when($branchId, fn ($q) => $q->where('branch_id', $branchId))->where('is_completed', false)->sum('amount_paid'),
+            'active'         => $branchScope()->where('is_completed', false)->count(),
+            'completed'      => $branchScope()->where('is_completed', true)->count(),
+            // Лаб руу явсан — sent_to_lab_date бөглөгдсөн, lab_ready_date хоосон
+            'sent_to_lab'    => $branchScope()
+                ->where('is_completed', false)
+                ->whereNotNull('sent_to_lab_date')
+                ->whereNull('lab_ready_date')
+                ->count(),
+            // Лабаас ирсэн — lab_ready_date бөглөгдсөн, arrived_date хоосон
+            'lab_ready'      => $branchScope()
+                ->where('is_completed', false)
+                ->whereNotNull('lab_ready_date')
+                ->whereNull('arrived_date')
+                ->count(),
+            'total_due'      => (int) $branchScope()->where('is_completed', false)->sum('amount_due'),
+            'total_paid'     => (int) $branchScope()->where('is_completed', false)->sum('amount_paid'),
         ];
         $stats['total_outstanding'] = max(0, $stats['total_due'] - $stats['total_paid']);
 
@@ -120,6 +144,7 @@ class LabOrderController extends Controller
             'doctor_id'            => 'nullable|exists:doctors,id',
             'work_description'     => 'required|string|max:1000',
             'amount_due'           => 'nullable|integer|min:0',
+            'discount_percent'     => 'nullable|integer|min:0|max:100',
             'amount_paid'          => 'nullable|integer|min:0',
             'bender_employee_id'   => 'nullable|exists:employees,id',
             'polisher_employee_id' => 'nullable|exists:employees,id',
@@ -134,12 +159,15 @@ class LabOrderController extends Controller
 
         $labOrder = LabOrder::create($validated);
 
-        // Лаб ажилтнуудад мэдэгдэл явуулна (бүх лаб портал хэрэглэгчид — лаб салбараар хуваагдахгүй)
-        $labUsers = User::whereHas('employee.position', fn ($q) => $q->where('portal', 'lab'))
-            ->where('is_active', true)
-            ->get();
-        foreach ($labUsers as $u) {
-            $u->notify(new LabOrderCreated($labOrder->load(['branch', 'doctor'])));
+        // Лаб ажилтнуудад мэдэгдэл явуулна — зөвхөн "Кутикул лаб"-ын захиалга
+        // (бусад лабууд гадны лаб бөгөөд лаб портал-аар явахгүй)
+        if ($labOrder->lab_name === 'Кутикул лаб') {
+            $labUsers = User::whereHas('employee.position', fn ($q) => $q->where('portal', 'lab'))
+                ->where('is_active', true)
+                ->get();
+            foreach ($labUsers as $u) {
+                $u->notify(new LabOrderCreated($labOrder->load(['branch', 'doctor'])));
+            }
         }
 
         return back()->with('success', 'Лаб бүртгэл нэмэгдлээ.');
@@ -162,6 +190,7 @@ class LabOrderController extends Controller
             'doctor_id'            => 'sometimes|nullable|exists:doctors,id',
             'work_description'     => 'sometimes|string|max:1000',
             'amount_due'           => 'sometimes|integer|min:0',
+            'discount_percent'     => 'sometimes|integer|min:0|max:100',
             'amount_paid'          => 'sometimes|integer|min:0',
             'final_payment_receipt' => 'sometimes|nullable|string|max:100',
             'final_payment_method'  => 'sometimes|nullable|in:cash,card,mobile,storepay',

@@ -36,6 +36,7 @@ interface Employee {
     phone: string; email: string | null; address: string | null;
     emergency_name: string | null; emergency_phone: string | null; emergency_relation: string | null;
     branch_id: number | null; position_id: number | null;
+    extra_portals: string[];
     salary: number; hired_date: string | null; probation_end_date: string | null;
     status: 'active' | 'inactive';
     vacation_days: number; vacation_extra_days: number;
@@ -150,6 +151,7 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
         emergency_relation: employee.emergency_relation ?? '',
         branch_id:          String(employee.branch_id ?? ''),
         position_id:        String(employee.position_id ?? ''),
+        extra_portals:      (employee.extra_portals ?? []) as string[],
         salary:             String(employee.salary),
         hired_date:         employee.hired_date ?? '',
         probation_end_date: employee.probation_end_date ?? '',
@@ -378,6 +380,40 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
                                             </Select>
                                         </Field>
                                     </div>
+
+                                    {/* Нэмэлт портал нэвтрэх эрх */}
+                                    <SectionTitle>Нэмэлт портал нэвтрэх эрх</SectionTitle>
+                                    <div className="rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/40 dark:bg-amber-950/15 p-4">
+                                        <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
+                                            Үндсэн албан тушаалаасаа гадна <strong>тэмдэглэсэн портал руу нэвтэрч ажиллах</strong> эрх олгоно. Жишээ нь сувилагч хааяа ресепшний ажил гүйцэтгэдэг бол "Ресепшн" -ийг тэмдэглэнэ.
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                            {[
+                                                { value: 'reception', label: 'Ресепшн портал' },
+                                                { value: 'lab',       label: 'Лаб портал' },
+                                                { value: 'hr',        label: 'HR портал' },
+                                            ].map(opt => {
+                                                const checked = form.extra_portals.includes(opt.value);
+                                                return (
+                                                    <label key={opt.value}
+                                                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
+                                                            checked
+                                                                ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-700'
+                                                                : 'border-gray-200 dark:border-gray-700 hover:bg-muted/30'
+                                                        }`}>
+                                                        <input type="checkbox" checked={checked}
+                                                            onChange={e => {
+                                                                if (e.target.checked) set('extra_portals', [...form.extra_portals, opt.value]);
+                                                                else set('extra_portals', form.extra_portals.filter(p => p !== opt.value));
+                                                            }}
+                                                            className="size-4 rounded text-violet-600 focus:ring-violet-500" />
+                                                        <span className="text-sm font-medium">{opt.label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
                                     <SectionTitle>Ээлжийн амралт</SectionTitle>
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <Field label="Нэмэгдэл хоног">

@@ -2,8 +2,8 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
-    AlertCircle, Building2, CalendarClock, CheckCircle2, CreditCard,
-    FileSpreadsheet, FlaskConical, Package, Receipt, Search, Send, Sparkles,
+    AlertCircle, Building2, CalendarClock, CheckCircle2, ChevronDown, ChevronRight,
+    CreditCard, FileSpreadsheet, FlaskConical, Package, Receipt, Search, Send, Sparkles,
     Stethoscope, User, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -23,6 +23,8 @@ interface LabOrder {
     doctor_name: string | null;
     work_description: string;
     amount_due: number;
+    discount_percent: number;
+    effective_due: number;
     amount_paid: number;
     outstanding: number;
     final_payment_receipt: string | null;
@@ -87,9 +89,14 @@ function go(patch: Partial<Filters>, current: Filters) {
 /* ══════════════════════════════════════════════════════════
    Main
 ══════════════════════════════════════════════════════════ */
+const PAGE_SIZE = 25;
+
 export default function AdminLabOrdersIndex({ orders, stats, branches, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [openId, setOpenId] = useState<number | null>(null);
+    const [page, setPage] = useState(1);
+    // Эхэндээ бүх салбарын section нээлттэй
+    const [collapsedBranches, setCollapsedBranches] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const id = setInterval(() => {
@@ -97,6 +104,8 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
         }, 8000);
         return () => clearInterval(id);
     }, []);
+
+    useEffect(() => { setPage(1); }, [search, filters.status, filters.branch]);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -112,6 +121,7 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
         );
     }, [orders, search]);
 
+    // Branch-аар бүлэглэснийг тус бүрд нь pagination хийнэ
     const groupedByBranch = useMemo(() => {
         const m = new Map<string, LabOrder[]>();
         for (const o of filtered) {
@@ -122,67 +132,75 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
         return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
     }, [filtered]);
 
+    const toggleBranch = (name: string) => {
+        setCollapsedBranches(prev => {
+            const next = new Set(prev);
+            if (next.has(name)) next.delete(name); else next.add(name);
+            return next;
+        });
+    };
+
     const openOrder = openId !== null ? orders.find(o => o.id === openId) ?? null : null;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Лаб бүртгэл" />
 
-            <div className="flex flex-col gap-5 p-4 md:p-6">
-                {/* Premium Header */}
-                <div className="relative overflow-hidden rounded-2xl border border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:from-violet-950/40 dark:via-gray-900 dark:to-fuchsia-950/30 p-6 shadow-sm">
-                    <div className="absolute -right-12 -top-12 size-48 rounded-full bg-violet-200/40 dark:bg-violet-700/20 blur-3xl" />
-                    <div className="absolute -bottom-12 -left-12 size-40 rounded-full bg-fuchsia-200/40 dark:bg-fuchsia-700/20 blur-3xl" />
-
-                    <div className="relative flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg shadow-violet-500/30">
-                                <FlaskConical className="size-7" />
-                            </div>
-                            <div>
-                                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                                    Лаб бүртгэл
-                                    <Sparkles className="size-5 text-violet-500" />
-                                </h1>
-                                <p className="text-sm text-muted-foreground mt-0.5">Бүх салбарын лаб ажлуудын ерөнхий хяналт</p>
-                            </div>
+            <div className="flex flex-col gap-4 p-4 md:p-6">
+                {/* Compact Header + Stats */}
+                <div className="rounded-2xl border border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-br from-violet-50/80 via-white to-fuchsia-50/60 dark:from-violet-950/30 dark:via-gray-900 dark:to-fuchsia-950/20 shadow-sm overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 md:px-5 py-3 border-b border-violet-100/60 dark:border-violet-900/40">
+                        <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm">
+                            <FlaskConical className="size-4" />
                         </div>
+                        <div className="flex-1">
+                            <h1 className="text-base font-bold text-foreground inline-flex items-center gap-1.5">
+                                Лаб бүртгэл
+                                <Sparkles className="size-3.5 text-violet-500" />
+                            </h1>
+                            <p className="text-[11px] text-muted-foreground">Бүх салбарын лаб ажлууд</p>
+                        </div>
+                        <a href={`/admin/lab-orders/export?status=${filters.status}&branch=${filters.branch ?? ''}&q=${encodeURIComponent(filters.search)}`}
+                            className="hidden md:inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors">
+                            <FileSpreadsheet className="size-3.5" />
+                            Excel
+                        </a>
                     </div>
 
-                    {/* Stats grid */}
-                    <div className="relative mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-                        <StatCard icon={<FlaskConical className="size-4" />} label="Идэвхтэй" value={stats.active.toLocaleString()} accent="violet" />
-                        <StatCard icon={<CheckCircle2 className="size-4" />} label="Дууссан" value={stats.completed.toLocaleString()} accent="emerald" />
-                        <StatCard icon={<CreditCard className="size-4" />} label="Нийт төлөх" value={`${stats.total_due.toLocaleString()}₮`} accent="gray" />
-                        <StatCard icon={<CreditCard className="size-4" />} label="Нийт төлсөн" value={`${stats.total_paid.toLocaleString()}₮`} accent="emerald" />
-                        <StatCard icon={<AlertCircle className="size-4" />} label="Дутуу" value={`${stats.total_outstanding.toLocaleString()}₮`} accent="red" />
-                        <StatCard icon={<Receipt className="size-4" />} label="Баримтаар хаагдсан" value={stats.final_paid_count.toLocaleString()} accent="indigo" />
+                    {/* Compact inline stats */}
+                    <div className="grid grid-cols-3 md:grid-cols-6 divide-x divide-violet-100/60 dark:divide-violet-900/30">
+                        <InlineStat label="Идэвхтэй" value={stats.active.toLocaleString()} accent="violet" />
+                        <InlineStat label="Дууссан" value={stats.completed.toLocaleString()} accent="emerald" />
+                        <InlineStat label="Нийт төлөх" value={`${(stats.total_due / 1000).toFixed(0)}K₮`} title={`${stats.total_due.toLocaleString()}₮`} accent="gray" />
+                        <InlineStat label="Төлсөн" value={`${(stats.total_paid / 1000).toFixed(0)}K₮`} title={`${stats.total_paid.toLocaleString()}₮`} accent="emerald" />
+                        <InlineStat label="Дутуу" value={`${(stats.total_outstanding / 1000).toFixed(0)}K₮`} title={`${stats.total_outstanding.toLocaleString()}₮`} accent="red" />
+                        <InlineStat label="Хаагдсан" value={stats.final_paid_count.toLocaleString()} accent="indigo" />
                     </div>
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card p-3 shadow-sm">
-                    <div className="relative flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-background px-3 py-1.5 flex-1 min-w-60">
-                        <Search className="size-4 text-muted-foreground" />
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-card p-2 shadow-sm">
+                    <div className="relative flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-background px-3 py-1.5 flex-1 min-w-60">
+                        <Search className="size-3.5 text-muted-foreground" />
                         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                            placeholder="Өвчтөн, лаб, эмч, ажил, баримтын дугаараар хайх..."
+                            placeholder="Өвчтөн, лаб, эмч, баримт..."
                             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
                     </div>
 
                     <select value={filters.branch ?? ''} onChange={e => go({ branch: e.target.value ? Number(e.target.value) : null }, filters)}
-                        className="rounded-xl border border-gray-200 dark:border-gray-700 bg-card px-3 py-1.5 text-sm">
+                        className="rounded-lg border border-gray-200 dark:border-gray-700 bg-card px-3 py-1.5 text-xs">
                         <option value="">Бүх салбар</option>
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
 
-                    <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                    <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                         {([
                             { key: 'all',       label: 'Бүгд',     color: 'bg-gray-700' },
                             { key: 'active',    label: 'Идэвхтэй', color: 'bg-violet-600' },
                             { key: 'completed', label: 'Дууссан',  color: 'bg-emerald-600' },
                         ] as const).map(t => (
                             <button key={t.key} onClick={() => go({ status: t.key }, filters)}
-                                className={`px-3 py-1.5 text-xs font-semibold transition-all ${
+                                className={`px-3 py-1.5 text-[11px] font-semibold transition-all ${
                                     filters.status === t.key
                                         ? `${t.color} text-white`
                                         : 'bg-white dark:bg-gray-900 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -192,90 +210,126 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
                         ))}
                     </div>
 
+                    <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
+                        {filtered.length} бичлэг
+                    </span>
+
                     <a href={`/admin/lab-orders/export?status=${filters.status}&branch=${filters.branch ?? ''}&q=${encodeURIComponent(filters.search)}`}
-                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors">
+                        className="md:hidden inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white">
                         <FileSpreadsheet className="size-3.5" />
-                        Excel татах
                     </a>
                 </div>
 
-                {/* Grouped tables */}
+                {/* Grouped branches */}
                 {groupedByBranch.length === 0 ? (
-                    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm p-12 text-center text-muted-foreground">
-                        <FlaskConical className="size-12 mx-auto mb-3 text-violet-300" />
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm p-12 text-center text-muted-foreground">
+                        <FlaskConical className="size-10 mx-auto mb-2 text-violet-300" />
                         <p className="text-sm font-semibold">Лаб бүртгэл байхгүй</p>
                     </div>
                 ) : (
-                    groupedByBranch.map(([branchName, list]) => (
-                        <div key={branchName} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm overflow-hidden">
-                            <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-violet-100/60 to-fuchsia-100/40 dark:from-violet-950/40 dark:to-fuchsia-950/30 px-5 py-3">
-                                <h2 className="text-sm font-bold text-foreground inline-flex items-center gap-2">
-                                    <Building2 className="size-4 text-violet-600" />
-                                    {branchName}
-                                </h2>
-                                <span className="text-[11px] text-muted-foreground tabular-nums">{list.length} захиалга</span>
+                    groupedByBranch.map(([branchName, list]) => {
+                        const collapsed = collapsedBranches.has(branchName);
+                        const branchOutstanding = list.reduce((s, o) => s + o.outstanding, 0);
+                        const visible = collapsed ? [] : list.slice(0, page * PAGE_SIZE);
+                        const hasMore = !collapsed && page * PAGE_SIZE < list.length;
+                        return (
+                            <div key={branchName} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm overflow-hidden">
+                                <button onClick={() => toggleBranch(branchName)}
+                                    className="w-full flex items-center justify-between gap-3 border-b border-border bg-gradient-to-r from-violet-100/40 to-fuchsia-100/30 dark:from-violet-950/30 dark:to-fuchsia-950/20 px-4 py-2.5 hover:from-violet-100/70 dark:hover:from-violet-950/50 transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        {collapsed ? <ChevronRight className="size-3.5 text-violet-600" /> : <ChevronDown className="size-3.5 text-violet-600" />}
+                                        <Building2 className="size-3.5 text-violet-600" />
+                                        <h2 className="text-sm font-bold text-foreground">{branchName}</h2>
+                                        <span className="rounded-full bg-violet-100 dark:bg-violet-950/40 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300 tabular-nums">
+                                            {list.length}
+                                        </span>
+                                    </div>
+                                    {branchOutstanding > 0 && (
+                                        <span className="text-[11px] font-bold text-red-600 dark:text-red-400 tabular-nums">
+                                            Дутуу {branchOutstanding.toLocaleString()}₮
+                                        </span>
+                                    )}
+                                </button>
+                                {!collapsed && (
+                                    <>
+                                        <div className="overflow-x-auto premium-scroll">
+                                            <table className="w-full text-xs">
+                                                <thead>
+                                                    <tr className="bg-gray-50/70 dark:bg-gray-800/40 text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">
+                                                        <th className="px-3 py-1.5 text-center font-semibold w-8">№</th>
+                                                        <th className="px-2 py-1.5 text-left font-semibold w-24">Захиалсан</th>
+                                                        <th className="px-2 py-1.5 text-left font-semibold">Өвчтөн</th>
+                                                        <th className="px-2 py-1.5 text-left font-semibold">Лаб / Ажил</th>
+                                                        <th className="px-2 py-1.5 text-left font-semibold w-28 hidden md:table-cell">Эмч</th>
+                                                        <th className="px-2 py-1.5 text-right font-semibold w-24">Дүн</th>
+                                                        <th className="px-2 py-1.5 text-right font-semibold w-20 hidden md:table-cell">Дутуу</th>
+                                                        <th className="px-2 py-1.5 text-center font-semibold w-28">Статус</th>
+                                                        <th className="px-2 py-1.5 text-center font-semibold w-6"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {visible.map((o, idx) => {
+                                                        const s = stage(o);
+                                                        const patient = combinePatient(o.patient_last_name, o.patient_first_name, o.patient_phone);
+                                                        return (
+                                                            <tr key={o.id}
+                                                                onClick={() => setOpenId(o.id)}
+                                                                className={`cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
+                                                                    o.is_completed ? 'bg-emerald-50/15 dark:bg-emerald-950/5' :
+                                                                    idx % 2 === 0 ? '' : 'bg-gray-50/30 dark:bg-gray-800/10'
+                                                                }`}>
+                                                                <td className="px-3 py-2 text-center text-gray-400 text-[11px] tabular-nums">{idx + 1}</td>
+                                                                <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 tabular-nums whitespace-nowrap">{o.order_date ?? '—'}</td>
+                                                                <td className="px-2 py-2 max-w-[200px]">
+                                                                    <div className="font-semibold text-foreground truncate text-[12px]">{patient || '—'}</div>
+                                                                </td>
+                                                                <td className="px-2 py-2 max-w-[260px]">
+                                                                    <div className="font-medium text-foreground truncate text-[12px]">{o.lab_name}</div>
+                                                                    <div className="text-[10px] text-muted-foreground truncate">{o.work_description}</div>
+                                                                </td>
+                                                                <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 truncate hidden md:table-cell">{o.doctor_name ?? '—'}</td>
+                                                                <td className="px-2 py-2 text-right tabular-nums text-[11px] whitespace-nowrap">
+                                                                    <span className="font-bold text-foreground">{(o.effective_due ?? o.amount_due).toLocaleString()}₮</span>
+                                                                    {o.discount_percent > 0 && (
+                                                                        <div className="text-[9px] text-orange-600 dark:text-orange-400">−{o.discount_percent}%</div>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-2 text-right tabular-nums text-[11px] whitespace-nowrap hidden md:table-cell">
+                                                                    {o.outstanding > 0 ? (
+                                                                        <span className="text-red-600 dark:text-red-400 font-bold">{o.outstanding.toLocaleString()}₮</span>
+                                                                    ) : (
+                                                                        <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-2 py-2 text-center">
+                                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold whitespace-nowrap ${s.color}`}>
+                                                                        {s.label}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-2 py-2 text-center text-gray-400">›</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {hasMore && (
+                                            <div className="border-t border-border bg-muted/20">
+                                                <button onClick={() => setPage(p => p + 1)}
+                                                    className="w-full px-3 py-2 text-xs text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 font-semibold transition-colors">
+                                                    Үлдсэн {list.length - visible.length}-г харах
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50/60 dark:bg-gray-800/40 text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wide">
-                                        <th className="px-3 py-2 text-center font-semibold w-10">№</th>
-                                        <th className="px-3 py-2 text-left font-semibold w-28">Захиалсан</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Өвчтөн</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Лаб / Ажил</th>
-                                        <th className="px-3 py-2 text-left font-semibold w-32">Эмч</th>
-                                        <th className="px-3 py-2 text-right font-semibold w-28">Дүн</th>
-                                        <th className="px-3 py-2 text-center font-semibold w-32">Статус</th>
-                                        <th className="px-3 py-2 text-center font-semibold w-10"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {list.map((o, idx) => {
-                                        const s = stage(o);
-                                        const patient = combinePatient(o.patient_last_name, o.patient_first_name, o.patient_phone);
-                                        return (
-                                            <tr key={o.id}
-                                                onClick={() => setOpenId(o.id)}
-                                                className={`cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
-                                                    o.is_completed ? 'bg-emerald-50/20 dark:bg-emerald-950/5' :
-                                                    idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50/40 dark:bg-gray-800/15'
-                                                }`}>
-                                                <td className="px-3 py-3 text-center text-gray-400 text-xs">{idx + 1}</td>
-                                                <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 tabular-nums">{o.order_date ?? '—'}</td>
-                                                <td className="px-3 py-3">
-                                                    <div className="font-semibold text-foreground truncate">{patient || '—'}</div>
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="font-semibold text-foreground truncate">{o.lab_name}</div>
-                                                    <div className="text-[11px] text-muted-foreground truncate">{o.work_description}</div>
-                                                </td>
-                                                <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 truncate">{o.doctor_name ?? '—'}</td>
-                                                <td className="px-3 py-3 text-right tabular-nums text-xs">
-                                                    <div className="font-bold text-foreground">{o.amount_due.toLocaleString()}₮</div>
-                                                    {o.outstanding > 0 ? (
-                                                        <div className="text-red-600 dark:text-red-400 font-semibold mt-0.5">
-                                                            Дутуу: {o.outstanding.toLocaleString()}₮
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">✓ Бүтэн</div>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-3 text-center">
-                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${s.color}`}>
-                                                        {s.label}
-                                                    </span>
-                                                </td>
-                                                <td className="px-3 py-3 text-center text-gray-400">›</td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
 
-                <p className="text-[11px] text-muted-foreground text-center">
-                    💡 Мөр дээр дарж бүх дэлгэрэнгүйг үзнэ үү
+                <p className="text-[10px] text-muted-foreground text-center">
+                    💡 Мөр дээр дарж дэлгэрэнгүйг үзнэ үү · Салбарын нэр дээр дарж нуух/нээх
                 </p>
             </div>
 
@@ -284,6 +338,24 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
                 <AdminDetailDrawer key={openOrder.id} order={openOrder} onClose={() => setOpenId(null)} />
             )}
         </AppLayout>
+    );
+}
+
+/* ── Compact inline stat ────────────────────────────────────────── */
+function InlineStat({ label, value, accent, title }: { label: string; value: string; accent: StatAccent; title?: string }) {
+    const color = {
+        violet:  'text-violet-700 dark:text-violet-400',
+        emerald: 'text-emerald-700 dark:text-emerald-400',
+        red:     'text-red-700 dark:text-red-400',
+        indigo:  'text-indigo-700 dark:text-indigo-400',
+        blue:    'text-blue-700 dark:text-blue-400',
+        gray:    'text-foreground',
+    }[accent];
+    return (
+        <div className="px-3 py-2 text-center" title={title}>
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold truncate">{label}</p>
+            <p className={`text-sm font-bold tabular-nums truncate ${color}`}>{value}</p>
+        </div>
     );
 }
 
@@ -354,6 +426,10 @@ function AdminDetailDrawer({ order, onClose }: { order: LabOrder; onClose: () =>
                     <Section icon={<CreditCard className="size-4" />} title="Тооцоо" color="emerald">
                         <div className="grid grid-cols-3 gap-3">
                             <Metric label="Төлөх дүн" value={`${order.amount_due.toLocaleString()}₮`} />
+                            {order.discount_percent > 0 && (
+                                <Metric label={`Хөнгөлөлт (${order.discount_percent}%)`} value={`−${(order.amount_due - order.effective_due).toLocaleString()}₮`} accent="orange" />
+                            )}
+                            <Metric label="Цэвэр төлөх" value={`${order.effective_due.toLocaleString()}₮`} accent="blue" />
                             <Metric label="Төлсөн дүн" value={`${order.amount_paid.toLocaleString()}₮`} accent="emerald" />
                             <Metric label="Дутуу үлдэгдэл" value={`${order.outstanding.toLocaleString()}₮`} accent={order.outstanding > 0 ? 'red' : 'emerald'} />
                         </div>
@@ -490,10 +566,12 @@ function Field({ label, value, icon, highlight, multiline }: {
     );
 }
 
-function Metric({ label, value, accent }: { label: string; value: string; accent?: 'emerald' | 'red' }) {
+function Metric({ label, value, accent }: { label: string; value: string; accent?: 'emerald' | 'red' | 'orange' | 'blue' }) {
     const color =
         accent === 'emerald' ? 'text-emerald-700 dark:text-emerald-400' :
         accent === 'red'     ? 'text-red-700 dark:text-red-400' :
+        accent === 'orange'  ? 'text-orange-700 dark:text-orange-400' :
+        accent === 'blue'    ? 'text-blue-700 dark:text-blue-400' :
         'text-foreground';
     return (
         <div className="rounded-xl border border-border bg-muted/20 px-3 py-2.5">
@@ -504,28 +582,3 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
 }
 
 type StatAccent = 'violet' | 'emerald' | 'red' | 'indigo' | 'gray' | 'blue';
-
-function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: StatAccent }) {
-    const palette: Record<StatAccent, { gradient: string; text: string; border: string }> = {
-        violet:  { gradient: 'from-violet-500 to-fuchsia-600',  text: 'text-violet-700 dark:text-violet-400',   border: 'border-violet-200/60 dark:border-violet-800/40' },
-        emerald: { gradient: 'from-emerald-500 to-teal-600',    text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200/60 dark:border-emerald-800/40' },
-        red:     { gradient: 'from-red-500 to-rose-600',        text: 'text-red-700 dark:text-red-400',         border: 'border-red-200/60 dark:border-red-800/40' },
-        indigo:  { gradient: 'from-indigo-500 to-violet-600',   text: 'text-indigo-700 dark:text-indigo-400',   border: 'border-indigo-200/60 dark:border-indigo-800/40' },
-        blue:    { gradient: 'from-blue-500 to-indigo-600',     text: 'text-blue-700 dark:text-blue-400',       border: 'border-blue-200/60 dark:border-blue-800/40' },
-        gray:    { gradient: 'from-gray-500 to-slate-600',      text: 'text-gray-700 dark:text-gray-300',       border: 'border-gray-200/60 dark:border-gray-800/40' },
-    };
-    const p = palette[accent];
-    return (
-        <div className={`rounded-xl border bg-white/70 dark:bg-gray-900/60 backdrop-blur p-3 shadow-sm ${p.border}`}>
-            <div className="flex items-center gap-2">
-                <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${p.gradient} text-white shadow-sm`}>
-                    {icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold truncate">{label}</p>
-                    <p className={`text-sm font-bold tabular-nums truncate ${p.text}`}>{value}</p>
-                </div>
-            </div>
-        </div>
-    );
-}

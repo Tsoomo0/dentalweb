@@ -18,7 +18,8 @@ class LabMiddleware
         $user = Auth::user();
         $portal = $user->employee?->position?->portal;
 
-        if ($user->isAdmin() || $portal === 'lab') {
+        $extras = $user->employee?->extra_portals ?? [];
+        if ($user->isAdmin() || $portal === 'lab' || (is_array($extras) && in_array('lab', $extras, true))) {
             return $next($request);
         }
 

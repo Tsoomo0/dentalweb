@@ -209,6 +209,7 @@ class HandleInertiaRequests extends Middleware
                         'photo_url' => $emp->photo_url,
                         'position' => $emp->position?->name,
                         'portal' => $emp->position?->portal,
+                        'extra_portals' => $emp->extra_portals ?? [],
                     ];
                 })(),
             ],

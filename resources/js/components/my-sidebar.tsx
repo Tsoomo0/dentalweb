@@ -25,6 +25,7 @@ interface PageProps {
             full_name: string;
             photo_url: string | null;
             position: string | null;
+            extra_portals?: string[];
         } | null;
     };
     [key: string]: unknown;
@@ -34,8 +35,11 @@ export function MySidebar() {
     const { url, props } = usePage<PageProps>();
     const employee = props.auth?.employee;
 
-    const isReception = (employee?.position ?? '').toLowerCase().includes('ресепш');
-    const isNurse     = (employee?.position ?? '').toLowerCase().includes('сувилагч');
+    const positionLower = (employee?.position ?? '').toLowerCase();
+    const extras = (employee?.extra_portals ?? []) as string[];
+    // Ресепшний урамшуулал: үндсэн ресепшн ЭСВЭЛ extra_portals дотор 'reception' (хайбрид сувилагч)
+    const isReception = positionLower.includes('ресепш') || extras.includes('reception');
+    const isNurse     = positionLower.includes('сувилагч');
 
     const navItems = [
         { title: 'Хяналтын самбар',       url: '/my/home',              icon: LayoutGrid },
@@ -45,8 +49,8 @@ export function MySidebar() {
         { title: 'Чөлөөний хүсэлт',      url: '/my/leave-requests',    icon: CalendarDays },
         { title: 'Ээлжийн амралт',        url: '/my/vacation-requests', icon: Umbrella },
         { title: 'Цалингийн задаргаа',    url: '/my/payroll',           icon: DollarSign },
-        ...(isReception ? [{ title: 'Урамшуулал', url: '/my/reception-bonus', icon: Smile }] : []),
-        ...(isNurse ? [{ title: 'Урамшуулал', url: '/my/nurse-bonus', icon: Stethoscope }] : []),
+        ...(isReception ? [{ title: 'Ресепшний урамшуулал', url: '/my/reception-bonus', icon: Smile }] : []),
+        ...(isNurse     ? [{ title: 'Сувилагчийн урамшуулал', url: '/my/nurse-bonus', icon: Stethoscope }] : []),
         { title: 'Номын сан',             url: '/my/book-rentals',      icon: BookOpen },
         { title: 'Тоног төхөөрөмж',       url: '/my/equipment',         icon: Package },
         { title: 'Санал хүсэлт',          url: '/my/feedback',          icon: MessageSquare },

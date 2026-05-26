@@ -4,6 +4,7 @@ namespace App\Http\Controllers\HR;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Doctor;
 use App\Models\HR\Employee;
 use App\Models\HR\NurseBonusEntry;
 use App\Models\HR\NurseBonusRun;
@@ -21,7 +22,8 @@ class NurseBonusController extends Controller
     {
         $runs = NurseBonusRun::withCount('entries')
             ->withCount(['entries as sent_entries_count' => fn ($q) => $q->where('is_sent', true)])
-            ->with('creator')
+            ->withSum('entries as total_amount', 'total_amount')
+            ->with(['creator', 'employee'])
             ->latest()
             ->get()
             ->map(fn ($r) => [
@@ -33,60 +35,64 @@ class NurseBonusController extends Controller
                 'half' => $r->half,
                 'half_label' => $r->half_label,
                 'label' => $r->label,
+                'employee_id' => $r->employee_id,
+                'employee_name' => $r->employee ? trim($r->employee->last_name.' '.$r->employee->first_name) : null,
                 'status' => $r->status,
                 'entries_count' => $r->entries_count,
                 'sent_entries_count' => $r->sent_entries_count,
+                'total_amount' => (float) ($r->total_amount ?? 0),
                 'created_at' => $r->created_at->format('Y.m.d'),
                 'created_by' => $r->creator?->name,
             ]);
 
+        $branches = Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+
+        // Бүх сувилагч ажилтнуудыг салбараар + нэрээр буцаана (форм-д ашиглана)
+        $nurses = Employee::with('position')
+            ->whereNull('deleted_at')
+            ->where('status', 'active')
+            ->whereHas('position', fn ($q) => $q->whereRaw('LOWER(TRIM(name)) = ?', ['сувилагч']))
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn ($e) => [
+                'id'        => $e->id,
+                'name'      => trim($e->last_name.' '.$e->first_name),
+                'branch_id' => $e->branch_id,
+            ])
+            ->values();
+
         return Inertia::render('hr/nurse-bonus/index', [
             'runs' => $runs,
-            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'branches' => $branches,
+            'nurses' => $nurses,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'date' => 'required|date',
-            'branch_id' => 'required|exists:branches,id',
-            'notes' => 'nullable|string|max:500',
+            'year'        => 'required|integer|min:2020|max:2100',
+            'month'       => 'required|integer|min:1|max:12',
+            'half'        => 'required|in:first,second',
+            'branch_id'   => 'required|exists:branches,id',
+            'employee_id' => 'required|exists:employees,id',
+            'notes'       => 'nullable|string|max:500',
         ]);
 
-        $run = DB::transaction(function () use ($request) {
-            $branch = Branch::findOrFail($request->branch_id);
-            $date = \Carbon\Carbon::parse($request->date);
+        $branch = Branch::findOrFail($request->branch_id);
+        $employee = Employee::findOrFail($request->employee_id);
 
-            $run = NurseBonusRun::create([
-                'date' => $date->toDateString(),
-                // Хуучин баганатай нийцэхийн тулд month/half-ийг автомат тооцоонд бөглөнө
-                'year' => $date->year,
-                'month' => $date->month,
-                'half' => $date->day <= 15 ? 'first' : 'second',
-                'label' => $branch->name,
-                'branch_id' => $request->branch_id,
-                'notes' => $request->notes,
-                'status' => 'draft',
-                'created_by' => Auth::id(),
-            ]);
-
-            // Тухайн салбарын ЗӨВХӨН "Сувилагч" албан тушаалтай ажилтнуудаар entry үүсгэх
-            // (ариутгалын сувилагч, эмчилгээний сувилагч гэх мэт хасагдана)
-            Employee::with('position')
-                ->whereNull('deleted_at')
-                ->where('status', 'active')
-                ->where('branch_id', $request->branch_id)
-                ->whereHas('position', fn ($q) => $q->whereRaw('LOWER(TRIM(name)) = ?', ['сувилагч']))
-                ->orderBy('last_name')
-                ->get()
-                ->each(fn ($emp) => NurseBonusEntry::create([
-                    'nurse_bonus_run_id' => $run->id,
-                    'employee_id' => $emp->id,
-                ]));
-
-            return $run;
-        });
+        $run = NurseBonusRun::create([
+            'year' => $request->year,
+            'month' => $request->month,
+            'half' => $request->half,
+            'label' => $branch->name,
+            'branch_id' => $request->branch_id,
+            'employee_id' => $employee->id,
+            'notes' => $request->notes,
+            'status' => 'draft',
+            'created_by' => Auth::id(),
+        ]);
 
         return redirect()->route('hr.nurse-bonus.show', $run)
             ->with('success', 'Урамшууллын тооцоо үүсгэгдлээ.');
@@ -94,32 +100,23 @@ class NurseBonusController extends Controller
 
     public function show(NurseBonusRun $nurseBonusRun): Response
     {
-        $nurseBonusRun->load(['entries.employee.position']);
+        $nurseBonusRun->load(['employee.position', 'entries.doctor', 'branch']);
 
-        $entries = $nurseBonusRun->entries->map(fn ($e) => $this->formatEntry($e));
+        $entries = $nurseBonusRun->entries
+            ->sortBy('date')
+            ->values()
+            ->map(fn ($e) => $this->formatEntry($e));
 
-        // Энэ run-д хараахан нэмэгдээгүй (тухайн салбарын ЗӨВХӨН "Сувилагч") ажилтнуудыг харуулна
-        $existingEmployeeIds = $nurseBonusRun->entries->pluck('employee_id')->all();
-        $availableEmployees = Employee::with('position')
-            ->whereNull('deleted_at')
-            ->where('status', 'active')
-            ->when($nurseBonusRun->branch_id, fn ($q) => $q->where('branch_id', $nurseBonusRun->branch_id))
-            ->whereHas('position', fn ($q) => $q->whereRaw('LOWER(TRIM(name)) = ?', ['сувилагч']))
-            ->whereNotIn('id', $existingEmployeeIds)
-            ->orderBy('last_name')
-            ->get()
-            ->map(fn ($e) => [
-                'id' => $e->id,
-                'name' => $e->full_name,
-                'employee_number' => $e->employee_number,
-            ])
-            ->values();
+        // Тухайн салбарын идэвхтэй эмчүүд (сонгох жагсаалт)
+        $doctors = Doctor::where('is_active', true)
+            ->when($nurseBonusRun->branch_id, fn ($q) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $nurseBonusRun->branch_id)))
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return Inertia::render('hr/nurse-bonus/show', [
             'run' => [
                 'id' => $nurseBonusRun->id,
                 'title' => $nurseBonusRun->title,
-                'date' => $nurseBonusRun->date?->toDateString(),
                 'year' => $nurseBonusRun->year,
                 'month' => $nurseBonusRun->month,
                 'half' => $nurseBonusRun->half,
@@ -127,32 +124,19 @@ class NurseBonusController extends Controller
                 'label' => $nurseBonusRun->label,
                 'status' => $nurseBonusRun->status,
                 'notes' => $nurseBonusRun->notes,
+                'branch_name' => $nurseBonusRun->branch?->name,
+                'employee_id' => $nurseBonusRun->employee_id,
+                'employee_name' => $nurseBonusRun->employee
+                    ? trim($nurseBonusRun->employee->last_name.' '.$nurseBonusRun->employee->first_name)
+                    : null,
+                'employee_position' => $nurseBonusRun->employee?->position?->name,
             ],
-            'entries' => $entries,
-            'available_employees' => $availableEmployees,
+            'entries'  => $entries,
+            'doctors'  => $doctors,
             'criteria' => NurseBonusEntry::CRITERIA,
         ]);
     }
 
-    /** Хасах: тухайн өдрийн урамшууллаас ажилтны мөрийг устгана */
-    public function removeEntry(NurseBonusRun $nurseBonusRun, NurseBonusEntry $entry): RedirectResponse
-    {
-        if ($entry->nurse_bonus_run_id !== $nurseBonusRun->id) {
-            return back()->with('error', 'Алдаатай хүсэлт.');
-        }
-        if ($nurseBonusRun->status === 'final') {
-            return back()->with('error', 'Баталгаажсан тооцоог засах боломжгүй.');
-        }
-        if ($entry->is_sent) {
-            return back()->with('error', 'Илгээсэн ажилтны мөрийг хасах боломжгүй.');
-        }
-
-        $entry->delete();
-
-        return back()->with('success', 'Ажилтан хасагдлаа.');
-    }
-
-    /** Нэмэх: тухайн өдрийн урамшуулалд шинэ ажилтан нэмнэ */
     public function addEntry(Request $request, NurseBonusRun $nurseBonusRun): RedirectResponse
     {
         if ($nurseBonusRun->status === 'final') {
@@ -160,23 +144,31 @@ class NurseBonusController extends Controller
         }
 
         $request->validate([
-            'employee_id' => 'required|exists:employees,id',
+            'date' => 'required|date',
         ]);
-
-        // Аль хэдийн нэмэгдсэн эсэхийг шалгана
-        $exists = NurseBonusEntry::where('nurse_bonus_run_id', $nurseBonusRun->id)
-            ->where('employee_id', $request->employee_id)
-            ->exists();
-        if ($exists) {
-            return back()->with('error', 'Энэ ажилтан аль хэдийн нэмэгдсэн байна.');
-        }
 
         NurseBonusEntry::create([
             'nurse_bonus_run_id' => $nurseBonusRun->id,
-            'employee_id' => $request->employee_id,
+            'employee_id'        => $nurseBonusRun->employee_id,
+            'date'               => $request->date,
         ]);
 
-        return back()->with('success', 'Ажилтан нэмэгдлээ.');
+        return back()->with('success', 'Мөр нэмэгдлээ.');
+    }
+
+    public function removeEntry(NurseBonusRun $nurseBonusRun, NurseBonusEntry $entry): RedirectResponse
+    {
+        if ($nurseBonusRun->status === 'final') {
+            return back()->with('error', 'Баталгаажсан тооцоог засах боломжгүй.');
+        }
+
+        if ($entry->nurse_bonus_run_id !== $nurseBonusRun->id) {
+            return back()->with('error', 'Тохирох мөр олдсонгүй.');
+        }
+
+        $entry->delete();
+
+        return back()->with('success', 'Мөр устгагдлаа.');
     }
 
     public function update(Request $request, NurseBonusRun $nurseBonusRun): RedirectResponse
@@ -186,11 +178,16 @@ class NurseBonusController extends Controller
         }
 
         $request->validate([
-            'entries' => 'required|array',
+            'entries' => 'nullable|array',
             'entries.*.id' => 'required|exists:nurse_bonus_entries,id',
         ]);
 
+        if (empty($request->entries)) {
+            return back()->with('success', 'Хадгалах мөр алга.');
+        }
+
         $fields = [
+            'doctor_id',
             'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
             'visit_count',
             'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
@@ -204,7 +201,11 @@ class NurseBonusController extends Controller
             foreach ($request->entries as $data) {
                 $update = [];
                 foreach ($fields as $f) {
-                    $update[$f] = isset($data[$f]) && $data[$f] !== '' ? (float) $data[$f] : 0;
+                    if ($f === 'doctor_id') {
+                        $update[$f] = $data[$f] ?? null;
+                    } else {
+                        $update[$f] = isset($data[$f]) && $data[$f] !== '' ? (float) $data[$f] : 0;
+                    }
                 }
                 NurseBonusEntry::where('id', $data['id'])
                     ->where('nurse_bonus_run_id', $nurseBonusRun->id)
@@ -217,75 +218,67 @@ class NurseBonusController extends Controller
 
     public function finalize(Request $request, NurseBonusRun $nurseBonusRun): RedirectResponse
     {
-        $fields = [
-            'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
-            'visit_count',
-            'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
-            'post_exam_chair_sterilize', 'tube_sterilization', 'suction_filter',
-            'quartz_before', 'quartz_after', 'xray', 'model_cast', 'implant',
-            'blood_pressure', 'complaint', 'absent',
-            'total_amount',
-        ];
+        if ($nurseBonusRun->status === 'final') {
+            return back()->with('info', 'Аль хэдийн баталгаажсан байна.');
+        }
 
-        DB::transaction(function () use ($request, $fields, $nurseBonusRun) {
-            // Save current entry values first (if provided)
-            if ($request->has('entries') && is_array($request->entries)) {
-                foreach ($request->entries as $data) {
-                    if (empty($data['id'])) {
-                        continue;
-                    }
-                    $update = [];
-                    foreach ($fields as $f) {
-                        $update[$f] = isset($data[$f]) && $data[$f] !== '' ? (float) $data[$f] : 0;
-                    }
-                    NurseBonusEntry::where('id', $data['id'])
-                        ->where('nurse_bonus_run_id', $nurseBonusRun->id)
-                        ->update($update);
+        // Эхлээд хадгал
+        if ($request->has('entries') && is_array($request->entries)) {
+            $this->update($request, $nurseBonusRun);
+        }
+
+        $nurseBonusRun->update(['status' => 'final']);
+
+        // Сувилагчид мэдэгдэл явуулна
+        $nurseBonusRun->load('employee.user', 'entries');
+        $user = $nurseBonusRun->employee?->user;
+        if ($user) {
+            // Бүх entry-г илгээсэн гэж тэмдэглэнэ
+            $nurseBonusRun->entries()->update(['is_sent' => true, 'sent_at' => now()]);
+            // Эхний entry-р notification (run-ийн нэгтгэсэн дүнг үзүүлэх зорилгоор)
+            $firstEntry = $nurseBonusRun->entries->first();
+            if ($firstEntry) {
+                try {
+                    $user->notify(new NurseBonusSent($firstEntry));
+                } catch (\Throwable $e) {
+                    \Log::warning("NurseBonusSent failed: ".$e->getMessage());
                 }
             }
-
-            $nurseBonusRun->update(['status' => 'final']);
-        });
-
-        $nurseBonusRun->load('entries.employee.user', 'entries.run');
-        foreach ($nurseBonusRun->entries as $entry) {
-            $user = $entry->employee?->user;
-            if (! $user) {
-                continue;
-            }
-
-            $entry->update(['is_sent' => true, 'sent_at' => now()]);
-            try {
-                $user->notify(new NurseBonusSent($entry));
-            } catch (\Throwable $e) {
-                \Log::warning("NurseBonusSent mail failed for user {$user->id}: ".$e->getMessage());
-            }
         }
 
-        return back()->with('success', 'Урамшуулал баталгаажлаа. Бүх ажилтанд мэдэгдэл илгээлээ.');
+        return back()->with('success', 'Урамшуулал баталгаажиж ажилтанд илгээгдлээ.');
     }
 
-    public function sendEntry(NurseBonusRun $nurseBonusRun, NurseBonusEntry $entry): RedirectResponse
+    public function bulkFinalize(Request $request): RedirectResponse
     {
-        if ($entry->nurse_bonus_run_id !== $nurseBonusRun->id) {
-            return back()->with('error', 'Алдаатай хүсэлт.');
+        $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:nurse_bonus_runs,id',
+        ]);
+
+        $runs = NurseBonusRun::whereIn('id', $request->ids)
+            ->where('status', 'draft')
+            ->with('employee.user', 'entries')
+            ->get();
+
+        $sent = 0;
+        foreach ($runs as $run) {
+            $run->update(['status' => 'final']);
+            $run->entries()->update(['is_sent' => true, 'sent_at' => now()]);
+
+            $user = $run->employee?->user;
+            $firstEntry = $run->entries->first();
+            if ($user && $firstEntry) {
+                try {
+                    $user->notify(new NurseBonusSent($firstEntry));
+                    $sent++;
+                } catch (\Throwable $e) {
+                    \Log::warning('NurseBonusSent bulk failed: '.$e->getMessage());
+                }
+            }
         }
 
-        $entry->load('employee.user', 'run');
-        $user = $entry->employee?->user;
-
-        if (! $user) {
-            return back()->with('error', 'Ажилтны системийн хэрэглэгч олдсонгүй.');
-        }
-
-        $entry->update(['is_sent' => true, 'sent_at' => now()]);
-        try {
-            $user->notify(new NurseBonusSent($entry));
-        } catch (\Throwable $e) {
-            \Log::warning("NurseBonusSent mail failed for user {$user->id}: ".$e->getMessage());
-        }
-
-        return back()->with('success', "{$entry->employee->full_name} ажилтанд урамшуулал илгээлээ.");
+        return back()->with('success', "{$sent} ажилтанд урамшуулал илгээгдлээ.");
     }
 
     public function reopen(NurseBonusRun $nurseBonusRun): RedirectResponse
@@ -295,10 +288,18 @@ class NurseBonusController extends Controller
         return back()->with('success', 'Урамшуулал нээгдлээ.');
     }
 
+    public function destroy(NurseBonusRun $nurseBonusRun): RedirectResponse
+    {
+        $nurseBonusRun->delete();
+
+        return redirect()->route('hr.nurse-bonus.index')->with('success', 'Устгагдлаа.');
+    }
+
     public function exportExcel(NurseBonusRun $nurseBonusRun): \Illuminate\Http\Response
     {
-        $nurseBonusRun->load(['entries.employee.position']);
-        $entries = $nurseBonusRun->entries->map(fn ($e) => $this->formatEntry($e));
+        $nurseBonusRun->load(['employee.position', 'entries.doctor', 'branch']);
+        $entries = $nurseBonusRun->entries->sortBy('date')->values()
+            ->map(fn ($e) => $this->formatEntry($e));
         $criteria = NurseBonusEntry::CRITERIA;
 
         $filename = 'nurse-bonus-'.$nurseBonusRun->year.'-'.$nurseBonusRun->month.'-'.$nurseBonusRun->half.'.xls';
@@ -313,21 +314,13 @@ class NurseBonusController extends Controller
         );
     }
 
-    public function destroy(NurseBonusRun $nurseBonusRun): RedirectResponse
-    {
-        $nurseBonusRun->delete();
-
-        return redirect()->route('hr.nurse-bonus.index')->with('success', 'Устгагдлаа.');
-    }
-
     private function formatEntry(NurseBonusEntry $e): array
     {
         return [
             'id' => $e->id,
-            'employee_id' => $e->employee_id,
-            'name' => $e->employee->full_name,
-            'employee_number' => $e->employee->employee_number,
-            'position' => $e->employee->position?->name,
+            'date' => $e->date?->toDateString(),
+            'doctor_id' => $e->doctor_id,
+            'doctor_name' => $e->doctor?->name,
             'clothing' => $e->clothing,
             'hand_hygiene' => $e->hand_hygiene,
             'chair_sterilization' => $e->chair_sterilization,

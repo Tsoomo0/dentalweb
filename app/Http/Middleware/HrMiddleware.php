@@ -18,7 +18,8 @@ class HrMiddleware
         $user = Auth::user();
         $portal = $user->employee?->position?->portal;
 
-        if ($user->isAdmin() || $portal === 'hr') {
+        $extras = $user->employee?->extra_portals ?? [];
+        if ($user->isAdmin() || $portal === 'hr' || (is_array($extras) && in_array('hr', $extras, true))) {
             return $next($request);
         }
 

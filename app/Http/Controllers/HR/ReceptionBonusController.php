@@ -70,11 +70,16 @@ class ReceptionBonusController extends Controller
             ]);
 
             // Тухайн салбарын ресепшн ажилтнуудаар entry үүсгэх
+            // - Үндсэн position нь "ресепш" агуулсан, ЭСВЭЛ
+            // - extra_portals дотор 'reception' (сувилагч мөн ресепшний ажил хийдэг гэх мэт)
             Employee::with('position')
                 ->whereNull('deleted_at')
                 ->where('status', 'active')
                 ->where('branch_id', $request->branch_id)
-                ->whereHas('position', fn ($q) => $q->whereRaw('LOWER(name) LIKE ?', ['%ресепш%']))
+                ->where(function ($q) {
+                    $q->whereHas('position', fn ($q2) => $q2->whereRaw('LOWER(name) LIKE ?', ['%ресепш%']))
+                      ->orWhereJsonContains('extra_portals', 'reception');
+                })
                 ->orderBy('last_name')
                 ->get()
                 ->each(fn ($emp) => ReceptionBonusEntry::create([

@@ -17,9 +17,14 @@ class ReceptionBonusController extends Controller
             return redirect()->route('portal.select');
         }
 
-        // Зөвхөн ресепшн албан тушаал
+        // Ресепшн ажил гүйцэтгэдэг ажилтан үзнэ:
+        // - position.name дотор "ресепш" агуулсан (үндсэн ресепшн)
+        // - ЭСВЭЛ employee.extra_portals дотор 'reception' (сувилагч мөн ресепшн хийдэг гэх мэт)
         $position = $employee->position?->name ?? '';
-        if (mb_stripos($position, 'ресепш') === false) {
+        $extras = $employee->extra_portals ?? [];
+        $isPrimaryReception = mb_stripos($position, 'ресепш') !== false;
+        $isExtraReception = is_array($extras) && in_array('reception', $extras, true);
+        if (! $isPrimaryReception && ! $isExtraReception) {
             return redirect()->route('portal.select');
         }
 

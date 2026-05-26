@@ -20,14 +20,15 @@ class LabOrderController extends Controller
         $status   = $request->get('status', 'active');
         $search   = trim((string) $request->get('q', ''));
 
+        // Лаб портал зөвхөн "Кутикул лаб"-ын ажлуудыг харна (бусад нь гадны лаб)
         $orders = LabOrder::with(['branch', 'doctor', 'bender', 'polisher', 'creator'])
+            ->where('lab_name', 'Кутикул лаб')
             ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
             ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->where('patient_first_name', 'like', "%{$search}%")
                 ->orWhere('patient_last_name', 'like', "%{$search}%")
                 ->orWhere('patient_phone', 'like', "%{$search}%")
-                ->orWhere('lab_name', 'like', "%{$search}%")
                 ->orWhere('work_description', 'like', "%{$search}%")
             ))
             ->orderByDesc('order_date')
@@ -47,6 +48,8 @@ class LabOrderController extends Controller
                 'doctor_name'         => $o->doctor?->name,
                 'work_description'    => $o->work_description,
                 'amount_due'          => (int) $o->amount_due,
+                'discount_percent'    => (int) $o->discount_percent,
+                'effective_due'       => (int) $o->effective_due,
                 'amount_paid'         => (int) $o->amount_paid,
                 'outstanding'         => $o->outstanding_amount,
                 'final_payment_receipt' => $o->final_payment_receipt,
@@ -66,9 +69,10 @@ class LabOrderController extends Controller
             ])
             ->all();
 
+        // Stats мөн адил зөвхөн "Кутикул лаб"-аар тоологдоно
         $stats = [
-            'active'    => LabOrder::where('is_completed', false)->count(),
-            'completed' => LabOrder::where('is_completed', true)->count(),
+            'active'    => LabOrder::where('lab_name', 'Кутикул лаб')->where('is_completed', false)->count(),
+            'completed' => LabOrder::where('lab_name', 'Кутикул лаб')->where('is_completed', true)->count(),
         ];
 
         $employees = Employee::where('status', 'active')

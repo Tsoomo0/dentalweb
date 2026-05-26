@@ -89,15 +89,15 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     // ── Сувилагчийн урамшуулал ──────────────────────────────────────────────────
     Route::get('nurse-bonus', [NurseBonusController::class, 'index'])->name('nurse-bonus.index');
     Route::post('nurse-bonus', [NurseBonusController::class, 'store'])->name('nurse-bonus.store');
+    Route::post('nurse-bonus/bulk-finalize', [NurseBonusController::class, 'bulkFinalize'])->name('nurse-bonus.bulk-finalize');
     Route::get('nurse-bonus/{nurseBonusRun}', [NurseBonusController::class, 'show'])->name('nurse-bonus.show');
     Route::put('nurse-bonus/{nurseBonusRun}', [NurseBonusController::class, 'update'])->name('nurse-bonus.update');
     Route::patch('nurse-bonus/{nurseBonusRun}/finalize', [NurseBonusController::class, 'finalize'])->name('nurse-bonus.finalize');
     Route::patch('nurse-bonus/{nurseBonusRun}/reopen', [NurseBonusController::class, 'reopen'])->name('nurse-bonus.reopen');
     Route::delete('nurse-bonus/{nurseBonusRun}', [NurseBonusController::class, 'destroy'])->name('nurse-bonus.destroy');
     Route::get('nurse-bonus/{nurseBonusRun}/excel', [NurseBonusController::class, 'exportExcel'])->name('nurse-bonus.excel');
-    Route::post('nurse-bonus/{nurseBonusRun}/entries/{entry}/send', [NurseBonusController::class, 'sendEntry'])->name('nurse-bonus.send-entry');
-    Route::delete('nurse-bonus/{nurseBonusRun}/entries/{entry}', [NurseBonusController::class, 'removeEntry'])->name('nurse-bonus.entries.remove');
     Route::post('nurse-bonus/{nurseBonusRun}/entries', [NurseBonusController::class, 'addEntry'])->name('nurse-bonus.entries.add');
+    Route::delete('nurse-bonus/{nurseBonusRun}/entries/{entry}', [NurseBonusController::class, 'removeEntry'])->name('nurse-bonus.entries.remove');
 
     // ── Санал хүсэлт гомдол ─────────────────────────────────────────────────
     Route::get('feedback', [FeedbackController::class, 'index'])->name('feedback.index');

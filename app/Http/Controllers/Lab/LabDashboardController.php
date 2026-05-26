@@ -15,25 +15,23 @@ class LabDashboardController extends Controller
         $user = Auth::user();
         $branch = $user->branch;
 
-        // Лаб бүх салбарын захиалгыг харна
-        $base = fn () => LabOrder::query();
+        // Лаб портал нь зөвхөн "Кутикул лаб"-ын ажлуудыг харна
+        // (бусад лабын ажлууд гадны лаб бөгөөд lab portal-аар явахгүй)
+        $base = fn () => LabOrder::where('lab_name', 'Кутикул лаб');
 
         $stats = [
-            'active'            => (clone $base())->where('is_completed', false)->count(),
-            'completed'         => (clone $base())->where('is_completed', true)->count(),
-            'total_due'         => (int) (clone $base())->where('is_completed', false)->sum('amount_due'),
-            'total_paid'        => (int) (clone $base())->where('is_completed', false)->sum('amount_paid'),
-            'overdue'           => (clone $base())
+            'active'         => (clone $base())->where('is_completed', false)->count(),
+            'completed'      => (clone $base())->where('is_completed', true)->count(),
+            'overdue'        => (clone $base())
                 ->where('is_completed', false)
                 ->whereNotNull('pickup_date')
                 ->whereDate('pickup_date', '<', now()->toDateString())
                 ->count(),
-            'arriving_today'    => (clone $base())
+            'arriving_today' => (clone $base())
                 ->where('is_completed', false)
                 ->whereDate('pickup_date', now()->toDateString())
                 ->count(),
         ];
-        $stats['total_outstanding'] = max(0, $stats['total_due'] - $stats['total_paid']);
 
         $recent = (clone $base())
             ->with(['branch', 'doctor'])
@@ -51,7 +49,6 @@ class LabDashboardController extends Controller
                 'doctor_name'        => $o->doctor?->name,
                 'work_description'   => $o->work_description,
                 'pickup_date'        => $o->pickup_date?->toDateString(),
-                'outstanding'        => $o->outstanding_amount,
             ]);
 
         return Inertia::render('lab/dashboard', [

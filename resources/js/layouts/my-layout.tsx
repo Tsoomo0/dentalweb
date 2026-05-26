@@ -22,7 +22,7 @@ interface Props {
     breadcrumbs?: BreadcrumbItem[];
 }
 interface PageProps {
-    auth: { employee?: { full_name: string; position: string | null } | null };
+    auth: { employee?: { full_name: string; position: string | null; extra_portals?: string[] } | null };
     [key: string]: unknown;
 }
 
@@ -44,9 +44,12 @@ const MORE_ITEMS = [
 export default function MyLayout({ children, breadcrumbs = [] }: Props) {
     const page = usePage<PageProps>();
     const { url } = page;
-    const employee   = page.props.auth?.employee;
-    const isReception = (employee?.position ?? '').toLowerCase().includes('ресепш');
-    const isNurse     = (employee?.position ?? '').toLowerCase().includes('сувилагч');
+    const employee    = page.props.auth?.employee;
+    const positionLower = (employee?.position ?? '').toLowerCase();
+    const extras       = (employee?.extra_portals ?? []) as string[];
+    // Ресепшний урамшуулал: үндсэн ресепшн, ЭСВЭЛ extra_portals дотор 'reception' (сувилагч мөн ресепшний ажил хийдэг)
+    const isReception = positionLower.includes('ресепш') || extras.includes('reception');
+    const isNurse     = positionLower.includes('сувилагч');
     const moreItems = [
         ...MORE_ITEMS.slice(0, 4), // ажлын хуваарь, чөлөө, амралт, цалин
         ...(isReception ? [{ label: 'Ресепшний урамшуулал', Icon: Smile,        href: '/my/reception-bonus', color: '#ec4899', bg: '#fdf2f8' }] : []),

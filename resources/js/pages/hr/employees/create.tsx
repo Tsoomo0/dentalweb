@@ -128,6 +128,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
         username: '', password: '', phone: '', email: '', address: '',
         emergency_name: '', emergency_phone: '', emergency_relation: '',
         branch_id: '', position_id: '', salary: '', hired_date: '',
+        extra_portals: [] as string[],
         probation_end_date: '', status: 'active',
         vacation_extra_days: 0,
         contract_type: 'fixed', contract_start_date: '', contract_end_date: '', contract_notes: '',
@@ -428,18 +429,55 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                     </div>
 
                                     {data.position_id && (
-                                        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                                            <strong>Нэвтрэх портал:</strong>{' '}
+                                        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
+                                            <strong>Үндсэн портал:</strong>{' '}
                                             {(() => {
                                                 const portal = positions.find(p => String(p.id) === String(data.position_id))?.portal;
                                                 if (portal === 'doctor')    return 'Эмчийн портал';
                                                 if (portal === 'reception') return 'Ресепшний портал';
                                                 if (portal === 'hr')        return 'HR портал';
                                                 if (portal === 'admin')     return 'Админ портал';
-                                                return 'Ажилтны портал';
+                                                if (portal === 'lab')       return 'Лаб портал';
+                                                return 'Ажилтны портал (Хувийн хэсэг)';
                                             })()}
+                                            <p className="text-xs mt-1 text-blue-600/80 dark:text-blue-400/80">
+                                                Энэ нь Position-ийн тохиргооноос ирнэ. Хүсвэл доорх checkbox-оор нэмэлт портал нээх боломжтой.
+                                            </p>
                                         </div>
                                     )}
+
+                                    {/* Нэмэлт портал — энэ хүн өөр портал руу ч нэвтрэх боломжтой эсэх */}
+                                    <SectionTitle>Нэмэлт портал нэвтрэх эрх</SectionTitle>
+                                    <div className="rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/40 dark:bg-amber-950/15 p-4">
+                                        <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
+                                            Үндсэн албан тушаалаасаа гадна <strong>тэмдэглэсэн портал руу нэвтэрч ажиллах</strong> эрх олгоно. Жишээ нь сувилагч хааяа ресепшний ажил гүйцэтгэдэг бол "Ресепшн"-ийг тэмдэглэнэ.
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                            {[
+                                                { value: 'reception', label: 'Ресепшн портал' },
+                                                { value: 'lab',       label: 'Лаб портал' },
+                                                { value: 'hr',        label: 'HR портал' },
+                                            ].map(opt => {
+                                                const checked = data.extra_portals.includes(opt.value);
+                                                return (
+                                                    <label key={opt.value}
+                                                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
+                                                            checked
+                                                                ? 'border-violet-400 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-700'
+                                                                : 'border-gray-200 dark:border-gray-700 hover:bg-muted/30'
+                                                        }`}>
+                                                        <input type="checkbox" checked={checked}
+                                                            onChange={e => {
+                                                                if (e.target.checked) setData('extra_portals', [...data.extra_portals, opt.value]);
+                                                                else setData('extra_portals', data.extra_portals.filter((p: string) => p !== opt.value));
+                                                            }}
+                                                            className="size-4 rounded text-violet-600 focus:ring-violet-500" />
+                                                        <span className="text-sm font-medium">{opt.label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
 
                                     <SectionTitle>Ээлжийн амралт</SectionTitle>
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

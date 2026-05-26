@@ -2,8 +2,8 @@ import LabLayout from '@/layouts/lab-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
-    AlertCircle, CheckCircle2, FlaskConical, Search, Send,
-    Sparkles, User, X,
+    AlertCircle, Building2, CheckCircle2, ChevronDown, ChevronUp, FlaskConical, Search, Send,
+    User, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -77,9 +77,13 @@ function stage(o: LabOrder): { label: string; color: string } {
 /* ══════════════════════════════════════════════════════════
    Main
 ══════════════════════════════════════════════════════════ */
+const PAGE_PER_BRANCH = 25;
+
 export default function LabOrdersIndex({ orders, stats, employees, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [openId, setOpenId] = useState<number | null>(null);
+    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
     // Realtime — 5 секунд тутамд orders, stats, notifications шинэчилнэ
     useEffect(() => {
@@ -102,7 +106,7 @@ export default function LabOrdersIndex({ orders, stats, employees, filters }: Pr
         );
     }, [orders, search]);
 
-    // Салбараар бүлэглэнэ
+    // Салбараар бүлэглээд idэвхтэй/дууссан-аар сорт хийнэ
     const groupedByBranch = useMemo(() => {
         const groups = new Map<string, LabOrder[]>();
         for (const o of filtered) {
@@ -110,8 +114,20 @@ export default function LabOrdersIndex({ orders, stats, employees, filters }: Pr
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key)!.push(o);
         }
-        return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+        // Захиалга бүрийг идэвхтэй→дууссан, сүүлийн огноогоор эрэмбэлнэ
+        groups.forEach(arr => {
+            arr.sort((a, b) => {
+                if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
+                return (b.order_date ?? '').localeCompare(a.order_date ?? '');
+            });
+        });
+        return Array.from(groups.entries()).sort(([, a], [, b]) => b.length - a.length);
     }, [filtered]);
+
+    function toggleCollapse(key: string) { setCollapsed(p => ({ ...p, [key]: !p[key] })); }
+    function toggleExpand(key: string)   { setExpanded(p => ({ ...p, [key]: !p[key] })); }
+    function collapseAll() { setCollapsed(Object.fromEntries(groupedByBranch.map(([k]) => [k, true]))); }
+    function expandAll()   { setCollapsed({}); }
 
     const openOrder = openId !== null ? orders.find(o => o.id === openId) ?? null : null;
 
@@ -120,157 +136,200 @@ export default function LabOrdersIndex({ orders, stats, employees, filters }: Pr
             <Head title="Лаб бүртгэл" />
 
             <div className="flex flex-col gap-5 p-4 md:p-6">
-                {/* Premium Header */}
-                <div className="relative overflow-hidden rounded-2xl border border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:from-violet-950/40 dark:via-gray-900 dark:to-fuchsia-950/30 p-5 shadow-sm">
-                    <div className="absolute -right-8 -top-8 size-32 rounded-full bg-violet-200/40 dark:bg-violet-700/20 blur-2xl" />
-                    <div className="absolute -bottom-8 -left-8 size-24 rounded-full bg-fuchsia-200/40 dark:bg-fuchsia-700/20 blur-2xl" />
+                {/* Header */}
+                <div className="relative overflow-hidden rounded-2xl border border-violet-200/50 dark:border-violet-800/40 bg-gradient-to-br from-violet-50 via-card to-fuchsia-50/30 dark:from-violet-950/30 dark:via-card dark:to-fuchsia-950/20 shadow-sm">
+                    <div className="absolute -right-12 -top-12 size-40 rounded-full bg-violet-200/30 dark:bg-violet-700/15 blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-12 right-1/3 size-32 rounded-full bg-fuchsia-200/30 dark:bg-fuchsia-700/15 blur-3xl pointer-events-none" />
 
-                    <div className="relative flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                            <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg shadow-violet-500/30">
+                    <div className="relative flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+                        <div className="flex items-center gap-3.5">
+                            <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg shadow-violet-500/30">
                                 <FlaskConical className="size-6" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                                    Лаб бүртгэл
-                                    <Sparkles className="size-4 text-violet-500" />
-                                </h1>
+                                <h1 className="text-xl font-bold text-foreground leading-tight">Лаб бүртгэл</h1>
                                 <p className="text-xs text-muted-foreground mt-0.5">Захиалга дээр дарж нугалсан / өнгөлсөн / бэлэн огноог тэмдэглэнэ</p>
                             </div>
                         </div>
 
-                        <div className="flex gap-2 flex-wrap items-center">
-                            <div className="rounded-xl bg-white/70 dark:bg-gray-900/60 backdrop-blur px-4 py-2.5 text-right border border-violet-100/80 dark:border-violet-900/50">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Идэвхтэй</p>
-                                <p className="text-lg font-bold text-violet-700 dark:text-violet-400 tabular-nums">{stats.active}</p>
-                            </div>
-                            <div className="rounded-xl bg-white/70 dark:bg-gray-900/60 backdrop-blur px-4 py-2.5 text-right border border-emerald-100/80 dark:border-emerald-900/50">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Дууссан</p>
-                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">{stats.completed}</p>
-                            </div>
+                        <div className="flex flex-wrap items-center gap-2.5">
+                            <StatChip label="Идэвхтэй" value={stats.active}                       tone="violet" />
+                            <StatChip label="Дууссан"  value={stats.completed}                    tone="emerald" />
+                            <StatChip label="Нийт"     value={stats.active + stats.completed}     tone="gray" />
                         </div>
                     </div>
                 </div>
 
                 {/* Filters */}
-                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card p-3 shadow-sm">
-                    <div className="relative flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-background px-3 py-1.5 flex-1 min-w-60">
-                        <Search className="size-4 text-muted-foreground" />
+                <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card shadow-sm px-4 py-3">
+                    <div className="relative flex-1 min-w-[260px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                             placeholder="Өвчтөн, лаб, эмч, ажлаар хайх..."
-                            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
+                            className="w-full rounded-xl border bg-background pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all" />
                     </div>
 
-                    <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                    <div className="flex items-center rounded-xl border bg-muted/30 p-1">
                         {([
-                            { key: 'active',    label: 'Идэвхтэй',  count: stats.active,    color: 'bg-violet-600' },
-                            { key: 'completed', label: 'Дууссан',   count: stats.completed, color: 'bg-emerald-600' },
-                            { key: 'all',       label: 'Бүгд',      count: stats.active + stats.completed, color: 'bg-gray-700' },
+                            { key: 'active',    label: 'Идэвхтэй',  count: stats.active,    color: 'text-violet-700 dark:text-violet-400',   active: 'bg-violet-100 dark:bg-violet-950/40' },
+                            { key: 'completed', label: 'Дууссан',   count: stats.completed, color: 'text-emerald-700 dark:text-emerald-400', active: 'bg-emerald-100 dark:bg-emerald-950/40' },
+                            { key: 'all',       label: 'Бүгд',      count: stats.active + stats.completed, color: 'text-foreground', active: 'bg-card shadow-sm' },
                         ] as const).map(t => (
                             <button key={t.key} onClick={() => go({ status: t.key }, filters)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all ${
+                                className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
                                     filters.status === t.key
-                                        ? `${t.color} text-white`
-                                        : 'bg-white dark:bg-gray-900 text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800'
+                                        ? `${t.active} ${t.color}`
+                                        : 'text-muted-foreground hover:text-foreground'
                                 }`}>
                                 {t.label}
                                 <span className={`rounded-full px-1.5 py-0 text-[10px] tabular-nums ${
-                                    filters.status === t.key ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800'
+                                    filters.status === t.key ? 'bg-white/60 dark:bg-black/30' : 'bg-muted'
                                 }`}>{t.count}</span>
                             </button>
                         ))}
                     </div>
                 </div>
 
+                {/* Collapse controls — only when many groups */}
+                {groupedByBranch.length > 1 && (
+                    <div className="flex items-center justify-between -mb-2 px-1">
+                        <span className="text-[11px] text-muted-foreground">{groupedByBranch.length} салбар · {filtered.length} захиалга</span>
+                        <div className="flex items-center gap-1.5">
+                            <button onClick={expandAll}
+                                className="text-[11px] font-semibold text-violet-600 dark:text-violet-400 hover:underline">
+                                Бүгдийг дэлгэх
+                            </button>
+                            <span className="text-muted-foreground/40">·</span>
+                            <button onClick={collapseAll}
+                                className="text-[11px] font-semibold text-muted-foreground hover:underline">
+                                Бүгдийг хумих
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Grouped by branch */}
                 {groupedByBranch.length === 0 ? (
-                    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm p-12 text-center text-muted-foreground">
-                        <FlaskConical className="size-12 mx-auto mb-3 text-violet-300" />
-                        <p className="text-sm font-semibold">Лаб бүртгэл байхгүй</p>
-                        <p className="text-xs mt-1">Ресепшнээс ирэх захиалгыг хүлээж байна</p>
+                    <div className="rounded-2xl border bg-card shadow-sm py-16 text-center">
+                        <div className="mx-auto size-14 rounded-2xl bg-violet-50 dark:bg-violet-950/30 flex items-center justify-center mb-3">
+                            <FlaskConical className="size-7 text-violet-300 dark:text-violet-700" />
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">Лаб бүртгэл байхгүй</p>
+                        <p className="text-xs text-muted-foreground mt-1">Ресепшнээс ирэх захиалгыг хүлээж байна</p>
                     </div>
                 ) : (
-                    groupedByBranch.map(([branchName, orders]) => (
-                        <div key={branchName} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm overflow-hidden">
-                            <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-violet-100/60 to-fuchsia-100/40 dark:from-violet-950/40 dark:to-fuchsia-950/30 px-5 py-3">
-                                <h2 className="text-sm font-bold text-foreground inline-flex items-center gap-2">
-                                    <span className="flex size-7 items-center justify-center rounded-lg bg-violet-600 text-white text-xs font-bold">
-                                        {branchName.charAt(0).toUpperCase()}
+                    groupedByBranch.map(([branchName, orders]) => {
+                        const isCollapsed = collapsed[branchName];
+                        const isExpanded  = expanded[branchName];
+                        const visible = isExpanded ? orders : orders.slice(0, PAGE_PER_BRANCH);
+                        const active    = orders.filter(o => !o.is_completed).length;
+                        const completed = orders.length - active;
+
+                        return (
+                        <div key={branchName} className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                            <button onClick={() => toggleCollapse(branchName)}
+                                className="w-full flex items-center justify-between border-b bg-gradient-to-r from-violet-50/60 via-card to-card dark:from-violet-950/20 px-5 py-3.5 hover:bg-muted/30 transition-colors">
+                                <h2 className="text-base font-bold text-foreground inline-flex items-center gap-2.5">
+                                    <span className="size-9 rounded-xl bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center">
+                                        <Building2 className="size-4 text-violet-600 dark:text-violet-400" />
                                     </span>
                                     {branchName}
                                 </h2>
-                                <span className="text-[11px] text-muted-foreground">{orders.length} захиалга</span>
-                            </div>
+                                <div className="flex items-center gap-2">
+                                    {active > 0 && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-950/40 px-2.5 py-0.5 text-[11px] font-bold text-violet-700 dark:text-violet-400 tabular-nums">
+                                            <span className="size-1.5 rounded-full bg-violet-500" />
+                                            {active} идэвхтэй
+                                        </span>
+                                    )}
+                                    {completed > 0 && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/40 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                                            {completed} дууссан
+                                        </span>
+                                    )}
+                                    {isCollapsed
+                                        ? <ChevronDown className="size-4 text-muted-foreground" />
+                                        : <ChevronUp className="size-4 text-muted-foreground" />}
+                                </div>
+                            </button>
+                            {!isCollapsed && (
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-gray-50/60 dark:bg-gray-800/40 text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wide">
-                                        <th className="px-3 py-2 text-center font-semibold w-10">№</th>
-                                        <th className="px-3 py-2 text-left font-semibold w-28">Лаб руу</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Өвчтөн</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Лаб / Ажил</th>
-                                        <th className="px-3 py-2 text-left font-semibold w-28">Нугалсан</th>
-                                        <th className="px-3 py-2 text-left font-semibold w-28">Өнгөлсөн</th>
-                                        <th className="px-3 py-2 text-left font-semibold w-28">Бэлэн</th>
-                                        <th className="px-3 py-2 text-center font-semibold w-28">Статус</th>
-                                        <th className="px-3 py-2 text-center font-semibold w-10"></th>
+                                    <tr className="border-b bg-muted/20 text-muted-foreground text-[10.5px] uppercase tracking-wider font-bold">
+                                        <th className="px-4 py-2.5 text-left w-10">№</th>
+                                        <th className="px-4 py-2.5 text-left w-28">Лаб руу</th>
+                                        <th className="px-4 py-2.5 text-left">Өвчтөн</th>
+                                        <th className="px-4 py-2.5 text-left">Лаб / Ажил</th>
+                                        <th className="px-4 py-2.5 text-left w-32">Нугалсан</th>
+                                        <th className="px-4 py-2.5 text-left w-32">Өнгөлсөн</th>
+                                        <th className="px-4 py-2.5 text-left w-28">Бэлэн</th>
+                                        <th className="px-4 py-2.5 text-center w-28">Статус</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {orders.map((o, idx) => {
+                                <tbody className="divide-y divide-border/40">
+                                    {visible.map((o, idx) => {
                                         const s = stage(o);
                                         const patient = combinePatient(o.patient_last_name, o.patient_first_name, o.patient_phone);
                                         return (
                                             <tr key={o.id}
                                                 onClick={() => setOpenId(o.id)}
-                                                className={`cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
-                                                    o.is_completed ? 'bg-emerald-50/20 dark:bg-emerald-950/5' :
-                                                    idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50/40 dark:bg-gray-800/15'
+                                                className={`group cursor-pointer transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
+                                                    o.is_completed ? 'bg-emerald-50/30 dark:bg-emerald-950/5' : ''
                                                 }`}>
-                                                <td className="px-3 py-3 text-center text-gray-400 text-xs">{idx + 1}</td>
-                                                <td className="px-3 py-3 text-xs text-gray-700 dark:text-gray-300 tabular-nums">
-                                                    {o.sent_to_lab_date ?? '—'}
+                                                <td className="px-4 py-3.5 text-center text-[11px] text-muted-foreground tabular-nums">{idx + 1}</td>
+                                                <td className="px-4 py-3.5 text-[11px] tabular-nums text-foreground">
+                                                    {o.sent_to_lab_date ?? <span className="text-muted-foreground/40">—</span>}
                                                 </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="font-semibold text-foreground truncate">{patient || '—'}</div>
-                                                    {o.doctor_name && <div className="text-[11px] text-muted-foreground truncate">Эмч: {o.doctor_name}</div>}
+                                                <td className="px-4 py-3.5">
+                                                    <div className="font-semibold text-foreground text-[13px] truncate">{patient || '—'}</div>
+                                                    {o.doctor_name && <div className="text-[10.5px] text-muted-foreground truncate">Эмч: {o.doctor_name}</div>}
                                                 </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="font-semibold text-foreground truncate">{o.lab_name}</div>
-                                                    <div className="text-[11px] text-muted-foreground truncate">{o.work_description}</div>
+                                                <td className="px-4 py-3.5">
+                                                    <div className="font-semibold text-foreground text-[13px] truncate">{o.lab_name}</div>
+                                                    <div className="text-[10.5px] text-muted-foreground truncate">{o.work_description}</div>
                                                 </td>
-                                                <td className="px-3 py-3 text-xs">
+                                                <td className="px-4 py-3.5 text-[11px]">
                                                     {o.bender_name
-                                                        ? <span className="text-gray-700 dark:text-gray-300">{o.bender_name}</span>
-                                                        : <span className="text-gray-300">—</span>}
+                                                        ? <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/40 px-1.5 py-0.5 text-blue-700 dark:text-blue-400 font-medium">{o.bender_name}</span>
+                                                        : <span className="text-muted-foreground/40">—</span>}
                                                 </td>
-                                                <td className="px-3 py-3 text-xs">
+                                                <td className="px-4 py-3.5 text-[11px]">
                                                     {o.polisher_name
-                                                        ? <span className="text-gray-700 dark:text-gray-300">{o.polisher_name}</span>
-                                                        : <span className="text-gray-300">—</span>}
+                                                        ? <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/40 px-1.5 py-0.5 text-indigo-700 dark:text-indigo-400 font-medium">{o.polisher_name}</span>
+                                                        : <span className="text-muted-foreground/40">—</span>}
                                                 </td>
-                                                <td className="px-3 py-3 text-xs tabular-nums">
+                                                <td className="px-4 py-3.5 text-[11px] tabular-nums">
                                                     {o.lab_ready_date
-                                                        ? <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{o.lab_ready_date}</span>
-                                                        : <span className="text-gray-300">—</span>}
+                                                        ? <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold">
+                                                            <CheckCircle2 className="size-3" />
+                                                            {o.lab_ready_date}
+                                                          </span>
+                                                        : <span className="text-muted-foreground/40">—</span>}
                                                 </td>
-                                                <td className="px-3 py-3 text-center">
+                                                <td className="px-4 py-3.5 text-center">
                                                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${s.color}`}>
                                                         {s.label}
                                                     </span>
                                                 </td>
-                                                <td className="px-3 py-3 text-center text-gray-400">›</td>
                                             </tr>
                                         );
                                     })}
                                 </tbody>
                             </table>
+                            )}
+                            {!isCollapsed && orders.length > PAGE_PER_BRANCH && (
+                                <button onClick={() => toggleExpand(branchName)}
+                                    className="w-full border-t bg-muted/20 hover:bg-muted/40 transition-colors px-4 py-2 text-[12px] font-semibold text-violet-700 dark:text-violet-400">
+                                    {isExpanded
+                                        ? `Хумих (${PAGE_PER_BRANCH} харагдаж байна)`
+                                        : `Бүгдийг үзэх (нийт ${orders.length})`}
+                                </button>
+                            )}
                         </div>
-                    ))
+                        );
+                    })
                 )}
-
-                <p className="text-[11px] text-muted-foreground text-center">
-                    💡 Мөр дээр дарж нугалсан / өнгөлсөн ажилтан болон бэлэн болсон огноог тэмдэглэнэ
-                </p>
             </div>
 
             {/* Drawer */}
@@ -431,6 +490,21 @@ function LabWorkDrawer({ order, employees, onClose }: DrawerProps) {
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+function StatChip({ label, value, tone }: { label: string; value: number; tone: 'violet' | 'emerald' | 'gray' }) {
+    const styles = {
+        violet:  { bg: 'bg-violet-100/80 dark:bg-violet-950/40',   text: 'text-violet-700 dark:text-violet-400',   dot: 'bg-violet-500',   border: 'border-violet-200/60 dark:border-violet-800/40' },
+        emerald: { bg: 'bg-emerald-100/80 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500', border: 'border-emerald-200/60 dark:border-emerald-800/40' },
+        gray:    { bg: 'bg-gray-100/80 dark:bg-gray-800/60',       text: 'text-gray-700 dark:text-gray-300',       dot: 'bg-gray-500',     border: 'border-gray-200/60 dark:border-gray-700/40' },
+    }[tone];
+    return (
+        <div className={`inline-flex items-center gap-2 rounded-xl border ${styles.border} bg-card/80 backdrop-blur px-3 py-1.5 shadow-sm`}>
+            <span className={`size-1.5 rounded-full ${styles.dot}`} />
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</span>
+            <span className={`text-base font-bold tabular-nums ${styles.text}`}>{value}</span>
         </div>
     );
 }

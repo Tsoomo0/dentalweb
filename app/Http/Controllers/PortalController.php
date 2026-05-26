@@ -45,7 +45,18 @@ class PortalController extends Controller
         $employee = $user->employee;
         $portal = $employee?->position?->portal ?? $user->role?->name ?? 'staff';
 
-        return match ($portal) {
+        // Үндсэн портал руу очно. Хэрэв үндсэн портал байхгүй (staff/null)
+        // боловч extra_portals-д тодорхой портал тэмдэглэсэн бол түүнийг ашиглана.
+        $extras = $employee?->extra_portals ?? [];
+        $effective = match (true) {
+            in_array($portal, ['admin', 'reception', 'hr', 'lab'], true) => $portal,
+            is_array($extras) && in_array('reception', $extras, true) => 'reception',
+            is_array($extras) && in_array('lab', $extras, true)       => 'lab',
+            is_array($extras) && in_array('hr', $extras, true)        => 'hr',
+            default => $portal,
+        };
+
+        return match ($effective) {
             'admin' => redirect()->route('admin.dashboard'),
             'reception' => redirect()->route('reception.dashboard'),
             'hr' => redirect()->route('hr.employees.index'),

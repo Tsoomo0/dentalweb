@@ -10,7 +10,7 @@ class NurseBonusEntry extends Model
     protected $table = 'nurse_bonus_entries';
 
     protected $fillable = [
-        'nurse_bonus_run_id', 'employee_id',
+        'nurse_bonus_run_id', 'employee_id', 'date', 'doctor_id',
         'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
         'visit_count',
         'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
@@ -21,9 +21,15 @@ class NurseBonusEntry extends Model
     ];
 
     protected $casts = [
+        'date'    => 'date:Y-m-d',
         'is_sent' => 'boolean',
         'sent_at' => 'datetime',
     ];
+
+    public function doctor(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Doctor::class);
+    }
 
     public const CRITERIA = [
         'clothing' => ['label' => 'Хувцаслалт',                                           'unit' => 'удаа',        'price' => 100],
