@@ -10,7 +10,7 @@ class NurseBonusEntry extends Model
     protected $table = 'nurse_bonus_entries';
 
     protected $fillable = [
-        'nurse_bonus_run_id', 'employee_id', 'date', 'doctor_id',
+        'nurse_bonus_run_id', 'employee_id', 'date', 'doctor_id', 'doctor_ids',
         'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
         'visit_count',
         'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
@@ -21,14 +21,29 @@ class NurseBonusEntry extends Model
     ];
 
     protected $casts = [
-        'date'    => 'date:Y-m-d',
-        'is_sent' => 'boolean',
-        'sent_at' => 'datetime',
+        'date'       => 'date:Y-m-d',
+        'is_sent'    => 'boolean',
+        'sent_at'    => 'datetime',
+        'doctor_ids' => 'array',
     ];
 
     public function doctor(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Doctor::class);
+    }
+
+    /**
+     * Тухайн өдөр уг сувилагч хэдэн эмчтэй ажилласан бүх эмчийн ID-нуудыг буцаана.
+     * Хуучин нэг doctor_id-тай мөрийг ч багтаасан.
+     */
+    public function getDoctorIdListAttribute(): array
+    {
+        $ids = is_array($this->doctor_ids) ? $this->doctor_ids : [];
+        if (empty($ids) && $this->doctor_id) {
+            $ids = [(int) $this->doctor_id];
+        }
+
+        return array_values(array_unique(array_map('intval', $ids)));
     }
 
     public const CRITERIA = [

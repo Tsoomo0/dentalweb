@@ -102,16 +102,33 @@ class NurseBonusController extends Controller
     {
         $nurseBonusRun->load(['employee.position', 'entries.doctor', 'branch']);
 
+        // entries дотор олон doctor_ids байгаа бол тэдгээр эмчийг урьдчилан eager-load хийнэ
+        $allDoctorIds = $nurseBonusRun->entries
+            ->flatMap(fn ($e) => $e->doctor_id_list)
+            ->unique()
+            ->values()
+            ->all();
+        $doctorMap = empty($allDoctorIds)
+            ? collect()
+            : Doctor::whereIn('id', $allDoctorIds)->get(['id', 'name'])->keyBy('id');
+
         $entries = $nurseBonusRun->entries
             ->sortBy('date')
             ->values()
-            ->map(fn ($e) => $this->formatEntry($e));
+            ->map(fn ($e) => $this->formatEntry($e, $doctorMap));
 
         // Тухайн салбарын идэвхтэй эмчүүд (сонгох жагсаалт)
         $doctors = Doctor::where('is_active', true)
             ->when($nurseBonusRun->branch_id, fn ($q) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $nurseBonusRun->branch_id)))
             ->orderBy('name')
             ->get(['id', 'name']);
+
+        // Fallback: салбараар эмч холбогдоогүй бол бүх идэвхтэй эмчийг харуулна
+        if ($doctors->isEmpty()) {
+            $doctors = Doctor::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']);
+        }
 
         return Inertia::render('hr/nurse-bonus/show', [
             'run' => [
@@ -180,14 +197,15 @@ class NurseBonusController extends Controller
         $request->validate([
             'entries' => 'nullable|array',
             'entries.*.id' => 'required|exists:nurse_bonus_entries,id',
+            'entries.*.doctor_ids' => 'nullable|array',
+            'entries.*.doctor_ids.*' => 'integer|exists:doctors,id',
         ]);
 
         if (empty($request->entries)) {
             return back()->with('success', 'Хадгалах мөр алга.');
         }
 
-        $fields = [
-            'doctor_id',
+        $numericFields = [
             'clothing', 'hand_hygiene', 'chair_sterilization', 'equipment_prep', 'material_prep',
             'visit_count',
             'card_issued', 'card_collected', 'pre_exam_prep', 'exam_chair_prep',
@@ -197,15 +215,24 @@ class NurseBonusController extends Controller
             'total_amount',
         ];
 
-        DB::transaction(function () use ($request, $fields, $nurseBonusRun) {
+        DB::transaction(function () use ($request, $numericFields, $nurseBonusRun) {
             foreach ($request->entries as $data) {
                 $update = [];
-                foreach ($fields as $f) {
-                    if ($f === 'doctor_id') {
-                        $update[$f] = $data[$f] ?? null;
-                    } else {
-                        $update[$f] = isset($data[$f]) && $data[$f] !== '' ? (float) $data[$f] : 0;
-                    }
+
+                // doctor_ids: масивыг шалгаж цэвэрлэнэ
+                $doctorIds = [];
+                if (isset($data['doctor_ids']) && is_array($data['doctor_ids'])) {
+                    $doctorIds = array_values(array_unique(array_filter(
+                        array_map('intval', $data['doctor_ids']),
+                        fn ($id) => $id > 0,
+                    )));
+                }
+                $update['doctor_ids'] = $doctorIds;
+                // Хуучин нэг doctor_id баганад эхний эмчийг хадгална (backward-compat)
+                $update['doctor_id']  = $doctorIds[0] ?? null;
+
+                foreach ($numericFields as $f) {
+                    $update[$f] = isset($data[$f]) && $data[$f] !== '' ? (float) $data[$f] : 0;
                 }
                 NurseBonusEntry::where('id', $data['id'])
                     ->where('nurse_bonus_run_id', $nurseBonusRun->id)
@@ -298,8 +325,16 @@ class NurseBonusController extends Controller
     public function exportExcel(NurseBonusRun $nurseBonusRun): \Illuminate\Http\Response
     {
         $nurseBonusRun->load(['employee.position', 'entries.doctor', 'branch']);
+
+        $allDoctorIds = $nurseBonusRun->entries
+            ->flatMap(fn ($e) => $e->doctor_id_list)
+            ->unique()->values()->all();
+        $doctorMap = empty($allDoctorIds)
+            ? collect()
+            : Doctor::whereIn('id', $allDoctorIds)->get(['id', 'name'])->keyBy('id');
+
         $entries = $nurseBonusRun->entries->sortBy('date')->values()
-            ->map(fn ($e) => $this->formatEntry($e));
+            ->map(fn ($e) => $this->formatEntry($e, $doctorMap));
         $criteria = NurseBonusEntry::CRITERIA;
 
         $filename = 'nurse-bonus-'.$nurseBonusRun->year.'-'.$nurseBonusRun->month.'-'.$nurseBonusRun->half.'.xls';
@@ -314,13 +349,25 @@ class NurseBonusController extends Controller
         );
     }
 
-    private function formatEntry(NurseBonusEntry $e): array
+    private function formatEntry(NurseBonusEntry $e, ?\Illuminate\Support\Collection $doctorMap = null): array
     {
+        $doctorIds   = $e->doctor_id_list;
+        $doctorNames = [];
+        if ($doctorMap) {
+            foreach ($doctorIds as $id) {
+                if ($doctorMap->has($id)) {
+                    $doctorNames[] = $doctorMap->get($id)->name;
+                }
+            }
+        }
+
         return [
             'id' => $e->id,
             'date' => $e->date?->toDateString(),
             'doctor_id' => $e->doctor_id,
             'doctor_name' => $e->doctor?->name,
+            'doctor_ids' => $doctorIds,
+            'doctor_names' => $doctorNames,
             'clothing' => $e->clothing,
             'hand_hygiene' => $e->hand_hygiene,
             'chair_sterilization' => $e->chair_sterilization,

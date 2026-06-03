@@ -2,8 +2,9 @@ import AppLayout from '@/layouts/app-layout';
 import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { CheckCircle2, FileSpreadsheet, Lock, Plus, Save, Trash2, Unlock } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Lock, Plus, Save, Trash2, Unlock, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface BonusRun {
     id: number; title: string;
@@ -18,6 +19,7 @@ interface BonusRun {
 interface EntryRow {
     id: number; date: string;
     doctor_id: number | null; doctor_name: string | null;
+    doctor_ids: number[]; doctor_names: string[];
     clothing: number; hand_hygiene: number; chair_sterilization: number;
     equipment_prep: number; material_prep: number;
     visit_count: number;
@@ -83,11 +85,16 @@ function defaultDateForHalf(run: BonusRun): string {
 }
 
 export default function NurseBonusShow({ run, entries: initial, doctors, criteria }: Props) {
-    const [entries, setEntries] = useState<EntryRow[]>(initial.map(e => ({ ...e })));
+    const [entries, setEntries] = useState<EntryRow[]>(initial.map(e => ({
+        ...e,
+        doctor_ids:   Array.isArray(e.doctor_ids) ? e.doctor_ids : (e.doctor_id ? [e.doctor_id] : []),
+        doctor_names: Array.isArray(e.doctor_names) ? e.doctor_names : (e.doctor_name ? [e.doctor_name] : []),
+    })));
     const [saving, setSaving]   = useState(false);
     const [saved, setSaved]     = useState(false);
     const [newDate, setNewDate] = useState<string>(defaultDateForHalf(run));
     const [adding, setAdding]   = useState(false);
+    const [openDocPicker, setOpenDocPicker] = useState<number | null>(null); // entry idx
     const tableRef = useRef<HTMLDivElement>(null);
 
     const isFinal = run.status === 'final';
@@ -102,10 +109,15 @@ export default function NurseBonusShow({ run, entries: initial, doctors, criteri
         setEntries(prev => {
             const prevIds = prev.map(e => e.id).join(',');
             const nextIds = initial.map(e => e.id).join(',');
+            const normalize = (e: EntryRow) => ({
+                ...e,
+                doctor_ids:   Array.isArray(e.doctor_ids) ? e.doctor_ids : (e.doctor_id ? [e.doctor_id] : []),
+                doctor_names: Array.isArray(e.doctor_names) ? e.doctor_names : (e.doctor_name ? [e.doctor_name] : []),
+            });
             if (prevIds === nextIds) return prev;
             return initial.map(srv => {
                 const local = prev.find(p => p.id === srv.id);
-                return local ? { ...srv, ...local } : { ...srv };
+                return local ? normalize({ ...srv, ...local }) : normalize({ ...srv });
             });
         });
     }, [initial]);
@@ -119,6 +131,21 @@ export default function NurseBonusShow({ run, entries: initial, doctors, criteri
             return updated;
         }));
     }
+
+    function toggleDoctor(idx: number, doctorId: number) {
+        setSaved(false);
+        setEntries(prev => prev.map((e, i) => {
+            if (i !== idx) return e;
+            const has = e.doctor_ids.includes(doctorId);
+            const ids = has ? e.doctor_ids.filter(d => d !== doctorId) : [...e.doctor_ids, doctorId];
+            const names = ids
+                .map(id => doctors.find(d => d.id === id)?.name)
+                .filter((n): n is string => !!n);
+            return { ...e, doctor_ids: ids, doctor_names: names, doctor_id: ids[0] ?? null };
+        }));
+    }
+
+    function removeDoctor(idx: number, doctorId: number) { toggleDoctor(idx, doctorId); }
 
     function save() {
         setSaving(true);
@@ -289,15 +316,17 @@ export default function NurseBonusShow({ run, entries: initial, doctors, criteri
                                                 )}
                                             </td>
                                             <td className="sticky left-[58px] z-10 bg-card border-r px-1.5 py-1">
-                                                {isFinal ? (
-                                                    <span className="text-[11px] text-foreground">{e.doctor_name ?? '—'}</span>
-                                                ) : (
-                                                    <select value={e.doctor_id ?? ''} onChange={ev => setField(idx, 'doctor_id', ev.target.value ? Number(ev.target.value) : null)}
-                                                        className="w-full bg-transparent border-0 outline-none text-[11px] focus:bg-violet-50 dark:focus:bg-violet-950/30 rounded">
-                                                        <option value="">—</option>
-                                                        {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                                    </select>
-                                                )}
+                                                <DoctorMultiSelect
+                                                    isFinal={isFinal}
+                                                    selectedIds={e.doctor_ids}
+                                                    selectedNames={e.doctor_names}
+                                                    doctors={doctors}
+                                                    isOpen={openDocPicker === idx}
+                                                    onToggleOpen={() => setOpenDocPicker(p => p === idx ? null : idx)}
+                                                    onClose={() => setOpenDocPicker(null)}
+                                                    onToggle={(docId) => toggleDoctor(idx, docId)}
+                                                    onRemove={(docId) => removeDoctor(idx, docId)}
+                                                />
                                             </td>
                                             {criteriaList.map(([key], i) => {
                                                 const isPre = (PRE_KEYS as readonly string[]).includes(key);
@@ -360,5 +389,168 @@ export default function NurseBonusShow({ run, entries: initial, doctors, criteri
 
             <ToastContainer />
         </AppLayout>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DoctorMultiSelect — chip + popover (олон эмч сонгох)
+───────────────────────────────────────────────────────────── */
+interface DoctorMultiSelectProps {
+    isFinal: boolean;
+    selectedIds: number[];
+    selectedNames: string[];
+    doctors: Doctor[];
+    isOpen: boolean;
+    onToggleOpen: () => void;
+    onClose: () => void;
+    onToggle: (doctorId: number) => void;
+    onRemove: (doctorId: number) => void;
+}
+
+function DoctorMultiSelect({
+    isFinal, selectedIds, selectedNames, doctors,
+    isOpen, onToggleOpen, onClose, onToggle, onRemove,
+}: DoctorMultiSelectProps) {
+    const [filter, setFilter] = useState('');
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const popRef = useRef<HTMLDivElement>(null);
+    const [popPos, setPopPos] = useState<{ top: number; left: number } | null>(null);
+
+    // Popover-ийн координатыг calculation хийнэ
+    useEffect(() => {
+        if (!isOpen || !triggerRef.current) return;
+        const POP_W = 240;
+        const POP_H = 320;
+        function place() {
+            const r = triggerRef.current!.getBoundingClientRect();
+            let top  = r.bottom + 4;
+            let left = r.left;
+            if (left + POP_W > window.innerWidth - 8)  left = window.innerWidth - POP_W - 8;
+            if (top  + POP_H > window.innerHeight - 8) top  = Math.max(8, r.top - POP_H - 4);
+            setPopPos({ top, left });
+        }
+        place();
+        window.addEventListener('scroll', place, true);
+        window.addEventListener('resize', place);
+        return () => {
+            window.removeEventListener('scroll', place, true);
+            window.removeEventListener('resize', place);
+        };
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        function onDocClick(e: MouseEvent) {
+            const t = e.target as Node;
+            if (triggerRef.current?.contains(t)) return;
+            if (popRef.current?.contains(t))    return;
+            onClose();
+        }
+        function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
+        document.addEventListener('mousedown', onDocClick);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDocClick);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [isOpen, onClose]);
+
+    const filteredDoctors = filter.trim()
+        ? doctors.filter(d => d.name.toLowerCase().includes(filter.trim().toLowerCase()))
+        : doctors;
+
+    // Locked view: just chips
+    if (isFinal) {
+        return (
+            <div className="flex flex-wrap gap-1 py-1">
+                {selectedNames.length === 0 ? (
+                    <span className="text-[11px] text-muted-foreground">—</span>
+                ) : selectedNames.map((n, i) => (
+                    <span key={i} className="inline-flex items-center rounded bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 text-[10px] font-medium">
+                        {n}
+                    </span>
+                ))}
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <button ref={triggerRef} type="button" onClick={onToggleOpen}
+                className="w-full min-h-[26px] flex flex-wrap items-center gap-1 rounded px-1.5 py-1 text-left text-[11px] hover:bg-violet-50/50 dark:hover:bg-violet-950/20 outline-none transition-colors">
+                {selectedIds.length === 0 ? (
+                    <span className="text-muted-foreground">— сонго —</span>
+                ) : (
+                    selectedIds.map(id => {
+                        const name = doctors.find(d => d.id === id)?.name ?? `#${id}`;
+                        return (
+                            <span key={id}
+                                className="inline-flex items-center gap-0.5 rounded bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 pl-1.5 pr-0.5 py-0.5 text-[10px] font-medium">
+                                {name}
+                                <button type="button"
+                                    onClick={(ev) => { ev.stopPropagation(); onRemove(id); }}
+                                    className="rounded-full p-0.5 hover:bg-violet-200 dark:hover:bg-violet-800 transition-colors"
+                                    title="Хасах">
+                                    <X className="size-2.5" />
+                                </button>
+                            </span>
+                        );
+                    })
+                )}
+            </button>
+
+            {isOpen && popPos && typeof document !== 'undefined' && createPortal(
+                <div ref={popRef}
+                    style={{ position: 'fixed', top: popPos.top, left: popPos.left, width: 240, maxHeight: 320, zIndex: 9999 }}
+                    className="rounded-lg border bg-popover text-popover-foreground shadow-xl overflow-hidden flex flex-col">
+                    <div className="border-b p-1.5 bg-background">
+                        <input
+                            autoFocus
+                            value={filter}
+                            onChange={ev => setFilter(ev.target.value)}
+                            placeholder="Эмчийн нэрээр хайх..."
+                            className="w-full rounded border bg-background px-2 py-1 text-[11px] outline-none focus:ring-1 focus:ring-violet-500"
+                        />
+                    </div>
+                    <ul className="overflow-y-auto flex-1 py-1 bg-popover">
+                        {filteredDoctors.length === 0 && (
+                            <li className="px-3 py-2 text-[11px] text-muted-foreground italic">
+                                {doctors.length === 0 ? 'Энэ салбарт эмч холбогдоогүй байна' : 'Эмч олдсонгүй'}
+                            </li>
+                        )}
+                        {filteredDoctors.map(d => {
+                            const checked = selectedIds.includes(d.id);
+                            return (
+                                <li key={d.id}>
+                                    <button type="button" onClick={() => onToggle(d.id)}
+                                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-[11px] text-left transition-colors ${
+                                            checked
+                                                ? 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 font-semibold'
+                                                : 'hover:bg-muted'
+                                        }`}>
+                                        <span className={`size-3.5 rounded border flex items-center justify-center transition-colors ${
+                                            checked ? 'bg-violet-600 border-violet-600' : 'border-gray-300 dark:border-gray-600'
+                                        }`}>
+                                            {checked && <CheckCircle2 className="size-3 text-white" />}
+                                        </span>
+                                        <span className="flex-1 truncate">{d.name}</span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    <div className="border-t bg-muted/30 px-2 py-1 flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">
+                            {selectedIds.length} сонгогдсон / нийт {doctors.length}
+                        </span>
+                        <button type="button" onClick={onClose}
+                            className="text-[10px] text-violet-700 dark:text-violet-400 hover:underline font-semibold">
+                            Хаах
+                        </button>
+                    </div>
+                </div>,
+                document.body,
+            )}
+        </>
     );
 }
