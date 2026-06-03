@@ -265,6 +265,10 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::delete('daily-sheet-entries/{entry}', [DailySheetAdminController::class, 'destroyEntry'])->name('daily-sheets.entries.destroy');
     Route::post('daily-sheets/{sheet}/unlock', [DailySheetAdminController::class, 'unlock'])->name('daily-sheets.unlock');
 
+    // Банкны мобайл тулгалт (Хаан банкны хуулга × системийн мобайл орлогууд)
+    Route::get('bank-reconciliation', [\App\Http\Controllers\Admin\BankReconciliationController::class, 'index'])->name('bank-reconciliation.index');
+    Route::post('bank-reconciliation/check', [\App\Http\Controllers\Admin\BankReconciliationController::class, 'check'])->name('bank-reconciliation.check');
+
     // Дутуу тооцоо (бүх цаг үе, бүх салбар)
     Route::get('outstanding', [DailySheetAdminController::class, 'outstanding'])->name('admin.outstanding');
     Route::get('outstanding/export', [DailySheetAdminController::class, 'exportOutstanding'])->name('admin.outstanding.export');

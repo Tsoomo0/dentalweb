@@ -21,6 +21,7 @@ import {
     FlaskConical,
     HelpCircle,
     Images,
+    Landmark,
     LayoutGrid,
     LogOut,
     MessageCircle,
@@ -118,6 +119,11 @@ const schedulingItems: NavItem[] = [
         title: 'Өдрийн тооцоо',
         url: '/admin/daily-sheets',
         icon: NotebookText,
+    },
+    {
+        title: 'Банкны тулгалт',
+        url: '/admin/bank-reconciliation',
+        icon: Landmark,
     },
     {
         title: 'Дутуу тооцоо',

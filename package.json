@@ -16,6 +16,8 @@
         "eslint-plugin-react": "^7.37.3",
         "eslint-plugin-react-hooks": "^5.1.0",
         "laravel-echo": "^2.3.4",
+        "marked": "^18.0.4",
+        "playwright": "^1.60.0",
         "prettier": "^3.4.2",
         "prettier-plugin-organize-imports": "^4.1.0",
         "prettier-plugin-tailwindcss": "^0.6.11",
