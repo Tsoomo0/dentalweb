@@ -566,7 +566,7 @@ export default function PayrollShow({ run, entries: initial }: Props) {
                             <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-zinc-700" />
                         </div>
                         <div className="flex items-center justify-between border-b border-gray-100 dark:border-zinc-800 px-5 py-4">
-                            <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">CSV Import</h2>
+                            <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">Excel Import</h2>
                             <button onClick={() => setImportOpen(false)}
                                 className="size-8 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
                                 <X className="size-4 text-gray-500" />
@@ -578,12 +578,12 @@ export default function PayrollShow({ run, entries: initial }: Props) {
                                 <ol className="list-decimal pl-4 space-y-0.5">
                                     <li>Эхлээд <strong>Template татах</strong> товч дарна</li>
                                     <li>Excel дээр утгуудыг оруулна (A, B, C багануудыг өөрчлөхгүй)</li>
-                                    <li>CSV хэлбэрээр хадгалаад энд upload хийнэ</li>
+                                    <li>Excel (.xlsx) хэлбэрээр хадгалаад энд upload хийнэ</li>
                                 </ol>
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-gray-800 dark:text-gray-200">CSV файл сонгох</label>
-                                <input ref={fileRef} type="file" accept=".csv,text/csv"
+                                <label className="mb-1.5 block text-xs font-semibold text-gray-800 dark:text-gray-200">Excel файл сонгох</label>
+                                <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv"
                                     onChange={e => importForm.setData('file', e.target.files?.[0] ?? null)}
                                     className="w-full rounded-xl border border-gray-200 dark:border-zinc-700 px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-100 dark:file:bg-zinc-800 file:px-2 file:py-1 file:text-xs file:font-medium text-gray-700 dark:text-gray-300"
                                 />

@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Exports\AttendanceExport;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\HR\AttendanceLog;
 use App\Models\HR\Employee;
 use App\Models\HR\WorkSchedule;
 use Carbon\Carbon;
-use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AttendanceController extends Controller
 {
@@ -82,7 +83,7 @@ class AttendanceController extends Controller
         ]);
     }
 
-    public function exportExcel(): HttpResponse
+    public function exportExcel(): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $month = request()->integer('month', now()->month);
         $year = request()->integer('year', now()->year);
@@ -111,20 +112,7 @@ class AttendanceController extends Controller
             '7-р сар', '8-р сар', '9-р сар', '10-р сар', '11-р сар', '12-р сар'];
         $monthLabel = $monthLabels[$month - 1];
 
-        $employeeName = null;
-        if ($employeeId) {
-            $emp = Employee::find($employeeId);
-            $employeeName = $emp?->full_name;
-        }
-
-        $html = view('hr.attendance-excel', compact('logs', 'year', 'month', 'monthLabel', 'employeeName'))->render();
-        $filename = "Ирцийн бүртгэл {$monthLabel} {$year}.xls";
-        $encoded = rawurlencode($filename);
-
-        return response("\xEF\xBB\xBF".$html, 200, [
-            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
-        ]);
+        return Excel::download(new AttendanceExport($logs), "Ирцийн бүртгэл {$monthLabel} {$year}.xlsx");
     }
 
     private function loadSchedules(Collection $logs, Carbon $from, Carbon $to): Collection

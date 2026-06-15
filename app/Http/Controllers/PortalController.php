@@ -63,7 +63,7 @@ class PortalController extends Controller
             'lab' => redirect()->route('lab.dashboard'),
             default => $user->isAdmin()
                             ? redirect()->route('admin.dashboard')
-                            : redirect()->route('reception.dashboard'),
+                            : redirect()->route('my.home'), // портал-гүй ажилтан → My
         };
     }
 

@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import url('https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800,900&display=swap');
+@import url('https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap');
 
 @plugin 'tailwindcss-animate';
 
@@ -366,4 +367,31 @@
     textarea {
         font-size: 16px !important;
     }
+}
+
+/* Social Bot модуль — цэвэрхэн, орчин үеийн Manrope фонт + жигд хэмжээний харьцаа */
+.font-warm {
+    font-family: 'Manrope', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+.font-warm h1,
+.font-warm h2 { letter-spacing: -0.022em; }
+
+/* Social модулийн dropdown (select)-ийг цэвэрхэн болгох */
+.font-warm select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    padding-right: 2rem;
+    cursor: pointer;
+}
+.font-warm select:focus {
+    border-color: #1877f2;
+    box-shadow: 0 0 0 3px rgb(24 119 242 / 0.15);
+    outline: none;
 }

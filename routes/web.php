@@ -19,6 +19,14 @@ use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\PatientController as AdminPatientController;
 use App\Http\Controllers\Admin\PaymentAdminController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\SocialAccountController;
+use App\Http\Controllers\Admin\SocialCommentRuleController;
+use App\Http\Controllers\Admin\SocialFlowController;
+use App\Http\Controllers\Admin\SocialFormController;
+use App\Http\Controllers\Admin\SocialInboxController;
+use App\Http\Controllers\Admin\SocialOAuthController;
+use App\Http\Controllers\Social\PublicFormController;
+use App\Http\Controllers\Social\SocialWebhookController;
 use App\Http\Controllers\Admin\SubTreatmentController;
 use App\Http\Controllers\Admin\TreatmentCategoryController;
 use App\Http\Controllers\Admin\TreatmentController;
@@ -116,6 +124,65 @@ Route::get('/payment/{appointment}', [PaymentController::class, 'show'])->name('
 Route::post('/payment/{appointment}/invoice', [PaymentController::class, 'createInvoice'])->name('payment.invoice');
 Route::get('/payment/{appointment}/check', [PaymentController::class, 'checkStatus'])->name('payment.check');
 Route::post('/payment/callback/{appointment}', [PaymentController::class, 'callback'])->name('payment.callback');
+
+// ── Meta Social webhook (Facebook Page + Instagram) ──────────────────────────
+Route::get('/webhooks/social', [SocialWebhookController::class, 'verify'])->name('webhooks.social.verify');
+Route::post('/webhooks/social', [SocialWebhookController::class, 'receive'])->name('webhooks.social.receive');
+
+// ── Нууцлалын бодлого (Meta App-д шаардлагатай) ──────────────────────────────
+Route::get('/privacy', function () {
+    $html = <<<'HTML'
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Нууцлалын бодлого — Cuticul Dental Clinic</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:760px;margin:0 auto;padding:40px 20px;line-height:1.7;color:#1f2937}
+  h1{font-size:28px;margin-bottom:4px}h2{font-size:19px;margin-top:28px;color:#111827}
+  .muted{color:#6b7280;font-size:14px}a{color:#1877F2}
+</style>
+</head>
+<body>
+  <h1>Нууцлалын бодлого</h1>
+  <p class="muted">Cuticul Dental Clinic (Кутикул Шүдний эмнэлэг) · Сүүлд шинэчилсэн: 2026-06-06</p>
+
+  <h2>1. Ерөнхий</h2>
+  <p>Энэхүү бодлого нь Cuticul Dental Clinic-ийн вэбсайт болон Facebook / Instagram чатбот үйлчилгээгээр дамжуулан таны мэдээллийг хэрхэн цуглуулж, ашиглаж, хамгаалдгийг тайлбарлана.</p>
+
+  <h2>2. Цуглуулдаг мэдээлэл</h2>
+  <ul>
+    <li>Facebook/Instagram-аар бичсэн мессеж, нэр, профайл зураг, хэрэглэгчийн ID</li>
+    <li>Таны өөрөө өгсөн нэр, утас, и-мэйл, цаг захиалгын мэдээлэл</li>
+    <li>Үйлчилгээ сайжруулах зорилгоор харилцааны түүх</li>
+  </ul>
+
+  <h2>3. Мэдээллийг хэрхэн ашигладаг вэ</h2>
+  <ul>
+    <li>Таны асуултад хариулах, цаг захиалга авах, үйлчилгээ үзүүлэх</li>
+    <li>Үйлчлүүлэгчийн үйлчилгээг сайжруулах</li>
+    <li>Зөвхөн танай зөвшөөрсөн зорилгоор ашиглана</li>
+  </ul>
+
+  <h2>4. Мэдээлэл хуваалцах</h2>
+  <p>Бид таны хувийн мэдээллийг гуравдагч этгээдэд зарж борлуулахгүй. Зөвхөн хууль шаардсан, эсвэл үйлчилгээ үзүүлэхэд зайлшгүй шаардлагатай тохиолдолд хуваалцана.</p>
+
+  <h2>5. Мэдээлэл устгах хүсэлт</h2>
+  <p>Та өөрийн мэдээллийг устгуулахыг хүсвэл <a href="mailto:info@cuticul.mn">info@cuticul.mn</a> хаягаар хандана уу. Бид хүсэлтийг хүлээн авч мэдээллийг устгана.</p>
+
+  <h2>6. Холбоо барих</h2>
+  <p>Cuticul Dental Clinic — Кутикул Шүдний эмнэлэг<br>И-мэйл: <a href="mailto:info@cuticul.mn">info@cuticul.mn</a><br>Вэб: <a href="https://cuticul.mn">cuticul.mn</a></p>
+</body>
+</html>
+HTML;
+
+    return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+})->name('privacy');
+
+// ── Олон нийтийн вэбформ ─────────────────────────────────────────────────────
+Route::get('/f/{form}', [PublicFormController::class, 'show'])->name('public.social-form');
+Route::post('/f/{form}/submit', [PublicFormController::class, 'submit'])->name('public.social-form.submit');
 
 // ── Portal сонгох + ажилтны хувийн хэсэг ─────────────────────────────────────
 Route::middleware(['either.auth'])->group(function () {
@@ -312,6 +379,59 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::post('chatbot/nodes', [BotBuilderController::class, 'storeNode'])->name('chatbot.nodes.store');
     Route::put('chatbot/nodes/{node}', [BotBuilderController::class, 'updateNode'])->name('chatbot.nodes.update');
     Route::delete('chatbot/nodes/{node}', [BotBuilderController::class, 'destroyNode'])->name('chatbot.nodes.destroy');
+
+    // ── Social Bot (Facebook Page + Instagram) ──────────────────────────────
+    Route::get('social/accounts', [SocialAccountController::class, 'index'])->name('social.accounts');
+    Route::get('social/connect', [SocialOAuthController::class, 'connect'])->name('social.connect');
+    Route::get('social/oauth/callback', [SocialOAuthController::class, 'callback'])->name('social.oauth.callback');
+    Route::get('social/select', [SocialOAuthController::class, 'select'])->name('social.select');
+    Route::post('social/select', [SocialOAuthController::class, 'store'])->name('social.select.store');
+    Route::post('social/accounts/{account}/resubscribe', [SocialAccountController::class, 'resubscribe'])->name('social.accounts.resubscribe');
+    Route::delete('social/accounts/{account}', [SocialAccountController::class, 'destroy'])->name('social.accounts.destroy');
+
+    // Social flow builder
+    Route::get('social/flows', [SocialFlowController::class, 'index'])->name('social.flows');
+    Route::post('social/flows', [SocialFlowController::class, 'storeFlow'])->name('social.flows.store');
+    Route::put('social/flows/{flow}', [SocialFlowController::class, 'updateFlow'])->name('social.flows.update');
+    Route::delete('social/flows/{flow}', [SocialFlowController::class, 'destroyFlow'])->name('social.flows.destroy');
+    Route::post('social/flow-nodes', [SocialFlowController::class, 'storeNode'])->name('social.flow-nodes.store');
+    Route::post('social/flow-nodes/positions', [SocialFlowController::class, 'savePositions'])->name('social.flow-nodes.positions');
+    Route::post('social/flow-image', [SocialFlowController::class, 'uploadImage'])->name('social.flow-image');
+    Route::post('social/flow-file', [SocialFlowController::class, 'uploadFile'])->name('social.flow-file');
+    Route::put('social/flow-nodes/{node}', [SocialFlowController::class, 'updateNode'])->name('social.flow-nodes.update');
+    Route::delete('social/flow-nodes/{node}', [SocialFlowController::class, 'destroyNode'])->name('social.flow-nodes.destroy');
+    Route::post('social/flow-buttons', [SocialFlowController::class, 'storeButton'])->name('social.flow-buttons.store');
+    Route::post('social/flow-buttons/reorder', [SocialFlowController::class, 'reorderButtons'])->name('social.flow-buttons.reorder');
+    Route::put('social/flow-buttons/{button}/link', [SocialFlowController::class, 'linkButton'])->name('social.flow-buttons.link');
+    Route::put('social/flow-buttons/{button}/unlink', [SocialFlowController::class, 'unlinkButton'])->name('social.flow-buttons.unlink');
+    Route::put('social/flow-buttons/{button}', [SocialFlowController::class, 'updateButton'])->name('social.flow-buttons.update');
+    Route::delete('social/flow-buttons/{button}', [SocialFlowController::class, 'destroyButton'])->name('social.flow-buttons.destroy');
+
+    // Social web forms
+    Route::get('social/forms', [SocialFormController::class, 'index'])->name('social.forms');
+    Route::post('social/forms', [SocialFormController::class, 'store'])->name('social.forms.store');
+    Route::put('social/forms/{form}', [SocialFormController::class, 'update'])->name('social.forms.update');
+    Route::delete('social/forms/{form}', [SocialFormController::class, 'destroy'])->name('social.forms.destroy');
+    Route::get('social/forms/{form}/submissions', [SocialFormController::class, 'submissions'])->name('social.forms.submissions');
+
+    // Social comment auto-reply rules
+    Route::get('social/comment-rules', [SocialCommentRuleController::class, 'index'])->name('social.comment-rules');
+    Route::get('social/comment-rules/accounts/{account}/posts', [SocialCommentRuleController::class, 'posts'])->name('social.comment-rules.posts');
+    Route::post('social/comment-rules', [SocialCommentRuleController::class, 'store'])->name('social.comment-rules.store');
+    Route::put('social/comment-rules/{rule}', [SocialCommentRuleController::class, 'update'])->name('social.comment-rules.update');
+    Route::delete('social/comment-rules/{rule}', [SocialCommentRuleController::class, 'destroy'])->name('social.comment-rules.destroy');
+
+    // Social inbox
+    Route::get('social/inbox', [SocialInboxController::class, 'index'])->name('social.inbox');
+    Route::get('social/inbox/conversations', [SocialInboxController::class, 'conversations'])->name('social.inbox.conversations');
+    Route::get('social/inbox/conversations/{conversation}/messages', [SocialInboxController::class, 'messages'])->name('social.inbox.messages');
+    Route::post('social/inbox/conversations/{conversation}/reply', [SocialInboxController::class, 'reply'])->name('social.inbox.reply');
+    Route::post('social/inbox/conversations/{conversation}/attach', [SocialInboxController::class, 'attach'])->name('social.inbox.attach');
+    Route::post('social/inbox/conversations/{conversation}/read', [SocialInboxController::class, 'markRead'])->name('social.inbox.read');
+    Route::post('social/inbox/conversations/{conversation}/status', [SocialInboxController::class, 'setStatus'])->name('social.inbox.status');
+    Route::delete('social/inbox/conversations/{conversation}', [SocialInboxController::class, 'destroy'])->name('social.inbox.destroy');
+    Route::get('social/inbox/conversations/{conversation}/contact', [SocialInboxController::class, 'contactInfo'])->name('social.inbox.contact');
+    Route::patch('social/inbox/conversations/{conversation}/contact', [SocialInboxController::class, 'updateContact'])->name('social.inbox.contact.update');
 
     // ── Admin chat (full thread UI) ─────────────────────────────────────────
     Route::get('chat', [App\Http\Controllers\Admin\ChatController::class, 'index'])->name('chat.index');

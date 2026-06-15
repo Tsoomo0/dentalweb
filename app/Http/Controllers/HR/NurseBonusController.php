@@ -8,6 +8,7 @@ use App\Models\Doctor;
 use App\Models\HR\Employee;
 use App\Models\HR\NurseBonusEntry;
 use App\Models\HR\NurseBonusRun;
+use App\Exports\NurseBonusExport;
 use App\Notifications\NurseBonusSent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class NurseBonusController extends Controller
 {
@@ -322,7 +324,7 @@ class NurseBonusController extends Controller
         return redirect()->route('hr.nurse-bonus.index')->with('success', 'Устгагдлаа.');
     }
 
-    public function exportExcel(NurseBonusRun $nurseBonusRun): \Illuminate\Http\Response
+    public function exportExcel(NurseBonusRun $nurseBonusRun): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $nurseBonusRun->load(['employee.position', 'entries.doctor', 'branch']);
 
@@ -337,15 +339,9 @@ class NurseBonusController extends Controller
             ->map(fn ($e) => $this->formatEntry($e, $doctorMap));
         $criteria = NurseBonusEntry::CRITERIA;
 
-        $filename = 'nurse-bonus-'.$nurseBonusRun->year.'-'.$nurseBonusRun->month.'-'.$nurseBonusRun->half.'.xls';
-
-        return response(
-            view('hr.nurse-bonus-excel', compact('nurseBonusRun', 'entries', 'criteria'))->render(),
-            200,
-            [
-                'Content-Type' => 'application/vnd.ms-excel',
-                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-            ]
+        return Excel::download(
+            new NurseBonusExport($entries, $criteria, $nurseBonusRun),
+            'nurse-bonus-'.$nurseBonusRun->year.'-'.$nurseBonusRun->month.'-'.$nurseBonusRun->half.'.xlsx'
         );
     }
 

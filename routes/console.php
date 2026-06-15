@@ -34,3 +34,17 @@ Schedule::command('hr:check-expiry')
     ->dailyAt('08:00')
     ->name('hr:check-expiry')
     ->description('Ажилтны гэрээ болон лицензийн дуусах хугацааг шалгах');
+
+// Social: оператор 1 цаг идэвхгүй чатуудыг автоматаар бот руу буцаах (оператор мартсан ч)
+Schedule::call(function () {
+    $cutoff = now()->subHour();
+    \App\Models\Social\SocialConversation::where('status', 'open')->get()->each(function ($conv) use ($cutoff) {
+        $lastAgentAt = \App\Models\Social\SocialMessage::where('social_conversation_id', $conv->id)
+            ->where('sender', 'agent')->max('created_at');
+        if ($lastAgentAt && \Illuminate\Support\Carbon::parse($lastAgentAt)->lt($cutoff)) {
+            $conv->update(['status' => 'bot', 'awaiting_node_id' => null]);
+        }
+    });
+})->everyTenMinutes()
+    ->name('social:return-idle-to-bot')
+    ->description('Оператор 1 цаг идэвхгүй social чатуудыг бот руу буцаах');

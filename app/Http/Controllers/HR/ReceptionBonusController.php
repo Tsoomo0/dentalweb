@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Exports\ReceptionBonusExport;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\HR\Employee;
@@ -12,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -217,21 +219,15 @@ class ReceptionBonusController extends Controller
         return back()->with('success', 'Урамшуулал нээгдлээ.');
     }
 
-    public function exportExcel(ReceptionBonusRun $receptionBonusRun): \Illuminate\Http\Response
+    public function exportExcel(ReceptionBonusRun $receptionBonusRun): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $receptionBonusRun->load(['entries.employee.position']);
         $entries = $receptionBonusRun->entries->map(fn ($e) => $this->formatEntry($e));
         $criteria = ReceptionBonusEntry::CRITERIA;
 
-        $filename = 'reception-bonus-'.$receptionBonusRun->year.'-'.$receptionBonusRun->month.'-'.$receptionBonusRun->half.'.xls';
-
-        return response(
-            view('hr.reception-bonus-excel', compact('receptionBonusRun', 'entries', 'criteria'))->render(),
-            200,
-            [
-                'Content-Type' => 'application/vnd.ms-excel',
-                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-            ]
+        return Excel::download(
+            new ReceptionBonusExport($entries, $criteria, $receptionBonusRun),
+            'reception-bonus-'.$receptionBonusRun->year.'-'.$receptionBonusRun->month.'-'.$receptionBonusRun->half.'.xlsx'
         );
     }
 

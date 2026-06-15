@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Exports\VacationRequestExport;
 use App\Http\Controllers\Controller;
 use App\Models\HR\Employee;
 use App\Models\HR\VacationRequest;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class VacationRequestController extends Controller
 {
@@ -222,19 +224,12 @@ class VacationRequestController extends Controller
         return $pdf->download($name);
     }
 
-    public function exportExcel(): HttpResponse
+    public function exportExcel(): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $requests = VacationRequest::with(['employee.position', 'employee.branch', 'replacement', 'reviewer'])
             ->latest()->get();
 
-        $html = view('hr.vacation-requests-excel', compact('requests'))->render();
-        $filename = 'Ээлжийн амралтын хүсэлт.xls';
-        $encoded = rawurlencode($filename);
-
-        return response("\xEF\xBB\xBF".$html, 200, [
-            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
-        ]);
+        return Excel::download(new VacationRequestExport($requests), 'Ээлжийн амралтын хүсэлт.xlsx');
     }
 
     private function notifyEmployee(VacationRequest $vacationRequest): void

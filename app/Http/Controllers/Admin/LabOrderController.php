@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\LabOrderExport;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\LabOrder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LabOrderController extends Controller
 {
-    public function exportExcel(Request $request): \Illuminate\Http\Response
+    public function exportExcel(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $branchId = $request->integer('branch');
         $status   = $request->get('status', 'all');
@@ -61,16 +63,7 @@ class LabOrderController extends Controller
                 'created_by_name'       => $o->creator?->name,
             ]);
 
-        $filename = 'lab-orders-'.now()->format('Y-m-d').'.xls';
-
-        return response(
-            view('admin.lab-orders-excel', compact('orders', 'status', 'search'))->render(),
-            200,
-            [
-                'Content-Type'        => 'application/vnd.ms-excel',
-                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-            ]
-        );
+        return Excel::download(new LabOrderExport($orders), 'lab-orders-'.now()->format('Y-m-d').'.xlsx');
     }
 
     public function index(Request $request): Response

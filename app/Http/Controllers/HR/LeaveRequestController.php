@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Exports\LeaveRequestExport;
 use App\Http\Controllers\Controller;
 use App\Models\HR\LeaveRequest;
 use App\Models\Setting;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LeaveRequestController extends Controller
 {
@@ -135,19 +137,12 @@ class LeaveRequestController extends Controller
         return $pdf->download($name);
     }
 
-    public function exportExcel(): HttpResponse
+    public function exportExcel(): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $requests = LeaveRequest::with(['employee.position', 'employee.branch', 'replacement', 'reviewer'])
             ->latest()->get();
 
-        $html = view('hr.leave-requests-excel', compact('requests'))->render();
-        $filename = 'Чөлөөний хүсэлт.xls';
-        $encoded = rawurlencode($filename);
-
-        return response("\xEF\xBB\xBF".$html, 200, [
-            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
-        ]);
+        return Excel::download(new LeaveRequestExport($requests), 'Чөлөөний хүсэлт.xlsx');
     }
 
     private function notifyEmployee(LeaveRequest $leaveRequest): void

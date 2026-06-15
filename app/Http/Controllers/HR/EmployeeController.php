@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Exports\EmployeeExport;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Doctor;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 use Inertia\Response;
 
 class EmployeeController extends Controller
@@ -68,18 +70,12 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function exportExcel(): \Illuminate\Http\Response
+    public function exportExcel(): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $employees = Employee::with(['branch', 'position'])
             ->orderBy('last_name')->get();
 
-        $html = view('hr.employees-excel', compact('employees'))->render();
-        $encoded = rawurlencode('Ажилтнууд.xls');
-
-        return response("\xEF\xBB\xBF".$html, 200, [
-            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
-        ]);
+        return Excel::download(new EmployeeExport($employees), 'Ажилтнууд.xlsx');
     }
 
     public function create(): Response
@@ -493,12 +489,21 @@ class EmployeeController extends Controller
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private function portalToRole(string $portal): int
+    private function portalToRole(?string $portal): int
     {
-        // roles хүснэгтээс role_id авна
-        return Role::where('name', $portal)->value('id')
-            ?? Role::where('name', 'staff')->value('id')
-            ?? 1;
+        // Portal нэрийг roles хүснэгтийн нэртэй буулгана.
+        //   admin     → admin
+        //   reception → receptionist
+        //   бусад     → employee (зөвхөн /my хэсэгрүү нэвтэрнэ)
+        $roleName = match ($portal) {
+            'admin'     => 'admin',
+            'reception' => 'receptionist',
+            default     => 'employee',
+        };
+
+        // Олдохгүй бол employee-руу буулгана (admin БИШ — security)
+        return Role::where('name', $roleName)->value('id')
+            ?? Role::firstOrCreate(['name' => 'employee'])->id;
     }
 
     private function formatEmployee(Employee $e): array

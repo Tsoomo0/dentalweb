@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\HR;
 
+use App\Exports\PayrollExport;
+use App\Exports\PayrollTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\HR\Employee;
@@ -15,6 +17,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class PayrollController extends Controller
 {
@@ -250,50 +254,14 @@ class PayrollController extends Controller
         return redirect()->route('hr.payroll.index')->with('success', 'Цалингийн тооцоо устгагдлаа.');
     }
 
-    public function downloadTemplate(PayrollRun $payrollRun): \Illuminate\Http\Response
+    public function downloadTemplate(PayrollRun $payrollRun): BinaryFileResponse
     {
         $payrollRun->load('entries.employee');
 
-        $header = [
-            'id', 'Ажилтны нэр', 'Ажилтны дугаар',
-            'Үндсэн цалин', 'НД цалин', 'Урьд олгосон', 'Баярын урьд',
-            'А.Т.Х 40%', 'Илүү цаг 10%', 'Ээлж.амр+хувь',
-            'Ажлын өдөр', 'Ажилласан', '1 өдрийн цалин',
-            'Хоол', 'Унаа', 'Сүү',
-            'Нийт нэмэгдэл', 'Тооцсон цалин', 'НД цалин нийт', 'НДШ 11.5%',
-            'Хоцролт', 'Хуруу', 'Суутгал',
-            'ХХОАТ', 'Гарт олгох', 'Банкаар олгох',
-        ];
-
-        $handle = fopen('php://temp', 'r+');
-        fprintf($handle, "\xEF\xBB\xBF");
-        fputcsv($handle, $header);
-
-        foreach ($payrollRun->entries as $e) {
-            fputcsv($handle, [
-                $e->id, $e->employee->full_name, $e->employee->employee_number,
-                $e->basic_salary ?: 0, $e->nd_salary ?: 0,
-                $e->prev_paid ?: 0, $e->holiday_advance ?: 0,
-                $e->ath_bonus ?: 0, $e->overtime_bonus ?: 0, $e->vacation_pay ?: 0,
-                $e->working_days ?: 0, $e->worked_days ?: 0, $e->daily_rate ?: 0,
-                $e->food ?: 0, $e->transport ?: 0, $e->milk ?: 0,
-                $e->total_bonus ?: 0, $e->calc_salary ?: 0, $e->nd_total ?: 0, $e->ndsh ?: 0,
-                $e->tardiness ?: 0, $e->no_fingerprint ?: 0, $e->other_deduction ?: 0,
-                $e->income_tax ?: 0, $e->net_hand ?: 0, $e->bank_salary ?: 0,
-            ]);
-        }
-
-        rewind($handle);
-        $csv = stream_get_contents($handle);
-        fclose($handle);
-
-        $filename = $payrollRun->title.'_template.csv';
-        $encoded = rawurlencode($filename);
-
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
-        ]);
+        return Excel::download(
+            new PayrollTemplateExport($payrollRun->entries),
+            $payrollRun->title.'_template.xlsx'
+        );
     }
 
     public function importCsv(Request $request, PayrollRun $payrollRun): RedirectResponse
@@ -302,17 +270,10 @@ class PayrollController extends Controller
             return back()->with('error', 'Баталгаажсан тооцоог засах боломжгүй.');
         }
 
-        $request->validate(['file' => 'required|file|mimes:csv,txt|max:5120']);
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv,txt|max:5120']);
 
-        $handle = fopen($request->file('file')->getPathname(), 'r');
-
-        // UTF-8 BOM арилгах
-        $bom = fread($handle, 3);
-        if ($bom !== "\xEF\xBB\xBF") {
-            rewind($handle);
-        }
-
-        fgetcsv($handle); // header мөр алгасах
+        // Excel (.xlsx/.xls) болон хуучин CSV-г бүгдийг дэмжинэ
+        $rows = Excel::toArray(new class {}, $request->file('file'))[0] ?? [];
 
         // col index → db field
         $map = [
@@ -327,16 +288,16 @@ class PayrollController extends Controller
             25 => 'bank_salary',
         ];
 
-        DB::transaction(function () use ($handle, $map, $payrollRun) {
-            while (($row = fgetcsv($handle)) !== false) {
-                $id = (int) ($row[0] ?? 0);
+        DB::transaction(function () use ($rows, $map, $payrollRun) {
+            foreach ($rows as $row) {
+                $id = (int) ($row[0] ?? 0); // header мөр (id='id') энд 0 болж алгасагдана
                 if (! $id) {
                     continue;
                 }
 
                 $update = [];
                 foreach ($map as $col => $field) {
-                    $raw = isset($row[$col]) ? trim(str_replace(',', '', $row[$col])) : '';
+                    $raw = isset($row[$col]) ? trim(str_replace(',', '', (string) $row[$col])) : '';
                     $update[$field] = $raw !== '' ? (float) $raw : 0;
                 }
 
@@ -346,24 +307,15 @@ class PayrollController extends Controller
             }
         });
 
-        fclose($handle);
-
         return back()->with('success', 'Import амжилттай боллоо.');
     }
 
-    public function exportExcel(PayrollRun $payrollRun): \Illuminate\Http\Response
+    public function exportExcel(PayrollRun $payrollRun): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $payrollRun->load(['entries.employee.position', 'entries.employee.branch']);
         $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e));
 
-        $html = view('hr.payroll-excel', compact('payrollRun', 'entries'))->render();
-        $filename = $payrollRun->title.'.xls';
-        $encoded = rawurlencode($filename);
-
-        return response("\xEF\xBB\xBF".$html, 200, [
-            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename*=UTF-8''{$encoded}",
-        ]);
+        return Excel::download(new PayrollExport($entries), $payrollRun->title.'.xlsx');
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

@@ -55,4 +55,15 @@ return [
         'secret' => env('TURNSTILE_SECRET_KEY'),
     ],
 
+    // Meta (Facebook Page + Instagram) — Social Bot модуль
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'verify_token' => env('META_VERIFY_TOKEN'),
+        'api_version' => env('META_API_VERSION', 'v21.0'),
+        'graph_url' => env('META_GRAPH_URL', 'https://graph.facebook.com'),
+        // Карусель/template зургийн нийтийн URL суурь (dev үед HTTPS тунель). Хоосон бол APP_URL.
+        'media_url' => env('META_MEDIA_URL'),
+    ],
+
 ];

@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<title>Ажилтны (My / HR) хэсгийн ашиглах заавар</title>
+<style>
+  :root{
+    --red:#dc2626; --red2:#b91c1c; --red3:#7f1d1d; --red0:#ef4444;
+    --ink:#0f172a; --muted:#475569; --faint:#94a3b8;
+    --line:#e2e8f0; --bg:#f1f5f9; --card:#ffffff;
+    --green:#16a34a; --amber:#d97706; --blue:#2563eb;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink); background:#fff; line-height:1.5;
+  }
+  @page{ size:A4; margin:0; }
+
+  .page{
+    width:210mm; min-height:297mm; padding:18mm 16mm 16mm;
+    position:relative; page-break-after:always; overflow:hidden;
+    background:#fff;
+  }
+  .page:last-child{ page-break-after:auto; }
+
+  /* ── Running header ── */
+  .rh{ display:flex; align-items:center; justify-content:space-between;
+       border-bottom:2px solid var(--red); padding-bottom:8px; margin-bottom:22px; }
+  .rh .brand{ display:flex; align-items:center; gap:9px; }
+  .rh .logo{ width:26px; height:26px; border-radius:8px;
+       background:linear-gradient(135deg,var(--red0),var(--red3)); color:#fff;
+       font-weight:900; font-size:14px; display:flex; align-items:center; justify-content:center;}
+  .rh .brand b{ font-size:13px; letter-spacing:.2px; }
+  .rh .brand span{ font-size:10px; color:var(--faint); display:block; font-weight:600; }
+  .rh .pg{ font-size:10px; color:var(--faint); font-weight:700; letter-spacing:.5px; }
+
+  h2.sec{ font-size:22px; font-weight:900; letter-spacing:-.5px; margin-bottom:3px; }
+  .sec-kicker{ font-size:11px; font-weight:800; color:var(--red); letter-spacing:1.5px;
+       text-transform:uppercase; margin-bottom:7px; }
+  .sec-sub{ font-size:12.5px; color:var(--muted); margin-bottom:18px; max-width:560px; }
+
+  .cols{ display:flex; gap:20px; align-items:flex-start; }
+  .col-phone{ flex:0 0 auto; }
+  .col-text{ flex:1; padding-top:4px; }
+
+  /* ── Steps ── */
+  ol.steps{ list-style:none; counter-reset:s; }
+  ol.steps>li{ counter-increment:s; position:relative; padding-left:34px; margin-bottom:13px; }
+  ol.steps>li::before{
+    content:counter(s); position:absolute; left:0; top:-1px;
+    width:23px; height:23px; border-radius:50%;
+    background:linear-gradient(135deg,var(--red0),var(--red3)); color:#fff;
+    font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center;
+  }
+  ol.steps>li b{ font-weight:800; }
+  ol.steps>li .d{ font-size:12px; color:var(--muted); display:block; margin-top:1px; }
+  ol.steps>li .t{ font-size:13.5px; font-weight:700; }
+
+  .note{ border-left:4px solid var(--amber); background:#fffbeb; border-radius:0 10px 10px 0;
+    padding:10px 14px; margin-top:14px; font-size:11.5px; color:#78350f; }
+  .note b{ color:#92400e; }
+  .tip{ border-left:4px solid var(--green); background:#f0fdf4; border-radius:0 10px 10px 0;
+    padding:10px 14px; margin-top:12px; font-size:11.5px; color:#14532d; }
+  .tip b{ color:#166534; }
+
+  ul.bul{ list-style:none; margin-top:6px; }
+  ul.bul li{ position:relative; padding-left:18px; font-size:12.5px; color:var(--muted); margin-bottom:7px; }
+  ul.bul li::before{ content:''; position:absolute; left:2px; top:7px; width:7px; height:7px;
+    border-radius:50%; background:var(--red); }
+  ul.bul li b{ color:var(--ink); }
+
+  /* ════════ PHONE MOCKUP ════════ */
+  .phone{
+    width:248px; border-radius:34px; padding:9px;
+    background:#0b1220; box-shadow:0 16px 40px rgba(2,6,23,.28), 0 4px 12px rgba(2,6,23,.18);
+    position:relative;
+  }
+  .phone .notch{ position:absolute; top:15px; left:50%; transform:translateX(-50%);
+    width:78px; height:18px; background:#0b1220; border-radius:0 0 14px 14px; z-index:6; }
+  .scr{ width:100%; border-radius:27px; overflow:hidden; background:var(--bg);
+    position:relative; height:496px; display:flex; flex-direction:column; }
+  .scr .status{ height:26px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 18px; font-size:9px; font-weight:800; color:#fff; position:relative; z-index:5; }
+  .scr.lightstat .status{ color:#fff; }
+  .scr .status .r{ display:flex; gap:4px; align-items:center; }
+
+  .hero{ background:linear-gradient(160deg,#ef4444 0%,var(--red) 30%,var(--red2) 65%,var(--red3) 100%);
+    padding:0 0 10px; position:relative; color:#fff; }
+  .hero .topbar{ display:flex; align-items:center; gap:7px; padding:4px 14px 0; }
+  .hero .topbar .meta{ flex:1; font-size:8px; color:rgba(255,255,255,.7); font-weight:700; letter-spacing:.3px; }
+  .hero .ic{ width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,.16);
+    display:flex; align-items:center; justify-content:center; font-size:11px; }
+  .hero .ava{ width:26px; height:26px; border-radius:50%; border:2px solid rgba(255,255,255,.5);
+    background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:900; }
+  .hero .greet{ padding:9px 16px 0; }
+  .hero .greet small{ font-size:10px; color:rgba(255,255,255,.72); font-weight:600; }
+  .hero .greet h3{ font-size:23px; font-weight:900; letter-spacing:-.6px; margin-top:1px; }
+  .hero .greet h3 em{ font-style:normal; font-size:17px; font-weight:700; color:rgba(255,255,255,.62); }
+  .hero .greet .pos{ font-size:9px; color:rgba(255,255,255,.55); font-weight:600; margin-top:3px; }
+
+  .att{ margin:10px 11px 9px; border-radius:15px; background:rgba(0,0,0,.25); padding:11px 13px; }
+  .att .lbl{ display:flex; align-items:center; gap:5px; font-size:8.5px; font-weight:800;
+    letter-spacing:.4px; color:rgba(255,255,255,.78); }
+  .att .dot{ width:6px; height:6px; border-radius:50%; }
+  .att .sub{ font-size:9px; color:rgba(255,255,255,.5); margin-top:3px; }
+  .att .row{ display:flex; align-items:center; justify-content:space-between; }
+  .btn-go{ background:#4ade80; color:#14532d; border-radius:11px; padding:7px 13px;
+    font-size:10.5px; font-weight:900; display:inline-flex; gap:4px; align-items:center; }
+  .btn-stop{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.22); color:#fff;
+    border-radius:11px; padding:8px; font-size:10.5px; font-weight:800; text-align:center; margin-top:8px; }
+  .timer{ font-size:18px; font-weight:900; letter-spacing:.6px; }
+
+  .weekstrip{ display:flex; padding:2px 8px 0; }
+  .weekstrip .wd{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px 0; }
+  .weekstrip .wd small{ font-size:7.5px; font-weight:800; color:rgba(255,255,255,.5); }
+  .weekstrip .wd .num{ width:25px; height:25px; border-radius:50%; background:rgba(255,255,255,.12);
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; }
+  .weekstrip .wd.on small{ color:#fff; }
+  .weekstrip .wd.on .num{ background:#fff; color:var(--red); }
+  .weekstrip .wd .pip{ width:3px; height:3px; border-radius:50%; }
+
+  .body{ flex:1; overflow:hidden; padding:9px 11px; }
+  .card{ background:#fff; border-radius:17px; box-shadow:0 2px 9px rgba(15,23,42,.07); margin-bottom:9px; }
+  .card .chead{ display:flex; align-items:center; gap:6px; padding:9px 13px 8px; border-bottom:1px solid #f1f5f9; }
+  .card .chead .cdot{ width:6px; height:6px; border-radius:50%; }
+  .card .chead .ctitle{ font-size:9px; font-weight:800; letter-spacing:.4px; color:var(--muted); }
+  .card .chead .ctime{ margin-left:auto; font-size:10px; font-weight:800; color:var(--ink); }
+  .card .cbody{ padding:11px 13px; }
+
+  .iconbox{ width:32px; height:32px; border-radius:10px; display:flex; align-items:center;
+    justify-content:center; font-size:15px; flex-shrink:0; }
+  .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:9px; }
+  .stat{ background:#fff; border-radius:15px; padding:11px 11px 9px; box-shadow:0 2px 9px rgba(15,23,42,.07); }
+  .stat .big{ font-size:21px; font-weight:900; line-height:1; margin-top:6px; }
+  .stat .s1{ font-size:8px; color:var(--faint); margin-top:1px; }
+  .stat .s2{ font-size:8.5px; font-weight:800; margin-top:2px; }
+
+  .salcard{ background:linear-gradient(135deg,var(--red2),var(--red3)); border-radius:16px;
+    padding:13px 15px; display:flex; align-items:center; gap:11px; color:#fff;
+    box-shadow:0 8px 20px rgba(220,38,38,.3); }
+  .salcard .iconbox{ background:rgba(255,255,255,.18); color:#fff; }
+
+  /* bottom pill nav */
+  .pillnav{ position:absolute; bottom:11px; left:18px; right:18px;
+    background:#fff; border-radius:99px; padding:4px; display:flex;
+    box-shadow:0 6px 22px rgba(0,0,0,.16); z-index:8; }
+  .pillnav .nv{ flex:1; display:flex; align-items:center; justify-content:center; padding:3px 0; }
+  .pillnav .nv .b{ width:36px; height:36px; border-radius:99px; display:flex; align-items:center;
+    justify-content:center; font-size:15px; color:#64748b; }
+  .pillnav .nv.on .b{ background:#0f172a; color:#fff; }
+  .pillnav .nv.sw .b{ color:var(--red); }
+
+  .titlebar{ height:42px; background:#fff; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; padding:0 14px; gap:8px; }
+  .titlebar .tb-ava{ width:28px; height:28px; border-radius:50%; background:#f2f2f7;
+    display:flex; align-items:center; justify-content:center; font-size:13px; color:#555; }
+  .titlebar .tb-t{ flex:1; text-align:center; font-size:13px; font-weight:800; }
+
+  .tabs{ display:flex; gap:5px; padding:0 11px 11px; }
+  .tabs .tab{ flex:1; text-align:center; padding:8px 0; border-radius:11px; font-size:10.5px; font-weight:800; }
+  .tabs .tab.on{ background:#fff; color:var(--red); }
+  .tabs .tab.off{ background:rgba(255,255,255,.16); color:rgba(255,255,255,.78); }
+
+  .opt{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:13px; margin-bottom:7px; }
+  .opt.on{ background:linear-gradient(135deg,#fca5a5,var(--red)); color:#fff; }
+  .opt.off{ background:#f1f5f9; color:var(--ink); }
+  .opt .rad{ width:18px; height:18px; border-radius:50%; border:2px solid #cbd5e1; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:10px; }
+  .opt.on .rad{ border-color:rgba(255,255,255,.6); background:rgba(255,255,255,.3); color:#fff; }
+  .opt .ol{ font-size:12px; font-weight:800; }
+
+  .field{ font-size:10px; }
+  .field .fl{ font-size:8px; font-weight:800; color:var(--faint); text-transform:uppercase; letter-spacing:.4px; }
+  .field .fv{ font-size:13px; font-weight:900; color:var(--ink); margin-top:3px; }
+
+  .submit{ background:linear-gradient(135deg,var(--red2),var(--red3)); color:#fff; text-align:center;
+    border-radius:15px; padding:12px; font-size:13px; font-weight:900; box-shadow:0 8px 20px rgba(220,38,38,.28); }
+
+  /* generic list row */
+  .lrow{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #f1f5f9; }
+  .lrow:last-child{ border-bottom:0; }
+  .lrow .lt{ font-size:11.5px; font-weight:800; }
+  .lrow .ls{ font-size:9px; color:var(--faint); margin-top:1px; }
+  .badge{ font-size:8px; font-weight:800; border-radius:99px; padding:3px 8px; }
+
+  /* feature index cards on cover */
+  .feat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-top:6px; }
+  .feat{ border:1px solid var(--line); border-radius:14px; padding:12px 13px; display:flex; gap:11px; align-items:flex-start; }
+  .feat .fi{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    font-size:16px; flex-shrink:0; }
+  .feat .ft{ font-size:13px; font-weight:800; }
+  .feat .fd{ font-size:10.5px; color:var(--muted); margin-top:2px; line-height:1.4; }
+
+  .footer-note{ position:absolute; bottom:10mm; left:16mm; right:16mm; font-size:9px; color:var(--faint);
+    border-top:1px solid var(--line); padding-top:6px; display:flex; justify-content:space-between; }
+
+  /* COVER */
+  .cover{ background:linear-gradient(160deg,#ef4444 0%,var(--red) 28%,var(--red2) 62%,var(--red3) 100%);
+    color:#fff; display:flex; flex-direction:column; justify-content:space-between; padding:24mm 18mm; }
+  .cover .c-circ{ position:absolute; border-radius:50%; background:rgba(255,255,255,.06); }
+  .cover h1{ font-size:46px; font-weight:900; letter-spacing:-1.5px; line-height:1.02; }
+  .cover h1 em{ font-style:italic; font-weight:300; font-family:Georgia,serif; color:rgba(255,255,255,.8); }
+  .cover .lead{ font-size:15px; color:rgba(255,255,255,.85); max-width:430px; margin-top:16px; line-height:1.6; }
+  .cover .clogo{ width:64px; height:64px; border-radius:18px; background:rgba(255,255,255,.16);
+    display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:900;
+    border:1px solid rgba(255,255,255,.3); }
+  .cover .pill{ display:inline-flex; gap:7px; align-items:center; background:rgba(0,0,0,.18);
+    border-radius:99px; padding:7px 15px; font-size:12px; font-weight:700; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; }
+  .chips span{ background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.22);
+    border-radius:99px; padding:6px 13px; font-size:11px; font-weight:700; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ COVER ════════════════ -->
+<section class="page cover">
+  <div class="c-circ" style="width:320px;height:320px;top:-120px;right:-100px;"></div>
+  <div class="c-circ" style="width:200px;height:200px;top:120px;right:60px;background:rgba(255,255,255,.04);"></div>
+  <div class="c-circ" style="width:260px;height:260px;bottom:-120px;left:-90px;"></div>
+
+  <div style="position:relative;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="clogo">🦷</div>
+      <div class="pill">📱 Гар утсанд зориулсан</div>
+    </div>
+  </div>
+
+  <div style="position:relative;">
+    <div style="font-size:13px; font-weight:800; letter-spacing:3px; opacity:.8; margin-bottom:14px;">АЖИЛТНЫ ГАРЫН АВЛАГА</div>
+    <h1>Миний<br><em>ажлын хэсэг</em></h1>
+    <p class="lead">Дентал клиникийн ажилтны (My / HR) системийг гар утаснаасаа хэрхэн ашиглах бүрэн заавар — ирц бүртгэхээс эхлээд цалин, чөлөө, хуваарь хүртэл.</p>
+    <div class="chips">
+      <span>⏱️ Ирц бүртгэл</span>
+      <span>📅 Чөлөө & амралт</span>
+      <span>💵 Цалин</span>
+      <span>🗓️ Хуваарь</span>
+      <span>💬 Чат</span>
+      <span>📄 Баримт</span>
+    </div>
+  </div>
+
+  <div style="position:relative; display:flex; justify-content:space-between; align-items:flex-end;">
+    <div style="font-size:11px; opacity:.75;">Хувилбар 1.0 · 2026.06.05</div>
+    <div style="font-size:11px; opacity:.75; text-align:right;">Дижитал Дентал ХХК<br>Хүний нөөцийн систем</div>
+  </div>
+</section>
+
+<!-- ════════════════ PAGE: OVERVIEW + LOGIN ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">01 · ЭХЛЭЛ</div>
+  </div>
+
+  <div class="sec-kicker">Танилцуулга</div>
+  <h2 class="sec">Систем юу хийдэг вэ?</h2>
+  <p class="sec-sub">«Миний хэсэг» нь ажилтан бүр өөрийн ажлын мэдээллээ гар утаснаасаа удирдах апп юм. Доорх 6 үндсэн боломжийг агуулна.</p>
+
+  <div class="feat-grid">
+    <div class="feat"><div class="fi" style="background:#fef2f2;color:#dc2626;">⏱️</div><div><div class="ft">Ирц бүртгэл</div><div class="fd">Байршлаа баталгаажуулж «Ажил эхлэх / Тарах» товчоор ирцээ бүртгэнэ.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#eff6ff;color:#2563eb;">🗓️</div><div><div class="ft">Ажлын хуваарь</div><div class="fd">Долоо хоног, сарын ээлж, кабинет, эмчийн мэдээллээ харна.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#fef2f2;color:#dc2626;">📅</div><div><div class="ft">Чөлөө & Амралт</div><div class="fd">Чөлөө болон ээлжийн амралтын хүсэлт илгээж, хариуг хянана.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#f0fdf4;color:#16a34a;">💵</div><div><div class="ft">Цалин</div><div class="fd">Сар бүрийн цалингийн дэлгэрэнгүй задаргааг харна.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#faf5ff;color:#7c3aed;">📦</div><div><div class="ft">Хөрөнгө & Баримт</div><div class="fd">Тоног төхөөрөмж хүлээн авах, ном захиалах, баримт татах.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#fff7ed;color:#ea580c;">💬</div><div><div class="ft">Чат & Санал</div><div class="fd">Хамт олонтойгоо чатлах, санал хүсэлт/гомдол илгээх.</div></div></div>
+  </div>
+
+  <div style="margin-top:24px;"></div>
+  <div class="sec-kicker">Алхам 1</div>
+  <h2 class="sec" style="font-size:18px;">Систем рүү нэвтрэх</h2>
+
+  <div class="cols" style="margin-top:14px;">
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">Хөтөч нээж хаягаа оруулна</span><span class="d">Утасныхаа Chrome/Safari хөтчид клиникийн вэб хаягийг бичнэ. Дараа нь нүүр дэлгэцэд «Add to Home Screen» хийвэл апп шиг ажиллана.</span></li>
+        <li><span class="t">Утас, нууц үгээ оруулна</span><span class="d">HR-аас өгсөн нэвтрэх нэр (утас/имэйл) болон нууц үгээ бичнэ.</span></li>
+        <li><span class="t">«Миний хэсэг» автоматаар нээгдэнэ</span><span class="d">Нэвтэрмэгц улаан дизайнтай нүүр хуудас тань руу шилжинэ.</span></li>
+      </ol>
+      <div class="tip"><b>Зөвлөмж:</b> Эхний удаа нэвтрэхдээ нууц үгээ заавал солих хэрэгтэй — 38-р хуудасны «Нууц үг солих» хэсгийг үзнэ үү.</div>
+      <div class="note"><b>Анхаар:</b> Ирц бүртгэхэд утасны <b>«Байршил» (Location)</b> зөвшөөрөл асууна — «Зөвшөөрөх» гэж дарна. Эс бол ирц бүртгэгдэхгүй.</div>
+    </div>
+    <div class="col-phone">
+      <div class="phone"><div class="notch"></div>
+        <div class="scr" style="background:linear-gradient(160deg,#ef4444,#7f1d1d);">
+          <div class="status"><span>9:41</span><span class="r">📶 🔋</span></div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 26px; color:#fff;">
+            <div style="width:54px;height:54px;border-radius:16px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:18px;">🦷</div>
+            <div style="font-size:18px;font-weight:900;margin-bottom:4px;">Тавтай морил</div>
+            <div style="font-size:10px;opacity:.7;margin-bottom:22px;">Ажилтны нэвтрэх</div>
+            <div style="width:100%;background:rgba(255,255,255,.95);border-radius:12px;padding:11px 13px;font-size:11px;color:#64748b;margin-bottom:9px;">📱 Утасны дугаар</div>
+            <div style="width:100%;background:rgba(255,255,255,.95);border-radius:12px;padding:11px 13px;font-size:11px;color:#64748b;margin-bottom:14px;">🔒 ••••••••</div>
+            <div style="width:100%;background:#0f172a;color:#fff;border-radius:12px;padding:12px;text-align:center;font-size:12px;font-weight:900;">Нэвтрэх</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>1</span></div>
+</section>
+
+<!-- ════════════════ PAGE: HOME ANATOMY ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">02 · НҮҮР ХУУДАС</div>
+  </div>
+
+  <div class="sec-kicker">Үндсэн дэлгэц</div>
+  <h2 class="sec">Нүүр хуудасны бүтэц</h2>
+  <p class="sec-sub">Нэвтэрмэгц энэ дэлгэц нээгдэнэ. Энд өнөөдрийн ажлын мэдээлэл бүгд нэг дор харагдана.</p>
+
+  <div class="cols">
+    <div class="col-phone">
+      <div class="phone"><div class="notch"></div>
+        <div class="scr">
+          <div class="hero">
+            <div class="status"><span>9:41</span><span class="r">📶 🔋</span></div>
+            <div class="topbar">
+              <span class="meta">A-018 · 06-05 · Баасан</span>
+              <span class="ic">💬</span><span class="ic">🔔</span><span class="ava">БТ</span>
+            </div>
+            <div class="greet">
+              <small>Өглөөний мэнд,</small>
+              <h3>Болор <em>сувилагч</em></h3>
+              <div class="pos">— Сувилагч · Төв салбар</div>
+            </div>
+            <div class="att">
+              <div class="row">
+                <div>
+                  <div class="lbl"><span class="dot" style="background:#fbbf24;"></span>ИРЦИЙН БҮРТГЭЛ</div>
+                  <div class="sub">Ажлын цаг: 09:00 – 18:00</div>
+                </div>
+                <div class="btn-go">▶ Ажил эхлэх</div>
+              </div>
+            </div>
+            <div class="weekstrip">
+              <div class="wd"><small>Да</small><div class="num">2</div><div class="pip" style="background:rgba(255,255,255,.5);"></div></div>
+              <div class="wd"><small>Мя</small><div class="num">3</div><div class="pip" style="background:rgba(255,255,255,.5);"></div></div>
+              <div class="wd"><small>Лх</small><div class="num">4</div><div class="pip"></div></div>
+              <div class="wd on"><small>Пү</small><div class="num">5</div><div class="pip" style="background:var(--red);"></div></div>
+              <div class="wd"><small>Ба</small><div class="num">6</div><div class="pip" style="background:rgba(255,255,255,.5);"></div></div>
+              <div class="wd"><small>Бя</small><div class="num">7</div><div class="pip"></div></div>
+              <div class="wd"><small>Ня</small><div class="num">8</div><div class="pip"></div></div>
+            </div>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div class="chead"><span class="cdot" style="background:#22c55e;"></span><span class="ctitle">ӨНӨӨДРИЙН ЦАГ</span><span class="ctime">09:00 → 18:00</span></div>
+              <div class="cbody" style="display:flex;align-items:center;gap:9px;">
+                <div class="iconbox" style="background:linear-gradient(135deg,#fca5a5,#dc2626);color:#fff;">🕐</div>
+                <div style="flex:1;"><div style="font-size:11px;font-weight:900;">Өдрийн ээлж</div><div style="font-size:9px;color:#94a3b8;">09:00 – 18:00 · Каб. 3</div></div>
+              </div>
+            </div>
+            <div class="stat-grid">
+              <div class="stat"><div class="iconbox" style="background:#fef2f2;color:#dc2626;">📅</div><div class="big">1</div><div class="s1">хүлээгдэж буй</div><div class="s2" style="color:#dc2626;">Чөлөөний хүсэлт</div></div>
+              <div class="stat"><div class="iconbox" style="background:#f0fdf4;color:#059669;">⛱️</div><div class="big">12</div><div class="s1">өдөр байна</div><div class="s2" style="color:#059669;">Ээлжийн амралт</div></div>
+            </div>
+            <div class="salcard"><div class="iconbox">💵</div><div style="flex:1;"><div style="font-size:8px;opacity:.7;">Цалингийн задаргаа</div><div style="font-size:13px;font-weight:900;">Цалингаа харах</div></div><div>›</div></div>
+          </div>
+          <div class="pillnav">
+            <div class="nv on"><div class="b">🏠</div></div>
+            <div class="nv"><div class="b">💬</div></div>
+            <div class="nv"><div class="b">💵</div></div>
+            <div class="nv"><div class="b">📅</div></div>
+            <div class="nv"><div class="b">▦</div></div>
+            <div class="nv sw"><div class="b">⇄</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-text">
+      <ul class="bul">
+        <li><b>Дээд мөр.</b> Зүүн талд таны код, огноо. Баруун талд <b>💬 чат</b>, <b>🔔 мэдэгдэл</b>, дугуй <b>зураг</b> (дарвал профайл).</li>
+        <li><b>Мэндчилгээ & нэр.</b> Цагаас хамаарч «Өглөө/Өдөр/Оройн мэнд» гэж өөрчлөгдөнө. Доор таны нэр, албан тушаал.</li>
+        <li><b>Ирцийн бүртгэл (хар хайрцаг).</b> Энд «Ажил эхлэх» ногоон товч байна. Дэлгэрэнгүйг 3-р хуудаснаас үзнэ.</li>
+        <li><b>7 хоногийн зурвас.</b> Долоо хоногийн өдрүүд. Аль нэгийг дарж тухайн өдрийн хуваарийг доор харна. Цэгтэй өдөр = ажилтай.</li>
+        <li><b>Өнөөдрийн цаг карт.</b> Ажлын ээлж, кабинет, хамтрах эмч, ажлын явцын хувь.</li>
+        <li><b>Тоон картууд.</b> Чөлөө, ээлжийн амралт, сануулга, баримт — дарж шууд орно.</li>
+        <li><b>Улаан цалин карт.</b> Дарвал цалингийн задаргаа руу орно.</li>
+      </ul>
+      <div class="tip"><b>Доод цэс (pill nav):</b> 🏠 Нүүр · 💬 Чат · 💵 Цалин · 📅 Чөлөө · ▦ <b>Дэлгэрэнгүй</b> (бүх цэс) · <b>⇄</b> Портал шилжих.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>2</span></div>
+</section>
+
+<!-- ════════════════ PAGE: ATTENDANCE ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">03 · ИРЦ БҮРТГЭЛ</div>
+  </div>
+
+  <div class="sec-kicker">Хамгийн чухал үйлдэл</div>
+  <h2 class="sec">Ирцээ бүртгэх</h2>
+  <p class="sec-sub">Ажил эхлэх болон тарахдаа байршлаа баталгаажуулж ирцээ бүртгэнэ. Энэ нь цалин, ажилласан цагтай шууд холбоотой.</p>
+
+  <div class="cols">
+    <div class="col-phone">
+      <div class="phone"><div class="notch"></div>
+        <div class="scr">
+          <div class="hero" style="padding-bottom:14px;">
+            <div class="status"><span>9:41</span><span class="r">📶 🔋</span></div>
+            <div class="greet" style="padding-top:14px;"><small>Ажиллаж байна</small><h3 style="font-size:18px;">Ирц <em style="font-size:14px;">бүртгэл</em></h3></div>
+            <div class="att" style="margin-top:14px;">
+              <div class="row" style="margin-bottom:9px;">
+                <div class="lbl"><span class="dot" style="background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.3);"></span>АЖИЛЛАЖ БАЙНА · 09:02</div>
+                <div class="timer">02:14:37</div>
+              </div>
+              <div class="btn-stop">■ Тарах</div>
+            </div>
+          </div>
+          <div class="body" style="padding-top:14px;">
+            <div class="card"><div class="cbody">
+              <div style="display:flex;gap:9px;align-items:flex-start;">
+                <div class="iconbox" style="background:#fffbeb;">📍</div>
+                <div><div style="font-size:11px;font-weight:900;">Байршил шаардлагатай</div>
+                <div style="font-size:10px;color:#64748b;margin-top:3px;line-height:1.45;">Товч дармагц утас байршлыг асууна. «Зөвшөөрөх» гэж дарна.</div></div>
+              </div>
+            </div></div>
+            <div class="card"><div class="cbody">
+              <div style="font-size:10px;font-weight:800;color:#475569;margin-bottom:8px;">3 ТӨЛӨВ:</div>
+              <div class="lrow"><div class="iconbox" style="background:#f0fdf4;color:#16a34a;">▶</div><div style="flex:1;"><div class="lt">Ажил эхлэх</div><div class="ls">Ногоон товч — ирсэн цаг бүртгэнэ</div></div></div>
+              <div class="lrow"><div class="iconbox" style="background:#fef2f2;color:#dc2626;">■</div><div style="flex:1;"><div class="lt">Тарах</div><div class="ls">Цаг тоолуур ажиллаж байх үед</div></div></div>
+              <div class="lrow"><div class="iconbox" style="background:#f0fdf4;color:#16a34a;">✓</div><div style="flex:1;"><div class="lt">Ажил дууслаа</div><div class="ls">Нийт ажилласан цагийг харуулна</div></div></div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">«Ажил эхлэх» дарна</span><span class="d">Нүүр дэлгэцийн хар хайрцаг доторх ногоон товч. Ажил эхлэхдээ нэг л удаа дарна.</span></li>
+        <li><span class="t">Байршлаа зөвшөөрнө</span><span class="d">Утас байршил асуувал «Зөвшөөрөх / Allow» дарна. Систем та клиник дээрээ байгаа эсэхийг шалгана.</span></li>
+        <li><span class="t">Цаг тоолж эхэлнэ</span><span class="d">«АЖИЛЛАЖ БАЙНА» болж, ногоон цэг анивчин, ажилласан цаг (02:14:37) шууд тоологдоно.</span></li>
+        <li><span class="t">Ажил тарахдаа «Тарах» дарна</span><span class="d">Дахин байршил асууна. Зөвшөөрснөөр тарсан цаг бүртгэгдэж «Ажил дууслаа» болно.</span></li>
+      </ol>
+      <div class="note"><b>«Байршил тогтоогдсонгүй» гэвэл:</b> утасны Тохиргоо → Хөтөч → Байршил зөвшөөрөл идэвхжүүлээд дахин оролдоно. Wi-Fi/GPS асаалттай байх ёстой.</div>
+      <div class="tip"><b>Санах зүйл:</b> Ирцээ зөвхөн клиник дээрээ ирсэн үедээ бүртгэнэ — байршил тулгалт хийгддэг тул гадуур бүртгэх боломжгүй.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>3</span></div>
+</section>
+
+<!-- ════════════════ PAGE: LEAVE REQUEST ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">04 · ЧӨЛӨӨНИЙ ХҮСЭЛТ</div>
+  </div>
+
+  <div class="sec-kicker">Доод цэс → 📅 Чөлөө</div>
+  <h2 class="sec">Чөлөө хүсэх</h2>
+  <p class="sec-sub">Өвчтэй эсвэл хувийн шалтгаанаар чөлөө авах хүсэлтээ илгээж, HR-ийн хариуг хянана.</p>
+
+  <div class="cols">
+    <div class="col-phone">
+      <div class="phone"><div class="notch"></div>
+        <div class="scr">
+          <div class="hero" style="padding-bottom:0;">
+            <div class="status"><span>9:41</span><span class="r">📶 🔋</span></div>
+            <div class="topbar"><span class="meta">HR · ЧӨЛӨӨНИЙ ХҮСЭЛТ</span><span class="ic">💬</span><span class="ic">🔔</span><span class="ava">БТ</span></div>
+            <div class="greet"><h3>Чөлөө <em>хүсэх</em></h3><div class="pos">Болор · Сувилагч</div></div>
+            <div class="tabs" style="margin-top:12px;"><div class="tab on">Шинэ хүсэлт</div><div class="tab off">Түүх</div></div>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div class="chead"><span class="cdot" style="background:#dc2626;"></span><span class="ctitle">ЧӨЛӨӨНИЙ ТӨРӨЛ</span></div>
+              <div class="cbody" style="padding-top:8px;padding-bottom:8px;">
+                <div class="opt on"><span class="rad">✓</span><span class="ol">Өвчтэй</span></div>
+                <div class="opt off"><span class="rad"></span><span class="ol">Хувийн</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="chead"><span class="cdot" style="background:#22c55e;"></span><span class="ctitle">ХУГАЦАА</span></div>
+              <div class="cbody" style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;">
+                <div class="field"><div class="fl">Эхлэх</div><div class="fv">06-06</div></div>
+                <div style="color:#ddd;">—</div>
+                <div class="field"><div class="fl">Дуусах</div><div class="fv">06-07</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="chead"><span class="cdot" style="background:#6366f1;"></span><span class="ctitle">ШАЛТГААН</span></div>
+              <div class="cbody" style="font-size:10px;color:#64748b;">Эмнэлэгт үзүүлэх шаардлагатай тул...</div>
+            </div>
+            <div class="submit">✈ Хүсэлт илгээх</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">Доод цэснээс 📅 «Чөлөө» нээнэ</span><span class="d">Эсвэл ▦ Дэлгэрэнгүй → «Чөлөөний хүсэлт».</span></li>
+        <li><span class="t">Чөлөөний төрлөө сонгоно</span><span class="d"><b>Өвчтэй</b> эсвэл <b>Хувийн</b>. Сонгосон нь улаан болж тэмдэглэгдэнэ.</span></li>
+        <li><span class="t">Эхлэх / дуусах огноо</span><span class="d">«Хугацаа» картын огноог дарж сонгоно. Системд хэдэн өдөр болохыг автоматаар бодно.</span></li>
+        <li><span class="t">Орлох ажилтан (заавал биш)</span><span class="d">Таныг эзгүйд орлох хүнийг жагсаалтаас сонгож болно.</span></li>
+        <li><span class="t">Шалтгаанаа бичнэ</span><span class="d">Дэлгэрэнгүй, тодорхой бичих тусам зөвшөөрөгдөх магадлал өндөр.</span></li>
+        <li><span class="t">«Хүсэлт илгээх» дарна</span><span class="d">Хүсэлт HR руу очно.</span></li>
+      </ol>
+      <div class="tip"><b>«Түүх» таб:</b> Илгээсэн хүсэлтүүд ба тэдгээрийн төлөв харагдана — <b style="color:#d97706;">Хүлээгдэж</b>, <b style="color:#16a34a;">Зөвшөөрсөн</b>, <b style="color:#dc2626;">Цуцалсан</b>. Цуцалсан бол шалтгаан нь доор бичигдэнэ.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>4</span></div>
+</section>
+
+<!-- ════════════════ PAGE: VACATION + SCHEDULE ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">05 · АМРАЛТ & ХУВААРЬ</div>
+  </div>
+
+  <div class="sec-kicker">Дэлгэрэнгүй цэс</div>
+  <h2 class="sec">Ээлжийн амралт & Ажлын хуваарь</h2>
+  <p class="sec-sub">Жилийн ээлжийн амралтаа төлөвлөж, ажлын хуваариа урьдчилан хараарай.</p>
+
+  <div class="cols" style="margin-bottom:18px;">
+    <div class="col-text">
+      <div style="font-size:14px;font-weight:900;margin-bottom:8px;color:#059669;">⛱️ Ээлжийн амралтын хүсэлт</div>
+      <ol class="steps">
+        <li><span class="t">▦ Дэлгэрэнгүй → «Ээлжийн амралтын хүсэлт»</span><span class="d">Нүүрэн дэх ногоон «Ээлжийн амралт» картыг дарж ч орж болно.</span></li>
+        <li><span class="t">Үлдсэн амралтын өдрөө шалгана</span><span class="d">Танд хэдэн өдрийн амралт үлдсэн нь дээд талд харагдана.</span></li>
+        <li><span class="t">Огноо ба шалтгаанаа оруулна</span><span class="d">Эхлэх–дуусах огноо сонгож хүсэлтээ илгээнэ.</span></li>
+      </ol>
+      <div class="note"><b>Ялгаа:</b> «Чөлөө» = богино хугацааны (өвчтэй/хувийн) чөлөө. «Ээлжийн амралт» = жилд олгогддог цалинтай амралт.</div>
+    </div>
+    <div class="col-text">
+      <div style="font-size:14px;font-weight:900;margin-bottom:8px;color:#2563eb;">🗓️ Ажлын хуваарь</div>
+      <ol class="steps">
+        <li><span class="t">▦ Дэлгэрэнгүй → «Ажлын хуваарь»</span><span class="d">Эсвэл нүүрэн дэх «Энэ долоо хоногийн ажлын цаг» картын «Дэлгэрэнгүй →».</span></li>
+        <li><span class="t">Ээлжээ харна</span><span class="d">Долоо хоног/сараар ээлжийн төрөл, эхлэх–дуусах цаг, кабинет, хамтрах эмчийн мэдээлэл.</span></li>
+        <li><span class="t">Амралтын өдрийг ялгана</span><span class="d">☀️ тэмдэгтэй өдөр = амралтын өдөр.</span></li>
+      </ol>
+      <div class="tip"><b>Зөвлөмж:</b> Хуваариа долоо хоног бүр шалгаж, ээлжийн цагаа урьдчилан төлөвлөөрэй.</div>
+    </div>
+  </div>
+
+  <div style="border-top:1px solid var(--line);padding-top:16px;">
+    <div style="display:flex;gap:16px;align-items:center;">
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:900;margin-bottom:6px;">📊 Долоо хоногийн ажлын цаг — багана график</div>
+        <p style="font-size:12px;color:var(--muted);">Нүүр хуудасны доод хэсэгт энэ 7 хоногийн өдөр тус бүрийн ажлын цагийг багана графикаар харуулна. Өнөөдрийн багана улаанаар тодорно. Дээр нь цаг (ж: 8ц) бичигдэнэ.</div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:6px;height:70px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><div style="width:14px;height:40px;background:#e2e8f0;border-radius:5px;"></div><small style="font-size:8px;color:#94a3b8;">Да</small></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><div style="width:14px;height:46px;background:#e2e8f0;border-radius:5px;"></div><small style="font-size:8px;color:#94a3b8;">Мя</small></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><div style="width:14px;height:34px;background:#e2e8f0;border-radius:5px;"></div><small style="font-size:8px;color:#94a3b8;">Лх</small></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><div style="width:14px;height:50px;background:linear-gradient(180deg,#fca5a5,#dc2626);border-radius:5px;"></div><small style="font-size:8px;color:#dc2626;font-weight:800;">Пү</small></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><div style="width:14px;height:44px;background:#e2e8f0;border-radius:5px;"></div><small style="font-size:8px;color:#94a3b8;">Ба</small></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><div style="width:14px;height:14px;background:#fef9c3;border-radius:5px;"></div><small style="font-size:8px;color:#94a3b8;">Бя</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>5</span></div>
+</section>
+
+<!-- ════════════════ PAGE: PAYROLL ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">06 · ЦАЛИН</div>
+  </div>
+
+  <div class="sec-kicker">Доод цэс → 💵 Цалин</div>
+  <h2 class="sec">Цалингийн задаргаа</h2>
+  <p class="sec-sub">Сар бүрийн цалингаа дэлгэрэнгүйгээр — нэмэгдэл, суутгал, гарт олгох дүн хүртэл харна.</p>
+
+  <div class="cols">
+    <div class="col-phone">
+      <div class="phone"><div class="notch"></div>
+        <div class="scr">
+          <div class="titlebar"><div class="tb-ava">👤</div><div class="tb-t">Цалин</div><div style="width:28px;text-align:right;">🔔</div></div>
+          <div class="body" style="background:var(--bg);">
+            <div class="salcard" style="margin-bottom:10px;"><div class="iconbox">💵</div><div style="flex:1;"><div style="font-size:8px;opacity:.7;">2026 оны 5-р сар · 2-р хагас</div><div style="font-size:17px;font-weight:900;">1,250,000₮</div><div style="font-size:8px;opacity:.7;">Гарт олгох дүн</div></div></div>
+            <div class="card">
+              <div class="chead"><span class="cdot" style="background:#16a34a;"></span><span class="ctitle">ОРЛОГО</span><span class="ctime" style="color:#16a34a;">+1,580,000₮</span></div>
+              <div class="cbody" style="padding-top:6px;padding-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;"><span style="color:#64748b;">Үндсэн цалин</span><b>1,200,000₮</b></div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;"><span style="color:#64748b;">А.Т.Х 40%</span><b>280,000₮</b></div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;"><span style="color:#64748b;">Хоол / Унаа</span><b>100,000₮</b></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="chead"><span class="cdot" style="background:#dc2626;"></span><span class="ctitle">СУУТГАЛ</span><span class="ctime" style="color:#dc2626;">−330,000₮</span></div>
+              <div class="cbody" style="padding-top:6px;padding-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;"><span style="color:#64748b;">НДШ 11.5%</span><b>181,000₮</b></div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;"><span style="color:#64748b;">ХХОАТ</span><b>140,000₮</b></div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;padding:4px 0;"><span style="color:#64748b;">Хоцролт</span><b>9,000₮</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">Доод цэснээс 💵 «Цалин» нээнэ</span><span class="d">Эсвэл нүүрэн дэх улаан «Цалингаа харах» картыг дарна.</span></li>
+        <li><span class="t">Сараа сонгоно</span><span class="d">Дээд талд гарт олгох нийт дүн томоор харагдана. Сар/хагас сараар жагсаагдсан.</span></li>
+        <li><span class="t">Картыг дэлгэж дэлгэрэнгүй харна</span><span class="d">Картыг дарвал доош задарч <b>Орлого</b> ба <b>Суутгал</b> бүрэн харагдана.</span></li>
+      </ol>
+      <div style="margin-top:8px;">
+        <div style="font-size:12px;font-weight:800;margin-bottom:6px;">Юу багтдаг вэ?</div>
+        <ul class="bul">
+          <li><b>Орлого:</b> Үндсэн цалин, НД цалин, А.Т.Х 40%, илүү цагийн нэмэгдэл, ээлжийн амралтын мөнгө, хоол, унаа, сүү гэх мэт.</li>
+          <li><b>Суутгал:</b> НДШ 11.5%, ХХОАТ, урьд олгосон, хоцролт, хурууны мэдээлэлгүй, бусад суутгал.</li>
+          <li><b>Ажилласан хоног:</b> Нийт ажлын өдрийн хэдийг ажилласныг хувиар харуулна.</li>
+        </ul>
+      </div>
+      <div class="note"><b>Зөрүү гарвал:</b> Цалингийн талаар асуудал/эргэлзээ байвал HR-т хандана — энэ дэлгэц зөвхөн харах зориулалттай.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>6</span></div>
+</section>
+
+<!-- ════════════════ PAGE: EQUIPMENT + WARNINGS ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">07 · ТОНОГ & САНУУЛГА</div>
+  </div>
+
+  <div class="sec-kicker">Дэлгэрэнгүй цэс</div>
+  <h2 class="sec">Тоног төхөөрөмж & Сануулга</h2>
+  <p class="sec-sub">Танд хариуцуулсан хөрөнгийг хүлээн авах, мөн HR-ийн сануулгыг танилцсанаа баталгаажуулна.</p>
+
+  <div class="cols" style="margin-bottom:6px;">
+    <div class="col-phone">
+      <div class="phone"><div class="notch"></div>
+        <div class="scr">
+          <div class="titlebar"><div class="tb-ava">👤</div><div class="tb-t">Тоног төхөөрөмж</div><div style="width:28px;text-align:right;">🔔</div></div>
+          <div class="body" style="background:var(--bg);">
+            <div style="font-size:10px;font-weight:800;color:#475569;margin-bottom:8px;">⏳ ХҮЛЭЭГДЭЖ БУЙ</div>
+            <div class="card">
+              <div class="cbody">
+                <div style="display:flex;gap:10px;align-items:center;margin-bottom:11px;">
+                  <div class="iconbox" style="background:#ecfeff;color:#0891b2;">📦</div>
+                  <div style="flex:1;"><div style="font-size:12px;font-weight:900;">Dell Latitude 5420</div><div style="font-size:9px;color:#94a3b8;">Сериал: 7HJ2K · Шинэ</div></div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <div style="flex:1;background:#16a34a;color:#fff;text-align:center;border-radius:11px;padding:9px;font-size:11px;font-weight:800;">✓ Хүлээн авах</div>
+                  <div style="flex:1;background:#fff;border:1px solid #fecaca;color:#dc2626;text-align:center;border-radius:11px;padding:9px;font-size:11px;font-weight:800;">✕ Татгалзах</div>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:10px;font-weight:800;color:#475569;margin:6px 0 8px;">📋 ТҮҮХ</div>
+            <div class="card"><div class="cbody" style="display:flex;gap:10px;align-items:center;">
+              <div class="iconbox" style="background:#f0fdf4;color:#16a34a;">✓</div>
+              <div style="flex:1;"><div style="font-size:11px;font-weight:800;">Сканнер X100</div><div style="font-size:9px;color:#94a3b8;">Баталгаажсан · 05-12</div></div>
+              <div class="badge" style="background:#f0fdf4;color:#16a34a;">Баталгаажсан</div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-text">
+      <div style="font-size:14px;font-weight:900;margin-bottom:8px;color:#0891b2;">📦 Тоног төхөөрөмж хүлээн авах</div>
+      <ol class="steps">
+        <li><span class="t">▦ Дэлгэрэнгүй → «Тоног төхөөрөмж»</span><span class="d">HR танд хөрөнгө хуваарилбал «Хүлээгдэж буй» хэсэгт гарч ирнэ.</span></li>
+        <li><span class="t">Мэдээллийг шалгана</span><span class="d">Нэр, сериал дугаар, нөхцөл (шинэ/хуучин) зэргийг сайтар нягтлана.</span></li>
+        <li><span class="t">«Хүлээн авах» эсвэл «Татгалзах»</span><span class="d">Зөв бол ногоон «Хүлээн авах». Эвдрэлтэй/таарахгүй бол «Татгалзах» дарж шалтгаанаа бичнэ.</span></li>
+      </ol>
+      <div class="tip"><b>Акт:</b> Хүлээн авсан хөрөнгийн «Хүлээлгэн өгөх акт»-ыг хэвлэх боломжтой.</div>
+    </div>
+  </div>
+
+  <div style="border-top:1px solid var(--line);padding-top:14px;margin-top:10px;">
+    <div style="font-size:14px;font-weight:900;margin-bottom:8px;color:#d97706;">⚠️ Сануулга / Зөрчил</div>
+    <div class="cols">
+      <div class="col-text">
+        <ol class="steps">
+          <li><span class="t">▦ Дэлгэрэнгүй → «Сануулга / Зөрчил»</span><span class="d">Нүүрэн дэх «Сануулга» карт улаан/шар тоотой бол шинэ сануулга байна гэсэн үг.</span></li>
+          <li><span class="t">Сануулгыг уншина</span><span class="d">HR-аас өгсөн сануулгын агуулга, огноог харна.</span></li>
+          <li><span class="t">«Танилцсан» товч дарна</span><span class="d">Уншсанаа баталгаажуулснаар HR-т мэдэгдэнэ.</span></li>
+        </ol>
+      </div>
+      <div class="col-text">
+        <div class="note" style="margin-top:0;"><b>Анхаар:</b> Сануулгыг үл тоомсорлох нь HR-ийн бүртгэлд тэмдэглэгдэнэ. Гарч ирмэгц танилцаж баталгаажуулаарай.</div>
+        <div class="tip"><b>Тоон карт:</b> Нүүрэн дэх «Сануулга» карт нь шинэ сануулгын тоог харуулна. 0 бол бүгдийг танилцсан гэсэн үг.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>7</span></div>
+</section>
+
+<!-- ════════════════ PAGE: DOCS + LIBRARY + FEEDBACK ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">08 · БАРИМТ · НОМ · САНАЛ</div>
+  </div>
+
+  <div class="sec-kicker">Дэлгэрэнгүй цэс</div>
+  <h2 class="sec">Баримт, Номын сан, Санал хүсэлт</h2>
+  <p class="sec-sub">Бусад өдөр тутмын хэрэгцээт боломжууд.</p>
+
+  <div style="display:flex;gap:14px;margin-top:8px;">
+    <!-- Documents -->
+    <div style="flex:1;border:1px solid var(--line);border-radius:16px;padding:15px;">
+      <div style="width:40px;height:40px;border-radius:12px;background:#f8fafc;color:#475569;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:10px;">📄</div>
+      <div style="font-size:14px;font-weight:900;margin-bottom:6px;">Баримт бичиг</div>
+      <ul class="bul">
+        <li>HR-аас тавьсан гэрээ, тушаал, лавлагаа гэх мэт.</li>
+        <li><b>👁 Харах</b> — баримтыг шууд нээж үзнэ.</li>
+        <li><b>⬇ Татах</b> — утсандаа хадгална.</li>
+      </ul>
+    </div>
+    <!-- Library -->
+    <div style="flex:1;border:1px solid var(--line);border-radius:16px;padding:15px;">
+      <div style="width:40px;height:40px;border-radius:12px;background:#faf5ff;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:10px;">📚</div>
+      <div style="font-size:14px;font-weight:900;margin-bottom:6px;">Номын сан</div>
+      <ul class="bul">
+        <li>Клиникийн номын сангаас ном захиалж түрээслэнэ.</li>
+        <li>Номоо сонгоод <b>хүсэлт илгээх</b>.</li>
+        <li>Авсан болон буцаасан номын түүх харагдана.</li>
+      </ul>
+    </div>
+    <!-- Feedback -->
+    <div style="flex:1;border:1px solid var(--line);border-radius:16px;padding:15px;">
+      <div style="width:40px;height:40px;border-radius:12px;background:#fff7ed;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:10px;">💬</div>
+      <div style="font-size:14px;font-weight:900;margin-bottom:6px;">Санал хүсэлт</div>
+      <ul class="bul">
+        <li>Санал, хүсэлт, гомдлоо HR-т илгээнэ.</li>
+        <li>Сэдвээ бичээд <b>илгээх</b>.</li>
+        <li>Нэрээ нууцлах сонголттой байж болно.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:24px;"></div>
+  <div class="sec-kicker">Доод цэс → 💬 Чат</div>
+  <h2 class="sec" style="font-size:18px;">Хамт олонтойгоо чатлах</h2>
+
+  <div class="cols" style="margin-top:12px;">
+    <div class="col-phone">
+      <div class="phone"><div class="notch"></div>
+        <div class="scr">
+          <div style="background:linear-gradient(160deg,#ef4444,#7f1d1d);padding:6px 14px 12px;color:#fff;">
+            <div class="status"><span>9:41</span><span class="r">📶 🔋</span></div>
+            <div style="font-size:18px;font-weight:900;margin-top:8px;">💬 Чат</div>
+          </div>
+          <div class="body" style="background:#fff;">
+            <div class="lrow"><div class="ava" style="background:#dc2626;color:#fff;width:34px;height:34px;font-size:11px;">HR</div><div style="flex:1;"><div class="lt">Хүний нөөц</div><div class="ls">Сайн байна уу, маргааш...</div></div><div class="badge" style="background:#dc2626;color:#fff;">2</div></div>
+            <div class="lrow"><div class="ava" style="background:#2563eb;color:#fff;width:34px;height:34px;font-size:11px;">ТБ</div><div style="flex:1;"><div class="lt">Төв салбар (бүлэг)</div><div class="ls">Болор: Тэгье 👍</div></div></div>
+            <div class="lrow"><div class="ava" style="background:#16a34a;color:#fff;width:34px;height:34px;font-size:11px;">ДА</div><div style="flex:1;"><div class="lt">Доктор Анар</div><div class="ls">Баярлалаа</div></div></div>
+          </div>
+          <div class="pillnav">
+            <div class="nv"><div class="b">🏠</div></div>
+            <div class="nv on"><div class="b">💬</div></div>
+            <div class="nv"><div class="b">💵</div></div>
+            <div class="nv"><div class="b">📅</div></div>
+            <div class="nv"><div class="b">▦</div></div>
+            <div class="nv sw"><div class="b">⇄</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-text">
+      <ul class="bul">
+        <li><b>Нэг хүнтэй чат:</b> Ажилтны жагсаалтаас сонгож шууд бичнэ.</li>
+        <li><b>Бүлгийн чат:</b> Хэд хэдэн хүнийг нэмж групп үүсгэнэ.</li>
+        <li><b>Мэдэгдэл:</b> Шинэ зурвас ирэхэд 🔔 болон 💬 дээр улаан тоо гарна.</li>
+        <li><b>Зурвас устгах:</b> Өөрийн илгээсэн зурвсыг удаан дарж устгана.</li>
+      </ul>
+      <div class="tip"><b>Хаанаас ч хандах:</b> Дээд мөрний 💬 тэмдэг бараг бүх дэлгэцэд байдаг тул хурдан чатлаж болно.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>8</span></div>
+</section>
+
+<!-- ════════════════ PAGE: PROFILE + PASSWORD + PORTAL ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">09 · ПРОФАЙЛ & ТОХИРГОО</div>
+  </div>
+
+  <div class="sec-kicker">Дээд мөрний зураг / ▦ Дэлгэрэнгүй</div>
+  <h2 class="sec">Профайл, нууц үг, портал</h2>
+  <p class="sec-sub">Хувийн мэдээлэл, аюулгүй байдал, портал хооронд шилжих.</p>
+
+  <div class="cols" style="margin-bottom:8px;">
+    <div class="col-text">
+      <div style="font-size:14px;font-weight:900;margin-bottom:8px;">👤 Профайл</div>
+      <ul class="bul">
+        <li>Дээд буланд байгаа <b>зургаа дарж</b> профайлаа нээнэ.</li>
+        <li>Ажлын мэдээлэл: код, албан тушаал, салбар, ажилласан хугацаа.</li>
+        <li>Хувийн: төрсөн огноо, регистр, цусны бүлэг, боловсрол.</li>
+        <li>Холбоо барих, яаралтай үед холбоо барих хүн.</li>
+        <li>Банкны данс, гэрээ, мэргэжлийн үнэмлэх.</li>
+        <li><b>Гэр бүлийн гишүүд:</b> «+» дарж гишүүн нэмж/засаж/устгана.</li>
+      </ul>
+    </div>
+    <div class="col-text">
+      <div style="font-size:14px;font-weight:900;margin-bottom:8px;">🔑 Нууц үг солих</div>
+      <ol class="steps">
+        <li><span class="t">▦ Дэлгэрэнгүй → «Нууц үг солих»</span></li>
+        <li><span class="t">Одоогийн нууц үгээ оруулна</span></li>
+        <li><span class="t">Шинэ нууц үгээ 2 удаа бичнэ</span><span class="d">👁 дарж нууц үгээ харж болно.</span></li>
+        <li><span class="t">Хадгална</span></li>
+      </ol>
+      <div style="font-size:14px;font-weight:900;margin:14px 0 8px;">🎨 Дэлгэцийн горим</div>
+      <p style="font-size:12px;color:var(--muted);">▦ Дэлгэрэнгүй дотроос <b>Гэрэл / Харанхуй / Систем</b> горимыг сэлгэнэ.</p>
+    </div>
+  </div>
+
+  <div style="border-top:1px solid var(--line);padding-top:16px;">
+    <div class="cols">
+      <div class="col-phone">
+        <div class="phone" style="width:210px;"><div class="notch"></div>
+          <div class="scr" style="height:330px;background:rgba(0,0,0,.5);justify-content:center;align-items:center;padding:20px;">
+            <div style="width:100%;background:#fff;border-radius:18px;padding:18px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><div style="width:30px;height:30px;border-radius:9px;background:#fef2f2;display:flex;align-items:center;justify-content:center;">🔑</div><b style="font-size:12px;">Нууц үгээ оруулна уу</b></div>
+              <div style="font-size:9px;color:#94a3b8;margin-bottom:14px;padding-left:38px;">Ажлын хэсэгт орохын тулд</div>
+              <div style="background:#f1f5f9;border-radius:11px;padding:10px 12px;font-size:11px;color:#64748b;margin-bottom:12px;">🔒 ••••••••</div>
+              <div style="display:flex;gap:8px;">
+                <div style="flex:1;background:#dc2626;color:#fff;text-align:center;border-radius:11px;padding:10px;font-size:11px;font-weight:800;">💼 Ажлын хэсэгт орох</div>
+                <div style="background:#f1f5f9;color:#64748b;border-radius:11px;padding:10px 14px;font-size:11px;font-weight:700;">Цуцлах</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-text">
+        <div style="font-size:14px;font-weight:900;margin-bottom:8px;color:#dc2626;">⇄ Портал шилжих</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Хэрэв та ресепшн/эмчийн зэрэг өөр үүрэгтэй бол доод цэсний улаан <b>⇄</b> товчоор тэр хэсэг рүү шилжинэ.</p>
+        <ol class="steps">
+          <li><span class="t">Доод цэснээс улаан ⇄ дарна</span></li>
+          <li><span class="t">Нууц үгээ оруулж баталгаажуулна</span><span class="d">Аюулгүй байдлын үүднээс нууц үг дахин асууна.</span></li>
+          <li><span class="t">«Ажлын хэсэгт орох» дарна</span><span class="d">Сонгосон портал руу шилжинэ.</span></li>
+        </ol>
+        <div class="note"><b>Гарах:</b> ▦ Дэлгэрэнгүй → доод талын улаан <b>«Системээс гарах»</b> товчоор аккаунтаас бүрэн гарна.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар</span><span>9</span></div>
+</section>
+
+<!-- ════════════════ PAGE: BONUS + FAQ + SUMMARY ════════════════ -->
+<section class="page">
+  <div class="rh">
+    <div class="brand"><div class="logo">M</div><div><b>Ажилтны заавар</b><span>Миний ажлын хэсэг</span></div></div>
+    <div class="pg">10 · УРАМШУУЛАЛ & ТӨГСГӨЛ</div>
+  </div>
+
+  <div class="sec-kicker">Зөвхөн зарим албан тушаалд</div>
+  <h2 class="sec">Урамшуулал & Түгээмэл асуулт</h2>
+
+  <div style="display:flex;gap:14px;margin-top:10px;margin-bottom:20px;">
+    <div style="flex:1;border:1px solid var(--line);border-radius:16px;padding:15px;">
+      <div style="width:40px;height:40px;border-radius:12px;background:#fdf2f8;color:#ec4899;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:10px;">😊</div>
+      <div style="font-size:14px;font-weight:900;margin-bottom:5px;">Ресепшний урамшуулал</div>
+      <p style="font-size:11.5px;color:var(--muted);">Ресепшний ажилтанд ▦ Дэлгэрэнгүй цэсэнд нэмж гарч ирнэ. Цаг захиалга, борлуулалтаас хамаарсан урамшууллаа харна.</p>
+    </div>
+    <div style="flex:1;border:1px solid var(--line);border-radius:16px;padding:15px;">
+      <div style="width:40px;height:40px;border-radius:12px;background:#f0fdfa;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:10px;">🩺</div>
+      <div style="font-size:14px;font-weight:900;margin-bottom:5px;">Сувилагчийн урамшуулал</div>
+      <p style="font-size:11.5px;color:var(--muted);">Сувилагчид ▦ Дэлгэрэнгүй цэсэнд нэмэгдэнэ. Үзлэгийн тоо, эмчтэй ажилласан өдрөөс хамаарсан урамшуулал.</p>
+    </div>
+  </div>
+
+  <div class="sec-kicker">Түгээмэл асуулт</div>
+  <h2 class="sec" style="font-size:18px;margin-bottom:14px;">FAQ</h2>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div style="border-left:3px solid var(--red);padding:2px 0 2px 12px;"><div style="font-size:12.5px;font-weight:800;">Ирц бүртгэгдэхгүй байна?</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">Байршил (Location) зөвшөөрлөө асаа. Клиник дээрээ байх ёстой. GPS/Wi-Fi асаалттай эсэхээ шалга.</div></div>
+    <div style="border-left:3px solid var(--red);padding:2px 0 2px 12px;"><div style="font-size:12.5px;font-weight:800;">Нууц үгээ мартсан?</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">HR-т хандаж шинэчлүүлнэ. Дараа нь заавал шинэ нууц үг тавь.</div></div>
+    <div style="border-left:3px solid var(--red);padding:2px 0 2px 12px;"><div style="font-size:12.5px;font-weight:800;">Чөлөө/амралт хэзээ зөвшөөрөгдөх вэ?</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">HR хянаад шийднэ. «Түүх» табаас төлвийг хянаж бай.</div></div>
+    <div style="border-left:3px solid var(--red);padding:2px 0 2px 12px;"><div style="font-size:12.5px;font-weight:800;">Цалин буруу бодогдсон?</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">Задаргааг шалгаад зөрүүтэй бол HR-т хандана.</div></div>
+    <div style="border-left:3px solid var(--red);padding:2px 0 2px 12px;"><div style="font-size:12.5px;font-weight:800;">Аппыг хэрхэн хурдан нээх вэ?</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">Хөтчөөс «Нүүр дэлгэцэд нэмэх» хийвэл апп шиг дүрс үүснэ.</div></div>
+    <div style="border-left:3px solid var(--red);padding:2px 0 2px 12px;"><div style="font-size:12.5px;font-weight:800;">Дэлгэц жижиг/том харагдана?</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">Энэ систем гар утсанд тохируулагдсан. Гар утсаараа нэвтрэхэд хамгийн тохиромжтой.</div></div>
+  </div>
+
+  <div style="margin-top:26px;background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:18px;padding:18px 20px;display:flex;align-items:center;gap:16px;">
+    <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#ef4444,#7f1d1d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;">🦷</div>
+    <div style="flex:1;">
+      <div style="font-size:15px;font-weight:900;">Тусламж хэрэгтэй юу?</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;">Асуудал гарвал Хүний нөөцийн (HR) хэлтэст хандана уу — апп доторх 💬 чатаар «Хүний нөөц» рүү шууд бичиж болно.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Ажилтны (My/HR) ашиглах заавар · Дижитал Дентал ХХК</span><span>10</span></div>
+</section>
+
+</body>
+</html>

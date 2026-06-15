@@ -38,10 +38,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'either.auth' => EitherAuthMiddleware::class,
         ]);
 
-        // QPay callback — гадны сервер дуудах тул CSRF-аас чөлөөлөх
+        // QPay callback + Meta webhook — гадны сервер дуудах тул CSRF-аас чөлөөлөх
         $middleware->validateCsrfTokens(except: [
             'payment/callback/*',
             'patient/leasing/callback/*',
+            'webhooks/social',
+            'f/*/submit',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

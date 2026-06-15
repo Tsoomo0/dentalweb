@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\DailySheetExport;
+use App\Exports\OutstandingExport;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\DailySheet;
@@ -12,7 +14,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DailySheetAdminController extends Controller
 {
@@ -267,7 +270,7 @@ class DailySheetAdminController extends Controller
         ]);
     }
 
-    public function exportOutstanding(Request $request): StreamedResponse
+    public function exportOutstanding(Request $request): BinaryFileResponse
     {
         $branchId = $request->get('branchId') ?: null;
         $status = $request->get('status', 'all');
@@ -291,35 +294,9 @@ class DailySheetAdminController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        $filename = 'outstanding-'.now()->format('Y-m-d').'.csv';
+        $filename = 'outstanding-'.now()->format('Y-m-d').'.xlsx';
 
-        return response()->streamDownload(function () use ($entries) {
-            $handle = fopen('php://output', 'w');
-            fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, [
-                'Огноо', 'Салбар', 'Үйлчлүүлэгч', 'Оношилгоо', 'Баримт №',
-                'Дутуу дүн', 'Эмч', 'Ресепшн', 'Статус',
-                'Төлсөн дүн', 'Хэлбэр', 'Баримтын дугаар', 'Төлсөн огноо',
-            ]);
-            foreach ($entries as $e) {
-                fputcsv($handle, [
-                    $e->dailySheet->date->format('Y-m-d'),
-                    $e->dailySheet->branch?->name ?? '',
-                    $e->patient_name ?? '',
-                    $e->diagnosis ?? '',
-                    $e->appointment_number ?? '',
-                    $e->outstanding_amount,
-                    $e->doctor?->name ?? '',
-                    $e->user?->name ?? '',
-                    $e->outstanding_paid_at ? 'Төлөгдсөн' : 'Дутуу',
-                    $e->outstanding_paid_amount ?? '',
-                    $e->outstanding_paid_method ?? '',
-                    $e->outstanding_paid_receipt ?? '',
-                    $e->outstanding_paid_at?->format('Y-m-d') ?? '',
-                ]);
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return Excel::download(new OutstandingExport($entries), $filename);
     }
 
     public function destroy(Request $request, DailySheet $sheet): RedirectResponse
@@ -384,7 +361,7 @@ class DailySheetAdminController extends Controller
         return back()->with('success', 'Өглөөний баталгаажуулалт тайлагдлаа. Бүх мөрүүд засварлагдах боломжтой болов.');
     }
 
-    public function exportExcel(Request $request): StreamedResponse
+    public function exportExcel(Request $request): BinaryFileResponse
     {
         $mode = $request->get('mode', 'day');
         $date = $request->get('date', now()->toDateString());
@@ -404,45 +381,9 @@ class DailySheetAdminController extends Controller
             ->orderBy('branch_id')
             ->get();
 
-        $filename = $mode === 'month' ? "daily-sheets-{$month}.csv" : "daily-sheets-{$date}.csv";
+        $filename = $mode === 'month' ? "daily-sheets-{$month}.xlsx" : "daily-sheets-{$date}.xlsx";
 
-        return response()->streamDownload(function () use ($sheets, $doctorId) {
-            $handle = fopen('php://output', 'w');
-            fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, [
-                'Огноо', 'Салбар', 'Үйлчлүүлэгч', 'Хүйс', 'Оноош',
-                'Захиалгын №', 'Хөнгөлөлт', 'Мобайл', 'Карт', 'Бэлэн',
-                'Storepay', 'Нийт дүн', 'Дутуу', 'Эмч', 'Ресепшн',
-            ]);
-            foreach ($sheets as $sheet) {
-                $entries = $sheet->entries;
-                if ($doctorId) {
-                    $entries = $entries->filter(fn ($e) => $e->doctor_id == $doctorId);
-                }
-                foreach ($entries as $e) {
-                    fputcsv($handle, [
-                        $sheet->date->format('Y-m-d'),
-                        $sheet->branch?->name ?? '',
-                        $e->patient_name ?? '',
-                        $e->gender ?? '',
-                        $e->diagnosis ?? '',
-                        $e->appointment_number ?? '',
-                        $e->discount,
-                        $e->mobile_amount,
-                        $e->card_amount,
-                        $e->cash_amount,
-                        $e->storepay_amount,
-                        $e->total_amount,
-                        $e->outstanding_amount,
-                        $e->doctor?->name ?? '',
-                        $e->user?->name ?? '',
-                    ]);
-                }
-            }
-            fclose($handle);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return Excel::download(new DailySheetExport($sheets, $doctorId), $filename);
     }
 
     private function mapSheet(DailySheet $sheet, ?string $doctorId): array

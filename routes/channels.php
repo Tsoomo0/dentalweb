@@ -110,3 +110,16 @@ Broadcast::channel('chat.handoff-inbox', function ($user) {
 
     return $u && ($u->isAdmin() || $u->isReceptionist());
 });
+
+// ── Social Bot inbox (admin) ───────────────────────────────────────────────────
+Broadcast::channel('social.inbox', function ($user) {
+    $u = chatUser($user);
+
+    return $u && $u->isAdmin();
+});
+
+Broadcast::channel('social.conversation.{conversationId}', function ($user, int $conversationId) {
+    $u = chatUser($user);
+
+    return $u && $u->isAdmin();
+});

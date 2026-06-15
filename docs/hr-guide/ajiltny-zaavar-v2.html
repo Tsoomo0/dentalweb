@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<title>Кутикул — Ажилтны HR хэсгийн ашиглах заавар</title>
+<style>
+  :root{
+    --red:#dc2626; --red2:#b91c1c; --red3:#7f1d1d; --red0:#ef4444;
+    --ink:#0f172a; --muted:#475569; --faint:#94a3b8;
+    --line:#e2e8f0; --bg:#f1f5f9; --card:#fff;
+    --green:#16a34a; --amber:#d97706; --blue:#2563eb; --violet:#7c3aed;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; color:var(--ink); line-height:1.5; }
+  @page{ size:A4; margin:0; }
+
+  .page{ width:210mm; min-height:297mm; padding:16mm 15mm 15mm; position:relative;
+    page-break-after:always; overflow:hidden; background:#fff; }
+  .page:last-child{ page-break-after:auto; }
+
+  .rh{ display:flex; align-items:center; justify-content:space-between;
+    border-bottom:2px solid var(--red); padding-bottom:8px; margin-bottom:18px; }
+  .rh .brand{ display:flex; align-items:center; gap:9px; }
+  .rh .logo{ width:26px; height:26px; border-radius:8px;
+    background:linear-gradient(135deg,var(--red0),var(--red3)); color:#fff;
+    font-weight:900; font-size:13px; display:flex; align-items:center; justify-content:center;}
+  .rh .brand b{ font-size:13px; }
+  .rh .brand span{ font-size:9.5px; color:var(--faint); display:block; font-weight:600; }
+  .rh .pg{ font-size:10px; color:var(--faint); font-weight:800; letter-spacing:.5px; }
+
+  .sec-kicker{ font-size:10.5px; font-weight:800; color:var(--red); letter-spacing:1.4px;
+    text-transform:uppercase; margin-bottom:6px; }
+  h2.sec{ font-size:21px; font-weight:900; letter-spacing:-.5px; margin-bottom:3px; }
+  .sec-sub{ font-size:12px; color:var(--muted); margin-bottom:16px; max-width:560px; }
+
+  .cols{ display:flex; gap:22px; align-items:flex-start; }
+  .col-text{ flex:1; padding-top:2px; }
+  .col-phone{ flex:0 0 auto; }
+
+  /* device frame around REAL screenshot */
+  .device{ width:215px; padding:7px; background:#0b1220; border-radius:30px;
+    box-shadow:0 16px 38px rgba(2,6,23,.26), 0 4px 10px rgba(2,6,23,.16); }
+  .device img{ width:100%; display:block; border-radius:23px; }
+  .device.sm{ width:158px; padding:6px; border-radius:24px; }
+  .device.sm img{ border-radius:18px; }
+  .cap{ text-align:center; font-size:9.5px; color:var(--faint); font-weight:700; margin-top:8px; }
+
+  ol.steps{ list-style:none; counter-reset:s; }
+  ol.steps>li{ counter-increment:s; position:relative; padding-left:33px; margin-bottom:12px; }
+  ol.steps>li::before{ content:counter(s); position:absolute; left:0; top:-1px;
+    width:23px; height:23px; border-radius:50%;
+    background:linear-gradient(135deg,var(--red0),var(--red3)); color:#fff;
+    font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  ol.steps>li .t{ font-size:13px; font-weight:800; }
+  ol.steps>li .d{ font-size:11.5px; color:var(--muted); display:block; margin-top:1px; }
+  ol.steps>li b{ font-weight:800; }
+
+  ul.bul{ list-style:none; margin-top:4px; }
+  ul.bul li{ position:relative; padding-left:17px; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  ul.bul li::before{ content:''; position:absolute; left:2px; top:6px; width:7px; height:7px;
+    border-radius:50%; background:var(--red); }
+  ul.bul li b{ color:var(--ink); }
+
+  .note{ border-left:4px solid var(--amber); background:#fffbeb; border-radius:0 9px 9px 0;
+    padding:9px 13px; margin-top:12px; font-size:11px; color:#78350f; }
+  .note b{ color:#92400e; }
+  .tip{ border-left:4px solid var(--green); background:#f0fdf4; border-radius:0 9px 9px 0;
+    padding:9px 13px; margin-top:11px; font-size:11px; color:#14532d; }
+  .tip b{ color:#166534; }
+  .warn{ border-left:4px solid var(--red); background:#fef2f2; border-radius:0 9px 9px 0;
+    padding:9px 13px; margin-top:11px; font-size:11px; color:#7f1d1d; }
+  .warn b{ color:#991b1b; }
+
+  .footer-note{ position:absolute; bottom:9mm; left:15mm; right:15mm; font-size:9px; color:var(--faint);
+    border-top:1px solid var(--line); padding-top:6px; display:flex; justify-content:space-between; }
+
+  .h3{ font-size:14px; font-weight:900; margin-bottom:7px; display:flex; align-items:center; gap:7px; }
+  .h3 .em{ font-size:16px; }
+
+  /* COVER */
+  .cover{ background:linear-gradient(160deg,#ef4444 0%,var(--red) 28%,var(--red2) 62%,var(--red3) 100%);
+    color:#fff; display:flex; flex-direction:column; justify-content:space-between; padding:24mm 18mm; }
+  .cover .c-circ{ position:absolute; border-radius:50%; background:rgba(255,255,255,.06); }
+  .cover h1{ font-size:44px; font-weight:900; letter-spacing:-1.4px; line-height:1.04; }
+  .cover h1 em{ font-style:italic; font-weight:300; font-family:Georgia,serif; color:rgba(255,255,255,.82); }
+  .cover .lead{ font-size:14px; color:rgba(255,255,255,.86); max-width:430px; margin-top:15px; line-height:1.6; }
+  .cover .clogo{ width:62px; height:62px; border-radius:18px; background:rgba(255,255,255,.16);
+    display:flex; align-items:center; justify-content:center; font-size:28px; border:1px solid rgba(255,255,255,.3); }
+  .cover .pill{ display:inline-flex; gap:7px; align-items:center; background:rgba(0,0,0,.18);
+    border-radius:99px; padding:7px 15px; font-size:12px; font-weight:700; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+  .chips span{ background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.22);
+    border-radius:99px; padding:6px 13px; font-size:11px; font-weight:700; }
+
+  /* contents */
+  .toc{ display:grid; grid-template-columns:1fr 1fr; gap:10px 26px; margin-top:4px; }
+  .toc .ti{ display:flex; align-items:center; gap:11px; padding:9px 12px; border:1px solid var(--line);
+    border-radius:12px; }
+  .toc .ti .n{ width:26px; height:26px; border-radius:8px; background:#fef2f2; color:var(--red);
+    font-weight:900; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .toc .ti .tt{ font-size:12.5px; font-weight:700; }
+  .toc .ti .ts{ font-size:10px; color:var(--faint); }
+
+  .feat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .feat{ border:1px solid var(--line); border-radius:13px; padding:11px 12px; display:flex; gap:10px; align-items:flex-start; }
+  .feat .fi{ width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    font-size:15px; flex-shrink:0; }
+  .feat .ft{ font-size:12.5px; font-weight:800; }
+  .feat .fd{ font-size:10.5px; color:var(--muted); margin-top:1px; line-height:1.4; }
+
+  .kbd{ display:inline-block; background:#0f172a; color:#fff; border-radius:6px; padding:1px 7px;
+    font-size:11px; font-weight:700; }
+  .two{ display:flex; gap:18px; }
+  .two>div{ flex:1; }
+  .platform{ border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .platform .ph{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:900; margin-bottom:9px; }
+  .platform .ph .badge{ font-size:9px; font-weight:800; padding:3px 8px; border-radius:99px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ COVER ═══ -->
+<section class="page cover">
+  <div class="c-circ" style="width:320px;height:320px;top:-120px;right:-100px;"></div>
+  <div class="c-circ" style="width:200px;height:200px;top:120px;right:60px;background:rgba(255,255,255,.04);"></div>
+  <div class="c-circ" style="width:260px;height:260px;bottom:-120px;left:-90px;"></div>
+
+  <div style="position:relative;display:flex;align-items:center;justify-content:space-between;">
+    <div class="clogo">🦷</div>
+    <div class="pill">📱 Гар утсанд зориулсан</div>
+  </div>
+
+  <div style="position:relative;">
+    <div style="font-size:12px;font-weight:800;letter-spacing:3px;opacity:.8;margin-bottom:12px;">КУТИКУЛ ШҮДНИЙ ЭМНЭЛЭГ · АЖИЛТНЫ ГАРЫН АВЛАГА</div>
+    <h1>HR системийн<br><em>хэсэг</em></h1>
+    <p class="lead">cuticul.mn — Ажилтны HR-ийг гар утаснаасаа хэрхэн ашиглах бүрэн заавар бэлдлээ. Нэвтрэхээс эхлээд ирц, цалин, чөлөө, хуваарь хүртэл.</p>
+    <div class="chips">
+      <span>🔐 Нэвтрэх</span><span>📲 Утсанд суулгах</span><span>⏱️ Ирц</span>
+      <span>💵 Цалин</span><span>📅 Чөлөө</span><span>🗓️ Хуваарь</span><span>💬 Чат</span>
+    </div>
+  </div>
+
+  <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-end;">
+    <div></div>
+    <div style="font-size:11px;opacity:.75;text-align:right;">Кутикул шүдний эмнэлэг<br>Хүний нөөцийн систем</div>
+  </div>
+</section>
+
+<!-- ═══ CONTENTS + FEATURES ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">АГУУЛГА</div></div>
+
+  <div class="sec-kicker">Танилцуулга</div>
+  <h2 class="sec">Систем юу хийдэг вэ?</h2>
+  <p class="sec-sub">«HR хэсэг» нь ажилтан бүр өөрийн ажлын мэдээллээ гар утаснаасаа удирдах систем. Доорх боломжуудтай.</p>
+
+  <div class="feat-grid">
+    <div class="feat"><div class="fi" style="background:#fef2f2;color:#dc2626;">⏱️</div><div><div class="ft">Ирц бүртгэл</div><div class="fd">«Ажил эхлэх / Тарах» товчоор ирцээ бүртгэнэ.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#eff6ff;color:#2563eb;">🗓️</div><div><div class="ft">Ажлын хуваарь</div><div class="fd">Сар/долоо хоногийн ээлжээ календараар харна.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#fef2f2;color:#dc2626;">📅</div><div><div class="ft">Чөлөө & Амралт</div><div class="fd">Хүсэлт илгээж, төлвийг хянана.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#f0fdf4;color:#16a34a;">💵</div><div><div class="ft">Цалин</div><div class="fd">Цалингийн дэлгэрэнгүй задаргаа.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#faf5ff;color:#7c3aed;">📦</div><div><div class="ft">Файл, Ном түрээслэх</div><div class="fd">Баримт татах, ном түрээслэх, тоног төхөөрөмж хүлээн авах.</div></div></div>
+    <div class="feat"><div class="fi" style="background:#fff7ed;color:#ea580c;">💬</div><div><div class="ft">Чат & Санал</div><div class="fd">HR/хамт олонтой чатлах, санал гомдол илгээх.</div></div></div>
+  </div>
+
+  <div style="margin-top:22px;"></div>
+  <div class="sec-kicker">Гарын авлагын бүлгүүд</div>
+  <h2 class="sec" style="font-size:17px;margin-bottom:12px;">Агуулга</h2>
+  <div class="toc">
+    <div class="ti"><div class="n">1</div><div><div class="tt">Нэвтрэх заавар</div><div class="ts">cuticul.mn → лого 2 дарах</div></div></div>
+    <div class="ti"><div class="n">2</div><div><div class="tt">Утсандаа суулгах</div><div class="ts">iPhone & Android</div></div></div>
+    <div class="ti"><div class="n">3</div><div><div class="tt">Нүүр хуудас & Ирц</div><div class="ts">Ажил эхлэх / Тарах</div></div></div>
+    <div class="ti"><div class="n">4</div><div><div class="tt">Чат</div><div class="ts">HR Туслах, хамт олон</div></div></div>
+    <div class="ti"><div class="n">5</div><div><div class="tt">Цалин</div><div class="ts">Цалингийн задаргаа</div></div></div>
+    <div class="ti"><div class="n">6</div><div><div class="tt">Чөлөөний хүсэлт</div><div class="ts">Шинэ хүсэлт + түүх</div></div></div>
+    <div class="ti"><div class="n">7</div><div><div class="tt">Ажлын хуваарь</div><div class="ts">Календар</div></div></div>
+    <div class="ti"><div class="n">8</div><div><div class="tt">Номын сан & Тоног</div><div class="ts">Захиалга, хүлээн авах</div></div></div>
+    <div class="ti"><div class="n">9</div><div><div class="tt">Санал хүсэлт</div><div class="ts">Санал / Хүсэлт / Гомдол</div></div></div>
+    <div class="ti"><div class="n">10</div><div><div class="tt">Сануулга & Баримт</div><div class="ts">Зөрчил, баримт бичиг</div></div></div>
+    <div class="ti"><div class="n">11</div><div><div class="tt">Дэлгэрэнгүй & Нууц үг</div><div class="ts">Бүх цэс, нууц үг солих</div></div></div>
+    <div class="ti"><div class="n">12</div><div><div class="tt">Профайл & FAQ</div><div class="ts">Хувийн мэдээлэл, тусламж</div></div></div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>2</span></div>
+</section>
+
+<!-- ═══ 1. LOGIN ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">01 · НЭВТРЭХ</div></div>
+
+  <div class="sec-kicker">Эхлэл</div>
+  <h2 class="sec">Систем рүү нэвтрэх</h2>
+  <p class="sec-sub">Нэвтрэх хуудас нь нүүр хуудасны <b>лого дээр 2 удаа дарж</b> нээгддэг.</p>
+
+  <div class="cols">
+    <div style="display:flex;gap:14px;flex:0 0 auto;">
+      <div class="col-phone"><div class="device sm"><img src="screenshots/01.png"></div><div class="cap">① cuticul.mn нүүр хуудас</div></div>
+      <div class="col-phone"><div class="device sm"><img src="screenshots/02.png"></div><div class="cap">② Нэвтрэх хуудас</div></div>
+    </div>
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">Хөтчөөр <span class="kbd">cuticul.mn</span> руу орно</span><span class="d">Утасныхаа Chrome (Android) эсвэл Safari (iPhone) хөтчид cuticul.mn гэж бичнэ. Эмнэлгийн үндсэн (зураг ①) хуудас нээгдэнэ.</span></li>
+        <li><span class="t">Дээд зүүн булангийн <b>лого дээр 2 удаа</b> дарна</span><span class="d">«Кутикул» лого/нэр дээр хурдан 2 товшино (double-tap). Энэ нь нэвтрэх хуудсыг нээх нууц товшилт юм.</span></li>
+        <li><span class="t">Имэйл хаяг, нууц үгээ оруулна</span><span class="d">HR-аас өгсөн имэйл болон нууц үгээ бичнэ (зураг ②).</span></li>
+        <li><span class="t">«Намайг сана» сонгож болно</span><span class="d">Хувийн утсан дээрээ бол тэмдэглэвэл дараа дахин нэвтрэхэд хялбар.</span></li>
+        <li><span class="t">Улаан <b>«Нэвтрэх»</b> товч дарна</span><span class="d">Зөв бол портал сонгох хуудас руу шилжинэ (дараагийн алхам).</span></li>
+      </ol>
+      <div class="warn"><b>Чухал:</b> Логоны байршил — дээд зүүн булан. <b>2 удаа дараалан хурдан</b> дарж байж нэвтрэх хуудас гарна. Нэг удаа дарвал юу ч болохгүй.</div>
+      <div class="note"><b>Нууц үгээ мэдэхгүй / мартсан бол:</b> Хүний нөөцийн (HR) ажилтанд хандаж шинэчлүүлнэ.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>3</span></div>
+</section>
+
+<!-- ═══ PORTAL + PWA INSTALL ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">02 · ПОРТАЛ & СУУЛГАХ</div></div>
+
+  <div class="sec-kicker">Нэвтэрсний дараа</div>
+  <h2 class="sec">Портал сонгох</h2>
+  <p class="sec-sub">Хэрэв та хоёр үүрэгтэй (жишээ нь ресепшн + хувийн HR) бол хаашаа орохоо сонгоно.</p>
+
+  <div class="cols" style="margin-bottom:18px;">
+    <div class="col-phone"><div class="device sm"><img src="screenshots/03.png"></div><div class="cap">Портал сонголт</div></div>
+    <div class="col-text">
+      <ul class="bul">
+        <li><b>🧳 Ажлын хэсэг</b> — Ресепшний (эсвэл өөрийн) ажлын портал. Цаг захиалга, өвчтөн зэрэг ажлын үйл ажиллагаа.</li>
+        <li><b>🩺 HR хэсэг</b> — Энэ зааврын сэдэв. Хувийн мэдээлэл: ирц, цалин, чөлөө, хуваарь, баримт.</li>
+      </ul>
+      <div class="tip"><b>Энэ зааврын хувьд:</b> <b>«HR хэсэг»</b>-ийг сонгоно. Хоёр хооронд хэдийд ч доод цэсний улаан <span class="kbd">⇄</span> товчоор шилжиж болно.</div>
+      <div class="note"><b>Зөвхөн нэг үүрэгтэй</b> ажилтан бол энэ хуудас гарахгүйгээр шууд нүүр хуудас руу орно.</div>
+    </div>
+  </div>
+
+  <div style="border-top:1px solid var(--line);padding-top:16px;">
+    <div class="sec-kicker">Зөвлөмж</div>
+    <h2 class="sec" style="font-size:18px;">📲 Утсандаа апп шиг суулгах</h2>
+    <p class="sec-sub" style="margin-bottom:13px;">Хөтчөөр болгон орох шаардлагагүй — нүүр дэлгэцэд дүрс нэмбэл жинхэнэ апп шиг нэг товшилтоор нээгдэнэ.</p>
+    <div class="two">
+      <div class="platform">
+        <div class="ph">📱 iPhone <span class="badge" style="background:#eff6ff;color:#2563eb;">Safari</span></div>
+        <ol class="steps">
+          <li><span class="t">cuticul.mn-ийг <b>Safari</b>-аар нээнэ</span></li>
+          <li><span class="t">Доод талын <b>Хуваалцах</b> (⬆️ Share) товч дарна</span></li>
+          <li><span class="t">«<b>Нүүр дэлгэцэд нэмэх</b>» (Add to Home Screen) сонгоно</span></li>
+          <li><span class="t">Баруун дээд «Нэмэх» дарна</span><span class="d">Нүүр дэлгэцэд Кутикул icon гарч ирнэ.</span></li>
+        </ol>
+      </div>
+      <div class="platform">
+        <div class="ph">🤖 Android <span class="badge" style="background:#f0fdf4;color:#16a34a;">Chrome</span></div>
+        <ol class="steps">
+          <li><span class="t">cuticul.mn-ийг <b>Chrome</b>-аар нээнэ</span></li>
+          <li><span class="t">Баруун дээд <b>⋮</b> (гурван цэг) цэс дарна</span></li>
+          <li><span class="t">«<b>Нүүр дэлгэцэд нэмэх</b>» / «Аппликэйшн суулгах» сонгоно</span></li>
+          <li><span class="t">«Нэмэх / Суулгах» дарна</span><span class="d">Дэлгэцэд апп icon гарч ирнэ.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="tip"><b>Ашиг:</b> Апп шиг нээгдэхээр дэлгэц бүтэн (full-screen) харагдаж, ирц бүртгэх зэрэг үйлдэл илүү хурдан болно.</div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>4</span></div>
+</section>
+
+<!-- ═══ HOME + ATTENDANCE ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">03 · НҮҮР & ИРЦ</div></div>
+
+  <div class="sec-kicker">Үндсэн дэлгэц</div>
+  <h2 class="sec">Нүүр хуудас & Ирц бүртгэл</h2>
+  <p class="sec-sub">Нэвтэрмэгц энэ дэлгэц нээгдэнэ. Өнөөдрийн ажлын мэдээлэл бүгд нэг дор.</p>
+
+  <div class="cols">
+    <div class="col-phone"><div class="device"><img src="screenshots/04.png"></div><div class="cap">Нүүр хуудас</div></div>
+    <div class="col-text">
+      <div class="h3"><span class="em">🧭</span> Дэлгэцийн бүтэц</div>
+      <ul class="bul">
+        <li><b>Дээд мөр.</b> Код (EMP-0068), огноо, гараг. Баруун талд <b>💬 чат</b>, <b>🔔 мэдэгдэл</b>, <b>зураг</b> (дарвал профайл).</li>
+        <li><b>Мэндчилгээ.</b> Цагаас хамаарч «Өглөө/Өдөр/Оройн мэнд», доор нэр, албан тушаал, салбар.</li>
+        <li><b>Тоон картууд.</b> Чөлөөний хүсэлт, ээлжийн амралт (үлдсэн өдөр), сануулга, баримт — дарвал шууд орно.</li>
+        <li><b>7 хоногийн зурвас & график.</b> Долоо хоногийн ажлын цаг.</li>
+        <li><b>Доод цэс.</b> 🏠 Нүүр · 💬 Чат · 💲 Цалин · 📅 Чөлөө · ▦ Дэлгэрэнгүй · <b style="color:#dc2626;">⇄</b> Портал шилжих.</li>
+      </ul>
+
+      <div class="h3" style="margin-top:14px;"><span class="em">⏱️</span> Ирцээ бүртгэх</div>
+      <ol class="steps">
+        <li><span class="t">Ногоон <b>«▶ Ажил эхлэх»</b> дарна</span><span class="d">Нүүрний дээд хэсгийн ирцийн бүртгэл хайрцагт байна.</span></li>
+        <li><span class="t">Байршлаа зөвшөөрнө</span><span class="d">Утас байршил асуувал «Зөвшөөрөх / Allow» дарна. Систем ажил дээр байгаа эсэхийг шалгана.</span></li>
+        <li><span class="t">Ажил тарахдаа <b>«Тарах»</b> дарна</span><span class="d">Ажилласан цаг автоматаар бодогдоно.</span></li>
+      </ol>
+      <div class="warn"><b>«Байршил тогтоогдсонгүй» гэвэл:</b> утасны байршил (Location) зөвшөөрлийг асаа, GPS/Wi-Fi-гээ шалга. Ирцийг зөвхөн ажил дээрээ ирсэн үед бүртгэнэ.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>5</span></div>
+</section>
+
+<!-- ═══ CHAT ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">04 · ЧАТ</div></div>
+
+  <div class="sec-kicker">Доод цэс → 💬 Чат</div>
+  <h2 class="sec">Хамт олонтойгоо чатлах</h2>
+  <p class="sec-sub">HR болон хамт олонтойгоо системийн дотор шууд харилцана.</p>
+
+  <div class="cols">
+    <div class="col-phone"><div class="device"><img src="screenshots/05.png"></div><div class="cap">Чат жагсаалт</div></div>
+    <div class="col-text">
+      <ul class="bul">
+        <li><b>HR Туслах.</b> Түгээмэл асуултуудаа асуух боломжтой — жишээ нь «цалин хэзээ буух вэ?» гэх мэт. Мөн шууд <b>ажилтантай холбогдох</b> боломжтой.</li>
+        <li><b>Шинэ яриа эхлэх.</b> Баруун доод <b style="color:#dc2626;">+</b> улаан товчоор шинэ ганцаарчилсан эсвэл бүлгийн чат үүсгэнэ.</li>
+        <li><b>Хайх.</b> Дээд талын «Хайх...» хэсгээр хүн/яриагаа хурдан олно.</li>
+        <li><b>Уншаагүй тоо.</b> Нэр дээр улаан тоо = шинэ зурвас. Дээд талд «Танд N шинэ мессеж».</li>
+        <li><b>Хаанаас ч.</b> Дээд мөрний 💬 тэмдэг бараг бүх дэлгэцэд байдаг тул хурдан чатлаж болно.</li>
+      </ul>
+      <div class="tip"><b>Мэдэгдэл:</b> Чөлөө, тоног, санал зэрэг хүсэлтийн төлөв өөрчлөгдөхөд таны <b>имэйл рүү мэдэгдэл (email notification)</b> ирдэг — систем дэх бараг бүх хэсэг имэйл мэдэгдэлтэй.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>6</span></div>
+</section>
+
+<!-- ═══ PAYROLL ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">05 · ЦАЛИН</div></div>
+
+  <div class="sec-kicker">Доод цэс → 💲 Цалин</div>
+  <h2 class="sec">Цалингийн задаргаа</h2>
+  <p class="sec-sub">Сар бүрийн цалингаа дэлгэрэнгүйгээр — нэмэгдэл, суутгал, гарт олгох дүн хүртэл.</p>
+
+  <div class="cols">
+    <div class="col-phone"><div class="device"><img src="screenshots/06.png"></div><div class="cap">Цалин (хоосон төлөв)</div></div>
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">Доод цэснээс 💲 «Цалин» нээнэ</span><span class="d">Эсвэл нүүрэн дэх улаан «Цалингаа харах» картыг дарна.</span></li>
+        <li><span class="t">Дээд талд сүүлийн цалин</span><span class="d">Гарт олгох нийт тооцоо томоор харагдана.</span></li>
+        <li><span class="t">Картыг дэлгэж дэлгэрэнгүй харна</span><span class="d">Сарын картыг дарвал <b>Орлого</b> ба <b>Суутгал</b> бүрэн задарна.</span></li>
+      </ol>
+      <div class="note"><b>«Цалингийн мэдээлэл байхгүй» гэвэл:</b> HR тухайн сарын цалинг хараахан баталгаажуулаагүй байна. Баталгаажмагц энд гарч ирнэ. Зөрүүтэй бол HR-т хандана.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>7</span></div>
+</section>
+
+<!-- ═══ LEAVE ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">06 · ЧӨЛӨӨ</div></div>
+
+  <div class="sec-kicker">Доод цэс → 📅 Чөлөө</div>
+  <h2 class="sec">Чөлөө хүсэх</h2>
+  <p class="sec-sub">Өвчтэй эсвэл хувийн шалтгаанаар чөлөө авах хүсэлтээ илгээж, HR-ийн хариуг хянана.</p>
+
+  <div class="cols">
+    <div class="col-phone"><div class="device"><img src="screenshots/07.png"></div><div class="cap">Чөлөө хүсэх</div></div>
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">📅 «Чөлөө» нээнэ</span><span class="d">«Шинэ хүсэлт» таб идэвхтэй байна.</span></li>
+        <li><span class="t">Төрлөө сонгоно</span><span class="d"><b>Өвчтэй</b> эсвэл <b>Хувийн</b>. Сонгосон нь улаан болж тэмдэглэгдэнэ.</span></li>
+        <li><span class="t">Хугацаа: эхлэх–дуусах огноо</span><span class="d">Огноог дарж сонгоно. Хэдэн өдөр болохыг систем бодно.</span></li>
+        <li><span class="t">Орлох ажилтан (заавал биш)</span><span class="d">Таныг эзгүйд орлох хүнийг сонгож болно.</span></li>
+        <li><span class="t">Шалтгаанаа бичнэ</span><span class="d">Тодорхой бичих тусам зөвшөөрөгдөх магадлал өндөр.</span></li>
+        <li><span class="t">«✈ Хүсэлт илгээх» дарна</span></li>
+      </ol>
+      <div class="tip"><b>«Түүх» таб:</b> Илгээсэн хүсэлтийн төлөв — <b style="color:#d97706;">Хүлээгдэж</b>, <b style="color:#16a34a;">Зөвшөөрсөн</b>, <b style="color:#dc2626;">Цуцалсан</b>. Цуцалсан бол шалтгаан доор бичигдэнэ.</div>
+      <div class="note"><b>Ялгаа:</b> «Чөлөө» = богино (өвчтэй/хувийн). «Ээлжийн амралт» = жилийн цалинтай амралт (▦ Дэлгэрэнгүй → «Ээлжийн амралтын хүсэлт»).</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>8</span></div>
+</section>
+
+<!-- ═══ SCHEDULE ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">07 · ХУВААРЬ</div></div>
+
+  <div class="sec-kicker">▦ Дэлгэрэнгүй → Ажлын хуваарь</div>
+  <h2 class="sec">Ажлын хуваарь</h2>
+  <p class="sec-sub">Ээлжийн хуваариа календараар урьдчилан хараарай.</p>
+
+  <div class="cols">
+    <div class="col-phone"><div class="device"><img src="screenshots/08.png"></div><div class="cap">Хуваарь — календар</div></div>
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">▦ Дэлгэрэнгүй → «Ажлын хуваарь»</span><span class="d">Эсвэл нүүрэн дэх «Энэ долоо хоногийн ажлын цаг» картын «Дэлгэрэнгүй →».</span></li>
+        <li><span class="t">Дээд талд нийт ажлын өдөр</span><span class="d">Тухайн сарын ажлын өдрийн тоо харагдана.</span></li>
+        <li><span class="t">Харах хэлбэрээ сонгоно</span><span class="d"><b>Сар</b> / <b>7 хон</b> / <b>Өдөр</b> гэсэн 3 горим. Сараар бол бүтэн календар.</span></li>
+        <li><span class="t">Өдрөө дарж дэлгэрэнгүй харна</span><span class="d">Ээлжийн цаг, кабинет, хамтрах эмчийн мэдээлэл.</span></li>
+      </ol>
+      <div class="tip"><b>Зөвлөмж:</b> Өнөөдрийн өдөр улаанаар тодорч (жишээ: 5), амралтын/баярын өдөр өөр өнгөөр ялгарна. Дээд/доош сум (‹ ›)-аар сар хооронд шилжинэ.</div>
+      <div class="note"><b>«Хуваарь байхгүй» гэвэл:</b> HR тухайн сарын хуваарийг хараахан оруулаагүй байна. Оруулмагц энд автоматаар гарна.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>9</span></div>
+</section>
+
+<!-- ═══ LIBRARY + EQUIPMENT ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">08 · НОМ & ТОНОГ</div></div>
+
+  <div class="sec-kicker">▦ Дэлгэрэнгүй</div>
+  <h2 class="sec">Номын сан & Тоног төхөөрөмж</h2>
+  <p class="sec-sub">Эмнэлгийн номыг түрээслэх, өөрт хариуцуулсан тоног төхөөрөмжөө хүлээн авах.</p>
+
+  <div class="two" style="gap:22px;">
+    <div>
+      <div class="cols" style="gap:14px;">
+        <div class="col-phone"><div class="device sm"><img src="screenshots/09.png"></div></div>
+        <div class="col-text">
+          <div class="h3"><span class="em">📚</span> Номын сан</div>
+          <ul class="bul">
+            <li>Нэр/зохиогчоор <b>хайж</b> ном олно.</li>
+            <li>Номоо сонгоод <b>хүсэлт илгээнэ</b>.</li>
+            <li><b>«Номын жагсаалт»</b> — боломжит ном.</li>
+            <li><b>«Хүсэлтүүд»</b> таб — өөрийн авсан/буцаасан түүх.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="cols" style="gap:14px;">
+        <div class="col-phone"><div class="device sm"><img src="screenshots/10.png"></div></div>
+        <div class="col-text">
+          <div class="h3"><span class="em">📦</span> Тоног төхөөрөмж</div>
+          <ul class="bul">
+            <li>HR тоног төхөөрөмж хуваарилбал <b>«Хүлээгдэж байна»</b>-д гарна.</li>
+            <li>Нэр, сериал, нөхцөлийг шалгана.</li>
+            <li><b>«Хүлээн авах»</b> эсвэл <b>«Татгалзах»</b> (шалтгаантай).</li>
+            <li><b>«Түүх»</b> таб — баталгаажсан/буцаасан бүртгэл.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip" style="margin-top:18px;"><b>Дээд талын тоонууд:</b> Хоёр дэлгэц хоёулаа дээрээ <b>Нийт / Хүлээгдэж / Зөвшөөрсөн (эсвэл Хариуцаж буй)</b> гэсэн тоон хураангуйг харуулна — нэг харцаар төлвөө мэдэх боломжтой.</div>
+  <div class="note" style="margin-top:11px;"><b>Хоосон харагдвал:</b> танд одоогоор хуваарилсан ном/тоног, эсвэл хүсэлт байхгүй гэсэн үг. HR хуваарилмагц энд гарч ирнэ.</div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>10</span></div>
+</section>
+
+<!-- ═══ FEEDBACK ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">09 · САНАЛ ХҮСЭЛТ</div></div>
+
+  <div class="sec-kicker">▦ Дэлгэрэнгүй → Санал хүсэлт</div>
+  <h2 class="sec">Санал, хүсэлт, гомдол илгээх</h2>
+  <p class="sec-sub">Ажлын орчны санал, хүсэлт, гомдлоо HR-т шууд илгээж, шийдвэрлэлтийг хянана.</p>
+
+  <div class="cols">
+    <div style="display:flex;gap:14px;flex:0 0 auto;">
+      <div class="col-phone"><div class="device sm"><img src="screenshots/11.png"></div><div class="cap">① Жагсаалт</div></div>
+      <div class="col-phone"><div class="device sm"><img src="screenshots/12.png"></div><div class="cap">② Хүсэлт илгээх</div></div>
+    </div>
+    <div class="col-text">
+      <ol class="steps">
+        <li><span class="t">▦ Дэлгэрэнгүй → «Санал хүсэлт»</span><span class="d">Дээд талд Нийт / Хүлээгдэж / Шийдвэрлэсэн тоо.</span></li>
+        <li><span class="t"><b>«+ Шинэ хүсэлт илгээх»</b> дарна</span><span class="d">Доороос цонх (зураг ②) дэлгэгдэнэ.</span></li>
+        <li><span class="t">Төрлөө сонгоно</span><span class="d"><b>Санал</b> · <b>Хүсэлт</b> · <b>Гомдол</b>.</span></li>
+        <li><span class="t">Гарчиг бичнэ</span><span class="d">Товч гарчиг (заавал).</span></li>
+        <li><span class="t">Агуулгаа дэлгэрэнгүй бичнэ</span><span class="d">3000 хүртэл тэмдэгт.</span></li>
+        <li><span class="t">«✈ Илгээх» дарна</span></li>
+      </ol>
+      <div class="tip"><b>Хянах:</b> Илгээсэн хүсэлт жагсаалтад орж, HR шийдвэрлэхэд төлөв нь «Шийдвэрлэсэн» болж өөрчлөгдөнө.</div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>11</span></div>
+</section>
+
+<!-- ═══ WARNINGS + DOCUMENTS ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">10 · САНУУЛГА & БАРИМТ</div></div>
+
+  <div class="sec-kicker">▦ Дэлгэрэнгүй</div>
+  <h2 class="sec">Сануулга / Зөрчил & Баримт бичиг</h2>
+  <p class="sec-sub">HR-ийн сануулгыг танилцах, өөрийн баримт бичгээ харах, татах.</p>
+
+  <div class="two" style="gap:22px;">
+    <div>
+      <div class="cols" style="gap:14px;">
+        <div class="col-phone"><div class="device sm"><img src="screenshots/13.png"></div></div>
+        <div class="col-text">
+          <div class="h3"><span class="em">⚠️</span> Сануулга / Зөрчил</div>
+          <ul class="bul">
+            <li>Нүүрний «Сануулга» карт <b>тоотой</b> бол шинэ сануулга байна.</li>
+            <li>Сануулгыг уншиж танилцана.</li>
+            <li><b>«Танилцсан»</b> дарж баталгаажуулна.</li>
+            <li>Хоосон = бүгдийг танилцсан 👍.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="cols" style="gap:14px;">
+        <div class="col-phone"><div class="device sm"><img src="screenshots/14.png"></div></div>
+        <div class="col-text">
+          <div class="h3"><span class="em">📄</span> Баримт бичиг</div>
+          <ul class="bul">
+            <li>HR-аас тавьсан гэрээ, тушаал, лавлагаа.</li>
+            <li><b>Хайх</b> болон <b>категори</b>-оор шүүнэ.</li>
+            <li><b>👁 Харах</b> — шууд нээж үзнэ.</li>
+            <li><b>⬇ Татах</b> — утсандаа хадгална.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>12</span></div>
+</section>
+
+<!-- ═══ MORE + PASSWORD ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">11 · ДЭЛГЭРЭНГҮЙ & НУУЦ ҮГ</div></div>
+
+  <div class="sec-kicker">Доод цэс → ▦ Дэлгэрэнгүй</div>
+  <h2 class="sec">Бүх цэс & Тохиргоо</h2>
+  <p class="sec-sub">Доод цэсний ▦ товчоор бүх боломж, тохиргоо нэг дор нээгдэнэ.</p>
+
+  <div class="two" style="gap:22px;">
+    <div>
+      <div class="cols" style="gap:14px;">
+        <div class="col-phone"><div class="device sm"><img src="screenshots/15.png"></div></div>
+        <div class="col-text">
+          <div class="h3"><span class="em">▦</span> Дэлгэрэнгүй цэс</div>
+          <ul class="bul">
+            <li>Ажлын хуваарь, Чөлөө, Ээлжийн амралт, Цалин.</li>
+            <li>Ресепшний/Сувилагчийн <b>урамшуулал</b> (албан тушаалаас хамаарч).</li>
+            <li>Номын сан, Тоног, Санал, Сануулга, Баримт.</li>
+            <li>🌞 <b>Гэрэл/Харанхуй горим</b> сэлгэх.</li>
+            <li>🔑 Нууц үг солих · <b style="color:#dc2626;">Системээс гарах</b>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="cols" style="gap:14px;">
+        <div class="col-phone"><div class="device sm"><img src="screenshots/16.png"></div></div>
+        <div class="col-text">
+          <div class="h3"><span class="em">🔑</span> Нууц үг солих</div>
+          <ol class="steps">
+            <li><span class="t">Одоогийн нууц үг</span></li>
+            <li><span class="t">Шинэ нууц үг</span><span class="d">Хамгийн багадаа 6 тэмдэгт.</span></li>
+            <li><span class="t">Дахин давтаж бичнэ</span><span class="d">👁 дарж харж болно.</span></li>
+            <li><span class="t">«🛡 Нууц үг солих» дарна</span></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip" style="margin-top:18px;"><b>⇄ Портал шилжих:</b> Доод цэсний улаан ⇄ товч дарж, аюулгүй байдлын үүднээс нууц үгээ дахин оруулснаар Ажлын хэсэг рүү шилжинэ.</div>
+  <div class="note" style="margin-top:11px;"><b>Гарах:</b> ▦ Дэлгэрэнгүй доторх улаан <b>«Системээс гарах»</b>-аар аккаунтаас бүрэн гарна. Нийтийн/бусдын утсан дээр заавал гараарай.</div>
+
+  <div class="footer-note"><span>Кутикул · Ажилтны ашиглах заавар</span><span>13</span></div>
+</section>
+
+<!-- ═══ PROFILE + FAQ ═══ -->
+<section class="page">
+  <div class="rh"><div class="brand"><div class="logo">К</div><div><b>Ажилтны заавар</b><span>Кутикул · HR хэсэг</span></div></div><div class="pg">12 · ПРОФАЙЛ & FAQ</div></div>
+
+  <div class="sec-kicker">Дээд мөрний зураг</div>
+  <h2 class="sec">Профайл & Түгээмэл асуулт</h2>
+  <p class="sec-sub">Дээд буланд байгаа зургаа дарж хувийн мэдээллээ харна.</p>
+
+  <div class="cols" style="margin-bottom:16px;">
+    <div class="col-phone"><div class="device"><img src="screenshots/17.png"></div><div class="cap">Хувийн мэдээлэл</div></div>
+    <div class="col-text">
+      <div class="h3"><span class="em">👤</span> Профайлд юу байдаг вэ?</div>
+      <ul class="bul">
+        <li><b>Толгой хэсэг:</b> Зураг, төлөв (ИДЭВХТЭЙ), код (EMP-0068), нэр, албан тушаал.</li>
+        <li><b>Ажилласан · Хэлтэс · Тушаал:</b> жишээ нь «4 жил 11 сар · Яармаг · Ресепшн».</li>
+        <li><b>Нэр:</b> Овог, нэр.</li>
+        <li><b>Хувийн мэдээлэл:</b> Регистр, төрсөн огноо, хүйс, яс үндэс, төрсөн газар, цусны бүлэг, цэргийн алба.</li>
+        <li><b>Бусад:</b> боловсрол, холбоо барих, яаралтай үед холбогдох хүн, банкны данс, гэрээ, мэргэжлийн үнэмлэх.</li>
+        <li><b>Гэр бүлийн гишүүд:</b> «+» дарж нэмж/засаж/устгана.</li>
+      </ul>
+      <div class="note"><b>Засвар:</b> Зарим талбарыг өөрөө засна. Албан ёсны мэдээлэл (тушаал, цалин) HR талаас шинэчлэгддэг.</div>
+    </div>
+  </div>
+
+  <div style="border-top:1px solid var(--line);padding-top:14px;">
+    <div class="sec-kicker">Түгээмэл асуулт</div>
+    <h2 class="sec" style="font-size:17px;margin-bottom:11px;">FAQ</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;">
+      <div style="border-left:3px solid var(--red);padding:1px 0 1px 11px;"><div style="font-size:12px;font-weight:800;">Нэвтрэх хуудас олдохгүй байна?</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">cuticul.mn нүүрний дээд зүүн <b>лого дээр 2 удаа</b> хурдан дарна.</div></div>
+      <div style="border-left:3px solid var(--red);padding:1px 0 1px 11px;"><div style="font-size:12px;font-weight:800;">Ирц бүртгэгдэхгүй?</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">Байршил зөвшөөрлөө асаа, ажил дээрээ бай, GPS/Wi-Fi шалга.</div></div>
+      <div style="border-left:3px solid var(--red);padding:1px 0 1px 11px;"><div style="font-size:12px;font-weight:800;">Нууц үгээ мартсан?</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">HR-т хандаж шинэчлүүлээд дараа нь өөрөө сольж тавь.</div></div>
+      <div style="border-left:3px solid var(--red);padding:1px 0 1px 11px;"><div style="font-size:12px;font-weight:800;">Цалин харагдахгүй?</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">HR баталгаажуулаагүй байна. Баталгаажмагц гарна.</div></div>
+      <div style="border-left:3px solid var(--red);padding:1px 0 1px 11px;"><div style="font-size:12px;font-weight:800;">Аппыг хурдан нээх?</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">«Нүүр дэлгэцэд нэмэх» хийвэл апп icon гарч ирнэ (4-р хуудас).</div></div>
+      <div style="border-left:3px solid var(--red);padding:1px 0 1px 11px;"><div style="font-size:12px;font-weight:800;">Ажлын портал руу яаж шилжих?</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">Доод цэсний улаан <b>⇄</b> → нууц үг → Ажлын хэсэг.</div></div>
+    </div>
+
+    <div style="margin-top:18px;background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:16px;padding:15px 18px;display:flex;align-items:center;gap:15px;">
+      <div style="width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,#ef4444,#7f1d1d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;">🦷</div>
+      <div style="flex:1;"><div style="font-size:14px;font-weight:900;">Тусламж хэрэгтэй юу?</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px;">Асуудал гарвал <b>А.Цолмон</b>-ы фейсбүүк хаягаар бичиж, дэлгэрэнгүй заавар болон мэдээлэл аваарай.</div></div>
+    </div>
+  </div>
+
+  <div class="footer-note"><span>Кутикул шүдний эмнэлэг · Ажилтны ашиглах заавар</span><span>14</span></div>
+</section>
+
+</body>
+</html>

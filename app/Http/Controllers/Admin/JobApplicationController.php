@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\JobApplicationExport;
 use App\Http\Controllers\Controller;
 use App\Models\JobApplication;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class JobApplicationController extends Controller
 {
@@ -82,7 +85,7 @@ class JobApplicationController extends Controller
             ->with('success', 'Анкет устгагдлаа.');
     }
 
-    public function exportCsv(Request $request)
+    public function exportCsv(Request $request): BinaryFileResponse
     {
         $query = JobApplication::latest();
 
@@ -92,39 +95,8 @@ class JobApplicationController extends Controller
 
         $applications = $query->get();
 
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="job_applications_'.now()->format('Y-m-d').'.csv"',
-        ];
+        $filename = 'job_applications_'.now()->format('Y-m-d').'.xlsx';
 
-        $callback = function () use ($applications) {
-            $handle = fopen('php://output', 'w');
-            // BOM for Excel UTF-8
-            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
-
-            fputcsv($handle, [
-                'Огноо', 'Эцэг/эхийн нэр', 'Өөрийн нэр', 'Хүйс', 'Төрсөн огноо',
-                'Регистр №', 'Гар утас', 'И-мэйл', 'Хаяг', 'Статус',
-            ]);
-
-            foreach ($applications as $a) {
-                fputcsv($handle, [
-                    $a->created_at->format('Y.m.d'),
-                    $a->last_name,
-                    $a->first_name,
-                    $a->gender,
-                    $a->birth_date?->format('Y.m.d'),
-                    $a->register_no,
-                    $a->phone_mobile,
-                    $a->email,
-                    $a->address,
-                    $a->status_label,
-                ]);
-            }
-
-            fclose($handle);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        return Excel::download(new JobApplicationExport($applications), $filename);
     }
 }

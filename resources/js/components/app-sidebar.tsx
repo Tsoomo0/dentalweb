@@ -31,6 +31,7 @@ import {
     Package,
     ScrollText,
     Settings,
+    Share2,
     Smile,
     Stethoscope,
     Tag,
@@ -234,6 +235,34 @@ const chatItems: NavItem[] = [
     },
 ];
 
+const socialItems: NavItem[] = [
+    {
+        title: 'Холболт (FB/IG)',
+        url: '/admin/social/accounts',
+        icon: Share2,
+    },
+    {
+        title: 'Social Inbox',
+        url: '/admin/social/inbox',
+        icon: MessageCircle,
+    },
+    {
+        title: 'Social Flow',
+        url: '/admin/social/flows',
+        icon: Bot,
+    },
+    {
+        title: 'Коммент автомат',
+        url: '/admin/social/comment-rules',
+        icon: MessageSquare,
+    },
+    {
+        title: 'Вэбформ',
+        url: '/admin/social/forms',
+        icon: ClipboardList,
+    },
+];
+
 const systemItems: NavItem[] = [
     {
         title: 'Хэрэглэгчид',
@@ -298,6 +327,7 @@ export function AppSidebar() {
                 <NavMain items={schedulingItems} label="Цаг & Төлбөр" />
                 <NavMain items={hrItems} label="HR" />
                 <NavMain items={chatItems} label="Чат" />
+                <NavMain items={socialItems} label="Social Chat" />
                 <NavMain items={systemItems} label="Систем" />
             </SidebarContent>
 
