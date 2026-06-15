@@ -14,12 +14,14 @@ class LeaveRequest extends Model
     protected $fillable = [
         'employee_id', 'start_date', 'end_date', 'leave_type',
         'reason', 'replacement_employee_id',
+        'makeup_date', 'makeup_note',
         'status', 'rejection_reason', 'reviewed_by', 'reviewed_at',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'makeup_date' => 'date',
         'reviewed_at' => 'datetime',
     ];
 

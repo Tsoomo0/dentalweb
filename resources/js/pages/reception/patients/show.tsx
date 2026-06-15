@@ -95,20 +95,20 @@ interface Props { patient: Patient; templates: Template[]; signedIds: number[]; 
 
 /* ── Constants ── */
 const CAT_LABEL: Record<string, string> = {
-    treat:   'Ерөнхий эмчилгээ',
+    treat:   'Эмчилгээний таниулсан зөвшөөрлийн хуудас',
     endo:    'Сувгийн эмчилгээ',
-    ortho:   'Ортодонт (Зэр засал)',
-    perio:   'Буйлны эмчилгээ',
-    prostho: 'Протез эмчилгээ',
-    surg:    'Хирургийн мэс засал',
+    ortho:   'Гажиг заслын таниулсан зөвшөөрлийн хуудас',
+    perio:   'Тулгуур эдийн эмчилгээний таниулсан зөвшөөрлийн хуудас',
+    prostho: 'Хиймэл шүдний таниулсан зөвшөөрлийн хуудас',
+    surg:    'Мэс заслын таниулсан зөвшөөрлийн хуудас',
     prevent: 'Урьдчилан сэргийлэх',
 };
 const CAT_LABEL_SHORT: Record<string, string> = {
-    treat:   'Ерөнхий',
+    treat:   'Эмчилгээ',
     endo:    'Сувгийн',
-    ortho:   'Ортодонт',
-    perio:   'Буйлны',
-    prostho: 'Протез',
+    ortho:   'Гажиг засал',
+    perio:   'Тулгуур эд',
+    prostho: 'Хиймэл шүд',
     surg:    'Мэс засал',
     prevent: 'Урьдчилан',
 };
@@ -1063,7 +1063,7 @@ export default function PatientShow({ patient, templates, signedIds, pendingIds 
                                     </div>
                                     <div>
                                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${CAT_CHIP[consentModal.category]}`}>
-                                            {CAT_LABEL[consentModal.category]}
+                                            {CAT_LABEL_SHORT[consentModal.category]}
                                         </span>
                                         <h3 className="font-semibold text-foreground text-sm mt-0.5 leading-snug max-w-xs">{consentModal.title}</h3>
                                     </div>

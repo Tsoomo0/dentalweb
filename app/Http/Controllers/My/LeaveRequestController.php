@@ -35,6 +35,8 @@ class LeaveRequestController extends Controller
                 'leave_type' => $r->leave_type,
                 'reason' => $r->reason,
                 'replacement' => $r->replacement?->full_name,
+                'makeup_date' => $r->makeup_date?->toDateString(),
+                'makeup_note' => $r->makeup_note,
                 'status' => $r->status,
                 'rejection_reason' => $r->rejection_reason,
                 'reviewed_at' => $r->reviewed_at?->toDateString(),
@@ -74,6 +76,8 @@ class LeaveRequestController extends Controller
             'leave_type' => 'required|in:sick,personal',
             'reason' => 'required|string|max:1000',
             'replacement_employee_id' => 'nullable|exists:employees,id',
+            'makeup_date' => 'nullable|date',
+            'makeup_note' => 'nullable|string|max:500',
         ]);
 
         $leave = LeaveRequest::create([

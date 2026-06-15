@@ -38,6 +38,8 @@ class LeaveRequestController extends Controller
                 'leave_type' => $r->leave_type,
                 'reason' => $r->reason,
                 'replacement' => $r->replacement?->full_name,
+                'makeup_date' => $r->makeup_date?->toDateString(),
+                'makeup_note' => $r->makeup_note,
                 'status' => $r->status,
                 'rejection_reason' => $r->rejection_reason,
                 'reviewed_by' => $r->reviewer?->name,

@@ -126,6 +126,24 @@
     </tbody>
   </table>
 
+  @if($r->makeup_date)
+  {{-- ── MAKEUP DAY ── --}}
+  <table class="main-table">
+    <thead>
+      <tr>
+        <th style="width:30%">Нөхөж ажиллах өдөр</th>
+        <th>Тайлбар</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="date-cell">{{ $r->makeup_date->format('Y-m-d') }}</td>
+        <td>{{ $r->makeup_note }}</td>
+      </tr>
+    </tbody>
+  </table>
+  @endif
+
   {{-- ── APPROVAL ── --}}
   <table class="approval-table">
     <tr>

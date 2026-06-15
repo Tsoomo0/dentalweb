@@ -32,6 +32,8 @@ class LeaveRequestExport implements FromCollection, ShouldAutoSize, WithHeadings
             'Төрөл',
             'Шалтгаан',
             'Орлох',
+            'Нөхөж ажиллах өдөр',
+            'Нөхөх тайлбар',
             'Статус',
             'Шийдвэрлэсэн',
         ];
@@ -56,6 +58,8 @@ class LeaveRequestExport implements FromCollection, ShouldAutoSize, WithHeadings
             $leaveTypes[$request->leave_type] ?? $request->leave_type,
             $request->reason,
             $request->replacement?->full_name ?? '—',
+            $request->makeup_date?->format('Y-m-d') ?? '—',
+            $request->makeup_note ?? '—',
             $statusMap[$request->status] ?? $request->status,
             $reviewer.$reviewedAt,
         ];

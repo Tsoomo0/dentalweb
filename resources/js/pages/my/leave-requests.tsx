@@ -18,6 +18,7 @@ interface LeaveRequest {
     start_date: string; end_date: string; days: number;
     leave_type: string; reason: string;
     replacement: string | null;
+    makeup_date: string | null; makeup_note: string | null;
     status: 'pending' | 'approved' | 'rejected';
     rejection_reason: string | null;
     reviewed_at: string | null;
@@ -73,6 +74,7 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
     const { data, setData, post, processing, errors, reset } = useForm({
         start_date: '', end_date: '', leave_type: 'sick',
         reason: '', replacement_employee_id: '',
+        makeup_date: '', makeup_note: '',
     });
 
     function submit(e: React.FormEvent) {
@@ -243,6 +245,26 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
                                 </div>
                             </div>
 
+                            {/* Makeup day card */}
+                            <div style={{ background: 'var(--my-card-bg)', borderRadius: 24, overflow: 'hidden', boxShadow: 'var(--my-shadow)' }}>
+                                <div style={{ padding: '13px 18px 11px', borderBottom: '1px solid var(--my-divider)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b' }} />
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--my-muted)', letterSpacing: 0.5 }}>НӨХӨЖ АЖИЛЛАХ ӨДӨР</span>
+                                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--my-faint)', marginLeft: 'auto' }}>(заавал биш)</span>
+                                </div>
+                                <div style={{ padding: '14px 18px' }}>
+                                    <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--my-faint)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Огноо</p>
+                                    <input type="date" value={data.makeup_date} onChange={e => setData('makeup_date', e.target.value)}
+                                        style={{ fontSize: 15, fontWeight: 800, color: 'var(--my-input-text)', border: 'none', outline: 'none', background: 'transparent', width: '100%', padding: 0 }} />
+                                    {errors.makeup_date && <p style={{ fontSize: 10, color: RED, margin: '4px 0 0' }}>{errors.makeup_date}</p>}
+                                    <div style={{ height: 1, background: 'var(--my-divider)', margin: '12px 0' }} />
+                                    <textarea value={data.makeup_note} onChange={e => setData('makeup_note', e.target.value)}
+                                        rows={2} placeholder="Тайлбар..."
+                                        style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: 'var(--my-input-text)', resize: 'none', fontFamily: 'inherit', lineHeight: 1.6, padding: 0, boxSizing: 'border-box' } as React.CSSProperties} />
+                                    {errors.makeup_note && <p style={{ fontSize: 10, color: RED, margin: '4px 0 0' }}>{errors.makeup_note}</p>}
+                                </div>
+                            </div>
+
                             {/* Submit — same style as payroll card in home */}
                             <button type="submit" disabled={processing}
                                 style={{
@@ -309,6 +331,12 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
                                             </div>
                                             <div style={{ padding: '12px 18px 14px' }}>
                                                 <p style={{ fontSize: 13, color: 'var(--my-muted)', margin: 0, lineHeight: 1.55 }}>{r.reason}</p>
+                                                {r.makeup_date && (
+                                                    <div style={{ marginTop: 8, background: '#fffbeb', borderRadius: 10, padding: '8px 12px' }}>
+                                                        <p style={{ fontSize: 11, fontWeight: 700, color: '#b45309', margin: 0 }}>Нөхөж ажиллах: {r.makeup_date}</p>
+                                                        {r.makeup_note && <p style={{ fontSize: 11, color: '#92400e', margin: '2px 0 0' }}>{r.makeup_note}</p>}
+                                                    </div>
+                                                )}
                                                 {r.status === 'rejected' && r.rejection_reason && (
                                                     <div style={{ marginTop: 8, background: '#fef2f2', borderRadius: 10, padding: '8px 12px' }}>
                                                         <p style={{ fontSize: 11, color: RED, margin: 0 }}>{r.rejection_reason}</p>
@@ -394,6 +422,19 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
                                     className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400 resize-none" />
                                 {errors.reason && <p className="mt-1 text-xs text-red-500">{errors.reason}</p>}
                             </div>
+                            <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Нөхөж ажиллах өдөр <span className="font-normal text-muted-foreground/60">(заавал биш)</span></label>
+                                <input type="date" value={data.makeup_date} onChange={e => setData('makeup_date', e.target.value)}
+                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
+                                {errors.makeup_date && <p className="mt-1 text-xs text-red-500">{errors.makeup_date}</p>}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Нөхөж ажиллах тайлбар</label>
+                                <input type="text" value={data.makeup_note} onChange={e => setData('makeup_note', e.target.value)}
+                                    placeholder="Тайлбар..."
+                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
+                                {errors.makeup_note && <p className="mt-1 text-xs text-red-500">{errors.makeup_note}</p>}
+                            </div>
                             <div className="col-span-2 flex justify-end">
                                 <button type="submit" disabled={processing}
                                     className="flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
@@ -420,6 +461,7 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
                                     <th className="px-4 py-3 text-left font-semibold">Төрөл</th>
                                     <th className="px-4 py-3 text-left font-semibold">Шалтгаан</th>
                                     <th className="px-4 py-3 text-left font-semibold">Орлох</th>
+                                    <th className="px-4 py-3 text-left font-semibold">Нөхөж ажиллах</th>
                                     <th className="px-4 py-3 text-left font-semibold">Статус</th>
                                 </tr>
                             </thead>
@@ -431,6 +473,11 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
                                         <td className="px-4 py-3 text-muted-foreground">{LEAVE_TYPES[r.leave_type] ?? r.leave_type}</td>
                                         <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{r.reason}</td>
                                         <td className="px-4 py-3 text-muted-foreground">{r.replacement ?? '—'}</td>
+                                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                                            {r.makeup_date
+                                                ? <span title={r.makeup_note ?? ''}>{r.makeup_date}{r.makeup_note ? ' ⓘ' : ''}</span>
+                                                : '—'}
+                                        </td>
                                         <td className="px-4 py-3">
                                             <div>
                                                 <StatusBadge status={r.status} />

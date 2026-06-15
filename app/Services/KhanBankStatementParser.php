@@ -145,7 +145,16 @@ class KhanBankStatementParser
     // ─────────────────────────────────────────────────────────
     public function parseExcel(UploadedFile $file): array
     {
-        $rows = \Maatwebsite\Excel\Facades\Excel::toArray(null, $file->getRealPath());
+        // Upload хийсэн түр файл (жишээ нь /tmp/phpA3F2) дээр өргөтгөл байхгүй тул
+        // PhpSpreadsheet reader-ийн төрлийг автоматаар таньж чаддаггүй
+        // ("No ReaderType could be detected"). Иймд оригинал өргөтгөлөөс
+        // reader-ийн төрлийг тодорхой зааж дамжуулна (production дээр найдвартай).
+        $rows = \Maatwebsite\Excel\Facades\Excel::toArray(
+            null,
+            $file->getRealPath(),
+            null,
+            self::readerTypeFor($file),
+        );
         $sheet = $rows[0] ?? [];
 
         $accountNumber = '';
@@ -245,6 +254,20 @@ class KhanBankStatementParser
             'period_to'      => $periodTo ?: ($credits[count($credits) - 1]['date'] ?? null),
             'credits'        => $credits,
         ];
+    }
+
+    /**
+     * Оригинал файлын өргөтгөлөөс maatwebsite/excel-ийн reader төрлийг тодорхойлно.
+     * Upload temp файлд өргөтгөл байдаггүй тул автомат detection-д найдалгүй заана.
+     */
+    private static function readerTypeFor(UploadedFile $file): ?string
+    {
+        return match (strtolower($file->getClientOriginalExtension())) {
+            'xlsx'  => \Maatwebsite\Excel\Excel::XLSX,
+            'xls'   => \Maatwebsite\Excel\Excel::XLS,
+            'csv'   => \Maatwebsite\Excel\Excel::CSV,
+            default => null,
+        };
     }
 
     /**

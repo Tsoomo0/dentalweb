@@ -13,6 +13,7 @@ interface LeaveRequest {
     start_date: string; end_date: string; days: number;
     leave_type: string; reason: string;
     replacement: string | null;
+    makeup_date: string | null; makeup_note: string | null;
     status: 'pending' | 'approved' | 'rejected';
     rejection_reason: string | null;
     reviewed_by: string | null; reviewed_at: string | null;
@@ -239,6 +240,13 @@ export default function HrLeaveRequests({ requests }: Props) {
                                                         <div>
                                                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Орлох ажилтан</p>
                                                             <p className="text-foreground">{r.replacement ?? <span className="text-muted-foreground">Заагаагүй</span>}</p>
+                                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 mt-3">Нөхөж ажиллах өдөр</p>
+                                                            {r.makeup_date ? (
+                                                                <>
+                                                                    <p className="text-foreground">{r.makeup_date}</p>
+                                                                    {r.makeup_note && <p className="text-xs text-muted-foreground mt-0.5">{r.makeup_note}</p>}
+                                                                </>
+                                                            ) : <span className="text-muted-foreground">Заагаагүй</span>}
                                                         </div>
                                                         <div>
                                                             {r.status !== 'pending' && r.reviewed_by && (
