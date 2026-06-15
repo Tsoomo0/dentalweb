@@ -43,18 +43,19 @@ class SocialWebhookController extends Controller
     {
         $raw = $request->getContent();
         $signature = $request->header('X-Hub-Signature-256');
-        $valid = $this->meta->verifySignature($raw, $signature);
 
-        // ДЕБАГ: ирсэн бүх event-ийг логдоно (signature таарсан эсэх ч хамт).
-        Log::info('Meta webhook IN', [
-            'object' => $request->input('object'),
-            'signature_ok' => $valid,
-            'bytes' => strlen($raw),
-        ]);
-        // ДЕБАГ: бүтэн payload (page id / sender / recipient / text шалгах) — дараа устгана.
-        Log::info('Meta webhook RAW', ['payload' => $raw]);
+        // Гарын үсэг (X-Hub-Signature-256) шалгана — App Secret-ээр баталгаажуулна.
+        // Таарахгүй бол хуурамч хүсэлт байж болзошгүй тул боловсруулахгүй (Meta-д 200
+        // буцааж дахин оролдлогын давталтаас сэргийлнэ).
+        if (! $this->meta->verifySignature($raw, $signature)) {
+            Log::warning('Meta webhook signature invalid', [
+                'object' => $request->input('object'),
+                'bytes' => strlen($raw),
+            ]);
 
-        // Дебагийн турш signature таарахгүй ч боловсруулна (дараа буцааж чангална).
+            return response('EVENT_RECEIVED', 200);
+        }
+
         ProcessSocialEvent::dispatch($request->all());
 
         return response('EVENT_RECEIVED', 200);
