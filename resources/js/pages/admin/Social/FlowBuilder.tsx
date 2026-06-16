@@ -617,8 +617,8 @@ function CardButtons({ buttons, allFlows, forms, onChange }: { buttons: CardBtn[
                             <button onClick={() => { if (i > 0) { const a = [...buttons];[a[i - 1], a[i]] = [a[i], a[i - 1]]; onChange(a); } }} disabled={i === 0} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
                             <button onClick={() => { if (i < buttons.length - 1) { const a = [...buttons];[a[i], a[i + 1]] = [a[i + 1], a[i]]; onChange(a); } }} disabled={i === buttons.length - 1} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30"><ChevronDown className="h-3 w-3" /></button>
                         </div>
-                        <input value={b.label} onChange={e => upd(i, { label: e.target.value })} maxLength={20} placeholder="Товч" className="flex-1 rounded-md border px-2 py-1 text-xs" />
-                        <EmojiButton onPick={em => upd(i, { label: `${em} ${b.label}`.slice(0, 20).trimStart() })} />
+                        <input value={b.label} onChange={e => upd(i, { label: e.target.value })} maxLength={30} placeholder="Товч" className="flex-1 rounded-md border px-2 py-1 text-xs" />
+                        <EmojiButton onPick={em => upd(i, { label: `${em} ${b.label}`.slice(0, 30).trimStart() })} />
                         <button onClick={() => onChange(buttons.filter((_, idx) => idx !== i))} className="rounded p-1 text-red-500 hover:bg-red-500/10"><Trash2 className="h-3 w-3" /></button>
                     </div>
                     <Sel size="sm" value={b.action} onChange={v => upd(i, { action: v as Action })} options={(Object.keys(ACTION_META) as Action[]).map(a => ({ value: a, label: ACTION_META[a].label }))} />

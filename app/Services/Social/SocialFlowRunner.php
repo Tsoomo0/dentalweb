@@ -360,11 +360,11 @@ class SocialFlowRunner
             foreach ($card['buttons'] ?? [] as $b) {
                 $hasButtons = true;
                 if (($b['action'] ?? '') === 'call' && ! empty($b['phone'])) {
-                    $buttons[] = ['type' => 'phone_number', 'title' => mb_substr($b['label'] ?? 'Залгах', 0, 20), 'payload' => $b['phone']];
+                    $buttons[] = ['type' => 'phone_number', 'title' => mb_substr($b['label'] ?? 'Залгах', 0, 30), 'payload' => $b['phone']];
                 } elseif (($b['action'] ?? '') === 'web_form' && ! empty($b['target_form_id'])) {
-                    $buttons[] = ['type' => 'web_url', 'title' => mb_substr($b['label'] ?? 'Бөглөх', 0, 20), 'url' => $this->formUrl((int) $b['target_form_id'], $conversation, $contact)];
+                    $buttons[] = ['type' => 'web_url', 'title' => mb_substr($b['label'] ?? 'Бөглөх', 0, 30), 'url' => $this->formUrl((int) $b['target_form_id'], $conversation, $contact)];
                 } elseif (($b['action'] ?? '') === 'url' && ! empty($b['url'])) {
-                    $buttons[] = ['type' => 'web_url', 'title' => mb_substr($b['label'] ?? 'Үзэх', 0, 20), 'url' => $b['url']];
+                    $buttons[] = ['type' => 'web_url', 'title' => mb_substr($b['label'] ?? 'Үзэх', 0, 30), 'url' => $b['url']];
                 } else {
                     $payload = match ($b['action'] ?? '') {
                         'next_node' => 'node:'.($b['target_node_id'] ?? ''),
@@ -372,7 +372,7 @@ class SocialFlowRunner
                         'handoff' => 'handoff',
                         default => 'noop',
                     };
-                    $buttons[] = ['type' => 'postback', 'title' => mb_substr($b['label'] ?? 'Сонгох', 0, 20), 'payload' => $payload];
+                    $buttons[] = ['type' => 'postback', 'title' => mb_substr($b['label'] ?? 'Сонгох', 0, 30), 'payload' => $payload];
                 }
             }
 
