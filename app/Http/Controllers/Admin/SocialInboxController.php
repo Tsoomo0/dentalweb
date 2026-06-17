@@ -115,7 +115,7 @@ class SocialInboxController extends Controller
         $conversation->loadMissing(['account', 'contact']);
 
         $path = $request->file('file')->store('social/inbox', 'public');
-        $url = Storage::url($path); // relative '/storage/...'
+        $url = Storage::disk('public')->url($path); // '/storage/...' (public диск, default биш)
 
         $result = $this->meta->sendAttachment($conversation->account, $conversation->contact->external_id, $data['kind'], $url);
 

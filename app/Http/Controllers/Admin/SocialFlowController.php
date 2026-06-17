@@ -160,8 +160,8 @@ class SocialFlowController extends Controller
         $standardPath = $this->storeStandardImage($file);          // 1.91:1 (1080×566)
         $originalPath = $file->store('social', 'public');          // оригинал хэвээр
 
-        $standard = ['url' => Storage::url($standardPath), 'w' => 1080, 'h' => 566];
-        $original = ['url' => Storage::url($originalPath), 'w' => $size[0], 'h' => $size[1]];
+        $standard = ['url' => Storage::disk('public')->url($standardPath), 'w' => 1080, 'h' => 566];
+        $original = ['url' => Storage::disk('public')->url($originalPath), 'w' => $size[0], 'h' => $size[1]];
 
         return response()->json([
             'url' => $mode === 'original' ? $original['url'] : $standard['url'],
@@ -232,7 +232,7 @@ class SocialFlowController extends Controller
 
         $path = $request->file('file')->store('social/files', 'public');
 
-        return response()->json(['url' => Storage::url($path)]);
+        return response()->json(['url' => Storage::disk('public')->url($path)]);
     }
 
     /** Canvas дээрх node-уудын байрлалыг багцаар хадгална. */
