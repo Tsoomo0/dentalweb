@@ -456,9 +456,13 @@ function Canvas({ flow, allFlows, accounts, analytics, tokens, forms, patchFlow,
     }, [flow, patchFlow]);
 
     function addNode(type: NodeType) {
-        const maxY = Math.max(0, ...flow.nodes.map(n => n.position_y));
+        // Шинэ блокийг хамгийн сүүлд нэмсэн (хамгийн өндөр id) блокийн баруун хажууд тавина —
+        // эхлэл хэсгийн хажууд овоорч давхцахаас сэргийлнэ.
+        const last = flow.nodes.length ? flow.nodes.reduce((a, b) => (b.id > a.id ? b : a)) : null;
+        const px = last ? last.position_x + 320 : 360;
+        const py = last ? last.position_y + 40 : 80;
         const body = type === 'message' ? 'Шинэ мессеж' : type === 'question' ? 'Асуултаа бичнэ үү...' : '';
-        axios.post('/admin/social/flow-nodes', { flow_id: flow.id, type, body, position_x: 80, position_y: maxY + 180 })
+        axios.post('/admin/social/flow-nodes', { flow_id: flow.id, type, body, position_x: px, position_y: py })
             .then(r => { patchFlow({ ...flow, nodes: [...flow.nodes, { ...r.data.node, buttons: r.data.node.buttons ?? [] }] }); setEditNodeId(r.data.node.id); });
     }
 
@@ -717,6 +721,8 @@ function TokenBar({ tokens, onInsert }: { tokens: string[]; onInsert: (t: string
 /* ─── Node drawer (төрлөөр salaalna) ─────────────────────────────────────── */
 function NodeDrawer({ flow, allFlows, forms, node, tokens, patchFlow, onClose }: { flow: FlowT; allFlows: FlowT[]; forms: FormRef[]; node: NodeT; tokens: string[]; patchFlow: (f: FlowT) => void; onClose: () => void; }) {
     const [d, setD] = useState<NodeT>(node);
+    // Түлхүүр үгийн түүхий текст — бичих явцад зай/таслал арилахаас сэргийлнэ (массив руу зөвхөн задлана).
+    const [kwText, setKwText] = useState((node.keywords ?? []).join(', '));
     const bodyRef = useRef<HTMLTextAreaElement>(null);
     const replaceNode = (n: NodeT) => patchFlow({ ...flow, nodes: flow.nodes.map(x => (x.id === n.id ? n : x)) });
     const set = (k: keyof NodeT, v: unknown) => setD(prev => ({ ...prev, [k]: v }));
@@ -762,7 +768,7 @@ function NodeDrawer({ flow, allFlows, forms, node, tokens, patchFlow, onClose }:
 
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2.5">
                     <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-emerald-700"><Zap className="h-3.5 w-3.5" /> Түлхүүр үг (автомат таних)</div>
-                    <input value={(d.keywords ?? []).join(', ')} onChange={e => set('keywords', e.target.value.split(',').map(k => k.trim()).filter(Boolean))}
+                    <input value={kwText} onChange={e => { setKwText(e.target.value); set('keywords', e.target.value.split(',').map(k => k.trim()).filter(Boolean)); }}
                         placeholder="металл, metal, металл аппарат" className="w-full rounded-lg border bg-background px-3 py-2 text-sm" />
                     <p className="mt-1 text-[10px] text-muted-foreground">Хэрэглэгч чөлөөтэй бичихэд эдгээр үг таарвал → шууд энэ блок руу үсэрнэ (таслалаар тусгаарла).</p>
                 </div>
