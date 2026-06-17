@@ -390,6 +390,39 @@ function Canvas({ flow, allFlows, accounts, analytics, tokens, forms, patchFlow,
     const [edges, setEdges, onEdgesChange] = useEdgesState(rfEdges);
     useEffect(() => { setNodes(rfNodes); setEdges(rfEdges); }, [rfNodes, rfEdges, setNodes, setEdges]);
 
+    // ── Copy / Paste (Ctrl+C / Ctrl+V) — сонгосон блок(ууд)-ыг хуулбарлана ───────
+    const clipboard = useRef<number[]>([]);
+    const nodesRef = useRef(nodes); nodesRef.current = nodes;
+    const flowRef = useRef(flow); flowRef.current = flow;
+    const patchRef = useRef(patchFlow); patchRef.current = patchFlow;
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (!(e.ctrlKey || e.metaKey)) return;
+            const el = document.activeElement as HTMLElement | null;
+            // Input/textarea дотор бичиж байвал энгийн текст copy/paste-д саад болохгүй
+            if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+            const k = e.key.toLowerCase();
+            if (k === 'c') {
+                const ids = nodesRef.current.filter(n => n.selected && n.id !== 'trigger').map(n => Number(n.id));
+                if (ids.length) { clipboard.current = ids; e.preventDefault(); }
+            } else if (k === 'v') {
+                if (!clipboard.current.length) return;
+                e.preventDefault();
+                const f = flowRef.current;
+                Promise.all(clipboard.current.map(id =>
+                    axios.post(`/admin/social/flow-nodes/${id}/duplicate`)
+                        .then(r => ({ ...r.data.node, buttons: r.data.node.buttons ?? [] }))
+                        .catch(() => null)
+                )).then(created => {
+                    const valid = created.filter(Boolean);
+                    if (valid.length) patchRef.current({ ...f, nodes: [...f.nodes, ...valid] });
+                });
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
+
     const onNodeDragStop = useCallback((_e: React.MouseEvent, node: Node) => {
         if (node.id === 'trigger') return;
         const x = Math.round(node.position.x), y = Math.round(node.position.y);
@@ -481,7 +514,8 @@ function Canvas({ flow, allFlows, accounts, analytics, tokens, forms, patchFlow,
 
             <ReactFlow colorMode={isDark ? 'dark' : 'light'} nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onEdgesDelete={onEdgesDelete} onNodesDelete={onNodesDelete} onNodeDragStop={onNodeDragStop}
                 onNodeClick={(_e, node) => { if (node.id !== 'trigger') setEditNodeId(Number(node.id)); }}
-                nodeTypes={nodeTypes} fitView proOptions={{ hideAttribution: true }} deleteKeyCode={['Backspace', 'Delete']}>
+                nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.2, minZoom: 0.1 }} minZoom={0.1} maxZoom={2} proOptions={{ hideAttribution: true }}
+                deleteKeyCode={['Backspace', 'Delete']} multiSelectionKeyCode={['Control', 'Meta']} selectionKeyCode={'Shift'}>
                 <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
                 <Controls />
                 <MiniMap pannable zoomable className="!bottom-3 !right-3" />
@@ -718,6 +752,23 @@ function TokenBar({ tokens, onInsert }: { tokens: string[]; onInsert: (t: string
     );
 }
 
+/* ─── Хэлбэржүүлэх туслах товчнууд (Messenger plain text дотор) ─────────────── */
+function FormatBar({ onInsert }: { onInsert: (t: string) => void }) {
+    const items = [
+        { label: '• Цэг', insert: '\n• ', title: 'Цэгтэй жагсаалт' },
+        { label: '1. Дугаар', insert: '\n1. ', title: 'Дугаарласан жагсаалт' },
+        { label: '━ Зураас', insert: '\n━━━━━━━━━━\n', title: 'Хуваах зураас' },
+        { label: '↵ Мөр', insert: '\n', title: 'Шинэ мөр' },
+    ];
+    return (
+        <div className="flex flex-wrap items-center gap-1">
+            <span className="text-[10px] text-muted-foreground">Хэлбэр:</span>
+            {items.map(it => <button key={it.label} type="button" title={it.title} onClick={() => onInsert(it.insert)} className="rounded bg-muted px-1.5 py-0.5 text-[10px] hover:bg-accent">{it.label}</button>)}
+            <EmojiButton onPick={onInsert} />
+        </div>
+    );
+}
+
 /* ─── Node drawer (төрлөөр salaalna) ─────────────────────────────────────── */
 function NodeDrawer({ flow, allFlows, forms, node, tokens, patchFlow, onClose }: { flow: FlowT; allFlows: FlowT[]; forms: FormRef[]; node: NodeT; tokens: string[]; patchFlow: (f: FlowT) => void; onClose: () => void; }) {
     const [d, setD] = useState<NodeT>(node);
@@ -791,7 +842,8 @@ function NodeDrawer({ flow, allFlows, forms, node, tokens, patchFlow, onClose }:
 
                 {(d.type === 'message' || d.type === 'question') && <>
                     <TokenBar tokens={tokens} onInsert={insertToken} />
-                    <textarea ref={bodyRef} value={d.body} onChange={e => set('body', e.target.value)} rows={4} placeholder={d.type === 'question' ? 'Асуултаа бичнэ үү…' : 'Мессежийн текст'} className="w-full rounded-lg border px-3 py-2 text-sm" />
+                    <FormatBar onInsert={insertToken} />
+                    <textarea ref={bodyRef} value={d.body} onChange={e => set('body', e.target.value)} rows={4} placeholder={d.type === 'question' ? 'Асуултаа бичнэ үү…' : 'Мессежийн текст'} className="w-full whitespace-pre-wrap rounded-lg border px-3 py-2 text-sm" />
                 </>}
 
                 {d.type === 'question' && <input value={d.save_field ?? ''} onChange={e => set('save_field', e.target.value)} placeholder="Хариуг хадгалах талбарын нэр (ж: phone)" className="w-full rounded-lg border px-3 py-2 text-sm" />}

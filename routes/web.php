@@ -401,6 +401,7 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::delete('social/flows/{flow}', [SocialFlowController::class, 'destroyFlow'])->name('social.flows.destroy');
     Route::post('social/flow-nodes', [SocialFlowController::class, 'storeNode'])->name('social.flow-nodes.store');
     Route::post('social/flow-nodes/positions', [SocialFlowController::class, 'savePositions'])->name('social.flow-nodes.positions');
+    Route::post('social/flow-nodes/{node}/duplicate', [SocialFlowController::class, 'duplicateNode'])->name('social.flow-nodes.duplicate');
     Route::post('social/flow-image', [SocialFlowController::class, 'uploadImage'])->name('social.flow-image');
     Route::post('social/flow-file', [SocialFlowController::class, 'uploadFile'])->name('social.flow-file');
     Route::put('social/flow-nodes/{node}', [SocialFlowController::class, 'updateNode'])->name('social.flow-nodes.update');

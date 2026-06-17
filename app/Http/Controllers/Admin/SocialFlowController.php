@@ -144,6 +144,28 @@ class SocialFlowController extends Controller
         return response()->json(['node' => $node->fresh('buttons')]);
     }
 
+    /** Блокийг (бүх талбар + товчнуудтай) хуулбарлана — Copy/Paste-д ашиглана. */
+    public function duplicateNode(SocialFlowNode $node): JsonResponse
+    {
+        $clone = $node->replicate();
+        $clone->is_entry = false; // хуулбар хэзээ ч эхлэл биш
+        $clone->sent_count = 0;
+        $clone->position_x = $node->position_x + 40;
+        $clone->position_y = $node->position_y + 40;
+        $clone->sort_order = (int) (SocialFlowNode::where('flow_id', $node->flow_id)->max('sort_order') ?? 0) + 1;
+        $clone->save();
+
+        // Товчнуудыг хуулна (target_node_id хэвээр — ижил дараагийн блок руу заана).
+        foreach ($node->buttons as $btn) {
+            $b = $btn->replicate();
+            $b->node_id = $clone->id;
+            $b->click_count = 0;
+            $b->save();
+        }
+
+        return response()->json(['node' => $clone->fresh('buttons')]);
+    }
+
     /** Зураг upload — public disk дээр хадгалж URL буцаана. */
     public function uploadImage(Request $request): JsonResponse
     {
