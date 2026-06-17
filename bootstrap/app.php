@@ -43,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'payment/callback/*',
             'patient/leasing/callback/*',
             'webhooks/social',
+            'data-deletion',
             'f/*/submit',
         ]);
     })

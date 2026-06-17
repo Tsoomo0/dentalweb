@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\SocialFlowController;
 use App\Http\Controllers\Admin\SocialFormController;
 use App\Http\Controllers\Admin\SocialInboxController;
 use App\Http\Controllers\Admin\SocialOAuthController;
+use App\Http\Controllers\Social\DataDeletionController;
 use App\Http\Controllers\Social\PublicFormController;
 use App\Http\Controllers\Social\SocialWebhookController;
 use App\Http\Controllers\Admin\SubTreatmentController;
@@ -179,6 +180,10 @@ HTML;
 
     return response($html)->header('Content-Type', 'text/html; charset=utf-8');
 })->name('privacy');
+
+// ── Мэдээлэл устгах callback (Meta App Review-д шаардлагатай) ─────────────────
+Route::post('/data-deletion', [DataDeletionController::class, 'callback'])->name('data-deletion.callback');
+Route::get('/data-deletion', [DataDeletionController::class, 'status'])->name('data-deletion.status');
 
 // ── Олон нийтийн вэбформ ─────────────────────────────────────────────────────
 Route::get('/f/{form}', [PublicFormController::class, 'show'])->name('public.social-form');
