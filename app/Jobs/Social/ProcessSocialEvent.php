@@ -146,6 +146,16 @@ class ProcessSocialEvent implements ShouldQueue
             return;
         }
 
+        // Instagram-ийн echo-д app_id байдаггүй тул ботын өөрийн мессежийг хүн
+        // оператор гэж андуурдаг байв. Бот саяхан (30с дотор) мессеж илгээсэн бол
+        // энэ echo нь ботын өөрийнх → handoff хийхгүй, давхар бичихгүй.
+        if ($appId === '' && SocialMessage::where('social_conversation_id', $conversation->id)
+            ->where('sender', SocialMessage::SENDER_BOT)
+            ->where('created_at', '>=', now()->subSeconds(30))
+            ->exists()) {
+            return;
+        }
+
         // Хүн Meta inbox-оос хариулсан тул ботыг зогсооно.
         if ($conversation->status === SocialConversation::STATUS_BOT) {
             $conversation->update(['status' => SocialConversation::STATUS_OPEN, 'awaiting_node_id' => null]);
