@@ -424,7 +424,7 @@ class SocialFlowRunner
 
     private function execMessage(SocialAccount $account, SocialConversation $conversation, SocialContact $contact, SocialFlowNode $node): ?SocialFlowNode
     {
-        Log::warning('DEBUG execMessage', ['node' => $node->id, 'channel' => $conversation->channel, 'img' => ! empty($node->image_url), 'btns' => $node->buttons()->count()]);
+        $isIg = $conversation->channel === 'instagram';
 
         // Зураг (хэрэв байвал)
         if (! empty($node->image_url)) {
@@ -439,9 +439,10 @@ class SocialFlowRunner
         $labels = $p['labels'];
 
         if (! empty($tpl)) {
-            if ($conversation->channel === 'instagram') {
-                // Instagram нь button template дэмждэггүй — нэг картын generic template
-                // болгоно (phone товчийг postback болгоно).
+            if ($isIg) {
+                // Instagram нь button template дэмждэггүй: биеийг текстээр (1000-аар хувааж)
+                // илгээгээд, товчнуудыг нэг картын generic template-аар (phone → postback).
+                $mid = trim($body) !== '' ? $this->sendBodyChunks($account, $conversation, $contact->external_id, $body) : null;
                 $igButtons = array_map(function ($b) {
                     if (($b['type'] ?? '') === 'phone_number') {
                         return ['type' => 'postback', 'title' => $b['title'] ?? 'Залгах', 'payload' => 'phone:'.($b['payload'] ?? '')];
@@ -449,24 +450,29 @@ class SocialFlowRunner
 
                     return $b;
                 }, $tpl);
-                $el = ['title' => mb_substr(trim($body) !== '' ? $body : 'Сонгоно уу 👇', 0, 80), 'buttons' => array_slice($igButtons, 0, 3)];
-                if (mb_strlen(trim($body)) > 80) {
-                    $el['subtitle'] = mb_substr(trim($body), 80, 80);
-                }
-                $result = $this->meta->sendGenericTemplate($account, $contact->external_id, [$el]);
-                Log::warning('DEBUG IG msg', ['ok' => $result['ok'] ?? null, 'error' => $result['error'] ?? null, 'el' => $el]);
+                $result = $this->meta->sendGenericTemplate($account, $contact->external_id, [['title' => '👇 Сонгоно уу', 'buttons' => array_slice($igButtons, 0, 3)]]);
+                $result['mid'] = $result['mid'] ?? $mid;
             } else {
                 $text = trim($body) !== '' ? $body : '⠀'; // button template-д текст заавал
                 $result = $this->meta->sendButtonTemplate($account, $contact->external_id, $text, $tpl, $quick);
             }
             $this->record($conversation, $node, $body, $result['mid'] ?? null, $labels, 'buttons');
         } elseif (! empty($quick)) {
-            $text = trim($body) !== '' ? $body : 'Сонгоно уу 👇';
-            $result = $this->meta->sendQuickReplies($account, $contact->external_id, $text, $quick);
+            // Quick reply-ийн текст урт бол IG-д хэтэрнэ — биеийг тусад нь, чипийг богино промптоор.
+            if ($isIg && mb_strlen(trim($body)) > 950) {
+                $mid = $this->sendBodyChunks($account, $conversation, $contact->external_id, $body);
+                $result = $this->meta->sendQuickReplies($account, $contact->external_id, 'Сонгоно уу 👇', $quick);
+                $result['mid'] = $result['mid'] ?? $mid;
+            } else {
+                $text = trim($body) !== '' ? $body : 'Сонгоно уу 👇';
+                $result = $this->meta->sendQuickReplies($account, $contact->external_id, $text, $quick);
+            }
             $this->record($conversation, $node, $body, $result['mid'] ?? null, $labels, 'buttons');
         } elseif (trim($body) !== '') {
-            $result = $this->meta->sendText($account, $contact->external_id, $body);
-            $this->record($conversation, $node, $body, $result['mid'] ?? null, [], 'text');
+            $mid = $isIg
+                ? $this->sendBodyChunks($account, $conversation, $contact->external_id, $body)
+                : ($this->meta->sendText($account, $contact->external_id, $body)['mid'] ?? null);
+            $this->record($conversation, $node, $body, $mid, [], 'text');
         }
 
         // Навигацийн товч (чип эсвэл postband товч) байвал хэрэглэгчийн сонголтыг хүлээнэ.
@@ -579,6 +585,49 @@ class SocialFlowRunner
             'status' => SocialConversation::STATUS_OPEN,
             'unread_count' => ($conversation->unread_count ?? 0) + 1,
         ]);
+    }
+
+    /** Биеийг сувгийн хязгаараар (IG=1000, FB=2000) хувааж дараалан илгээнэ. Сүүлийн mid буцаана. */
+    private function sendBodyChunks(SocialAccount $account, SocialConversation $conversation, string $recipientId, string $body): ?string
+    {
+        $limit = $conversation->channel === 'instagram' ? 1000 : 2000;
+        $mid = null;
+        foreach ($this->chunkText(trim($body), $limit) as $chunk) {
+            if ($chunk === '') {
+                continue;
+            }
+            $mid = $this->meta->sendText($account, $recipientId, $chunk)['mid'] ?? $mid;
+        }
+
+        return $mid;
+    }
+
+    /**
+     * Текстийг хязгаараас доош, аль болох мөр/зайгаар таслан хэсэглэнэ.
+     *
+     * @return array<int, string>
+     */
+    private function chunkText(string $text, int $limit): array
+    {
+        if (mb_strlen($text) <= $limit) {
+            return [$text];
+        }
+
+        $chunks = [];
+        while (mb_strlen($text) > $limit) {
+            $slice = mb_substr($text, 0, $limit);
+            $cut = max((int) mb_strrpos($slice, "\n"), (int) mb_strrpos($slice, ' '));
+            if ($cut < (int) ($limit * 0.5)) {
+                $cut = $limit; // зохистой таслах цэг олдсонгүй — хатуу таслана
+            }
+            $chunks[] = trim(mb_substr($text, 0, $cut));
+            $text = trim(mb_substr($text, $cut));
+        }
+        if ($text !== '') {
+            $chunks[] = $text;
+        }
+
+        return $chunks;
     }
 
     // ─── Гарах мессеж бичих + аналитик + broadcast ──────────────────────────────
