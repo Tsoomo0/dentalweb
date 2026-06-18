@@ -353,13 +353,16 @@ class SocialFlowRunner
     {
         $cards = $node->cards ?? [];
         $elements = [];
-        $hasButtons = false;
+        // Instagram нь generic template-д phone_number (call) товч дэмждэггүй — алгасна.
+        $isInstagram = $conversation->channel === 'instagram';
 
         foreach ($cards as $card) {
             $buttons = [];
             foreach ($card['buttons'] ?? [] as $b) {
-                $hasButtons = true;
                 if (($b['action'] ?? '') === 'call' && ! empty($b['phone'])) {
+                    if ($isInstagram) {
+                        continue; // IG-д утасны товч дэмжигдэхгүй
+                    }
                     $buttons[] = ['type' => 'phone_number', 'title' => mb_substr($b['label'] ?? 'Залгах', 0, 30), 'payload' => $b['phone']];
                 } elseif (($b['action'] ?? '') === 'web_form' && ! empty($b['target_form_id'])) {
                     $buttons[] = ['type' => 'web_url', 'title' => mb_substr($b['label'] ?? 'Бөглөх', 0, 30), 'url' => $this->formUrl((int) $b['target_form_id'], $conversation, $contact)];
@@ -394,6 +397,9 @@ class SocialFlowRunner
 
             $elements[] = $el;
         }
+
+        // Жинхэнэ үлдсэн товчоор тооцно (IG-д call товч хасагдсан байж болно).
+        $hasButtons = collect($elements)->contains(fn ($e) => ! empty($e['buttons']));
 
         $attachments = collect($cards)->map(fn ($c) => [
             'type' => 'card',
