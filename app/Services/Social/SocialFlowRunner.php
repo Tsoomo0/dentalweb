@@ -383,7 +383,9 @@ class SocialFlowRunner
             if (! empty($card['subtitle'])) {
                 $el['subtitle'] = mb_substr($this->personalize->apply($card['subtitle'], $contact), 0, 80);
             }
-            if (! empty($card['image'])) {
+            // Instagram картны зургийг рендер хийдэггүй бөгөөд хүрэхгүй зураг бол
+            // бүх мессежийг drop хийдэг тул IG-д зургийг хасна (FB дээр хэвээр).
+            if (! empty($card['image']) && ! $isInstagram) {
                 $el['image_url'] = $card['image'];
             }
             if (! empty($buttons)) {
