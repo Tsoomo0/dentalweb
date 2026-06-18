@@ -452,6 +452,7 @@ class SocialFlowRunner
                     $el['subtitle'] = mb_substr(trim($body), 80, 80);
                 }
                 $result = $this->meta->sendGenericTemplate($account, $contact->external_id, [$el]);
+                Log::warning('DEBUG IG msg', ['ok' => $result['ok'] ?? null, 'error' => $result['error'] ?? null, 'el' => $el]);
             } else {
                 $text = trim($body) !== '' ? $body : '⠀'; // button template-д текст заавал
                 $result = $this->meta->sendButtonTemplate($account, $contact->external_id, $text, $tpl, $quick);
