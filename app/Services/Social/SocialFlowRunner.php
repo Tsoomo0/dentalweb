@@ -424,6 +424,8 @@ class SocialFlowRunner
 
     private function execMessage(SocialAccount $account, SocialConversation $conversation, SocialContact $contact, SocialFlowNode $node): ?SocialFlowNode
     {
+        Log::warning('DEBUG execMessage', ['node' => $node->id, 'channel' => $conversation->channel, 'img' => ! empty($node->image_url), 'btns' => $node->buttons()->count()]);
+
         // Зураг (хэрэв байвал)
         if (! empty($node->image_url)) {
             $this->meta->sendImage($account, $contact->external_id, $node->image_url);
