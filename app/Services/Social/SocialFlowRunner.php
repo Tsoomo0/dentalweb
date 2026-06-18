@@ -118,6 +118,14 @@ class SocialFlowRunner
 
             return;
         }
+        // Instagram-д call товч дэмжигддэггүй тул postback болгосон — дарвал утасны дугаарыг текстээр харуулна.
+        if (str_starts_with($payload, 'phone:')) {
+            $phone = substr($payload, 6);
+            $result = $this->meta->sendText($account, $contact->external_id, '📞 Утсаар холбогдох: '.$phone);
+            $this->record($conversation, null, '📞 '.$phone, $result['mid'] ?? null, [], 'text');
+
+            return;
+        }
         if (str_starts_with($payload, 'node:')) {
             $node = SocialFlowNode::find((int) substr($payload, 5));
             if ($node) {
@@ -361,7 +369,9 @@ class SocialFlowRunner
             foreach ($card['buttons'] ?? [] as $b) {
                 if (($b['action'] ?? '') === 'call' && ! empty($b['phone'])) {
                     if ($isInstagram) {
-                        continue; // IG-д утасны товч дэмжигдэхгүй
+                        // IG нь phone_number товч дэмждэггүй — postback болгоно (товч харагдана, дарвал дугаар текстээр).
+                        $buttons[] = ['type' => 'postback', 'title' => mb_substr($b['label'] ?? 'Залгах', 0, 30), 'payload' => 'phone:'.$b['phone']];
+                        continue;
                     }
                     $buttons[] = ['type' => 'phone_number', 'title' => mb_substr($b['label'] ?? 'Залгах', 0, 30), 'payload' => $b['phone']];
                 } elseif (($b['action'] ?? '') === 'web_form' && ! empty($b['target_form_id'])) {
