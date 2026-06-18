@@ -437,8 +437,25 @@ class SocialFlowRunner
         $labels = $p['labels'];
 
         if (! empty($tpl)) {
-            $text = trim($body) !== '' ? $body : '⠀'; // button template-д текст заавал
-            $result = $this->meta->sendButtonTemplate($account, $contact->external_id, $text, $tpl, $quick);
+            if ($conversation->channel === 'instagram') {
+                // Instagram нь button template дэмждэггүй — нэг картын generic template
+                // болгоно (phone товчийг postback болгоно).
+                $igButtons = array_map(function ($b) {
+                    if (($b['type'] ?? '') === 'phone_number') {
+                        return ['type' => 'postback', 'title' => $b['title'] ?? 'Залгах', 'payload' => 'phone:'.($b['payload'] ?? '')];
+                    }
+
+                    return $b;
+                }, $tpl);
+                $el = ['title' => mb_substr(trim($body) !== '' ? $body : 'Сонгоно уу 👇', 0, 80), 'buttons' => array_slice($igButtons, 0, 3)];
+                if (mb_strlen(trim($body)) > 80) {
+                    $el['subtitle'] = mb_substr(trim($body), 80, 80);
+                }
+                $result = $this->meta->sendGenericTemplate($account, $contact->external_id, [$el]);
+            } else {
+                $text = trim($body) !== '' ? $body : '⠀'; // button template-д текст заавал
+                $result = $this->meta->sendButtonTemplate($account, $contact->external_id, $text, $tpl, $quick);
+            }
             $this->record($conversation, $node, $body, $result['mid'] ?? null, $labels, 'buttons');
         } elseif (! empty($quick)) {
             $text = trim($body) !== '' ? $body : 'Сонгоно уу 👇';
