@@ -16,6 +16,7 @@ class SocialContact extends Model
         'external_id',
         'name',
         'username',
+        'gender',
         'avatar',
         'last_interacted_at',
         'meta',

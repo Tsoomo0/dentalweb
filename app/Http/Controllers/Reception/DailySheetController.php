@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Reception;
 
+use App\Events\DailySheetUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\DailySheet;
 use App\Models\DailySheetEntry;
 use App\Models\Doctor;
+use App\Models\OverpaidUsage;
 use App\Models\Treatment;
 use App\Models\User;
 use App\Notifications\DailySheetConfirmed;
@@ -35,61 +37,58 @@ class DailySheetController extends Controller
         $userId = Auth::id();
         $date = $request->get('date', today()->toDateString());
 
-        $sheet = DailySheet::with(['entries.doctor', 'entries.user', 'receptionist', 'morningReceptionist'])
-            ->where('branch_id', $branchId)
-            ->whereDate('date', $date)
-            ->first();
-
-        $doctors = Doctor::where('is_active', true)
-            ->when($branchId, fn ($q) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $branchId)))
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
-        $treatments = Treatment::orderBy('title')->get(['id', 'title']);
-
-        $technicians = \DB::table('employees')
-            ->join('positions', 'employees.position_id', '=', 'positions.id')
-            ->where('positions.name', 'Рентген техникч')
-            ->where('employees.status', 'active')
-            ->when($branchId, fn ($q) => $q->where('employees.branch_id', $branchId))
-            ->whereNull('employees.deleted_at')
-            ->get(['employees.id', 'employees.first_name', 'employees.last_name'])
-            ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->last_name.' '.$e->first_name)])
-            ->values()
-            ->all();
-
-        $outstandingEntries = DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId)
-            ->whereNotNull('submitted_at')
-        )
-            ->where('outstanding_amount', '>', 0)
-            ->whereNull('outstanding_paid_at')
-            ->with(['dailySheet', 'doctor', 'user'])
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($e) => [
-            'id' => $e->id,
-            'patient_name' => $e->patient_name,
-            'diagnosis' => $e->diagnosis,
-            'outstanding_amount' => $e->outstanding_amount,
-            'date' => $e->dailySheet->date->toDateString(),
-            'receptionist_name' => $e->user?->name,
-            'doctor_name' => $e->doctor?->name,
-            'days_since' => (int) abs(now()->toDateString() !== $e->dailySheet->date->toDateString()
-                ? (strtotime(now()->toDateString()) - strtotime($e->dailySheet->date->toDateString())) / 86400
-                : 0),
-            'is_mine' => $e->user_id === $userId,
-        ])
-            ->values()
-            ->all();
-
+        // Prop-уудыг closure (lazy) болгов: мөр хадгалах үед client зөвхөн 'sheet'-ийг
+        // partial reload хийнэ → doctors/treatments/technicians/outstanding дахин query хийгдэхгүй.
         return Inertia::render('reception/daily-sheet/index', [
-            'sheet' => $sheet ? $this->mapSheet($sheet, $userId) : null,
+            'sheet' => function () use ($branchId, $date, $userId) {
+                $sheet = DailySheet::with(['entries.doctor', 'entries.user', 'receptionist', 'morningReceptionist'])
+                    ->where('branch_id', $branchId)
+                    ->whereDate('date', $date)
+                    ->first();
+
+                return $sheet ? $this->mapSheet($sheet, $userId) : null;
+            },
             'date' => $date,
-            'doctors' => $doctors,
-            'treatments' => $treatments,
-            'technicians' => $technicians,
+            'branch_id' => $branchId,
+            'doctors' => fn () => Doctor::where('is_active', true)
+                ->when($branchId, fn ($q) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $branchId)))
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'treatments' => fn () => Treatment::orderBy('title')->get(['id', 'title']),
+            'technicians' => fn () => \DB::table('employees')
+                ->join('positions', 'employees.position_id', '=', 'positions.id')
+                ->where('positions.name', 'Рентген техникч')
+                ->where('employees.status', 'active')
+                ->when($branchId, fn ($q) => $q->where('employees.branch_id', $branchId))
+                ->whereNull('employees.deleted_at')
+                ->get(['employees.id', 'employees.first_name', 'employees.last_name'])
+                ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->last_name.' '.$e->first_name)])
+                ->values()
+                ->all(),
             'auth_user' => ['id' => $userId, 'name' => Auth::user()->name],
-            'outstanding_entries' => $outstandingEntries,
+            'outstanding_entries' => fn () => DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId)
+                ->whereNotNull('submitted_at')
+            )
+                ->where('outstanding_amount', '>', 0)
+                ->whereNull('outstanding_paid_at')
+                ->with(['dailySheet', 'doctor', 'user'])
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn ($e) => [
+                    'id' => $e->id,
+                    'patient_name' => $e->patient_name,
+                    'diagnosis' => $e->diagnosis,
+                    'outstanding_amount' => $e->outstanding_amount,
+                    'date' => $e->dailySheet->date->toDateString(),
+                    'receptionist_name' => $e->user?->name,
+                    'doctor_name' => $e->doctor?->name,
+                    'days_since' => (int) abs(now()->toDateString() !== $e->dailySheet->date->toDateString()
+                        ? (strtotime(now()->toDateString()) - strtotime($e->dailySheet->date->toDateString())) / 86400
+                        : 0),
+                    'is_mine' => $e->user_id === $userId,
+                ])
+                ->values()
+                ->all(),
         ]);
     }
 
@@ -201,9 +200,7 @@ class DailySheetController extends Controller
                 // Энэ баримтад холбогдсон илүү тооцооноос ашигласан credit (Дутуу/Илүү тооцооны зөв тооцоонд)
                 $appliedCredit = 0;
                 if ($aptNumber) {
-                    $appliedCredit = (int) DailySheetEntry::where('overpaid_used_receipt', $aptNumber)
-                        ->whereNotNull('overpaid_used_at')
-                        ->sum('overpaid_used_amount');
+                    $appliedCredit = (int) OverpaidUsage::where('target_receipt', $aptNumber)->sum('amount');
                 }
                 $effective = $sum + $appliedCredit;
 
@@ -548,17 +545,16 @@ class DailySheetController extends Controller
         }
         $details = [];
 
-        DailySheetEntry::where('overpaid_used_receipt', $aptNumber)
-            ->whereNotNull('overpaid_used_at')
-            ->with('dailySheet')
+        OverpaidUsage::where('target_receipt', $aptNumber)
+            ->with('sourceEntry.dailySheet')
             ->get()
-            ->each(function ($c) use (&$details) {
+            ->each(function ($u) use (&$details) {
                 $details[] = [
                     'kind' => 'overpaid',
-                    'amount' => (int) $c->overpaid_used_amount,
-                    'method' => $c->overpaid_used_method,
-                    'from_date' => $c->dailySheet?->date?->toDateString(),
-                    'from_name' => $c->patient_name,
+                    'amount' => (int) $u->amount,
+                    'method' => $u->method,
+                    'from_date' => $u->sourceEntry?->dailySheet?->date?->toDateString(),
+                    'from_name' => $u->sourceEntry?->patient_name,
                 ];
             });
 
@@ -573,13 +569,12 @@ class DailySheetController extends Controller
             return $out;
         }
 
-        DailySheetEntry::where('overpaid_used_receipt', $aptNumber)
-            ->whereNotNull('overpaid_used_at')
-            ->get(['overpaid_used_method', 'overpaid_used_amount'])
-            ->each(function ($c) use (&$out) {
-                $m = $c->overpaid_used_method;
+        OverpaidUsage::where('target_receipt', $aptNumber)
+            ->get(['method', 'amount'])
+            ->each(function ($u) use (&$out) {
+                $m = $u->method;
                 if (isset($out[$m])) {
-                    $out[$m] += (int) $c->overpaid_used_amount;
+                    $out[$m] += (int) $u->amount;
                 }
             });
         DailySheetEntry::where('outstanding_paid_receipt', $aptNumber)
@@ -603,11 +598,10 @@ class DailySheetController extends Controller
         $apptNumbers = $entries->pluck('appointment_number')->filter()->unique()->values()->all();
         $creditsByReceipt = empty($apptNumbers)
             ? collect()
-            : DailySheetEntry::whereIn('overpaid_used_receipt', $apptNumbers)
-                ->whereNotNull('overpaid_used_at')
-                ->with('dailySheet')
+            : OverpaidUsage::whereIn('target_receipt', $apptNumbers)
+                ->with('sourceEntry.dailySheet')
                 ->get()
-                ->groupBy('overpaid_used_receipt');
+                ->groupBy('target_receipt');
 
         // Batch: технчийн нэрсийг нэг query-ээр татна
         $techIds = $entries->pluck('technician_employee_id')->filter()->unique()->values()->all();
@@ -636,13 +630,13 @@ class DailySheetController extends Controller
                     // Credit-ийн мэдээлэл — batch-аас авна
                     $appliedFrom = [];
                     if ($e->appointment_number && $creditsByReceipt->has($e->appointment_number)) {
-                        foreach ($creditsByReceipt->get($e->appointment_number) as $c) {
+                        foreach ($creditsByReceipt->get($e->appointment_number) as $u) {
                             $appliedFrom[] = [
                                 'kind' => 'overpaid',
-                                'amount' => (int) $c->overpaid_used_amount,
-                                'method' => $c->overpaid_used_method,
-                                'from_date' => $c->dailySheet?->date?->toDateString(),
-                                'from_name' => $c->patient_name,
+                                'amount' => (int) $u->amount,
+                                'method' => $u->method,
+                                'from_date' => $u->sourceEntry?->dailySheet?->date?->toDateString(),
+                                'from_name' => $u->sourceEntry?->patient_name,
                             ];
                         }
                     }
@@ -700,36 +694,46 @@ class DailySheetController extends Controller
         $userId = Auth::id();
         $tab = $request->get('tab', 'pending'); // pending | used
 
-        $entries = DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
+        $all = DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
             ->where('overpaid_amount', '>', 0)
-            ->with(['dailySheet', 'doctor', 'user'])
-            ->when($tab === 'pending', fn ($q) => $q->whereNull('overpaid_used_at'))
-            ->when($tab === 'used', fn ($q) => $q->whereNotNull('overpaid_used_at'))
+            ->with(['dailySheet', 'doctor', 'user', 'overpaidUsages.user'])
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn ($e) => [
-                'id' => $e->id,
-                'patient_name' => $e->patient_name,
-                'gender' => $e->gender,
-                'diagnosis' => $e->diagnosis,
-                'appointment_number' => $e->appointment_number,
-                'overpaid_amount' => $e->overpaid_amount,
-                'date' => $e->dailySheet->date->toDateString(),
-                'receptionist_name' => $e->user?->name,
-                'doctor_name' => $e->doctor?->name,
-                'is_mine' => $e->user_id === $userId,
-                'overpaid_used_at' => $e->overpaid_used_at?->toDateTimeString(),
-                'overpaid_used_receipt' => $e->overpaid_used_receipt,
-                'overpaid_used_method' => $e->overpaid_used_method,
-                'overpaid_used_amount' => $e->overpaid_used_amount,
-            ])
+            ->map(function ($e) use ($userId) {
+                $used = (int) $e->overpaidUsages->sum('amount');
+                $remaining = max(0, (int) $e->overpaid_amount - $used);
+
+                return [
+                    'id' => $e->id,
+                    'patient_name' => $e->patient_name,
+                    'gender' => $e->gender,
+                    'diagnosis' => $e->diagnosis,
+                    'appointment_number' => $e->appointment_number,
+                    'overpaid_amount' => (int) $e->overpaid_amount,
+                    'used_amount' => $used,
+                    'remaining_amount' => $remaining,
+                    'date' => $e->dailySheet->date->toDateString(),
+                    'receptionist_name' => $e->user?->name,
+                    'doctor_name' => $e->doctor?->name,
+                    'is_mine' => $e->user_id === $userId,
+                    'usages' => $e->overpaidUsages
+                        ->sortBy('created_at')
+                        ->map(fn ($u) => [
+                            'receipt' => $u->target_receipt,
+                            'amount' => (int) $u->amount,
+                            'method' => $u->method,
+                            'used_at' => $u->created_at?->toDateTimeString(),
+                            'used_by' => $u->user?->name,
+                        ])->values()->all(),
+                ];
+            });
+
+        $entries = $all
+            ->filter(fn ($e) => $tab === 'used' ? $e['used_amount'] > 0 : $e['remaining_amount'] > 0)
             ->values()
             ->all();
 
-        $pendingCount = DailySheetEntry::whereHas('dailySheet', fn ($q) => $q->where('branch_id', $branchId))
-            ->where('overpaid_amount', '>', 0)
-            ->whereNull('overpaid_used_at')
-            ->count();
+        $pendingCount = $all->filter(fn ($e) => $e['remaining_amount'] > 0)->count();
 
         // Өнөөдрийн илгээгдээгүй өдрийн тооцооны баримтуудыг dropdown-д ашиглана
         $todayReceipts = [];
@@ -871,20 +875,31 @@ class DailySheetController extends Controller
             abort(403);
         }
 
-        if ($entry->overpaid_used_at !== null) {
-            return back()->with('info', 'Илүү тооцоо аль хэдийн ашиглагдсан байна.');
-        }
-
         if ($entry->overpaid_amount <= 0) {
             return back()->with('info', 'Илүү тооцоо байхгүй байна.');
         }
 
+        // Аль хэдийн ашигласан дүн ба үлдэгдэл
+        $alreadyUsed = (int) OverpaidUsage::where('source_entry_id', $entry->id)->sum('amount');
+        $remaining = (int) $entry->overpaid_amount - $alreadyUsed;
+
+        if ($remaining <= 0) {
+            return back()->with('info', 'Илүү тооцоо бүрэн ашиглагдсан байна.');
+        }
+
         $validated = $request->validate([
             'paid_receipt' => 'required|string|max:100',
+            'amount' => 'required|integer|min:1',
         ]);
 
         $receipt = trim($validated['paid_receipt']);
-        $amount = $entry->overpaid_amount;
+        $amount = (int) $validated['amount'];
+
+        if ($amount > $remaining) {
+            return back()->withErrors([
+                'amount' => "Үлдэгдэл ({$remaining}₮)-ээс их дүн ашиглах боломжгүй.",
+            ])->withInput();
+        }
 
         // Өнөөдрийн илгээгдээгүй өдрийн тооцоог олж/үүсгэнэ
         $todayStr = today()->toDateString();
@@ -898,24 +913,33 @@ class DailySheetController extends Controller
             return back()->with('error', 'Өнөөдрийн тооцоо аль хэдийн илгээгдсэн байна. Илүү тооцоог одоо ашиглах боломжгүй.');
         }
 
-        // Заавал өнөөдрийн тооцоонд тухайн баримт дугаар бүртгэгдсэн байх ёстой
+        // Тухайн баримт дугаар өнөөдрийн тооцоонд байгаа эсэхийг шалгана
         $target = $sheet->entries()
             ->where('appointment_number', $receipt)
             ->whereNull('source')
             ->first();
 
+        // Байхгүй бол өнөөдрийн тооцоонд шинэ мөр автоматаар үүсгэнэ
+        // (баримтын дугаар + илүү тооцооны эзний нэрээр; эмчилгээ/дүнг ресепшн дараа нь нөхнө)
         if (! $target) {
-            return back()->withErrors([
-                'paid_receipt' => "Өнөөдрийн тооцоонд '{$receipt}' гэсэн баримт дугаар бүртгэгдээгүй байна. Эхлээд баримтыг өдрийн тооцоонд бүртгэнэ үү.",
-            ])->withInput();
-        }
-
-        // Зөв баримттай өвчтөнтэй тохирч байгаа эсэхийг сэрэмжлүүлэх (нэр)
-        if ($target->patient_name && $entry->patient_name
-            && mb_strtolower(trim($target->patient_name)) !== mb_strtolower(trim($entry->patient_name))) {
-            return back()->withErrors([
-                'paid_receipt' => "Анхаар: '{$receipt}' баримт нь '{$target->patient_name}' нэр дээр бүртгэгдсэн, харин илүү тооцоо '{$entry->patient_name}' нэр дээр байна. Зөв баримтаа сонгоно уу.",
-            ])->withInput();
+            $aptId = Appointment::where('appointment_number', $receipt)->value('id');
+            $nextOrder = (int) $sheet->entries()->max('row_order') + 1;
+            $target = $sheet->entries()->create([
+                'user_id' => $userId,
+                'row_order' => $nextOrder,
+                'patient_name' => $entry->patient_name,
+                'gender' => $entry->gender,
+                'appointment_number' => $receipt,
+                'appointment_id' => $aptId,
+                'gross_amount' => 0,
+                'discount' => 0,
+                'mobile_amount' => 0,
+                'card_amount' => 0,
+                'cash_amount' => 0,
+                'storepay_amount' => 0,
+                'total_amount' => 0,
+                'outstanding_amount' => 0,
+            ]);
         }
 
         // Анхны entry-ийн хамгийн их дүнтэй төлбөрийн аргыг автоматаар тодорхойлно
@@ -928,14 +952,30 @@ class DailySheetController extends Controller
         arsort($methodAmounts);
         $method = array_key_first($methodAmounts) ?? 'cash';
 
-        $entry->update([
-            'overpaid_used_at' => now(),
-            'overpaid_used_receipt' => $receipt,
-            'overpaid_used_method' => $method,
-            'overpaid_used_amount' => $amount,
+        // Хэсэгчилсэн ашиглалтыг бүртгэнэ (нэг эх үүсвэрийг олон баримтад хуваах боломжтой)
+        OverpaidUsage::create([
+            'source_entry_id' => $entry->id,
+            'target_receipt' => $receipt,
+            'amount' => $amount,
+            'method' => $method,
+            'used_by' => $userId,
         ]);
 
+        // Бүрэн ашиглагдсан бол эх entry дээр тэмдэглэнэ (admin/legacy филтерт)
+        if ($amount >= $remaining) {
+            $entry->update([
+                'overpaid_used_at' => now(),
+                'overpaid_used_receipt' => $receipt,
+                'overpaid_used_method' => $method,
+                'overpaid_used_amount' => $alreadyUsed + $amount,
+            ]);
+        }
+
         // Payment column-г DB-д шууд өөрчлөхгүй — Илүү багана дээр л харагдана.
+
+        // Real-time: эх өдөр (илүү тооцооны жагсаалт) ба өнөөдрийн тооцоо (баланс) хоёуланг шинэчилнэ
+        DailySheetUpdated::mark($branchId, $todayStr);
+        DailySheetUpdated::mark($branchId, $entry->dailySheet->date);
 
         // Admin-д notification
         $entry->load(['dailySheet.branch']);

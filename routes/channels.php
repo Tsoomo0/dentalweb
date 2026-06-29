@@ -63,6 +63,13 @@ Broadcast::channel('daily-sheet.{branchId}.{date}', function ($user, $branchId) 
     return $u && $u->branch_id == $branchId;
 });
 
+// Admin — бүх салбар/огнооны өдрийн тооцооны өөрчлөлтийг сонсох ерөнхий суваг
+Broadcast::channel('daily-sheets-admin', function ($user) {
+    $u = chatUser($user);
+
+    return $u && $u->isAdmin();
+});
+
 // ── Chat ─────────────────────────────────────────────────────────────────────
 
 Broadcast::channel('chat.user.{userId}', function ($user, int $userId) {

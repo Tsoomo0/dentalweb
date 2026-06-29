@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\DailySheetUpdated;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +11,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class DailySheet extends Model
 {
     use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        // Аливаа өөрчлөлт (үүсгэх/засах/устгах/сэргээх) → real-time мэдэгдэл
+        $notify = fn (DailySheet $sheet) => DailySheetUpdated::mark($sheet->branch_id, $sheet->date);
+        static::saved($notify);
+        static::deleted($notify);
+        static::restored($notify);
+    }
 
     protected $fillable = [
         'branch_id',

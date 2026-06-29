@@ -1,193 +1,158 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import PublicLayout from '@/layouts/public-layout';
-import { Award, Users, Star, Calendar, Shield, Clock, Heart, Zap } from 'lucide-react';
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPES — backend-ээс ирэх жинхэнэ өгөгдөл (about() нь зөвхөн stats дамжуулна)
+   ═══════════════════════════════════════════════════════════════════════════ */
 interface PageProps {
-    [key: string]: unknown;
-    auth: { user?: { name: string } };
     stats: { doctors: number; appointments: number; branches: number };
 }
 
-export default function AboutPage() {
-    const { stats } = usePage<PageProps>().props;
+/* ═══════════════════════════════════════════════════════════════════════════
+   ЖИЖИГ ТУСЛАХ КОМПОНЕНТУУД
+   ═══════════════════════════════════════════════════════════════════════════ */
+const RED = '#c81e3a';
+
+const glassPanel =
+    'rounded-[30px] border border-white/70 bg-white/50 shadow-[0_14px_40px_rgba(120,30,50,0.06)] backdrop-blur-xl';
+
+const STRIPE = 'repeating-linear-gradient(45deg,#f3eceb,#f3eceb 11px,#eee3e2 11px,#eee3e2 22px)';
+
+function SectionBadge({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="mb-4 inline-flex items-center gap-2 rounded-[30px] border border-[#c81e3a]/20 bg-[#c81e3a]/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.1em] text-[#c81e3a] shadow-[0_8px_20px_rgba(120,30,50,0.1)] backdrop-blur-md">
+            <span className="h-[7px] w-[7px] rounded-full bg-[#c81e3a]" />
+            {children}
+        </div>
+    );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   СТАТИК КОНТЕНТ — дизайны эх сурвалжаас
+   ═══════════════════════════════════════════════════════════════════════════ */
+const VALUES = [
+    { icon: '✥', title: 'Мэргэжлийн хамт олон', text: 'Бид салбартаа тэргүүлэх чадвартай, олон жилийн туршлагатай эмч нартай.' },
+    { icon: '◍', title: 'Орчин үеийн технологи', text: 'Сүүлийн үеийн дэвшилтэт техник, тоног төхөөрөмж ашиглан таныг эмчилнэ.' },
+    { icon: '♡', title: 'Хүнлэг харьцаа', text: 'Өвчтөн бүртэй хүндэтгэлтэй, тэвчээртэй, айдасгүй орчинд харьцана.' },
+];
+
+const BRANCHES = [
+    { name: 'Сансар салбар', addr: 'БЗД, Сансар, Их дэлгүүрийн зүүн талд', phone: '+976 7700 8899' },
+    { name: 'Хороолол салбар', addr: 'СБД, 1-р хороолол, 32-ын тойрон', phone: '+976 7701 8899' },
+    { name: 'Цамбагарав салбар', addr: 'СХД, Цамбагарав зам дагуу', phone: '+976 7702 8899' },
+    { name: 'Яармаг салбар', addr: 'ХУД, Яармаг, шинэ замын эхэнд', phone: '+976 7703 8899' },
+];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+export default function About({ stats = { doctors: 0, appointments: 0, branches: 0 } }: PageProps) {
+    /* жинхэнэ stats-аас бүтсэн тоонууд (хоосон үед дизайн эвдрэхгүйн тулд fallback) */
+    const statCards = [
+        { num: '10+', label: 'жилийн туршлага' },
+        { num: `${stats.doctors > 0 ? stats.doctors : 25}+`, label: 'мэргэжлийн эмч' },
+        { num: `${stats.branches > 0 ? stats.branches : 4}`, label: 'салбар' },
+    ];
 
     return (
-        <>
-            <Head title="Бидний тухай" />
-            <PublicLayout>
+        <PublicLayout>
+            <Head title="Бидний тухай — Кутикул" />
 
-                {/* ── Hero ── */}
-                <section className="min-h-[auto] lg:min-h-[80vh] flex items-center bg-[#16100A] relative overflow-hidden pt-20 sm:pt-24 pb-14 sm:pb-20">
-                    <div className="absolute top-0 left-0 w-[700px] h-[700px] rounded-full blur-[160px] -translate-x-1/2 -translate-y-1/3 pointer-events-none"
-                        style={{ background: 'radial-gradient(circle, rgba(180,20,20,0.18) 0%, transparent 70%)' }}/>
-                    <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full blur-[100px] pointer-events-none"
-                        style={{ background: 'radial-gradient(circle, rgba(140,10,10,0.1) 0%, transparent 70%)' }}/>
-                    <div className="absolute inset-0 opacity-[0.035]"
-                        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }}/>
-
-                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-                        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-                            {/* Left */}
-                            <div>
-                                <span className="inline-block text-red-500 text-xs font-bold uppercase tracking-widest mb-5 bg-red-500/10 px-3 py-1 rounded-full">
-                                    Бидний тухай
-                                </span>
-                                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white leading-tight mb-6">
-                                    Таны инээмсэглэлийн<br />
-                                    <span className="text-red-500">цаана бид байна</span>
-                                </h1>
-                                <p className="text-gray-400 text-lg leading-relaxed mb-8 max-w-lg">
-                                    Шүдний эмчид очих нь заримдаа айдастай санагддаг. Манай баг таныг тав тухтай
-                                    мэдрүүлж, хамгийн сайн үр дүнд хүргэхийн тулд ажилладаг.
-                                </p>
-                                <Link href="/booking"
-                                    className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-7 py-3.5 rounded-2xl transition-all shadow-xl shadow-red-900/30 text-sm">
-                                    <Calendar className="w-4 h-4"/> Цаг захиалах
-                                </Link>
-                            </div>
-
-                            {/* Right — Stats */}
-                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                                {[
-                                    { value: `${stats.appointments}+`, label: 'Эмчилгээ хийлгэсэн өвчтөн', icon: Star, color: 'text-red-400' },
-                                    { value: `${stats.doctors}+`, label: 'Мэргэшсэн эмч', icon: Users, color: 'text-red-400' },
-                                    { value: '10+', label: 'Жилийн туршлага', icon: Award, color: 'text-red-400' },
-                                    { value: '98%', label: 'Сэтгэл ханасан үйлчлүүлэгч', icon: Heart, color: 'text-red-400' },
-                                ].map((s, i) => (
-                                    <div key={i} className="bg-white/5 border border-white/8 rounded-2xl p-4 sm:p-6 backdrop-blur-sm">
-                                        <s.icon className={`w-5 h-5 ${s.color} mb-2 sm:mb-3`}/>
-                                        <p className="text-2xl sm:text-4xl font-black text-white mb-1">{s.value}</p>
-                                        <p className="text-gray-500 text-sm">{s.label}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── Mission ── */}
-                <section className="py-14 sm:py-20 lg:py-28 bg-white">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-center">
-                            <div>
-                                <span className="text-red-600 text-xs font-bold uppercase tracking-widest">Манай зорилго</span>
-                                <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 mb-6 leading-tight">
-                                    10 гаруй жилийн<br/>хайр халамж
-                                </h2>
-                                <p className="text-gray-500 leading-relaxed mb-8">
-                                    "Кутикул" эрүү, нүүр ам, гажиг, согог заслын шүдний эмнэлэг нь 2012 оноос
-                                    одоог хүртэл 10 гаруй жил үйл ажиллагаагаа тасралтгүй явуулж байна.
-                                    Таны инээмсэглэл бол биднийг өдөр бүр урамшуулдаг зүйл.
-                                </p>
-                                <div className="grid sm:grid-cols-2 gap-4">
-                                    {[
-                                        { icon: Users, title: 'Мэргэжлийн хамт олон', desc: 'Бид салбартаа тэргүүлэх чадвартай, олон жилийн туршлагатай эмч нартай.' },
-                                        { icon: Zap, title: 'Орчин үеийн технологи', desc: 'Бид сүүлийн үеийн дэвшилтэт техник, тоног төхөөрөмжийг ашиглан таныг эмчилнэ.' },
-                                    ].map((card, i) => (
-                                        <div key={i} className="bg-red-50 rounded-2xl p-5 border border-red-100">
-                                            <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mb-3">
-                                                <card.icon className="w-5 h-5 text-red-600"/>
-                                            </div>
-                                            <h3 className="font-bold text-gray-900 text-sm mb-1.5">{card.title}</h3>
-                                            <p className="text-gray-500 text-sm leading-relaxed">{card.desc}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Right visual */}
-                            <div className="relative">
-                                <div className="bg-[#16100A] rounded-3xl p-8 relative overflow-hidden">
-                                    <div className="absolute inset-0 opacity-[0.05]"
-                                        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '22px 22px' }}/>
-                                    <div className="absolute top-0 right-0 w-48 h-48 rounded-full"
-                                        style={{ background: 'radial-gradient(circle, rgba(180,20,20,0.2) 0%, transparent 70%)' }}/>
-                                    <div className="relative">
-                                        <p className="text-red-400 text-5xl font-black leading-none mb-6">"</p>
-                                        <p className="text-white text-xl font-semibold leading-relaxed mb-6">
-                                            Шүд засалт бол зөвхөн гоо үзэмж биш — энэ бол таны эрүүл мэнд, итгэл, амьдралын чанар.
-                                        </p>
-                                        <div className="flex items-center gap-3 pt-6 border-t border-white/10">
-                                            <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center">
-                                                <span className="text-white font-black text-sm">C</span>
-                                            </div>
-                                            <div>
-                                                <p className="text-white font-bold text-sm">Манай эмнэлэг</p>
-                                                <p className="text-gray-500 text-xs">Үндэслэгч, 2014</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Floating badge */}
-                                <div className="absolute -bottom-5 -left-5 bg-white border border-gray-100 rounded-2xl shadow-xl px-5 py-4 flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                                        <Award className="w-5 h-5 text-red-600"/>
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-gray-900 text-sm">Invisalign Provider</p>
-                                        <p className="text-gray-400 text-xs">Олон улсын сертификат</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── Values ── */}
-                <section className="py-14 sm:py-20 lg:py-28 bg-[#F9F4F2]">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="max-w-2xl mb-10 sm:mb-16">
-                            <span className="text-red-600 text-xs font-bold uppercase tracking-widest">Яагаад бидэнд хандах вэ</span>
-                            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mt-3 mb-3">Та бидэнд итгэж болно</h2>
-                            <p className="text-gray-500 leading-relaxed">Шүдний эмчид очих нь заримдаа дарамттай санагддаг. Бид үүнийг мэднэ — тиймдээ ч тав тухтай, ил тод байхыг чухалчилдаг.</p>
-                        </div>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {[
-                                { icon: Award, title: 'Арав гаруй жил ажилласан', desc: '2012 оноос хойш олон мянган хүнд үйлчилж ирсэн. Та биднийг сонгоход эргэлзэх шаардлагагүй.' },
-                                { icon: Zap, title: 'Шинэ тоног төхөөрөмж', desc: '3D сканнер, дижитал рентгенийг ашиглан таны шүдийг нарийн үнэлнэ. Үр дүн нь илүү үнэн зөв, илүү найдвартай.' },
-                                { icon: Clock, title: 'Цагийн хувьд уян хатан', desc: 'Бямба, Ням гарагт ч ажилладаг. Ажил, сургуультайгаа зохицуулаад ирээрэй.' },
-                                { icon: Heart, title: 'Таны байдалд тохируулна', desc: 'Хүн бүрийн шүд, хэрэгцээ өөр байдаг. Таны нөхцөлд тохирсон эмчилгээний төлөвлөгөөг хамт гаргана.' },
-                                { icon: Shield, title: 'Үнийг урьдчилан мэдэх', desc: 'Эмчилгээ эхлэхээс өмнө бүх зардлыг тодорхой тайлбарлана. Дараа нь гэнэтийн нэхэмжлэл гарахгүй.' },
-                                { icon: Star, title: 'Эмчилгээний дараа ч анхаарна', desc: 'Эмчилгээ дуусаад асуулт гарвал хандаарай. Явцыг хянаж, шаардлагатай тохиолдолд эмчилж өгнө.' },
-                            ].map((v, i) => (
-                                <div key={i}
-                                    className="bg-white rounded-3xl p-7 border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all group">
-                                    <div className="flex items-center gap-4 mb-5">
-                                        <div className="w-12 h-12 bg-red-50 group-hover:bg-red-100 rounded-2xl flex items-center justify-center transition-colors">
-                                            <v.icon className="w-5 h-5 text-red-600"/>
-                                        </div>
-                                        <span className="text-2xl font-black text-gray-100 group-hover:text-red-100 transition-colors">
-                                            {String(i + 1).padStart(2, '0')}
-                                        </span>
-                                    </div>
-                                    <h3 className="font-bold text-gray-900 mb-2 group-hover:text-red-700 transition-colors">{v.title}</h3>
-                                    <p className="text-gray-500 text-sm leading-relaxed">{v.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── CTA ── */}
-                <section className="py-14 sm:py-20 lg:py-28 bg-[#16100A] relative overflow-hidden">
-                    <div className="absolute inset-0 opacity-[0.04]"
-                        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }}/>
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] pointer-events-none"
-                        style={{ background: 'radial-gradient(ellipse, rgba(180,20,20,0.15) 0%, transparent 70%)' }}/>
-                    <div className="relative max-w-2xl mx-auto px-4 text-center">
-                        <span className="inline-block text-red-400 text-xs font-bold uppercase tracking-widest mb-5">Цаг захиалах</span>
-                        <h2 className="text-4xl md:text-5xl font-black text-white mb-5 leading-tight">Эхний алхмаа<br/>хамт хийцгээе</h2>
-                        <p className="text-gray-500 mb-8 leading-relaxed">
-                            Шүдний асуудлаа шийдэх нь таны бодсоноос хялбар. Бидэнд хандаад эмчтэйгээ уулзаарай — үлдсэнийг бид шийдэрнэ.
+            {/* ── HERO — Манай зорилго ─────────────────────────────────────── */}
+            <div className="relative mt-6 overflow-hidden rounded-[32px] border border-white/70 shadow-[0_18px_50px_rgba(120,30,50,0.14)]">
+                <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 84% 20%, rgba(255,255,255,.2), transparent 48%), linear-gradient(125deg,#d62a48 0%,#b01533 52%,#7d1226 100%)' }} />
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg,rgba(20,6,10,.34) 0%,rgba(20,6,10,.04) 60%,transparent 100%)' }} />
+                <div className="relative z-[3] grid items-center gap-10 p-8 sm:p-14 lg:grid-cols-[1.04fr_0.96fr]">
+                    <div>
+                        <div className="mb-5 inline-flex items-center gap-2 rounded-[40px] bg-white/85 px-3.5 py-2 text-[12px] font-bold uppercase tracking-[0.05em] text-[#c81e3a]">✦ Манай зорилго</div>
+                        <h1 className="mb-4 font-onest text-[30px] font-extrabold leading-[1.1] tracking-tight text-white sm:text-[40px]">
+                            Инээмсэглэл бүрийн<br />төлөө бид
+                        </h1>
+                        <p className="max-w-[520px] text-[16px] leading-[1.65] text-white/90 sm:text-[17px]">
+                            «Кутикул» эрүү, нүүр ам, гажиг, согог заслын шүдний эмнэлэг нь 2012 оноос одоог хүртэл 10 гаруй жил үйл ажиллагаагаа тасралтгүй явуулж байна. Таны инээмсэглэл бол биднийг өдөр бүр урамшуулдаг зүйл.
                         </p>
-                        <Link href="/booking"
-                            className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-2xl shadow-red-900/40 text-base">
-                            <Calendar className="w-5 h-5"/> Онлайн цаг захиалах
-                        </Link>
                     </div>
-                </section>
+                    <div className="relative min-h-[300px] sm:min-h-[380px]">
+                        {/* glow + rings */}
+                        <div className="absolute left-1/2 top-1/2 h-[330px] w-[330px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'radial-gradient(circle,rgba(255,225,230,.4),transparent 65%)', filter: 'blur(8px)', animation: 'cuticulPulseGlow 6s ease-in-out infinite' }} />
+                        <div className="absolute left-1/2 top-1/2 h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-dashed border-white/30" style={{ animation: 'cuticulSpinSlow 44s linear infinite' }} />
+                        {/* portrait placeholder */}
+                        <div className="relative mx-auto flex h-[300px] w-[250px] items-center justify-center overflow-hidden rounded-[24px] border border-white/50 text-[13px] font-medium text-white/80 shadow-[0_24px_60px_rgba(60,8,18,0.4)] sm:h-[360px] sm:w-[300px]" style={{ background: 'repeating-linear-gradient(45deg,rgba(255,255,255,.16),rgba(255,255,255,.16) 12px,rgba(255,255,255,.07) 12px,rgba(255,255,255,.07) 24px)', animation: 'cuticulFloatyA 7s ease-in-out infinite' }}>
+                            эмнэлгийн зураг
+                        </div>
+                        {/* floating chips */}
+                        <div className="absolute left-[-6px] top-[30px] flex items-center gap-2.5 rounded-[15px] bg-white/95 px-4 py-2.5 shadow-[0_14px_30px_rgba(60,8,18,0.28)]" style={{ animation: 'cuticulFloatyA 6.5s ease-in-out infinite' }}>
+                            <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[#fbeef0] font-onest text-[14px] font-bold text-[#c81e3a]">✥</span>
+                            <span className="text-[13px] font-bold text-[#1c1a1b]">Мэргэжлийн баг</span>
+                        </div>
+                        <div className="absolute bottom-[48px] right-[-4px] flex items-center gap-2.5 rounded-[15px] bg-white/95 px-4 py-2.5 shadow-[0_14px_30px_rgba(60,8,18,0.28)]" style={{ animation: 'cuticulFloatyA 8s ease-in-out infinite' }}>
+                            <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[#fbeef0] font-onest text-[13px] font-bold text-[#c81e3a]">◍</span>
+                            <span className="text-[13px] font-bold text-[#1c1a1b]">Орчин үеийн технологи</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            </PublicLayout>
-        </>
+            {/* ── VALUES ───────────────────────────────────────────────────── */}
+            <div className={`mt-7 p-7 sm:p-11 ${glassPanel}`}>
+                <div className="mb-8 text-center">
+                    <div className="flex justify-center"><SectionBadge>Бидний үнэт зүйл</SectionBadge></div>
+                    <h2 className="font-onest text-[28px] font-extrabold tracking-tight sm:text-[36px]">Биднийг тодотгох зүйлс</h2>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {VALUES.map((v) => (
+                        <div key={v.title} className="rounded-[22px] border border-[#f1e8e7] bg-white p-7 shadow-[0_1px_2px_rgba(120,30,50,0.04)]">
+                            <div className="mb-4 flex h-[50px] w-[50px] items-center justify-center rounded-[14px] font-onest text-[22px] font-bold text-[#c81e3a]" style={{ background: 'linear-gradient(150deg,#fde9ec,#fbd9df)' }}>{v.icon}</div>
+                            <h3 className="mb-2 font-onest text-[18px] font-bold text-[#1c1a1b]">{v.title}</h3>
+                            <p className="text-[14px] leading-[1.62] text-[#6b6360]">{v.text}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── STATS ────────────────────────────────────────────────────── */}
+            <div className="mt-7 overflow-hidden rounded-[30px] p-8 text-white shadow-[0_18px_50px_rgba(120,30,50,0.18)] sm:p-11" style={{ background: 'linear-gradient(125deg,#c81e3a,#9e1730)' }}>
+                <div className="grid grid-cols-1 gap-5 text-center sm:grid-cols-3">
+                    {statCards.map((s) => (
+                        <div key={s.label} className="py-2">
+                            <div className="mb-1.5 font-onest text-[40px] font-extrabold tracking-tight sm:text-[44px]">{s.num}</div>
+                            <div className="text-[14px] font-medium text-white/85">{s.label}</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── BRANCHES ─────────────────────────────────────────────────── */}
+            <div className={`mt-7 p-7 sm:p-11 ${glassPanel}`}>
+                <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <SectionBadge>Салбарууд</SectionBadge>
+                        <h2 className="font-onest text-[28px] font-extrabold tracking-tight sm:text-[36px]">Танд ойрхон салбар</h2>
+                    </div>
+                    <Link href="/contact" className="whitespace-nowrap text-[14px] font-bold text-[#c81e3a]">Байршил харах →</Link>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {BRANCHES.map((b) => (
+                        <div key={b.name} className="overflow-hidden rounded-[22px] border border-[#f1e8e7] bg-white shadow-[0_1px_2px_rgba(120,30,50,0.04)]">
+                            <div className="flex aspect-[4/3] w-full items-center justify-center text-[11px] font-medium text-[#b3a7a3]" style={{ background: STRIPE }}>салбарын зураг</div>
+                            <div className="p-[18px]">
+                                <h3 className="mb-1.5 font-onest text-[17px] font-bold text-[#1c1a1b]">{b.name}</h3>
+                                <p className="mb-1 text-[13px] leading-[1.55] text-[#6b6360]">{b.addr}</p>
+                                <p className="text-[13px] font-semibold text-[#c81e3a]">{b.phone}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── CTA ──────────────────────────────────────────────────────── */}
+            <div className="mt-7 flex flex-wrap items-center justify-between gap-7 rounded-[30px] bg-[#1c1a1b]/95 px-8 py-12 text-white sm:px-12">
+                <div>
+                    <h2 className="mb-2.5 font-onest text-[26px] font-extrabold leading-[1.15] sm:text-[32px]">Эрүүл инээмсэглэлээ бидэнд даатгаарай</h2>
+                    <p className="max-w-[480px] text-[15px] leading-[1.6] text-[#b6aeac]">Анхны үзлэгийн цагаа онлайнаар захиалж, манай мэргэжлийн багтай танилцаарай.</p>
+                </div>
+                <Link href="/booking" className="whitespace-nowrap rounded-[14px] bg-[#c81e3a] px-7 py-4 text-[15px] font-bold text-white shadow-[0_10px_24px_rgba(200,30,58,0.35)]">Цаг захиалах →</Link>
+            </div>
+        </PublicLayout>
     );
 }

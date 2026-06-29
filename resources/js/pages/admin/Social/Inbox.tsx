@@ -3,7 +3,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
-    Bot, Check, ChevronLeft, ChevronRight, Facebook, FileText, ImageIcon, Instagram, Loader2, Mic, Paperclip, RotateCcw, Search, Send, Trash2, X,
+    Bot, Check, ChevronLeft, ChevronRight, Facebook, FileText, ImageIcon, Instagram, Loader2, Mic, Paperclip, RotateCcw, Search, Send, Trash2, UserRound, X, Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -20,7 +20,10 @@ interface ContactInfo {
     page_name: string | null; status: string; first_seen: string | null; last_interacted_at: string | null;
     message_count: number; attributes: Record<string, unknown>; tags: string[];
     op_phone: string | null; op_email: string | null; op_note: string | null;
+    gender: 'male' | 'female' | null;
 }
+interface FlowBlock { id: number; type: string; label: string; }
+interface Flow { id: number; name: string; icon: string | null; trigger_type: string; blocks: FlowBlock[]; }
 interface Props { conversations: Conversation[]; }
 
 declare global { interface Window { Echo: any } } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -54,6 +57,9 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
             <span className="break-words text-right text-xs font-medium">{value || '—'}</span>
         </div>
     );
+}
+function blockIcon(type: string): string {
+    return ({ message: '💬', image: '🖼️', carousel: '🎠', media: '🎬', file: '📎' } as Record<string, string>)[type] ?? '⚡';
 }
 function prettyPreview(text: string | null): string {
     if (!text) return '';
@@ -176,12 +182,16 @@ export default function Inbox({ conversations: initial }: Props) {
     const [lightbox, setLightbox] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
     const [contact, setContact] = useState<ContactInfo | null>(null);
+    const [flows, setFlows] = useState<Flow[]>([]);
+    const [showFlows, setShowFlows] = useState(false);
+    const [sendingFlow, setSendingFlow] = useState(false);
     const [editDetails, setEditDetails] = useState(false);
     const [cForm, setCForm] = useState({ name: '', phone: '', email: '', note: '' });
     const [tagInput, setTagInput] = useState('');
     const bottomRef = useRef<HTMLDivElement>(null);
     const imgInput = useRef<HTMLInputElement>(null);
     const fileInput = useRef<HTMLInputElement>(null);
+    const flowMenuRef = useRef<HTMLDivElement>(null);
 
     // voice
     const [recording, setRecording] = useState(false);
@@ -248,6 +258,17 @@ export default function Inbox({ conversations: initial }: Props) {
 
     useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
+    // Flow popover-г гадна дарахад хаах.
+    useEffect(() => {
+        if (!showFlows) return;
+        const onDown = (e: MouseEvent) => { if (flowMenuRef.current && !flowMenuRef.current.contains(e.target as Node)) setShowFlows(false); };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [showFlows]);
+
+    // Чат солиход Flow popover хаах.
+    useEffect(() => { setShowFlows(false); }, [activeId]);
+
     function send() {
         if (!text.trim() || !active || sending) return;
         const body = text.trim();
@@ -263,6 +284,29 @@ export default function Inbox({ conversations: initial }: Props) {
         if (!active) return;
         axios.post(`/admin/social/inbox/conversations/${active.id}/status`, { status })
             .then(() => { setConversations(prev => prev.map(c => (c.id === active.id ? { ...c, status } : c))); reloadList(); });
+    }
+    function toggleFlows() {
+        setShowFlows(s => {
+            const next = !s;
+            if (next && flows.length === 0) axios.get('/admin/social/inbox/flows').then(r => setFlows(r.data.flows)).catch(() => { /* noop */ });
+            return next;
+        });
+    }
+    function sendFlow(flowId: number) {
+        if (!active || sendingFlow) return;
+        setSendingFlow(true); setError(null); setShowFlows(false);
+        axios.post(`/admin/social/inbox/conversations/${active.id}/send-flow`, { flow_id: flowId })
+            .then(() => reloadList()) // мессежүүд Echo-оор ирнэ
+            .catch(err => setError(err.response?.data?.error || 'Flow илгээж чадсангүй.'))
+            .finally(() => setSendingFlow(false));
+    }
+    function sendNode(nodeId: number) {
+        if (!active || sendingFlow) return;
+        setSendingFlow(true); setError(null); setShowFlows(false);
+        axios.post(`/admin/social/inbox/conversations/${active.id}/send-node`, { node_id: nodeId })
+            .then(() => reloadList()) // мессежүүд Echo-оор ирнэ
+            .catch(err => setError(err.response?.data?.error || 'Блок илгээж чадсангүй.'))
+            .finally(() => setSendingFlow(false));
     }
     function del() {
         if (!active || deleting) return;
@@ -357,7 +401,7 @@ export default function Inbox({ conversations: initial }: Props) {
                             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Хайх…" className="flex-1 bg-transparent text-sm outline-none" />
                         </div>
                     </div>
-                    <div key={`${statusFilter}-${channelFilter}`} className="flex-1 overflow-y-auto">
+                    <div key={`${statusFilter}-${channelFilter}`} className="social-scroll flex-1 overflow-y-auto">
                         {filtered.length === 0 ? <div className="animate-in fade-in p-10 text-center text-sm text-muted-foreground">Чат алга</div> : filtered.map((c, i) => (
                             <button key={c.id} onClick={() => openConversation(c.id)} style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }} className={`relative flex w-full items-center gap-3 border-b border-border/40 px-3 py-3 text-left duration-300 fade-in slide-in-from-left-3 fill-mode-both animate-in transition-all hover:bg-muted/40 ${activeId === c.id ? 'bg-gradient-to-r from-blue-500/10 to-transparent' : ''}`}>
                                 {activeId === c.id && <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#3b8bf7] to-[#1664db]" />}
@@ -403,14 +447,16 @@ export default function Inbox({ conversations: initial }: Props) {
                                     </div>
                                     <div className="text-[11px] text-muted-foreground">{active.page_name}</div>
                                 </div>
-                                {active.status !== 'bot' && <button onClick={() => setStatus('bot')} title="Бот руу буцаах" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition hover:bg-muted active:scale-95"><Bot className="h-3.5 w-3.5" /> Бот руу</button>}
+                                {active.status === 'bot'
+                                    ? <button onClick={() => setStatus('open')} title="Ботыг зогсоож оператор хариулах" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition hover:bg-muted active:scale-95"><UserRound className="h-3.5 w-3.5" /> Оператор авах</button>
+                                    : <button onClick={() => setStatus('bot')} title="Бот руу буцаах" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition hover:bg-muted active:scale-95"><Bot className="h-3.5 w-3.5" /> Бот руу</button>}
                                 {active.status !== 'closed'
                                     ? <button onClick={() => { setStatus('closed'); setActiveId(null); }} title="Дуусгах" className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"><Check className="h-3.5 w-3.5" /> Done</button>
                                     : <button onClick={() => setStatus('open')} title="Дахин нээх" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition hover:bg-muted active:scale-95"><RotateCcw className="h-3.5 w-3.5" /> Дахин нээх</button>}
                                 <button onClick={del} disabled={deleting} title="Чат устгах" className="inline-flex items-center justify-center rounded-lg border border-red-200 px-2.5 py-1.5 text-red-600 transition hover:bg-red-50 active:scale-95 disabled:opacity-50 dark:border-red-900/50 dark:hover:bg-red-950/30">{deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}</button>
                             </div>
 
-                            <div className="flex-1 space-y-2 overflow-y-auto p-4">
+                            <div className="social-scroll flex-1 space-y-2 overflow-y-auto p-4">
                                 {groups.map(group => {
                                     if (group.length > 1) {
                                         const gout = group[0].direction === 'out';
@@ -473,6 +519,36 @@ export default function Inbox({ conversations: initial }: Props) {
                                     </div>
                                 ) : (
                                     <div className="flex items-end gap-1.5">
+                                        {/* Flow picker — урсгал сонгож шууд илгээх */}
+                                        <div className="relative" ref={flowMenuRef}>
+                                            {showFlows && (
+                                                <div className="absolute bottom-12 left-0 z-20 w-72 overflow-hidden rounded-xl border border-border/70 bg-card shadow-xl shadow-black/10 duration-150 animate-in fade-in slide-in-from-bottom-2">
+                                                    <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">⚡ Урсгал / блок илгээх</div>
+                                                    <div className="social-scroll max-h-72 overflow-y-auto py-1">
+                                                        {flows.length === 0
+                                                            ? <div className="px-3 py-3 text-center text-xs text-muted-foreground">Урсгал алга</div>
+                                                            : flows.map(f => (
+                                                                <div key={f.id} className="border-b border-border/40 pb-1 last:border-0">
+                                                                    {/* Урсгалын нэр — дарвал бүтэн урсгалыг эхлэлээс илгээнэ */}
+                                                                    <button onClick={() => sendFlow(f.id)} disabled={sendingFlow} title="Бүтэн урсгалыг эхлэлээс илгээх" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold transition hover:bg-muted disabled:opacity-50">
+                                                                        <span className="text-base leading-none">{f.icon || '⚡'}</span>
+                                                                        <span className="flex-1 truncate">{f.name}</span>
+                                                                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">бүтэн ▶</span>
+                                                                    </button>
+                                                                    {/* Урсгал доторх блокууд — дарвал зөвхөн тэр блокийг илгээнэ */}
+                                                                    {f.blocks.map(b => (
+                                                                        <button key={b.id} onClick={() => sendNode(b.id)} disabled={sendingFlow} title="Энэ блокийг илгээх" className="flex w-full items-center gap-2 py-1.5 pl-8 pr-3 text-left text-[13px] transition hover:bg-muted disabled:opacity-50">
+                                                                            <span className="shrink-0 text-sm leading-none">{blockIcon(b.type)}</span>
+                                                                            <span className="truncate text-muted-foreground">{b.label}</span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <button onClick={toggleFlows} disabled={sending || sendingFlow} title="Урсгал илгээх" className={`rounded-lg p-2 transition hover:bg-muted disabled:opacity-40 ${showFlows ? 'bg-muted text-[#1664db]' : 'text-muted-foreground'}`}>{sendingFlow ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}</button>
+                                        </div>
                                         <button onClick={() => imgInput.current?.click()} disabled={sending} title="Зураг" className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted disabled:opacity-40"><ImageIcon className="h-5 w-5" /></button>
                                         <button onClick={() => fileInput.current?.click()} disabled={sending} title="Файл" className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted disabled:opacity-40"><Paperclip className="h-5 w-5" /></button>
                                         <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
@@ -504,8 +580,20 @@ export default function Inbox({ conversations: initial }: Props) {
                             <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${active.status === 'bot' ? 'bg-emerald-500/15 text-emerald-600' : active.status === 'closed' ? 'bg-muted text-muted-foreground' : 'bg-blue-500/15 text-blue-600'}`}>
                                 {active.status === 'bot' ? '🤖 Бот' : active.status === 'closed' ? '✓ Хаагдсан' : '👤 Оператор'}
                             </span>
+                            {/* Хүйс — гараар засах (Meta өгдөггүй тул нэрээр таамагласан байж болзошгүй) */}
+                            <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
+                                {([['male', '♂ Эр'], ['female', '♀ Эм'], ['', '—']] as const).map(([g, lbl]) => {
+                                    const activeG = (contact?.gender ?? '') === g;
+                                    return (
+                                        <button key={g || 'none'} onClick={() => patchContact({ gender: g || null })}
+                                            className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition ${activeG ? (g === 'male' ? 'bg-blue-500 text-white' : g === 'female' ? 'bg-pink-500 text-white' : 'bg-card shadow-sm') : 'text-muted-foreground hover:text-foreground'}`}>
+                                            {lbl}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
-                        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+                        <div className="social-scroll flex-1 space-y-4 overflow-y-auto p-4">
                             {/* Холбоо барих (оператор гараар) */}
                             <div>
                                 <div className="mb-1.5 flex items-center justify-between">

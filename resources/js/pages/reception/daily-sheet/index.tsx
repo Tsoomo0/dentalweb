@@ -1,7 +1,7 @@
 import ReceptionLayout from '@/layouts/reception-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { AlertCircle, Calendar, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudOff, Moon, Plus, Search, Sun, Trash2, Undo2, X } from 'lucide-react';
+import { AlertCircle, Calendar, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudOff, Plus, Save, Search, Trash2, Undo2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -87,6 +87,7 @@ interface OutstandingEntry {
 interface Props {
     sheet: Sheet | null;
     date: string;
+    branch_id: number | null;
     doctors: Doctor[];
     technicians: Technician[];
     treatments: Treatment[];
@@ -126,6 +127,27 @@ function blank(authUser: AuthUser): Entry {
         supply_retainer_case: 0, supply_removable_app_case: 0,
         entry_notes: '', is_morning_entry: false, overpaid_amount: 0,
     };
+}
+
+/* Хадгалах товчны логик — мөр өөрчлөгдсөн эсэхийг тодорхойлох */
+const EDITABLE_SIG_KEYS: (keyof Entry)[] = [
+    'patient_name', 'gender', 'diagnosis', 'appointment_number',
+    'gross_amount', 'discount', 'mobile_amount', 'card_amount', 'cash_amount', 'storepay_amount',
+    'outstanding_amount', 'doctor_id', 'technician_employee_id',
+    'supply_orthodontic_brush', 'supply_interdental_brush', 'supply_dental_floss',
+    'supply_wax', 'supply_retainer_case', 'supply_removable_app_case', 'entry_notes',
+];
+function rowSig(e: Entry): string {
+    return JSON.stringify(EDITABLE_SIG_KEYS.map(k => {
+        const v = e[k];
+        return typeof v === 'string' ? v.trim() : (v ?? 0);
+    }));
+}
+function rowHasContent(e: Entry): boolean {
+    return !!(e.patient_name?.trim() || e.diagnosis?.trim() || e.appointment_number?.trim()
+        || e.gender || e.gross_amount || e.mobile_amount || e.card_amount || e.cash_amount
+        || e.storepay_amount || e.outstanding_amount || e.doctor_id || e.technician_employee_id
+        || e.entry_notes?.trim());
 }
 
 function calcTotal(e: Pick<Entry,'gross_amount'|'discount'|'mobile_amount'|'card_amount'|'cash_amount'|'storepay_amount'>): number {
@@ -448,6 +470,7 @@ function DoctorSelect({ value, onChange, doctors, technicians }: {
 function Row({
     entry, rowNum, editIdx, doctors, technicians, authUser, isConfirmed,
     isLast, onChange, onRemove, onTabLast, onSaveNow, onRefund,
+    isDirty, saving, onSave,
 }: {
     entry: Entry; rowNum: number; editIdx: number;
     doctors: Doctor[]; technicians: Technician[]; authUser: AuthUser;
@@ -457,6 +480,9 @@ function Row({
     onTabLast?: () => void;
     onSaveNow?: () => void;
     onRefund?: (entry: Entry) => void;
+    isDirty?: boolean;
+    saving?: boolean;
+    onSave?: () => void;
 }) {
     const editable = entry.is_mine && !isConfirmed;
     const B   = 'border border-gray-200 dark:border-gray-700 overflow-hidden';
@@ -656,9 +682,21 @@ function Row({
                 </td>
             ))}
 
-            {/* Устгах / Буцаалт */}
+            {/* Тэмдэглэл */}
+            <td className={`${B} p-0`}><TextCell value={entry.entry_notes} readOnly={!editable} onChange={v => upd({ entry_notes: v })} /></td>
+
+            {/* Хадгалах / Устгах / Буцаалт */}
             <td className={`${B} p-0 text-center`} {...(isLast ? lastCellTabProps : {})}>
                 <div className="flex items-center justify-center gap-0.5">
+                    {editable && onSave && isDirty && (
+                        <button onClick={onSave} disabled={saving}
+                            title="Энэ мөрийг хадгалах"
+                            className="h-7 w-7 flex items-center justify-center text-blue-500 hover:text-white hover:bg-blue-500 rounded transition-colors disabled:opacity-50">
+                            {saving
+                                ? <span className="size-3 rounded-full border-2 border-blue-300 border-t-blue-600 animate-spin" />
+                                : <Save className="size-3.5" />}
+                        </button>
+                    )}
                     {!entry.refunded_at && onRefund && (entry.mobile_amount + entry.card_amount + entry.cash_amount + entry.storepay_amount > 0) && (
                         <button onClick={() => onRefund(entry)}
                             title="Буцаалт хийх"
@@ -789,7 +827,7 @@ function RefundModal({ entry, onClose }: { entry: Entry; onClose: () => void }) 
 /* ------------------------------------------------------------------ */
 /*  Main page                                                           */
 /* ------------------------------------------------------------------ */
-export default function DailySheetIndex({ sheet, date, doctors, technicians, treatments, auth_user, outstanding_entries }: Props) {
+export default function DailySheetIndex({ sheet, date, branch_id, doctors, technicians, treatments, auth_user, outstanding_entries }: Props) {
     usePage<any>().props;
     const isConfirmed     = sheet?.is_confirmed ?? false;
     const isMorningLocked = sheet?.morning_confirmed ?? false;
@@ -807,18 +845,50 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
         return saved.length ? saved.map(e => ({ ...e })) : [blank(auth_user)];
     });
 
+    // Сүүлд хадгалагдсан мөрүүдийн "гарын үсэг" — өөрчлөлт (dirty) илрүүлэхэд
+    const [savedSigs, setSavedSigs] = useState<string[]>(() => {
+        const saved = sheet?.entries.filter(e => e.is_mine && !e.source && !e.is_morning_entry) ?? [];
+        return (saved.length ? saved : []).map(rowSig);
+    });
+    const [savingRow, setSavingRow] = useState(false);
+    const isRowDirty = useCallback((e: Entry, idx: number): boolean => {
+        if (!rowHasContent(e)) return false;
+        return rowSig(e) !== (savedSigs[idx] ?? null);
+    }, [savedSigs]);
+
     const otherRows: Entry[] = sheet?.entries.filter(e => !e.is_mine && !e.source && !e.is_morning_entry && !e.refunded_at) ?? [];
     const sourceRows: Entry[] = sheet?.entries.filter(e => !!e.source) ?? [];
     // Бүх buцаалт хийсэн мөрүүд (server-ээс шууд)
     const refundedRows: Entry[] = sheet?.entries.filter(e => !!e.refunded_at && !e.source && !e.is_morning_entry) ?? [];
 
+    // ── Real-time: Polling-ийн оронд Reverb websocket ──
+    // Зөвхөн харж буй өдрийн branch+date суваг руу subscribe хийнэ.
+    // Сервэрт ямар нэг өөрчлөлт орвол (admin нээх, буцаалт, бусад ресепшн, төлбөр)
+    // 'sheet.updated' ирж, зөвхөн 'sheet' prop-ыг ТУХАЙН өдрөөр шинэчилнэ (өнөөдөр рүү үсрэхгүй).
     useEffect(() => {
-        // Баталгаажсан үед ч polling хийж admin unlock илрүүлнэ (5с), үгүй бол 3с
-        const id = setInterval(() => {
-            router.reload({ only: ['sheet'], preserveState: true } as any);
-        }, isConfirmed ? 5_000 : 3_000);
-        return () => clearInterval(id);
-    }, [isConfirmed]);
+        const Echo = (window as any).Echo;
+        if (!Echo || branch_id == null) return;
+        const channelName = `daily-sheet.${branch_id}.${date}`;
+        let t: ReturnType<typeof setTimeout> | null = null;
+        const refresh = () => {
+            if (t) clearTimeout(t);
+            t = setTimeout(() => {
+                router.get('/reception/daily-sheet', { date }, {
+                    only: ['sheet'],
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                });
+            }, 300);
+        };
+        const channel = Echo.private(channelName);
+        channel.listen('.sheet.updated', refresh);
+        return () => {
+            if (t) clearTimeout(t);
+            try { channel.stopListening('.sheet.updated', refresh); } catch { /* noop */ }
+            Echo.leave(channelName);
+        };
+    }, [branch_id, date]);
 
     // Admin unlock хийсний дараа myRows-г server-ийн өгөгдлөөр дахин тохируул.
     // myRows нь blank row л байвал (засварлаагүй) server-ийн бодит мөрүүдээр солино.
@@ -828,15 +898,13 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
         const serverMine = sheet?.entries.filter(e => e.is_mine && !e.source && !e.is_morning_entry) ?? [];
         if (serverMine.length > 0) {
             setMyRows(serverMine.map(e => ({ ...e })));
+            setSavedSigs(serverMine.map(rowSig));
         }
     }, [sheet?.entries]);
 
-    /* ── Auto-save ── */
+    /* ── Гар хадгалалт (товчоор) ── */
     const [saveState, setSaveState] = useState<'idle'|'saving'|'saved'|'error'>('idle');
-    const timer            = useRef<ReturnType<typeof setTimeout>|null>(null);
-    const firstRender      = useRef(true);
-    const pendingImmediate = useRef(false);
-    const myRowsRef        = useRef(myRows);
+    const myRowsRef = useRef(myRows);
     myRowsRef.current = myRows;
 
     // Сервер sheet шинэчлэгдэх бүрд myRows-ийн id, refund мэдээллийг автомат sync хийнэ.
@@ -873,10 +941,10 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
             setRefundEntry(server);
             return;
         }
+        // Хадгалаагүй мөр — эхлээд хадгалж id үүсгэнэ, дараа нь modal нээгдэнэ
         setWaitingForSave(rowIdx);
-        pendingImmediate.current = true;
-        setMyRows(prev => [...prev]);
-    }, [sheet]);
+        doSave(myRowsRef.current);
+    }, [sheet]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Save амжилттай дууссаны дараа хүлээгдэж буй row-н Refund modal-ыг нээнэ
     useEffect(() => {
@@ -896,6 +964,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
         if (isMorningLocked && !prevMorningLocked.current) {
             const saved = (sheet?.entries ?? []).filter(e => e.is_mine && !e.source && !e.is_morning_entry);
             setMyRows(saved.length ? saved.map(e => ({ ...e })) : [blank(auth_user)]);
+            setSavedSigs((saved.length ? saved : []).map(rowSig));
         }
         prevMorningLocked.current = isMorningLocked;
     }, [isMorningLocked]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -913,32 +982,37 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
     }, [myRows.length]);
 
     const doSave = useCallback((rows: Entry[]) => {
-        if (timer.current) clearTimeout(timer.current);
         setSaveState('saving');
+        setSavingRow(true);
+        // Сервэр рүү илгээж буй мөрүүдийн гарын үсгийг хадгална → амжилттай бол dirty арилна
+        const sentSigs = rows.map(rowSig);
         router.post('/reception/daily-sheet/save',
             { date, entries: rows as any },
             {
+                only: ['sheet'],           // зөвхөн sheet-ийг дахин ачаална → хадгалалт хурдан
                 preserveScroll: true,
                 preserveState:  true,
-                onSuccess: () => setSaveState('saved'),
+                onSuccess: () => { setSaveState('saved'); setSavedSigs(sentSigs); },
                 onError:   () => setSaveState('error'),
+                onFinish:  () => setSavingRow(false),
             }
         );
     }, [date]);
 
-    useEffect(() => {
-        if (firstRender.current) { firstRender.current = false; return; }
+    // Гар хадгалалт — бүх засагдсан мөрийг нэг дор хадгална (backend bulk)
+    const saveAll = useCallback(() => {
         if (isConfirmed) return;
-        if (pendingImmediate.current) {
-            pendingImmediate.current = false;
-            doSave(myRowsRef.current);
-            return;
-        }
-        setSaveState('saving');
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => doSave(myRowsRef.current), 1500);
-        return () => { if (timer.current) clearTimeout(timer.current); };
-    }, [myRows]);
+        doSave(myRowsRef.current);
+    }, [doSave, isConfirmed]);
+
+    // Хадгалаагүй өөрчлөлттэй үед хуудас орхиход анхааруулах
+    const dirtyCount = myRows.filter((e, i) => isRowDirty(e, i)).length;
+    useEffect(() => {
+        if (dirtyCount === 0) return;
+        const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [dirtyCount]);
 
     useEffect(() => {
         if (saveState !== 'saved') return;
@@ -955,7 +1029,6 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
     const removeRow = useCallback((idx: number) => setMyRows(prev =>
         prev.length <= 1 ? [blank(auth_user)] : prev.filter((_, i) => i !== idx)
     ), [auth_user]);
-    const triggerImmediateSave = useCallback(() => { pendingImmediate.current = true; }, []);
 
     const [searchQuery, setSearchQuery] = useState('');
     const filteredMyRows    = myRows.map((e, i) => ({ e, i })).filter(({ e }) => matchesSearch(e, searchQuery));
@@ -1001,18 +1074,27 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
 
 
 
-    const [confirmingMorning, setConfirmingMorning] = useState(false);
-    const handleSubmitMorning = () => {
-        setConfirmingMorning(true);
-        router.post('/reception/daily-sheet/submit-morning', { date },
-            { onFinish: () => setConfirmingMorning(false), preserveScroll: true });
+    // Баталгаажуулахын өмнө хадгалаагүй мөрүүд байвал эхлээд хадгална (өгөгдөл алдагдахаас сэргийлнэ)
+    const saveBeforeSubmit = (done: () => void) => {
+        if (dirtyCount === 0) { done(); return; }
+        const sent = myRowsRef.current;
+        router.post('/reception/daily-sheet/save',
+            { date, entries: sent as any },
+            {
+                only: ['sheet'],
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => { setSavedSigs(sent.map(rowSig)); done(); },
+                onError: () => { setSaveState('error'); setConfirming(false); },
+            }
+        );
     };
 
     const [confirming, setConfirming] = useState(false);
     const handleSubmit = () => {
         setConfirming(true);
-        router.post('/reception/daily-sheet/submit', { date },
-            { onFinish: () => setConfirming(false), preserveScroll: true });
+        saveBeforeSubmit(() => router.post('/reception/daily-sheet/submit', { date },
+            { onFinish: () => setConfirming(false), preserveScroll: true }));
     };
 
     const overdueMyEntries = outstanding_entries.filter(e => e.is_mine && e.days_since >= 7);
@@ -1075,6 +1157,10 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                     {!isConfirmed && (
                         saveState === 'saving' ? (
                             <span className="flex items-center gap-1 text-xs text-gray-400"><Cloud className="size-3.5 animate-pulse" /> Хадгалж байна...</span>
+                        ) : dirtyCount > 0 ? (
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded-full">
+                                <span className="size-1.5 rounded-full bg-amber-500" /> {dirtyCount} мөр хадгалаагүй
+                            </span>
                         ) : saveState === 'saved' ? (
                             <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"><Cloud className="size-3.5" /> Хадгалагдлаа</span>
                         ) : saveState === 'error' ? (
@@ -1095,35 +1181,16 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                         )}
                     </div>
 
-                    {/* ── Өглөөний баталгаажуулалт ── */}
-                    {isMorningLocked ? (
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 px-2.5 py-1 rounded-full">
-                            <Sun className="size-3.5" /> Өглөө — {sheet?.morning_receptionist}
-                        </span>
-                    ) : !isConfirmed ? (
-                        <button onClick={handleSubmitMorning} disabled={confirmingMorning}
-                            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">
-                            <Sun className="size-3.5" />
-                            {confirmingMorning ? '...' : 'Өглөө баталгаажуулах'}
-                        </button>
-                    ) : null}
-
-                    {/* ── Өдрийн баталгаажуулалт ── */}
+                    {/* ── Баталгаажуулалт (нэг л удаа) ── */}
                     {isConfirmed ? (
                         <span className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 px-2.5 py-1 rounded-full">
-                            <Moon className="size-3.5" /> Өдөр — {sheet?.receptionist}
+                            <CheckCircle className="size-3.5" /> Баталгаажсан — {sheet?.receptionist}
                         </span>
-                    ) : isMorningLocked ? (
-                        <button onClick={handleSubmit} disabled={confirming}
-                            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
-                            <Moon className="size-3.5" />
-                            {confirming ? '...' : 'Өдөр баталгаажуулах'}
-                        </button>
                     ) : (
                         <button onClick={handleSubmit} disabled={confirming}
                             className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
-                            <Moon className="size-3.5" />
-                            {confirming ? '...' : 'Өдөр баталгаажуулах'}
+                            <CheckCircle className="size-3.5" />
+                            {confirming ? '...' : 'Баталгаажуулах'}
                         </button>
                     )}
                 </div>
@@ -1156,8 +1223,9 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                 <col style={{ width: 30 }} />
                                 <col style={{ width: 30 }} />
                                 <col style={{ width: 30 }} />
-                                {/* Устгах */}
-                                <col style={{ width: 28 }} />
+                                <col style={{ width: 130 }} />  {/* Тэмдэглэл */}
+                                {/* Хадгалах / Устгах */}
+                                <col style={{ width: 86 }} />
                             </colgroup>
 
                             {/* ── Header ── */}
@@ -1187,6 +1255,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                             </div>
                                         </th>
                                     ))}
+                                        <th className={`${BH} px-2 pb-1.5 text-left`}>Тэмдэглэл</th>
                                         <th className={`${BH}`}></th>
                                 </tr>
                             </thead>
@@ -1196,7 +1265,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                 {isMorningLocked && !isSearching && morningRows.length > 0 && (
                                     <>
                                         <tr>
-                                            <td colSpan={23} className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                                            <td colSpan={24} className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
                                                 ☀️ Өглөөний бүртгэл — баталгаажсан
                                             </td>
                                         </tr>
@@ -1208,7 +1277,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                             />
                                         ))}
                                         <tr>
-                                            <td colSpan={23} className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
+                                            <td colSpan={24} className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
                                                 🌙 Өдрийн бүртгэл
                                             </td>
                                         </tr>
@@ -1224,8 +1293,10 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                         onChange={merged => updateRow(i, merged)}
                                         onRemove={() => removeRow(i)}
                                         onTabLast={addRow}
-                                        onSaveNow={triggerImmediateSave}
                                         onRefund={() => openRefundForRow(i)}
+                                        isDirty={isRowDirty(e, i)}
+                                        saving={savingRow}
+                                        onSave={saveAll}
                                     />
                                 ))}
                                 {filteredOtherRows.map(({ e, i }, displayIdx) => (
@@ -1244,7 +1315,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                 ))}
                                 {isSearching && filteredMyRows.length === 0 && filteredOtherRows.length === 0 && (
                                     <tr>
-                                        <td colSpan={23} className={`${B} px-4 py-6 text-center text-gray-400 text-xs`}>
+                                        <td colSpan={24} className={`${B} px-4 py-6 text-center text-gray-400 text-xs`}>
                                             «{searchQuery}» — тохирох бичлэг олдсонгүй
                                         </td>
                                     </tr>
@@ -1269,7 +1340,7 @@ export default function DailySheetIndex({ sheet, date, doctors, technicians, tre
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums text-green-700 dark:text-green-400`}>{fmt(T.overpaid)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300`}>{fmt(T.total)}</td>
                                     <td className={`${B} px-1.5 py-2 text-right tabular-nums bg-yellow-200 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300`}>{fmt(T.outstanding)}</td>
-                                    <td className={`${B}`} colSpan={9}></td>
+                                    <td className={`${B}`} colSpan={10}></td>
                                 </tr>
                             </tfoot>
                         </table>

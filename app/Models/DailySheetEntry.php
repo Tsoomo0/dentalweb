@@ -2,13 +2,37 @@
 
 namespace App\Models;
 
+use App\Events\DailySheetUpdated;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DailySheetEntry extends Model
 {
     use SoftDeletes;
+
+    /** daily_sheet_id → [branch_id, date] — нэг хүсэлтэд давтан query хийхгүйн тулд */
+    protected static array $sheetMetaCache = [];
+
+    protected static function booted(): void
+    {
+        $notify = function (DailySheetEntry $entry) {
+            $id = $entry->daily_sheet_id;
+            if (! $id) {
+                return;
+            }
+            if (! isset(static::$sheetMetaCache[$id])) {
+                $row = \DB::table('daily_sheets')->where('id', $id)->first(['branch_id', 'date']);
+                static::$sheetMetaCache[$id] = $row ? [$row->branch_id, $row->date] : [null, null];
+            }
+            [$branchId, $date] = static::$sheetMetaCache[$id];
+            DailySheetUpdated::mark($branchId, $date);
+        };
+        static::saved($notify);
+        static::deleted($notify);
+        static::restored($notify);
+    }
 
     protected $fillable = [
         'daily_sheet_id',
@@ -97,5 +121,11 @@ class DailySheetEntry extends Model
     public function appointment(): BelongsTo
     {
         return $this->belongsTo(Appointment::class);
+    }
+
+    /** Энэ илүү тооцооноос ашигласан хэсэгчилсэн ашиглалтууд (эх үүсвэр) */
+    public function overpaidUsages(): HasMany
+    {
+        return $this->hasMany(OverpaidUsage::class, 'source_entry_id');
     }
 }

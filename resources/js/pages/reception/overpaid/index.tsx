@@ -7,6 +7,14 @@ import { useMemo, useState } from 'react';
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
 /* ------------------------------------------------------------------ */
+interface Usage {
+    receipt: string;
+    amount: number;
+    method: string | null;
+    used_at: string | null;
+    used_by: string | null;
+}
+
 interface OverpaidEntry {
     id: number;
     patient_name: string | null;
@@ -14,14 +22,13 @@ interface OverpaidEntry {
     diagnosis: string | null;
     appointment_number: string | null;
     overpaid_amount: number;
+    used_amount: number;
+    remaining_amount: number;
     date: string;
     receptionist_name: string | null;
     doctor_name: string | null;
     is_mine: boolean;
-    overpaid_used_at: string | null;
-    overpaid_used_receipt: string | null;
-    overpaid_used_method: string | null;
-    overpaid_used_amount: number | null;
+    usages: Usage[];
 }
 
 type Tab = 'pending' | 'used';
@@ -47,6 +54,11 @@ const METHOD_LABELS: Record<string, string> = {
     mobile: 'Мобайл', card: 'Карт', cash: 'Бэлэн', storepay: 'Storepay',
 };
 
+function parseNum(s: string) {
+    const v = parseInt(s.replace(/[^0-9]/g, ''), 10);
+    return isNaN(v) ? 0 : v;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Apply Modal                                                         */
 /* ------------------------------------------------------------------ */
@@ -56,18 +68,12 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
     onClose: () => void;
 }) {
     const { errors } = usePage<{ errors: Record<string, string> }>().props;
+    const remaining = entry.remaining_amount;
     const [receipt, setReceipt] = useState('');
-    const [busy,    setBusy]    = useState(false);
-    const [manual,  setManual]  = useState(false);
+    const [amountStr, setAmountStr] = useState(String(remaining));
+    const [busy, setBusy] = useState(false);
 
-    // Зөвхөн илүү тооцоотой ижил өвчтөний өнөөдрийн баримтуудыг харуулна
-    const matchingReceipts = useMemo(() => {
-        if (!entry.patient_name) return todayReceipts;
-        const target = entry.patient_name.trim().toLowerCase();
-        return todayReceipts.filter(r =>
-            (r.patient_name ?? '').trim().toLowerCase() === target
-        );
-    }, [todayReceipts, entry.patient_name]);
+    const amount = parseNum(amountStr);
 
     const matched = useMemo(
         () => todayReceipts.find(r => r.appointment_number === receipt.trim()) || null,
@@ -76,11 +82,15 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
     const nameMismatch = matched && entry.patient_name && matched.patient_name
         && matched.patient_name.trim().toLowerCase() !== entry.patient_name.trim().toLowerCase();
 
+    const amountTooBig = amount > remaining;
+    const canSubmit = receipt.trim().length > 0 && amount > 0 && !amountTooBig;
+
     function submit() {
-        if (!receipt.trim()) return;
+        if (!canSubmit) return;
         setBusy(true);
         router.post(`/reception/daily-sheet/apply-overpaid/${entry.id}`, {
             paid_receipt: receipt.trim(),
+            amount,
         }, {
             preserveScroll: true,
             preserveState: true,
@@ -110,87 +120,80 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
                     </div>
 
                     {/* Amount info */}
-                    <div className="rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 mb-5 space-y-1.5">
+                    <div className="rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 mb-4 space-y-1.5">
                         <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Илүү дүн</span>
-                            <span className="font-bold text-green-700 dark:text-green-400 tabular-nums text-base">
+                            <span className="text-muted-foreground">Нийт илүү дүн</span>
+                            <span className="font-bold text-green-700 dark:text-green-400 tabular-nums">
                                 +{entry.overpaid_amount.toLocaleString()}₮
                             </span>
                         </div>
-                        {entry.diagnosis && (
+                        {entry.used_amount > 0 && (
                             <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Оношилгоо</span>
-                                <span className="font-medium text-foreground">{entry.diagnosis}</span>
+                                <span className="text-muted-foreground">Ашигласан</span>
+                                <span className="font-medium text-muted-foreground tabular-nums">
+                                    −{entry.used_amount.toLocaleString()}₮
+                                </span>
                             </div>
                         )}
-                        {entry.appointment_number && (
-                            <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Захиалгын №</span>
-                                <span className="font-mono text-foreground">{entry.appointment_number}</span>
-                            </div>
+                        <div className="flex justify-between text-sm border-t border-green-200 dark:border-green-800 pt-1.5">
+                            <span className="text-muted-foreground font-medium">Үлдэгдэл</span>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400 tabular-nums text-base">
+                                {remaining.toLocaleString()}₮
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Amount input */}
+                    <div className="space-y-2 mb-4">
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Ашиглах дүн
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                value={amountStr}
+                                autoFocus
+                                onFocus={e => e.target.select()}
+                                onChange={e => setAmountStr(e.target.value.replace(/[^0-9]/g, ''))}
+                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 pr-8 text-base font-bold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition" />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">₮</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => setAmountStr(String(remaining))}
+                                className="text-[11px] text-emerald-700 dark:text-emerald-400 hover:underline font-medium">
+                                Бүгдийг ({remaining.toLocaleString()}₮)
+                            </button>
+                            {amountTooBig && (
+                                <span className="text-[11px] text-red-600 dark:text-red-400">Үлдэгдлээс их байна</span>
+                            )}
+                        </div>
+                        {errors?.amount && (
+                            <p className="text-xs text-red-600 dark:text-red-400">{errors.amount}</p>
                         )}
                     </div>
 
-                    {/* Receipt selector */}
+                    {/* Receipt — шууд бичих */}
                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                Өнөөдрийн баримт
-                            </label>
-                            {!manual && todayReceipts.length > 0 && (
-                                <button type="button" onClick={() => setManual(true)}
-                                    className="text-[11px] text-muted-foreground hover:text-foreground underline">
-                                    Гараар оруулах
-                                </button>
-                            )}
-                            {manual && (
-                                <button type="button" onClick={() => { setManual(false); setReceipt(''); }}
-                                    className="text-[11px] text-muted-foreground hover:text-foreground underline">
-                                    Жагсаалтаас сонгох
-                                </button>
-                            )}
-                        </div>
-
-                        {todayReceipts.length === 0 ? (
-                            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
-                                <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                <p className="text-xs text-amber-800 dark:text-amber-300">
-                                    Өнөөдөр илгээгдээгүй өдрийн тооцоонд баримт бүртгэгдээгүй байна.
-                                    Эхлээд өдрийн тооцоонд баримтаа нэмнэ үү.
-                                </p>
-                            </div>
-                        ) : !manual && matchingReceipts.length === 0 ? (
-                            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
-                                <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                <p className="text-xs text-amber-800 dark:text-amber-300">
-                                    Өнөөдөр <strong>{entry.patient_name}</strong> нэр дээр баримт бүртгэгдээгүй байна.
-                                    Эхлээд өвчтөнийг өдрийн тооцоонд нэмнэ үү, эсвэл "Гараар оруулах" сонголтыг ашиглана уу.
-                                </p>
-                            </div>
-                        ) : !manual ? (
-                            <select
-                                value={receipt}
-                                onChange={e => setReceipt(e.target.value)}
-                                autoFocus
-                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
-                                <option value="">— Баримт сонгох —</option>
-                                {matchingReceipts.map(r => (
-                                    <option key={r.appointment_number} value={r.appointment_number}>
-                                        {r.appointment_number}{r.patient_name ? ` — ${r.patient_name}` : ''}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : (
-                            <input
-                                type="text"
-                                value={receipt}
-                                autoFocus
-                                placeholder="Баримтын дугаар..."
-                                onChange={e => setReceipt(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
-                            />
-                        )}
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Баримтын дугаар
+                        </label>
+                        <input
+                            type="text"
+                            value={receipt}
+                            placeholder="Баримтын дугаараа бичнэ үү..."
+                            list="today-receipts"
+                            onChange={e => setReceipt(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+                            className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+                        />
+                        <datalist id="today-receipts">
+                            {todayReceipts.map(r => (
+                                <option key={r.appointment_number} value={r.appointment_number}>
+                                    {r.patient_name ?? ''}
+                                </option>
+                            ))}
+                        </datalist>
 
                         {/* Server-side error */}
                         {errors?.paid_receipt && (
@@ -205,26 +208,37 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
                             <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
                                 <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                                 <p className="text-xs text-amber-800 dark:text-amber-300">
-                                    Анхаар: <strong>{receipt}</strong> баримт нь <strong>{matched?.patient_name}</strong>
+                                    Анхаар: <strong>{receipt}</strong> баримт нь <strong>{matched?.patient_name}</strong>{' '}
                                     нэр дээр, харин илүү тооцоо <strong>{entry.patient_name}</strong> дээр байна.
                                 </p>
                             </div>
                         )}
 
-                        {/* Success preview */}
-                        {matched && !nameMismatch && (
-                            <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2">
-                                <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 shrink-0" />
-                                <span className="text-sm text-green-800 dark:text-green-300">
-                                    <strong className="font-mono">{receipt}</strong> баримтад{' '}
-                                    <strong>{entry.overpaid_amount.toLocaleString()}₮</strong> баланслагдана.
-                                </span>
-                            </div>
+                        {/* Preview — баримт бүртгэлтэй бол баланслана, үгүй бол шинэ мөр үүснэ */}
+                        {receipt.trim() && !nameMismatch && amount > 0 && !amountTooBig && (
+                            matched ? (
+                                <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2">
+                                    <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 shrink-0" />
+                                    <span className="text-sm text-green-800 dark:text-green-300">
+                                        <strong className="font-mono">{receipt}</strong> баримтад{' '}
+                                        <strong>{amount.toLocaleString()}₮</strong> баланслагдана.
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="flex items-start gap-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2">
+                                    <CheckCircle2 className="size-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                                    <span className="text-sm text-blue-800 dark:text-blue-300">
+                                        <strong className="font-mono">{receipt}</strong> баримтаар{' '}
+                                        <strong>{entry.patient_name ?? '—'}</strong>-ийн шинэ мөр өнөөдрийн тооцоонд үүсч,{' '}
+                                        <strong>{amount.toLocaleString()}₮</strong> баланслагдана.
+                                    </span>
+                                </div>
+                            )
                         )}
                     </div>
 
                     <div className="flex gap-2 mt-6">
-                        <button onClick={submit} disabled={busy || !receipt.trim()}
+                        <button onClick={submit} disabled={busy || !canSubmit}
                             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 hover:bg-green-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">
                             {busy
                                 ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -313,21 +327,16 @@ export default function OverpaidIndex({ entries, tab, pendingCount, todayReceipt
                                         <th className="px-4 py-3 text-left">Оношилгоо</th>
                                         <th className="px-4 py-3 text-left">Баримт №</th>
                                         <th className="px-4 py-3 text-right">Илүү дүн</th>
+                                        {tab === 'pending' && <th className="px-4 py-3 text-right">Үлдэгдэл</th>}
                                         <th className="px-4 py-3 text-left">Эмч</th>
                                         <th className="px-4 py-3 text-left">Ресепшн</th>
-                                        {tab === 'used' && (
-                                            <>
-                                                <th className="px-4 py-3 text-left">Ашигласан баримт</th>
-                                                <th className="px-4 py-3 text-left">Хэлбэр</th>
-                                                <th className="px-4 py-3 text-right">Ашигласан дүн</th>
-                                            </>
-                                        )}
+                                        {tab === 'used' && <th className="px-4 py-3 text-left">Ашиглалт</th>}
                                         {tab === 'pending' && <th className="px-4 py-3" />}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {entries.map(e => (
-                                        <tr key={e.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+                                        <tr key={e.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors align-top">
                                             <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">{e.date}</td>
                                             <td className="px-4 py-3">
                                                 <span className="font-semibold text-foreground">{e.patient_name ?? '—'}</span>
@@ -339,19 +348,39 @@ export default function OverpaidIndex({ entries, tab, pendingCount, todayReceipt
                                                 <span className="font-bold text-green-700 dark:text-green-400 tabular-nums">
                                                     +{e.overpaid_amount.toLocaleString()}₮
                                                 </span>
+                                                {e.used_amount > 0 && (
+                                                    <div className="text-[10px] text-muted-foreground tabular-nums">
+                                                        ашигласан −{e.used_amount.toLocaleString()}
+                                                    </div>
+                                                )}
                                             </td>
+                                            {tab === 'pending' && (
+                                                <td className="px-4 py-3 text-right">
+                                                    <span className="font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                                        {e.remaining_amount.toLocaleString()}₮
+                                                    </span>
+                                                </td>
+                                            )}
                                             <td className="px-4 py-3 text-sm text-muted-foreground">{e.doctor_name ?? '—'}</td>
                                             <td className="px-4 py-3 text-sm text-muted-foreground">{e.receptionist_name ?? '—'}</td>
                                             {tab === 'used' && (
-                                                <>
-                                                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{e.overpaid_used_receipt ?? '—'}</td>
-                                                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                                                        {e.overpaid_used_method ? METHOD_LABELS[e.overpaid_used_method] ?? e.overpaid_used_method : '—'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums text-foreground">
-                                                        {e.overpaid_used_amount ? e.overpaid_used_amount.toLocaleString() + '₮' : '—'}
-                                                    </td>
-                                                </>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex flex-col gap-1">
+                                                        {e.usages.map((u, i) => (
+                                                            <div key={i} className="flex items-center gap-1.5 text-xs">
+                                                                <span className="font-mono text-muted-foreground">{u.receipt}</span>
+                                                                <span className="font-semibold tabular-nums text-foreground">
+                                                                    {u.amount.toLocaleString()}₮
+                                                                </span>
+                                                                {u.method && (
+                                                                    <span className="text-[10px] text-muted-foreground">
+                                                                        ({METHOD_LABELS[u.method] ?? u.method})
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </td>
                                             )}
                                             {tab === 'pending' && (
                                                 <td className="px-4 py-3 text-right">

@@ -23,6 +23,8 @@ interface Entry {
     card_amount: number;
     cash_amount: number;
     storepay_amount: number;
+    overpaid_amount: number;
+    overpaid_used_at: string | null;
     total_amount: number;
     outstanding_amount: number;
     doctor_id: number | null;
@@ -271,6 +273,7 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                     <col style={{ width: 60 }} />
                     <col style={{ width: 60 }} />
                     <col style={{ width: 60 }} />
+                    <col style={{ width: 64 }} />  {/* Илүү дүн */}
                     <col style={{ width: 70 }} />
                     <col style={{ width: 60 }} />
                     <col style={{ width: 72 }} />
@@ -292,6 +295,7 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Карт</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Бэлэн</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center">Storepay</th>
+                        <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center bg-green-50 dark:bg-green-900/20">Илүү дүн</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center bg-blue-50 dark:bg-blue-900/20">Нийт дүн</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-center bg-yellow-50 dark:bg-yellow-900/20">Дутуу</th>
                         <th className="border-b border-gray-200 dark:border-gray-700 px-2 pb-1.5 text-left w-28">Эмч</th>
@@ -319,6 +323,10 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.card_amount)}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.cash_amount)}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.storepay_amount)}</td>
+                            <td className={`border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right bg-green-50/50 dark:bg-green-900/10 ${e.overpaid_amount > 0 ? (e.overpaid_used_at ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-green-700 dark:text-green-400 font-semibold') : ''}`}
+                                title={e.overpaid_amount > 0 ? (e.overpaid_used_at ? `Илүүдсэн ${e.overpaid_amount.toLocaleString()}₮ — ашигласан` : `Илүүдсэн ${e.overpaid_amount.toLocaleString()}₮`) : undefined}>
+                                {e.overpaid_amount > 0 ? `+${e.overpaid_amount.toLocaleString()}` : '—'}
+                            </td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right font-semibold text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10">
                                 {fmt(e.total_amount)}
                             </td>
@@ -375,6 +383,12 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.card_amount)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.cash_amount)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(sheet.totals.storepay_amount)}</td>
+                        <td className="px-2 py-1.5 text-right bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                            {(() => {
+                                const t = sheet.entries.reduce((s, e) => s + (e.overpaid_amount || 0), 0);
+                                return t > 0 ? `+${t.toLocaleString()}` : '—';
+                            })()}
+                        </td>
                         <td className="px-2 py-1.5 text-right bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{fmt(sheet.totals.total_amount)}</td>
                         <td className="px-2 py-1.5 text-right bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{fmt(sheet.totals.outstanding_amount)}</td>
                         <td colSpan={10} />
@@ -396,11 +410,29 @@ export default function DailySheetsIndex({
     const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
     const [expandedRec, setExpandedRec] = useState<Set<number>>(new Set());
 
+    // ── Real-time: Polling-ийн оронд Reverb websocket ──
+    // Аль ч салбар/огнооны өдрийн тооцоо өөрчлөгдөхөд 'daily-sheets-admin' суваг руу
+    // 'sheet.updated' ирнэ → одоогийн шүүлтүүрээ хадгалан зөвхөн өгөгдлийн prop-уудыг шинэчилнэ.
     useEffect(() => {
-        const id = setInterval(() => {
-            router.reload({ only: ['sheets', 'grandTotals', 'outstandingEntries', 'receptionRegistry'] });
-        }, 15_000);
-        return () => clearInterval(id);
+        const Echo = (window as any).Echo;
+        if (!Echo) return;
+        let t: ReturnType<typeof setTimeout> | null = null;
+        const refresh = () => {
+            if (t) clearTimeout(t);
+            t = setTimeout(() => {
+                // reload нь default-аар preserveState + preserveScroll хийдэг
+                router.reload({
+                    only: ['sheets', 'grandTotals', 'outstandingEntries', 'receptionRegistry'],
+                });
+            }, 400);
+        };
+        const channel = Echo.private('daily-sheets-admin');
+        channel.listen('.sheet.updated', refresh);
+        return () => {
+            if (t) clearTimeout(t);
+            try { channel.stopListening('.sheet.updated', refresh); } catch { /* noop */ }
+            Echo.leave('daily-sheets-admin');
+        };
     }, []);
 
     type ModalAction = 'delete' | 'unlock' | 'delete-entry';
@@ -503,6 +535,7 @@ export default function DailySheetsIndex({
                     <td style="text-align:right">${e.card_amount > 0 ? e.card_amount.toLocaleString() : '—'}</td>
                     <td style="text-align:right">${e.cash_amount > 0 ? e.cash_amount.toLocaleString() : '—'}</td>
                     <td style="text-align:right">${e.storepay_amount > 0 ? e.storepay_amount.toLocaleString() : '—'}</td>
+                    <td style="text-align:right">${e.overpaid_amount > 0 ? '+' + e.overpaid_amount.toLocaleString() : '—'}</td>
                     <td style="text-align:right;font-weight:bold">${e.total_amount.toLocaleString()}</td>
                     <td style="text-align:right">${e.outstanding_amount > 0 ? e.outstanding_amount.toLocaleString() : '—'}</td>
                     <td>${e.doctor_name ?? '—'}</td>
@@ -529,7 +562,7 @@ export default function DailySheetsIndex({
                 <thead><tr>
                     <th>Огноо</th><th>Салбар</th><th>№</th><th>Үйлчлүүлэгч</th><th>Хүйс</th>
                     <th>Оношилгоо/Эмчилгээ</th><th>Хөнгөлөлт</th><th>Мобайл</th><th>Карт</th><th>Бэлэн</th>
-                    <th>Storepay</th><th>Нийт дүн</th><th>Дутуу</th><th>Эмч</th><th>Ресепшн</th>
+                    <th>Storepay</th><th>Илүү дүн</th><th>Нийт дүн</th><th>Дутуу</th><th>Эмч</th><th>Ресепшн</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
                 <tfoot><tr>
@@ -539,6 +572,7 @@ export default function DailySheetsIndex({
                     <td style="text-align:right">${totals.card_amount.toLocaleString()}</td>
                     <td style="text-align:right">${totals.cash_amount.toLocaleString()}</td>
                     <td style="text-align:right">${totals.storepay_amount.toLocaleString()}</td>
+                    <td style="text-align:right">${(() => { const t = targetSheets.reduce((s, sh) => s + sh.entries.reduce((a, e) => a + (e.overpaid_amount || 0), 0), 0); return t > 0 ? '+' + t.toLocaleString() : '—'; })()}</td>
                     <td style="text-align:right">${totals.total_amount.toLocaleString()}</td>
                     <td style="text-align:right">${totals.outstanding_amount.toLocaleString()}</td>
                     <td colspan="2"></td>

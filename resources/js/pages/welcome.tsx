@@ -1,1175 +1,518 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState, useEffect, type CSSProperties } from 'react';
+import { ChevronDown } from 'lucide-react';
 import PublicLayout from '@/layouts/public-layout';
-import {
-    ArrowRight, Calendar, CheckCircle, Award,
-    ChevronRight, Smile, MapPin, ChevronLeft,
-    X, Image as ImageIcon,
-    GraduationCap, Briefcase, BadgeCheck
-} from 'lucide-react';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════════════════════
-
-interface SubTreatment {
-    id: number; title: string; description: string | null;
-    price_min: number | null; price_max: number | null; duration_min: number | null;
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPES — backend-ээс ирэх жинхэнэ өгөгдөл
+   ═══════════════════════════════════════════════════════════════════════════ */
+interface SubTreatment { id: number; title: string }
 interface Treatment {
     id: number; title: string; description: string | null;
-    price_min: number | null; price_max: number | null;
-    duration_min: number | null; image_url: string | null;
-    sub_treatments: SubTreatment[];
+    price_min: number | null; price_max: number | null; duration_min: number | null;
+    image_url: string | null; sub_treatments: SubTreatment[];
 }
-interface TreatmentCategory {
-    id: number; name: string; icon: string | null; treatments: Treatment[];
-}
-interface Experience { year?: string; title: string; institution?: string }
+interface TreatmentCategory { id: number; name: string; icon: string | null; treatments: Treatment[] }
 interface Doctor {
-    id: number; name: string; specialization: string | null; degree: string | null;
-    experience_years: number | null; description: string | null;
-    phone: string | null; email: string | null;
-    experiences: Experience[] | null;
+    id: number; name: string; specialization: string | null;
     photo_url: string | null; branch_name: string | null; branch_id: number | null;
 }
 interface GalleryItem {
     id: number; title: string | null; description: string | null;
     before_url: string | null; after_url: string | null; category_name: string | null;
 }
-interface Article {
-    id: number; title: string; slug: string; excerpt: string | null;
-    category: string | null; featured_image: string | null; published_at: string | null;
-}
-interface Faq { id: number; question: string; answer: string; category: string | null }
 interface Branch { id: number; name: string; address: string | null; phone: string | null }
+interface Faq { id: number; question: string; answer: string; category: string | null }
 interface PageProps {
-    [key: string]: unknown;
-    auth: { user?: { name: string } };
-    doctors: Doctor[]; treatments: TreatmentCategory[];
-    gallery: GalleryItem[]; articles: Article[];
-    faqs: Faq[]; branches: Branch[];
-    stats: { doctors: number; appointments: number; branches: number };
+    doctors: Doctor[];
+    treatments: TreatmentCategory[];
+    gallery: GalleryItem[];
+    branches: Branch[];
+    faqs: Faq[];
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MODAL BASE — backdrop + scroll lock
-// ═══════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════════════════
+   ЖИЖИГ ТУСЛАХ КОМПОНЕНТУУД
+   ═══════════════════════════════════════════════════════════════════════════ */
+const RED = '#c81e3a';
 
-function Modal({ open, onClose, children }: {
-    open: boolean; onClose: () => void; children: React.ReactNode
-}) {
-    useEffect(() => {
-        if (open) document.body.style.overflow = 'hidden';
-        else document.body.style.overflow = '';
-        return () => { document.body.style.overflow = ''; };
-    }, [open]);
-
-    if (!open) return null;
-
+/* зураг байхгүй үед — судалтай орлуулагч */
+function Placeholder({ label, className = '', style }: { label: string; className?: string; style?: CSSProperties }) {
     return (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
-            onClick={onClose}>
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            {/* Panel */}
-            <div
-                className="relative w-full sm:max-w-lg max-h-[88vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl"
-                onClick={e => e.stopPropagation()}
-                style={{ animation: 'modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
-            >
-                {children}
+        <div
+            className={`flex items-center justify-center text-center text-[12px] font-medium text-[#b3a7a3] ${className}`}
+            style={{ background: 'repeating-linear-gradient(45deg,#f3eceb,#f3eceb 11px,#eee3e2 11px,#eee3e2 22px)', ...style }}
+        >
+            {label}
+        </div>
+    );
+}
+
+function SectionBadge({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="mb-4 inline-flex items-center gap-2 rounded-[30px] border border-[#c81e3a]/20 bg-[#c81e3a]/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.1em] text-[#c81e3a] shadow-[0_8px_20px_rgba(120,30,50,0.1)] backdrop-blur-md">
+            <span className="h-[7px] w-[7px] rounded-full bg-[#c81e3a]" />
+            {children}
+        </div>
+    );
+}
+
+/* glass card-н нийтлэг хүрээ */
+const glassPanel =
+    'rounded-[30px] border border-white/70 bg-white/50 shadow-[0_14px_40px_rgba(120,30,50,0.06)] backdrop-blur-xl';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HERO — анимэйшнтэй tooth scene-ууд (статик контент)
+   ═══════════════════════════════════════════════════════════════════════════ */
+const Ring = () => (
+    <>
+        <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'radial-gradient(circle,rgba(255,225,230,.5),transparent 65%)', filter: 'blur(8px)', animation: 'cuticulPulseGlow 6s ease-in-out infinite' }} />
+        <div className="absolute left-1/2 top-1/2 h-[296px] w-[296px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/30" style={{ animation: 'cuticulSpinSlow 38s linear infinite' }} />
+        <div className="absolute left-1/2 top-1/2 h-[228px] w-[228px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/15" style={{ animation: 'cuticulSpinRev 28s linear infinite' }} />
+    </>
+);
+
+function WhiteningScene() {
+    const tooth: CSSProperties = { animation: 'cuticulWhiten 4s ease-in-out infinite' };
+    return (
+        <div className="relative flex h-[166px] w-[140px] items-center justify-center" style={{ animation: 'cuticulFloatyA 6s ease-in-out infinite' }}>
+            <div className="relative h-[166px] w-[140px] overflow-hidden" style={{ filter: 'drop-shadow(0 16px 30px rgba(80,10,25,.32))' }}>
+                <div className="absolute bottom-[2px] left-[30px] h-[78px] w-[36px]" style={{ ...tooth, borderRadius: '14px 14px 60% 60% / 14px 14px 42% 42%', boxShadow: 'inset 0 -11px 14px rgba(150,108,66,.22)' }} />
+                <div className="absolute bottom-[2px] right-[30px] h-[78px] w-[36px]" style={{ ...tooth, borderRadius: '14px 14px 60% 60% / 14px 14px 42% 42%', boxShadow: 'inset 0 -11px 14px rgba(150,108,66,.22)' }} />
+                <div className="absolute left-[16px] top-0 h-[94px] w-[108px]" style={{ ...tooth, borderRadius: '50% 50% 38% 38% / 60% 60% 46% 46%', boxShadow: 'inset 0 -13px 20px rgba(150,108,66,.22), inset 0 11px 16px rgba(255,255,255,.6)' }} />
+                <div className="absolute left-[34px] top-[14px] z-[2] h-[30px] w-[38px] rounded-full" style={{ background: 'radial-gradient(circle,rgba(255,255,255,.9),transparent 72%)', filter: 'blur(1px)' }} />
+                <div className="absolute left-0 top-[-20px] z-[3] h-[210px] w-[34px]" style={{ background: 'linear-gradient(90deg,transparent,rgba(255,255,255,.8),transparent)', transform: 'rotate(20deg)', animation: 'cuticulSweepGloss 4s ease-in-out infinite' }} />
+            </div>
+            <div className="absolute right-0 top-[-8px] text-[24px] text-white" style={{ animation: 'cuticulTwinkle 2s ease-in-out infinite' }}>✦</div>
+            <div className="absolute right-[-16px] top-[42px] text-[15px] text-white" style={{ animation: 'cuticulTwinkle 2.6s ease-in-out infinite .5s' }}>✦</div>
+            <div className="absolute left-[-14px] top-[16px] text-[13px] text-white" style={{ animation: 'cuticulTwinkle 2.2s ease-in-out infinite 1s' }}>✦</div>
+        </div>
+    );
+}
+
+function ImplantScene() {
+    const crown: CSSProperties = { background: 'linear-gradient(160deg,#ffffff,#ece5e1)' };
+    return (
+        <div className="relative h-[240px] w-[200px]">
+            <div className="absolute bottom-0 left-1/2 ml-[-92px] h-[50px] w-[184px] rounded-[26px]" style={{ background: 'linear-gradient(180deg,#ef9aa8,#df7688)' }} />
+            <div className="absolute bottom-[36px] left-1/2 ml-[-13px] h-[80px] w-[26px]" style={{ borderRadius: '6px 6px 4px 4px', background: 'repeating-linear-gradient(0deg,#dcd5d2,#dcd5d2 5px,#b3aaa6 5px,#b3aaa6 10px)', boxShadow: '0 4px 10px rgba(80,10,25,.25)' }} />
+            <div className="absolute left-1/2 top-0 ml-[-58px] h-[150px] w-[116px]" style={{ animation: 'cuticulImplantDrop 4.2s ease-in-out infinite', filter: 'drop-shadow(0 14px 24px rgba(80,10,25,.32))' }}>
+                <div className="absolute bottom-0 left-[18px] h-[70px] w-[34px]" style={{ ...crown, borderRadius: '13px 13px 58% 58% / 13px 13px 40% 40%', boxShadow: 'inset 0 -10px 13px rgba(150,108,66,.2)' }} />
+                <div className="absolute bottom-0 right-[18px] h-[70px] w-[34px]" style={{ ...crown, borderRadius: '13px 13px 58% 58% / 13px 13px 40% 40%', boxShadow: 'inset 0 -10px 13px rgba(150,108,66,.2)' }} />
+                <div className="absolute left-[4px] top-0 h-[90px] w-[108px]" style={{ ...crown, borderRadius: '50% 50% 38% 38% / 60% 60% 46% 46%', boxShadow: 'inset 0 -13px 20px rgba(150,108,66,.2), inset 0 11px 16px rgba(255,255,255,.7)' }} />
+                <div className="absolute left-[24px] top-[14px] h-[28px] w-[36px] rounded-full" style={{ background: 'radial-gradient(circle,rgba(255,255,255,.92),transparent 72%)', filter: 'blur(1px)' }} />
+                <div className="absolute left-1/2 top-[30px] z-[3] ml-[-10px] text-[20px] text-[#ffd9df]" style={{ animation: 'cuticulClickPop 4.2s ease-in-out infinite' }}>✦</div>
             </div>
         </div>
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TREATMENT MODAL
-// ═══════════════════════════════════════════════════════════════════════════
-
-function TreatmentModal({ treatment, catName, onClose }: {
-    treatment: Treatment | null; catName: string; onClose: () => void;
-}) {
-    if (!treatment) return null;
-
-    const hasPrice = treatment.price_min || treatment.price_max;
-    const bookingUrl = `/booking?service=${encodeURIComponent(treatment.title)}`;
-
+function BracesScene() {
+    const stras = ['cuticulStraA', 'cuticulStraB', 'cuticulStraC', 'cuticulStraD', 'cuticulStraE'];
     return (
-        <Modal open onClose={onClose}>
-            {/* Image or gradient header */}
-            <div className="relative">
-                {treatment.image_url ? (
-                    <div className="h-40 overflow-hidden rounded-t-3xl sm:rounded-t-3xl">
-                        <img src={treatment.image_url} alt={treatment.title}
-                            className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-t-3xl" />
-                    </div>
-                ) : (
-                    <div className="h-40 bg-gradient-to-br from-red-700 via-red-600 to-rose-500 rounded-t-3xl sm:rounded-t-3xl flex items-center justify-center">
-                        <div className="text-white/20">
-                            <ImageIcon className="w-14 h-14" />
-                        </div>
-                    </div>
-                )}
-
-                {/* Close btn */}
-                <button onClick={onClose}
-                    className="absolute top-4 right-4 w-9 h-9 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all">
-                    <X className="w-5 h-5" />
-                </button>
-
-                {/* Category badge */}
-                <div className="absolute bottom-4 left-5">
-                    <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/30">
-                        {catName}
-                    </span>
+        <div className="relative flex h-[90px] w-[248px] items-end justify-center gap-[7px]" style={{ filter: 'drop-shadow(0 14px 24px rgba(80,10,25,.3))' }}>
+            <div className="absolute left-[8px] right-[8px] top-[30px] z-[3] h-[4px] rounded-[3px] bg-white/90" style={{ boxShadow: '0 0 8px rgba(255,255,255,.5)' }} />
+            {stras.map((a, i) => (
+                <div key={i} className="relative h-[58px] w-[38px] origin-bottom" style={{ animation: `${a} 5s ease-in-out infinite` }}>
+                    <div className="h-[52px] w-[38px]" style={{ borderRadius: '46% 46% 28% 28% / 56% 56% 32% 32%', background: 'linear-gradient(160deg,#ffffff,#ebe4e0)', boxShadow: 'inset 0 -8px 12px rgba(150,108,66,.18), inset 0 6px 9px rgba(255,255,255,.6)' }} />
+                    <div className="absolute left-1/2 top-[16px] ml-[-7px] h-[11px] w-[14px] rounded-[3px] bg-[#c9bfbb]" />
                 </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-5">
-                {/* Title + price */}
-                <div className="flex items-start justify-between gap-4 mb-3">
-                    <h2 className="text-xl font-black text-gray-900 leading-tight">{treatment.title}</h2>
-                    {hasPrice && (
-                        <div className="text-right flex-shrink-0">
-                            <p className="text-red-600 font-black text-lg">
-                                {treatment.price_min && `${Number(treatment.price_min).toLocaleString()}₮`}
-                                {treatment.price_min && treatment.price_max && '–'}
-                                {treatment.price_max && `${Number(treatment.price_max).toLocaleString()}₮`}
-                            </p>
-                            {treatment.duration_min && (
-                                <p className="text-gray-400 text-xs mt-0.5">{treatment.duration_min} мин</p>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Description */}
-                {treatment.description && (
-                    <p className="text-gray-600 leading-relaxed mb-6 text-[15px]">{treatment.description}</p>
-                )}
-
-                {/* Sub-treatments */}
-                {treatment.sub_treatments.length > 0 && (
-                    <div className="mb-6">
-                        <h3 className="font-bold text-gray-900 text-sm uppercase tracking-widest mb-3">
-                            Дэлгэрэнгүй үйлчилгээ
-                        </h3>
-                        <div className="flex flex-col gap-2">
-                            {treatment.sub_treatments.map(s => (
-                                <div key={s.id}
-                                    className="flex items-center justify-between px-4 py-3.5 bg-gray-50 hover:bg-rose-50 rounded-xl border border-gray-100 hover:border-red-100 transition-all">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
-                                        <div>
-                                            <p className="font-semibold text-gray-800 text-sm">{s.title}</p>
-                                            {s.description && (
-                                                <p className="text-gray-400 text-xs mt-0.5 line-clamp-1">{s.description}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {(s.price_min || s.price_max) && (
-                                        <div className="text-right flex-shrink-0 ml-4">
-                                            <p className="text-red-600 font-bold text-sm">
-                                                {s.price_min && `${Number(s.price_min).toLocaleString()}₮`}
-                                                {s.price_min && s.price_max && '–'}
-                                                {s.price_max && `${Number(s.price_max).toLocaleString()}₮`}
-                                            </p>
-                                            {s.duration_min && (
-                                                <p className="text-gray-400 text-[11px]">{s.duration_min} мин</p>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* What's included */}
-                <div className="flex flex-col gap-2 mb-7">
-                    {['Мэргэшсэн эмчийн оролцоо', 'Орчин үеийн тоног төхөөрөмж', 'Дараагийн үзлэгийн зөвлөгөө'].map((f, i) => (
-                        <div key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
-                            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                            {f}
-                        </div>
-                    ))}
-                </div>
-
-                {/* CTA */}
-                <Link href={bookingUrl}
-                    className="w-full flex items-center justify-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-200 text-base">
-                    <Calendar className="w-5 h-5" />
-                    Эмч дээр цаг захиалах
-                </Link>
-            </div>
-        </Modal>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// DOCTOR MODAL
-// ═══════════════════════════════════════════════════════════════════════════
-
-function DoctorModal({ doctor, onClose }: { doctor: Doctor | null; onClose: () => void }) {
-    if (!doctor) return null;
-
-    const bookingUrl = `/booking?doctor_id=${doctor.id}`;
-
-    return (
-        <Modal open onClose={onClose}>
-            {/* Header */}
-            <div className="relative bg-gradient-to-br from-[#16100A] to-[#2a1a10] rounded-t-3xl p-6 sm:p-8 pb-0">
-                <button onClick={onClose}
-                    className="absolute top-4 right-4 w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all">
-                    <X className="w-5 h-5" />
-                </button>
-
-                <div className="flex items-end gap-5 pb-6">
-                    {/* Photo */}
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-white/10 flex-shrink-0 border-2 border-white/20 shadow-xl">
-                        {doctor.photo_url
-                            ? <img src={doctor.photo_url} alt={doctor.name} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center bg-red-900/30">
-                                <span className="text-white font-black text-4xl">{doctor.name.charAt(0)}</span>
-                              </div>
-                        }
-                    </div>
-
-                    <div className="min-w-0 pb-1">
-                        <h2 className="text-2xl font-black text-white leading-tight">{doctor.name}</h2>
-                        {doctor.specialization && (
-                            <p className="text-red-400 font-semibold text-sm mt-1">{doctor.specialization}</p>
-                        )}
-                        {doctor.degree && (
-                            <p className="text-gray-400 text-xs mt-0.5">{doctor.degree}</p>
-                        )}
-                        <div className="flex flex-wrap gap-2 mt-3">
-                            {doctor.experience_years && (
-                                <span className="bg-white/10 text-white/80 text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1.5">
-                                    <Award className="w-3 h-3" />
-                                    {doctor.experience_years} жилийн туршлага
-                                </span>
-                            )}
-                            {doctor.branch_name && (
-                                <span className="bg-white/10 text-white/80 text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1.5">
-                                    <MapPin className="w-3 h-3" />
-                                    {doctor.branch_name}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tab indicator line */}
-                <div className="h-px bg-white/10" />
-            </div>
-
-            {/* Body */}
-            <div className="p-6 sm:p-8 flex flex-col gap-6">
-
-                {/* About */}
-                {doctor.description && (
-                    <div>
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
-                            <BadgeCheck className="w-4 h-4 text-red-400" /> Танилцуулга
-                        </h3>
-                        <p className="text-gray-700 leading-relaxed text-[15px]">{doctor.description}</p>
-                    </div>
-                )}
-
-                {/* Experiences */}
-                {doctor.experiences && doctor.experiences.length > 0 && (
-                    <div>
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2">
-                            <Briefcase className="w-4 h-4 text-red-400" /> Ажлын туршлага & Боловсрол
-                        </h3>
-                        <div className="relative">
-                            {/* Timeline line */}
-                            <div className="absolute left-3 top-2 bottom-2 w-px bg-red-100" />
-                            <div className="flex flex-col gap-4">
-                                {doctor.experiences.map((exp, i) => (
-                                    <div key={i} className="flex gap-4 pl-1">
-                                        {/* Dot */}
-                                        <div className="w-6 h-6 rounded-full bg-red-50 border-2 border-red-200 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <div className="w-2 h-2 rounded-full bg-red-500" />
-                                        </div>
-                                        <div className="pb-1">
-                                            {exp.year && (
-                                                <p className="text-red-500 text-xs font-bold mb-0.5">{exp.year}</p>
-                                            )}
-                                            <p className="font-semibold text-gray-800 text-sm">{exp.title}</p>
-                                            {exp.institution && (
-                                                <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
-                                                    <GraduationCap className="w-3 h-3" />
-                                                    {exp.institution}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-3">
-                    {[
-                        { label: 'Туршлага', value: doctor.experience_years ? `${doctor.experience_years} жил` : '—' },
-                        { label: 'Мэргэжил', value: doctor.specialization ?? '—' },
-                        { label: 'Салбар', value: doctor.branch_name ?? '—' },
-                    ].map((s, i) => (
-                        <div key={i} className="bg-gray-50 rounded-xl p-3 text-center">
-                            <p className="font-black text-gray-900 text-sm leading-snug">{s.value}</p>
-                            <p className="text-gray-400 text-[11px] mt-0.5">{s.label}</p>
-                        </div>
-                    ))}
-                </div>
-
-                {/* CTA */}
-                <Link href={bookingUrl}
-                    className="w-full flex items-center justify-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-200 text-base">
-                    <Calendar className="w-5 h-5" />
-                    Цаг захиалах
-                </Link>
-            </div>
-        </Modal>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ARTICLE MODAL
-// ═══════════════════════════════════════════════════════════════════════════
-
-function ArticleModal({ article, onClose }: { article: Article | null; onClose: () => void }) {
-    if (!article) return null;
-    return (
-        <Modal open onClose={onClose}>
-            <div className="relative">
-                {article.featured_image ? (
-                    <div className="aspect-[16/7] overflow-hidden rounded-t-3xl">
-                        <img src={article.featured_image} alt={article.title} className="w-full h-full object-cover"/>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-t-3xl"/>
-                    </div>
-                ) : (
-                    <div className="aspect-[16/7] bg-gradient-to-br from-rose-100 to-red-50 rounded-t-3xl flex items-center justify-center">
-                        <Smile className="w-16 h-16 text-red-200"/>
-                    </div>
-                )}
-                <button onClick={onClose}
-                    className="absolute top-4 right-4 w-9 h-9 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all">
-                    <X className="w-5 h-5"/>
-                </button>
-                {article.category && (
-                    <div className="absolute bottom-4 left-5">
-                        <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/30">
-                            {article.category}
-                        </span>
-                    </div>
-                )}
-            </div>
-            <div className="p-6 sm:p-8">
-                {article.published_at && (
-                    <p className="text-gray-400 text-sm mb-3">{article.published_at}</p>
-                )}
-                <h2 className="text-2xl font-black text-gray-900 leading-tight mb-4">{article.title}</h2>
-                {article.excerpt && (
-                    <p className="text-gray-600 leading-relaxed text-[15px]">{article.excerpt}</p>
-                )}
-            </div>
-        </Modal>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// HERO SLIDE ILLUSTRATIONS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function BracesIllustration() {
-    return (
-        <svg viewBox="0 0 480 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
-            <ellipse cx="240" cy="475" rx="150" ry="16" fill="#C62828" opacity="0.12" />
-            {[0,1,2,3,4,5,6,7,8].map(i => {
-                const x = 18 + i * 50, isCen = i===3||i===4||i===5, isCan = i===2||i===6;
-                const h = isCen?148:isCan?128:112, w = isCen?46:isCan?40:38, y = isCen?95:isCan?112:122;
-                return (
-                    <g key={`u${i}`}>
-                        <rect x={x} y={y} width={w} height={h} rx={isCen?20:isCan?15:13} fill="url(#tg1)" stroke="#E5E7EB" strokeWidth="1.5"/>
-                        <rect x={x+7} y={y+56} width={w-14} height={17} rx={4} fill="#C62828"/>
-                        <rect x={x+7} y={y+63} width={w-14} height={2.5} rx={1} fill="#9B1B1B"/>
-                        <rect x={x+9} y={y+54} width={5} height={4.5} rx={2} fill="#EF5350"/>
-                        <rect x={x+w-14} y={y+54} width={5} height={4.5} rx={2} fill="#EF5350"/>
-                        <rect x={x+4} y={y+6} width={7} height={20} rx={3.5} fill="white" opacity="0.22"/>
-                    </g>
-                );
-            })}
-            <path d="M28 208 Q240 184 452 208" stroke="#C62828" strokeWidth="5" strokeLinecap="round" fill="none"/>
-            {[0,1,2,3,4,5,6,7,8].map(i => {
-                const x = 18 + i * 50, isCen = i===3||i===4||i===5, isCan = i===2||i===6;
-                const h = isCen?124:isCan?110:98, w = isCen?44:isCan?38:36;
-                return (
-                    <g key={`l${i}`}>
-                        <rect x={x} y={278} width={w} height={h} rx={isCen?18:isCan?13:12} fill="url(#tg2)" stroke="#E5E7EB" strokeWidth="1.5"/>
-                        <rect x={x+7} y={314} width={w-14} height={15} rx={3.5} fill="#C62828"/>
-                        <rect x={x+7} y={320} width={w-14} height={2} rx={1} fill="#9B1B1B"/>
-                        <rect x={x+9} y={312} width={4.5} height={4} rx={2} fill="#EF5350"/>
-                        <rect x={x+w-13} y={312} width={4.5} height={4} rx={2} fill="#EF5350"/>
-                        <rect x={x+4} y={284} width={6} height={16} rx={3} fill="white" opacity="0.18"/>
-                    </g>
-                );
-            })}
-            <path d="M28 318 Q240 338 452 318" stroke="#C62828" strokeWidth="5" strokeLinecap="round" fill="none"/>
-            <defs>
-                <linearGradient id="tg1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFFFFF"/><stop offset="100%" stopColor="#F0F0F0"/>
-                </linearGradient>
-                <linearGradient id="tg2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#F5F5F5"/><stop offset="100%" stopColor="#E4E4E4"/>
-                </linearGradient>
-            </defs>
-        </svg>
-    );
-}
-
-function ImplantIllustration() {
-    return (
-        <svg viewBox="0 0 480 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
-            <ellipse cx="240" cy="475" rx="130" ry="14" fill="#C62828" opacity="0.10"/>
-            <path d="M140 80 Q150 48 180 44 Q210 40 240 38 Q270 40 300 44 Q330 48 340 80 Q350 130 340 180 Q320 210 240 216 Q160 210 140 180 Q130 130 140 80Z"
-                fill="url(#crownGrad)" stroke="#E5E7EB" strokeWidth="2"/>
-            <path d="M170 70 Q190 54 220 52 Q240 50 240 70 Q220 72 200 76 Z" fill="white" opacity="0.35"/>
-            <path d="M180 155 Q240 162 300 155" stroke="#D1D5DB" strokeWidth="1.5" strokeLinecap="round"/>
-            <rect x={120} y={200} width={240} height={40} rx={8} fill="#FECACA" opacity="0.6"/>
-            <path d="M120 215 Q240 230 360 215" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round" fill="none"/>
-            <path d="M210 240 L218 280 L262 280 L270 240Z" fill="url(#abGrad)"/>
-            <path d="M205 238 L275 238" stroke="#9CA3AF" strokeWidth="3" strokeLinecap="round"/>
-            <rect x={222} y={280} width={36} height={130} rx={6} fill="url(#screwGrad)"/>
-            {[0,1,2,3,4,5,6,7,8,9,10,11].map(i => (
-                <path key={i} d={`M216 ${290+i*10} Q240 ${287+i*10} 264 ${290+i*10}`}
-                    stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.7"/>
             ))}
-            <path d="M222 410 L240 430 L258 410Z" fill="url(#screwGrad)"/>
-            <rect x={100} y={330} width={280} height={100} rx={12} fill="#FEF3C7" opacity="0.4" stroke="#FDE68A" strokeWidth="1.5"/>
-            <text x="240" y="392" textAnchor="middle" fontSize="11" fill="#D97706" fontWeight="600" opacity="0.7">Ясны эд</text>
-            <rect x={228} y={288} width={8} height={110} rx={4} fill="white" opacity="0.25"/>
-            <defs>
-                <linearGradient id="crownGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFFFFF"/><stop offset="50%" stopColor="#F9FAFB"/><stop offset="100%" stopColor="#F0F0F0"/>
-                </linearGradient>
-                <linearGradient id="abGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#9CA3AF"/><stop offset="50%" stopColor="#E5E7EB"/><stop offset="100%" stopColor="#9CA3AF"/>
-                </linearGradient>
-                <linearGradient id="screwGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#6B7280"/><stop offset="30%" stopColor="#D1D5DB"/>
-                    <stop offset="60%" stopColor="#E5E7EB"/><stop offset="100%" stopColor="#9CA3AF"/>
-                </linearGradient>
-            </defs>
-        </svg>
+        </div>
     );
 }
-
-function WhiteningIllustration() {
-    return (
-        <svg viewBox="0 0 480 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-2xl">
-            <defs>
-                <linearGradient id="whiteningBefore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#D4C89A"/><stop offset="100%" stopColor="#C2B07A"/>
-                </linearGradient>
-                <linearGradient id="whiteningAfter" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFFFFF"/><stop offset="100%" stopColor="#F0F4FF"/>
-                </linearGradient>
-                <radialGradient id="glowCenter" cx="50%" cy="40%" r="50%">
-                    <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.25"/>
-                    <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0"/>
-                </radialGradient>
-                <filter id="sparkBlur">
-                    <feGaussianBlur stdDeviation="1.5"/>
-                </filter>
-            </defs>
-
-            {/* Shadow */}
-            <ellipse cx="240" cy="478" rx="145" ry="14" fill="#C62828" opacity="0.10"/>
-
-            {/* Glow behind teeth */}
-            <ellipse cx="240" cy="210" rx="140" ry="110" fill="url(#glowCenter)"/>
-
-            {/* ── BEFORE teeth (left, yellowish) ── */}
-            {[
-                { x: 90,  w: 54, h: 165, r: "M90 180 Q90 60 117 40 Q144 20 144 180 Q144 230 117 238 Q90 238 90 180Z" },
-                { x: 148, w: 48, h: 148, r: "M148 175 Q150 68 172 52 Q194 38 196 175 Q196 222 172 228 Q148 228 148 175Z" },
-            ].map((t, i) => (
-                <g key={i} opacity="0.88">
-                    <path d={t.r} fill="url(#whiteningBefore)" stroke="#C2A96A" strokeWidth="1.5"/>
-                    <path d={t.r.replace('Q','q').slice(0,18)} fill="rgba(255,255,255,0.15)"/>
-                </g>
-            ))}
-
-            {/* ── AFTER teeth (right, bright white) ── */}
-            {[
-                { r: "M284 175 Q284 68 306 52 Q328 38 330 175 Q330 222 306 228 Q284 228 284 175Z" },
-                { r: "M334 180 Q334 60 361 40 Q388 20 388 180 Q388 230 361 238 Q334 238 334 180Z" },
-            ].map((t, i) => (
-                <g key={i}>
-                    <path d={t.r} fill="url(#whiteningAfter)" stroke="#D1D9FF" strokeWidth="1.5"/>
-                    {/* shine streak */}
-                    <path d={t.r.replace(/Q[\d\s]+/,'').slice(0,12)} fill="rgba(255,255,255,0.4)"/>
-                </g>
-            ))}
-
-            {/* Centre divider */}
-            <line x1="238" y1="44" x2="246" y2="244" stroke="#9CA3AF" strokeWidth="1.5" strokeDasharray="5 4" opacity="0.5"/>
-
-            {/* Before label */}
-            <rect x="78" y="258" width="84" height="28" rx="8" fill="#FEF3C7" stroke="#D97706" strokeWidth="1.2"/>
-            <text x="120" y="277" textAnchor="middle" fontSize="11" fill="#92400E" fontWeight="700">Өмнө</text>
-
-            {/* After label */}
-            <rect x="318" y="258" width="84" height="28" rx="8" fill="white" stroke="#6366F1" strokeWidth="1.2"/>
-            <text x="360" y="277" textAnchor="middle" fontSize="11" fill="#4F46E5" fontWeight="700">Дараа</text>
-
-            {/* Arrow */}
-            <path d="M214 272 L266 272" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"/>
-            <path d="M259 267 L266 272 L259 277" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-
-            {/* Sparkles around the white side */}
-            {[[370,90],[400,145],[385,55],[350,130]].map(([cx,cy],i) => (
-                <g key={i} opacity={0.7 - i*0.1}>
-                    <line x1={cx} y1={cy-9} x2={cx} y2={cy+9} stroke="#FDE68A" strokeWidth="2" strokeLinecap="round"/>
-                    <line x1={cx-9} y1={cy} x2={cx+9} y2={cy} stroke="#FDE68A" strokeWidth="2" strokeLinecap="round"/>
-                    <line x1={cx-5} y1={cy-5} x2={cx+5} y2={cy+5} stroke="#FDE68A" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
-                    <line x1={cx+5} y1={cy-5} x2={cx-5} y2={cy+5} stroke="#FDE68A" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
-                </g>
-            ))}
-
-            {/* Shade percentage badge */}
-            <rect x="290" y="310" width="110" height="44" rx="12" fill="#1E1B4B" opacity="0.85"/>
-            <text x="345" y="328" textAnchor="middle" fontSize="10" fill="#A5B4FC" fontWeight="600">Цайрлын зэрэг</text>
-            <text x="345" y="346" textAnchor="middle" fontSize="13" fill="white" fontWeight="800">8+ шат</text>
-        </svg>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// HERO SLIDES CONFIG
-// ═══════════════════════════════════════════════════════════════════════════
 
 const HERO_SLIDES = [
-    { id: 0, tag: 'Гажиг засал', title: 'Инээмсэглэлдээ\nитгэлтэй бол', highlight: 'итгэлтэй', sub: 'Шүдний гажиг нь таны инээмсэглэлийг зогсоохгүй. Ой санамжтай тунгалаг авагддаг аппарат эсвэл уламжлалт аппаратаар хэдхэн сард тодорхой үр дүн гарна.', badgeLabel: 'Хамрагдсан өвчтөн', badge: '500+', Illustration: BracesIllustration },
-    { id: 1, tag: 'Имплант шүд', title: 'Алдсан шүдийгөө\nэргүүлж авч болно', highlight: 'эргүүлж', sub: 'Имплант нь байгалийн шүдтэй адил мэдрэгддэг. Идэж, ярьж, инээмсэглэхдээ ямар ч ялгаа анзааралгүй амьдрана.', badgeLabel: 'Амжилтын түвшин', badge: '98%', Illustration: ImplantIllustration },
-    { id: 2, tag: 'Шүдний цайруулалт', title: 'Цайвар шүд —\n', highlight: 'Цайвар', sub: 'Мэргэжлийн гэрлийн цайруулалтаар шүдний өнгийг 8 шат хүртэл цайруулна. Өвдөлтгүй, хурдан, байнгын үр дүнтэй.', badgeLabel: 'Нэг удаа л ирэхэд хангалттай', badge: '60 минут', Illustration: WhiteningIllustration },
-] as const;
+    { badge: 'Цайруулалт', grad: 'radial-gradient(circle at 82% 20%, rgba(255,255,255,.20), transparent 44%), linear-gradient(125deg, #d62a48 0%, #b01533 48%, #7d1226 100%)', text: 'Өдөр бүрийн кофе, цай, хүнсний нөлөөгөөр өөрчлөгдсөн шүдний өнгийг аюулгүй аргаар цайруулж, инээмсэглэлд тань шинэ өнгө төрх бэлэглэнэ.', scene: <WhiteningScene /> },
+    { badge: 'Имплант', grad: 'radial-gradient(circle at 80% 22%, rgba(255,255,255,.20), transparent 44%), linear-gradient(125deg, #d9543c 0%, #b8351f 50%, #872312 100%)', text: 'Алдагдсан шүд зөвхөн инээмсэглэлд биш, өдөр тутмын амьдралд нөлөөлдөг. Имплант эмчилгээ нь байгалийн шүдтэй ойролцоо мэдрэмж, тав тухыг эргүүлэн авчрах орчин үеийн шийдэл юм.', scene: <ImplantScene /> },
+    { badge: 'Гажиг засал', grad: 'radial-gradient(circle at 82% 20%, rgba(255,255,255,.20), transparent 44%), linear-gradient(125deg, #c0274f 0%, #951a3c 50%, #650f2a 100%)', text: 'Шүдний зөв байрлал нь зөвхөн гоо сайхан биш, эрүүл инээмсэглэлийн үндэс юм. Гажиг заслын эмчилгээ нь шүдийг зөв байрлалд оруулж, өөртөө итгэх итгэлийг нэмэгдүүлдэг.', scene: <BracesScene /> },
+];
 
-// ═══════════════════════════════════════════════════════════════════════════
-// HERO SLIDESHOW
-// ═══════════════════════════════════════════════════════════════════════════
-
-function HeroSlideshow({ doctors }: { doctors: Doctor[] }) {
-    const [current, setCurrent] = useState(0);
-    const [animating, setAnimating] = useState(false);
-    const [direction, setDirection] = useState<'next'|'prev'>('next');
-    const timerRef = useRef<ReturnType<typeof setInterval>|null>(null);
-
-    const goTo = useCallback((idx: number, dir: 'next'|'prev' = 'next') => {
-        if (animating) return;
-        setDirection(dir);
-        setAnimating(true);
-        setTimeout(() => { setCurrent(idx); setAnimating(false); }, 600);
-    }, [animating]);
-
-    const next = useCallback(() => goTo((current+1)%HERO_SLIDES.length,'next'), [current, goTo]);
-    const prev = useCallback(() => goTo((current-1+HERO_SLIDES.length)%HERO_SLIDES.length,'prev'), [current, goTo]);
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+export default function Welcome({ doctors = [], treatments = [], gallery = [], branches = [], faqs = [] }: PageProps) {
+    /* ── Hero slider ── */
+    const [hero, setHero] = useState(0);
     useEffect(() => {
-        timerRef.current = setInterval(next, 5000);
-        return () => { if (timerRef.current) clearInterval(timerRef.current); };
-    }, [next]);
+        const t = setInterval(() => setHero((h) => (h + 1) % HERO_SLIDES.length), 5500);
+        return () => clearInterval(t);
+    }, []);
+    const go = (n: number) => setHero((HERO_SLIDES.length + (n % HERO_SLIDES.length)) % HERO_SLIDES.length);
 
-    const resetTimer = () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-        timerRef.current = setInterval(next, 5000);
-    };
+    /* ── Services (жинхэнэ эмчилгээ) ── */
+    const allTreatments = treatments.flatMap((c) => c.treatments.map((t) => ({ ...t, category: c.name })));
+    const serviceCards = allTreatments.slice(0, 5);
 
-    const slide = HERO_SLIDES[current];
-    const Illu = slide.Illustration;
-    const titleLines = slide.title.split('\n');
+    /* ── Doctors (салбараар шүүх) ── */
+    const [docBranch, setDocBranch] = useState<number | null>(branches[0]?.id ?? null);
+    const branchDoctors = docBranch == null ? doctors : doctors.filter((d) => d.branch_id === docBranch);
+
+    /* ── Results (gallery, ангилалаар) ── */
+    const galleryCats = Array.from(new Set(gallery.map((g) => g.category_name).filter(Boolean))) as string[];
+    const resTabs = ['Бүгд', ...galleryCats];
+    const [resCat, setResCat] = useState(0);
+    const shownResults = (resCat === 0 ? gallery : gallery.filter((g) => g.category_name === resTabs[resCat])).slice(0, 6);
+    const [cmp, setCmp] = useState<Record<number, number>>({});
+    const posOf = (id: number) => cmp[id] ?? 50;
+
+    /* ── FAQ ── */
+    const [openFaq, setOpenFaq] = useState<number | null>(0);
+    const showFaqs = faqs.length > 0;
+
+    /* ── Appointment widget ── */
+    const [apBranch, setApBranch] = useState<number | null>(branches[0]?.id ?? null);
+    const apDoctors = apBranch == null ? doctors : doctors.filter((d) => d.branch_id === apBranch);
+    const [apDoc, setApDoc] = useState<number | null>(apDoctors[0]?.id ?? null);
+    const today = new Date();
+    const [apDay, setApDay] = useState<number | null>(null);
+    const [apTime, setApTime] = useState<string | null>(null);
+    const SAMPLE_TIMES = ['09:30', '11:00', '13:30', '15:00', '16:30'];
+
+    const selBranchObj = branches.find((b) => b.id === apBranch);
+    const selDocObj = apDoctors.find((d) => d.id === apDoc);
+    const monthNames = ['1-р сар', '2-р сар', '3-р сар', '4-р сар', '5-р сар', '6-р сар', '7-р сар', '8-р сар', '9-р сар', '10-р сар', '11-р сар', '12-р сар'];
+    const y = today.getFullYear(), m = today.getMonth();
+    const firstOffset = (new Date(y, m, 1).getDay() + 6) % 7; // Даваа эхэлсэн
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const canConfirm = apDoc != null && apDay != null && apTime != null;
+    const goBooking = () => router.visit('/booking');
+
+    /* fallback (хоосон үед дизайн эвдрэхгүйн тулд) */
+    const showServices = serviceCards.length > 0;
+    const showDoctors = branchDoctors.length > 0;
+    const showResults = shownResults.length > 0;
 
     return (
-        <section className="relative min-h-screen bg-[#16100A] overflow-hidden flex items-center">
-            <div className="absolute top-0 left-0 w-[700px] h-[700px] rounded-full blur-[150px] -translate-x-1/3 -translate-y-1/3 pointer-events-none"
-                style={{ background: 'radial-gradient(circle, rgba(180,20,20,0.18) 0%, transparent 70%)' }} />
-            <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] pointer-events-none"
-                style={{ background: 'radial-gradient(circle, rgba(140,10,10,0.12) 0%, transparent 70%)' }} />
-            <div className="absolute inset-0 opacity-[0.035]"
-                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '30px 30px' }} />
+        <PublicLayout>
+            <Head title="Кутикул шүдний эмнэлэг" />
 
-            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-20 sm:pt-24 pb-10 sm:pb-12">
-                <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-center min-h-[auto] lg:min-h-[88vh]">
-                    {/* Left */}
-                    <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1">
-                        <div key={`tag-${current}`} className="flex items-center gap-2 w-fit"
-                            style={{ animation: 'fadeSlideIn 0.7s ease forwards' }}>
-                            <span className="w-6 h-px bg-red-500" />
-                            <span className="text-red-400 text-xs font-bold uppercase tracking-[0.2em]">{slide.tag}</span>
-                        </div>
-                        <div key={`title-${current}`} style={{ animation: 'fadeSlideIn 0.8s ease 0.1s both' }}>
-                            <h1 className="text-2xl sm:text-3xl md:text-[2.8rem] lg:text-[3.2rem] font-black text-white leading-[1.08] tracking-tight">
-                                {titleLines.map((line, li) =>
-                                    line.includes(slide.highlight)
-                                        ? <span key={li}>{line.split(slide.highlight)[0]}<span className="text-red-500">{slide.highlight}</span>{line.split(slide.highlight)[1]}{li < titleLines.length-1 && <br/>}</span>
-                                        : <span key={li}>{line}{li < titleLines.length-1 && <br/>}</span>
-                                )}
-                            </h1>
-                        </div>
-                        <p key={`sub-${current}`} className="text-gray-400 leading-relaxed max-w-sm text-[15px]"
-                            style={{ animation: 'fadeSlideIn 0.8s ease 0.2s both' }}>{slide.sub}</p>
-                        <div className="flex gap-3 pt-1" style={{ animation: 'fadeSlideIn 0.8s ease 0.3s both' }}>
-                            <Link href="/booking" className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl transition-all shadow-lg shadow-red-900/30 text-sm">
-                                <Calendar className="w-4 h-4" /> Цаг захиалах
-                            </Link>
-                            <Link href="/services" className="inline-flex items-center gap-2 border border-white/15 text-white/70 hover:text-white hover:border-white/30 font-semibold px-5 py-3.5 rounded-xl transition-all text-sm">
-                                Үйлчилгээ <ArrowRight className="w-4 h-4" />
-                            </Link>
-                        </div>
-                        <div className="flex gap-6 pt-4 border-t border-white/8 mt-2">
-                            {[{ v: '10+', l: 'Жилийн туршлага' }, { v: '98%', l: 'Сэтгэл ханасан үйлчлүүлэгч' }].map((s,i) => (
-                                <div key={i}>
-                                    <p className="text-2xl font-black text-white">{s.v}</p>
-                                    <p className="text-gray-500 text-xs mt-0.5">{s.l}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Center illustration */}
-                    <div className="lg:col-span-5 flex justify-center items-center order-1 lg:order-2">
-                        <div className="relative w-full max-w-[280px] sm:max-w-[380px] lg:max-w-none">
-                            <div className="absolute inset-0 bg-red-600/6 rounded-full blur-3xl scale-95 translate-y-8 pointer-events-none" />
-                            <div key={`illu-${current}`} className="relative"
-                                style={{ animation: animating ? `slideOut${direction==='next'?'Left':'Right'} 0.6s ease forwards` : `slideIn${direction==='next'?'Right':'Left'} 0.7s ease forwards` }}>
-                                <Illu />
+            {/* ── HERO SLIDER ──────────────────────────────────────────────── */}
+            <div className="relative mt-6 h-[440px] overflow-hidden rounded-[26px] shadow-[0_24px_60px_rgba(120,30,50,0.16)] sm:h-[600px] sm:rounded-[32px]">
+                {HERO_SLIDES.map((s, i) => (
+                    <div
+                        key={i}
+                        className="absolute inset-0 transition-opacity duration-700"
+                        style={{ opacity: i === hero ? 1 : 0, zIndex: i === hero ? 5 : 1, pointerEvents: i === hero ? 'auto' : 'none' }}
+                    >
+                        <div className="absolute inset-0" style={{ background: s.grad }} />
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(100deg,rgba(20,6,10,.34) 0%,rgba(20,6,10,.05) 55%,transparent 100%)' }} />
+                        {/* right scene */}
+                        <div className="absolute bottom-0 right-0 top-0 z-[6] hidden w-[46%] min-w-[400px] items-center justify-center md:flex">
+                            <div className="relative flex h-[320px] w-[320px] items-center justify-center">
+                                <Ring />
+                                {s.scene}
                             </div>
-                            <div key={`badge-${current}`} className="absolute top-2 -right-3 lg:-right-8 bg-white rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-2.5"
-                                style={{ animation: 'fadeSlideIn 0.8s ease 0.4s both' }}>
-                                <div className="w-8 h-8 bg-red-100 rounded-xl flex items-center justify-center">
-                                    <CheckCircle className="w-4 h-4 text-red-600" />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-gray-400 font-medium">{slide.badgeLabel}</p>
-                                    <p className="text-sm font-black text-gray-900">{slide.badge}</p>
-                                </div>
-                            </div>
-                            <div className="absolute bottom-10 -left-3 lg:-left-8 bg-white rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-2.5">
-                                <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center">
-                                    <Smile className="w-4 h-4 text-emerald-600" />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-gray-400 font-medium">Сэтгэл ханасан үйлчлүүлэгч</p>
-                                    <p className="text-sm font-black text-gray-900">1,000+</p>
-                                </div>
+                        </div>
+                        {/* text panel */}
+                        <div className="absolute left-4 top-1/2 z-[9] max-w-[300px] -translate-y-1/2 rounded-[20px] border border-white/35 bg-white/15 p-5 backdrop-blur-xl sm:left-12 sm:max-w-[460px] sm:rounded-[26px] sm:p-8">
+                            <div className="mb-3.5 inline-flex items-center gap-2 rounded-[40px] bg-white/85 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#c81e3a] sm:mb-5 sm:px-3.5 sm:py-2 sm:text-[12px]">✦ {s.badge}</div>
+                            <p className="mb-4 text-[13px] leading-[1.6] text-white/90 sm:mb-6 sm:max-w-[400px] sm:text-[15px]">{s.text}</p>
+                            <div className="flex flex-wrap gap-2.5 sm:gap-3">
+                                <Link href="/booking" className="rounded-[12px] bg-[#c81e3a] px-4 py-2.5 text-[13px] font-bold text-white shadow-[0_8px_20px_rgba(200,30,58,0.35)] sm:rounded-[14px] sm:px-6 sm:py-3.5 sm:text-[15px]">Цаг захиалах →</Link>
+                                <Link href="/services" className="rounded-[12px] bg-white/90 px-4 py-2.5 text-[13px] font-bold text-[#1c1a1b] sm:rounded-[14px] sm:px-6 sm:py-3.5 sm:text-[15px]">Үйлчилгээ</Link>
                             </div>
                         </div>
                     </div>
+                ))}
 
-                    {/* Right doctors */}
-                    <div className="lg:col-span-3 order-3 hidden lg:flex flex-col gap-2">
-                        <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest mb-2">Манай эмч нар</p>
-                        {doctors.slice(0, 4).map(doc => (
-                            <div key={doc.id} className="flex items-center gap-3 p-2.5 rounded-xl border border-white/6 hover:bg-white/5 transition-all">
-                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
-                                    {doc.photo_url ? <img src={doc.photo_url} alt={doc.name} className="w-full h-full object-cover" />
-                                        : <div className="w-full h-full flex items-center justify-center text-white/50 font-black text-lg">{doc.name.charAt(0)}</div>}
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-white/90 font-semibold text-xs truncate">{doc.name}</p>
-                                    <p className="text-gray-500 text-[11px] truncate">{doc.specialization ?? 'Шүдний эмч'}</p>
-                                </div>
-                            </div>
-                        ))}
-                        <Link href="/doctors" className="mt-2 text-gray-500 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors group">
-                            Бүгдийг харах <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                        </Link>
+                {/* floating chips */}
+                <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-[8] hidden w-[46%] min-w-[400px] md:block">
+                    <div className="absolute right-6 top-[84px] flex items-center gap-2.5 rounded-[15px] bg-white/95 px-4 py-2.5 shadow-[0_14px_30px_rgba(80,10,25,0.22)]" style={{ animation: 'cuticulFloatyB 6.5s ease-in-out infinite' }}>
+                        <span className="flex h-[25px] w-[25px] items-center justify-center rounded-lg bg-[#fbeef0] text-[13px] font-bold text-[#c81e3a]">✦</span>
+                        <span className="text-[13px] font-bold text-[#1c1a1b]">Найрсаг, зөөлөн хандлага</span>
+                    </div>
+                    <div className="absolute bottom-20 right-10 flex items-center gap-2.5 rounded-[15px] bg-white/95 px-4 py-2.5 shadow-[0_14px_30px_rgba(80,10,25,0.22)]" style={{ animation: 'cuticulFloatyA 7.5s ease-in-out infinite' }}>
+                        <span className="flex h-[25px] w-[25px] items-center justify-center rounded-lg bg-[#fbeef0] text-[13px] font-bold text-[#c81e3a]">◍</span>
+                        <span className="text-[13px] font-bold text-[#1c1a1b]">Орчин үеийн технологи</span>
                     </div>
                 </div>
 
-                {/* Slide controls */}
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6">
-                    <button onClick={() => { prev(); resetTimer(); }}
-                        className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 transition-all">
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <div className="flex items-center gap-2">
-                        {HERO_SLIDES.map((s,i) => (
-                            <button key={s.id} onClick={() => { goTo(i, i>current?'next':'prev'); resetTimer(); }}
-                                className="relative overflow-hidden rounded-full transition-all duration-300"
-                                style={{ width: i===current?32:8, height:8, background: i===current?'transparent':'rgba(255,255,255,0.2)' }}>
-                                {i===current && (
-                                    <span className="absolute inset-0 rounded-full bg-white/25">
-                                        <span className="absolute inset-y-0 left-0 bg-red-500 rounded-full animate-[progress_5s_linear_forwards]"/>
-                                    </span>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                    <button onClick={() => { next(); resetTimer(); }}
-                        className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 transition-all">
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
+                {/* arrows */}
+                <button onClick={() => go(hero - 1)} className="absolute bottom-7 left-6 z-20 flex h-[46px] w-[46px] items-center justify-center rounded-[14px] border border-white/70 bg-white/55 font-onest text-[20px] text-[#1c1a1b] backdrop-blur-md">‹</button>
+                <button onClick={() => go(hero + 1)} className="absolute bottom-7 left-[80px] z-20 flex h-[46px] w-[46px] items-center justify-center rounded-[14px] border border-white/70 bg-white/55 font-onest text-[20px] text-[#1c1a1b] backdrop-blur-md">›</button>
+                {/* dots */}
+                <div className="absolute bottom-[34px] right-8 z-20 flex gap-2.5">
+                    {HERO_SLIDES.map((_, i) => (
+                        <button key={i} onClick={() => go(i)} className="h-[9px] rounded-[20px] transition-all" style={{ width: i === hero ? 26 : 9, background: i === hero ? '#fff' : 'rgba(255,255,255,.55)' }} />
+                    ))}
                 </div>
             </div>
-        </section>
-    );
-}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CATEGORY CAROUSEL
-// ═══════════════════════════════════════════════════════════════════════════
-
-function CategoryCarousel({ categories }: { categories: TreatmentCategory[] }) {
-    const fallback = ['Гажиг засал','Invisalign','Имплант','Шүд авалт','Цайруулалт','Ерөнхий үзлэг','Хүүхдийн засал','Шигтгээ'].map((n,i)=>({id:i,name:n,icon:null,treatments:[]}));
-    const data = categories.length > 0 ? categories : fallback;
-    const tripled = [...data,...data,...data];
-    return (
-        <div className="bg-[#0E0A06] border-y border-white/5 py-5 overflow-hidden">
-            <div className="flex gap-3 w-max" style={{ animation:'marquee 35s linear infinite' }}>
-                {tripled.map((cat,i) => (
-                    <Link href="/services" key={i}
-                        className="flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/8 hover:border-red-500/30 rounded-xl px-5 py-3 flex-shrink-0 transition-all group">
-                        {cat.icon
-                            ? <span className="text-xl">{cat.icon}</span>
-                            : <span className="w-6 h-6 rounded-md bg-red-900/40 flex items-center justify-center text-red-400 text-xs font-black">{cat.name.charAt(0)}</span>
-                        }
-                        <span className="text-sm font-semibold text-white/70 group-hover:text-white transition-colors whitespace-nowrap">{cat.name}</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-white/20 group-hover:text-red-400 transition-colors" />
-                    </Link>
+            {/* ── FEATURE BAND ─────────────────────────────────────────────── */}
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {[
+                    { n: '01', t: 'Арав гаруй жил ажилласан', d: '2012 оноос хойш үйлчилгээ үзүүлж ирсэн. Туршлагатай хамт олон.' },
+                    { n: '02', t: 'Шинэ тоног төхөөрөмж', d: '3D сканнер, дижитал рентгенийг ашиглан таны шүдэнд нарийн оношилгоо хийнэ.' },
+                    { n: '03', t: 'Цагийн хувьд уян хатан', d: 'Амралтын өдрүүдэд ч нээлттэй. Ажил, сургуультайгаа зохицуулаад ирээрэй.' },
+                ].map((f) => (
+                    <div key={f.n} className="rounded-[22px] border border-white/75 bg-white/60 p-7 shadow-[0_10px_30px_rgba(120,30,50,0.05)] backdrop-blur-lg">
+                        <div className="mb-3 font-onest text-[30px] font-extrabold text-[#f0b8c1]">{f.n}</div>
+                        <h3 className="mb-2 font-onest text-[19px] font-bold text-[#1c1a1b]">{f.t}</h3>
+                        <p className="text-[14px] leading-[1.65] text-[#6b6360]">{f.d}</p>
+                    </div>
                 ))}
             </div>
-        </div>
-    );
-}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SERVICES SECTION — with modal on click
-// ═══════════════════════════════════════════════════════════════════════════
-
-function ServicesSection({ treatments }: { treatments: TreatmentCategory[] }) {
-    const [activeCat, setActiveCat] = useState(0);
-    const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
-    const [selectedCatName, setSelectedCatName] = useState('');
-
-    const fallback: TreatmentCategory[] = [
-        { id: 1, name: 'Гажиг засал', icon: null, treatments: [
-            { id: 1, title: 'Invisalign', description: 'Харагдахгүй, авч хийж болдог шилэн тэгшлэгч систем.', price_min: 1500000, price_max: 3000000, duration_min: 60, image_url: null, sub_treatments: [] },
-            { id: 2, title: 'Металл брекет', description: 'Тогтвортой, батуу уламжлалт гажиг засалтын брекет систем.', price_min: 800000, price_max: 1500000, duration_min: 45, image_url: null, sub_treatments: [] },
-            { id: 3, title: 'Мэлмий брекет', description: 'Шүдтэй нийлэх өнгийн керамик брекет — гоо үзэмжтэй.', price_min: 1200000, price_max: 2000000, duration_min: 45, image_url: null, sub_treatments: [] },
-            { id: 4, title: 'Retainer', description: 'Засал дууссаны дараах байрлалыг хадгалах аппарат.', price_min: 150000, price_max: 300000, duration_min: 30, image_url: null, sub_treatments: [] },
-        ]},
-    ];
-    const data = treatments.length > 0 ? treatments : fallback;
-    const cat = data[activeCat] ?? data[0];
-
-    return (
-        <>
-            <section className="py-14 md:py-20 bg-white">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-                    {/* ── Header ── */}
-                    <div className="mb-8 sm:mb-10">
-                        <div className="flex items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <span className="flex items-center gap-2 text-red-500 text-[11px] font-bold tracking-[0.18em] uppercase mb-2.5">
-                                    <span className="w-5 h-px bg-red-500" />
-                                    Үйлчилгээ
-                                </span>
-                                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">
-                                    Эмчилгээний төрлүүд
-                                </h2>
-                            </div>
-                            <Link href="/services"
-                                className="hidden sm:flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-red-600 flex-shrink-0 group transition-colors">
-                                Бүгдийг харах
-                                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                            </Link>
+            {/* ── SERVICES ─────────────────────────────────────────────────── */}
+            {showServices && (
+                <div className={`mt-10 p-5 sm:p-11 ${glassPanel}`}>
+                    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <SectionBadge>Эмчилгээ үйлчилгээ</SectionBadge>
+                            <h2 className="font-onest text-[22px] font-extrabold tracking-tight sm:text-[40px]">Бидний санал болгох үйлчилгээ</h2>
                         </div>
-
-                        {/* ── Category tabs ── */}
-                        {data.length > 1 && (
-                            <div className="flex gap-2 mt-5 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
-                                {data.map((c, i) => (
-                                    <button key={c.id} onClick={() => setActiveCat(i)}
-                                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-                                            i === activeCat
-                                                ? 'bg-red-600 text-white shadow-sm'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
-                                        }`}>
-                                        {c.icon && <span className="text-base leading-none">{c.icon}</span>}
-                                        {c.name}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <Link href="/services" className="whitespace-nowrap text-[14px] font-bold text-[#c81e3a]">Бүх үйлчилгээ →</Link>
                     </div>
-
-                    {/* ── Card grid — desktop 4, mobile 2 (max 4 нийт) ── */}
-                    {cat && cat.treatments.length > 0 ? (
-                        <div key={cat.id} style={{ animation: 'fadeSlideIn 0.3s ease forwards' }}
-                            className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-
-                            {cat.treatments.slice(0, 4).map(t => (
-                                <button key={t.id}
-                                    onClick={() => { setSelectedTreatment(t); setSelectedCatName(cat.name); }}
-                                    className="group text-left bg-white border border-gray-100 rounded-xl sm:rounded-2xl overflow-hidden hover:border-red-200 hover:shadow-lg transition-all duration-300 flex flex-col w-full">
-
-                                    {/* Image */}
-                                    <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-rose-50 to-red-50 flex-shrink-0">
-                                        {t.image_url ? (
-                                            <img src={t.image_url} alt={t.title}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <ImageIcon className="w-6 h-6 sm:w-8 sm:h-8 text-red-200" />
-                                            </div>
-                                        )}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <span className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-sm text-gray-800 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
-                                            Дэлгэрэнгүй →
-                                        </span>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                        {serviceCards.map((sv) => (
+                            <Link key={sv.id} href="/services" className="group overflow-hidden rounded-[20px] border border-[#f1e8e7] bg-white shadow-[0_1px_2px_rgba(120,30,50,0.04)] transition-all hover:-translate-y-1 hover:border-[#f4d4da] hover:shadow-[0_16px_36px_rgba(120,30,50,0.13)]">
+                                {sv.image_url ? (
+                                    <img src={sv.image_url} alt={sv.title} className="aspect-square w-full object-cover" />
+                                ) : (
+                                    <Placeholder label={sv.title} className="aspect-square w-full px-2" />
+                                )}
+                                <div className="p-4">
+                                    <h3 className="mb-1.5 font-onest text-[16px] font-bold tracking-tight">{sv.title}</h3>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[12px] font-medium text-[#9a918d]">{sv.category}</span>
+                                        <span className="text-[14px] font-bold text-[#c81e3a]">→</span>
                                     </div>
-
-                                    {/* Content */}
-                                    <div className="p-2.5 sm:p-3.5 flex flex-col flex-1">
-                                        <h3 className="text-xs sm:text-sm font-bold text-gray-900 group-hover:text-red-700 transition-colors leading-snug line-clamp-2 mb-1">
-                                            {t.title}
-                                        </h3>
-                                        {t.description && (
-                                            <p className="hidden sm:block text-[11px] text-gray-400 leading-relaxed line-clamp-2 mb-2 flex-1">
-                                                {t.description}
-                                            </p>
-                                        )}
-                                        <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
-                                            {(t.price_min || t.price_max) ? (
-                                                <span className="text-red-600 font-bold text-[10px] sm:text-xs">
-                                                    {t.price_min ? `${Number(t.price_min).toLocaleString()}₮` : ''}
-                                                    {t.price_min && t.price_max ? '–' : ''}
-                                                    {t.price_max ? `${Number(t.price_max).toLocaleString()}₮` : ''}
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-300 text-xs">—</span>
-                                            )}
-                                            {t.duration_min && (
-                                                <span className="text-[9px] sm:text-[10px] text-gray-400 font-medium hidden sm:block">
-                                                    {t.duration_min} мин
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-center text-gray-400 py-12">Энэ ангилалд үйлчилгээ байхгүй байна.</p>
-                    )}
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
                 </div>
-            </section>
-
-            {/* Treatment Modal */}
-            {selectedTreatment && (
-                <TreatmentModal
-                    treatment={selectedTreatment}
-                    catName={selectedCatName}
-                    onClose={() => setSelectedTreatment(null)}
-                />
             )}
-        </>
-    );
-}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SMALL COMPONENTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function FaqItem({ faq }: { faq: Faq }) {
-    const [open, setOpen] = useState(false);
-    return (
-        <div className={`border rounded-2xl overflow-hidden transition-all ${open ? 'border-red-200 shadow-sm' : 'border-gray-100'}`}>
-            <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-6 py-5 text-left gap-4">
-                <span className={`font-medium text-base ${open ? 'text-red-700' : 'text-gray-800'}`}>{faq.question}</span>
-                <ChevronRight className={`w-5 h-5 flex-shrink-0 text-red-400 transition-transform duration-300 ${open ? 'rotate-90' : ''}`}/>
-            </button>
-            <div className={`overflow-hidden transition-all duration-300 ${open ? 'max-h-80' : 'max-h-0'}`}>
-                <p className="px-6 pb-5 text-gray-500 text-sm leading-relaxed">{faq.answer}</p>
-            </div>
-        </div>
-    );
-}
-
-function MaskGalleryCard({ item, delay = 0 }: { item: GalleryItem; delay?: number }) {
-    const [showing, setShowing] = useState<'before' | 'after'>('before');
-
-    useEffect(() => {
-        let interval: ReturnType<typeof setInterval>;
-        const init = setTimeout(() => {
-            setShowing('after');
-            interval = setInterval(() => setShowing(s => s === 'before' ? 'after' : 'before'), 3500);
-        }, delay);
-        return () => { clearTimeout(init); clearInterval(interval); };
-    }, [delay]);
-
-    const hasImages = !!(item.before_url || item.after_url);
-    return (
-        <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-rose-50 shadow-sm">
-            {hasImages ? (
-                <>
-                    {item.before_url && (
-                        <img src={item.before_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                    )}
-                    {item.after_url && (
-                        <div className="absolute inset-0 overflow-hidden"
-                            style={{
-                                clipPath: showing === 'after' ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)',
-                                transition: 'clip-path 1.1s cubic-bezier(0.4,0,0.2,1)',
-                            }}>
-                            <img src={item.after_url} alt="" className="w-full h-full object-cover" />
+            {/* ── DOCTORS ──────────────────────────────────────────────────── */}
+            {showDoctors && (
+                <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
+                    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <SectionBadge>Эмч нар</SectionBadge>
+                            <h2 className="font-onest text-[22px] font-extrabold sm:text-[40px]">Туршлагатай эмч нарын баг</h2>
                         </div>
-                    )}
-                    {/* Өмнө/Дараа badge */}
-                    <div className="absolute top-2 left-2">
-                        <span className="text-[9px] font-bold uppercase tracking-wide text-white bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5 transition-opacity duration-300">
-                            {showing === 'before' ? 'Өмнө' : 'Дараа'}
-                        </span>
+                        <Link href="/doctors" className="whitespace-nowrap text-[14px] font-bold text-[#c81e3a]">Бүх эмч →</Link>
                     </div>
-                    {/* Bottom gradient + title */}
-                    {(item.title || item.category_name) && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/65 to-transparent pt-8 pb-2.5 px-3">
-                            {item.title && <p className="text-white text-xs font-semibold truncate leading-snug">{item.title}</p>}
-                            {item.category_name && <p className="text-red-300 text-[10px] mt-0.5">{item.category_name}</p>}
-                        </div>
-                    )}
-                </>
-            ) : (
-                <div className="w-full h-full flex items-center justify-center"><Smile className="w-10 h-10 text-red-200"/></div>
-            )}
-        </div>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MAIN PAGE
-// ═══════════════════════════════════════════════════════════════════════════
-
-export default function Welcome() {
-    const { doctors, treatments, gallery, articles, faqs, branches } =
-        usePage<PageProps>().props;
-
-    const [activeBranch, setActiveBranch] = useState<number|null>(null);
-    const [selectedDoctor, setSelectedDoctor] = useState<Doctor|null>(null);
-    const [selectedArticle, setSelectedArticle] = useState<Article|null>(null);
-
-    const filteredDoctors = (activeBranch
-        ? doctors.filter(d => d.branch_id === activeBranch)
-        : doctors).slice(0, 4);
-
-    const defaultFaqs: Faq[] = [
-        { id: 1, question: 'Брекет эмчилгээ хэр удаан үргэлжлэх вэ?', answer: 'Ихэнх тохиолдолд 12–24 сар. Гажигийн хэмжээ болон аргаас хамаарна.', category: null },
-        { id: 2, question: 'Invisalign болон металл брекет хоёрын ялгаа юу вэ?', answer: 'Invisalign нь харагдахгүй, авч хийж болдог. Металл нь нарийн тохиолдолд илүү тохиромжтой.', category: null },
-        { id: 3, question: 'Хэдэн насандаа эхлэж болох вэ?', answer: 'Хүүхдүүд 10–12 насандаа эхлэж болно. Насанд хүрэгчдэд насны хязгаар байхгүй.', category: null },
-        { id: 4, question: 'Эмчилгээний явцад өвдөх үү?', answer: 'Тохируулалтын дараа 2–3 хоног хөнгөн мэдрэмж гарч болно, хурдан өнгөрдөг.', category: null },
-    ];
-
-    return (
-        <>
-            <Head title="Нүүр хуудас">
-                <link rel="preconnect" href="https://fonts.bunny.net"/>
-                <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900" rel="stylesheet"/>
-                <style>{`
-                    @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-33.333%)} }
-                    @keyframes fadeSlideIn { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-                    @keyframes slideInRight { from{opacity:0;transform:translateX(60px) scale(0.97)} to{opacity:1;transform:translateX(0) scale(1)} }
-                    @keyframes slideInLeft  { from{opacity:0;transform:translateX(-60px) scale(0.97)} to{opacity:1;transform:translateX(0) scale(1)} }
-                    @keyframes slideOutLeft  { from{opacity:1;transform:translateX(0) scale(1)} to{opacity:0;transform:translateX(-60px) scale(0.97)} }
-                    @keyframes slideOutRight { from{opacity:1;transform:translateX(0) scale(1)} to{opacity:0;transform:translateX(60px) scale(0.97)} }
-                    @keyframes progress { from{width:0%} to{width:100%} }
-                    @keyframes modalIn { from{opacity:0;transform:translateY(32px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
-                `}</style>
-            </Head>
-
-            <PublicLayout>
-                <HeroSlideshow doctors={doctors} />
-                <CategoryCarousel categories={treatments} />
-                <ServicesSection treatments={treatments} />
-
-                {/* DOCTORS */}
-                <section className="py-14 md:py-20 bg-[#F9F4F2]">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-                            <div>
-                                <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Баг</span>
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 leading-tight">Эмч нар</h2>
-                            </div>
-                            <Link href="/doctors" className="flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
-                                Бүх эмчийг харах <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
-                            </Link>
-                        </div>
-
-                        {branches.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-7">
-                                <button onClick={() => setActiveBranch(null)}
-                                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border ${activeBranch===null?'bg-gray-900 text-white border-gray-900':'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}>
-                                    Бүх салбар
-                                </button>
-                                {branches.map(b => (
-                                    <button key={b.id} onClick={() => setActiveBranch(b.id)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border ${activeBranch===b.id?'bg-gray-900 text-white border-gray-900':'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                    {branches.length > 1 && (
+                        <div className="mb-6 flex flex-wrap gap-2.5">
+                            {branches.map((b) => {
+                                const on = b.id === docBranch;
+                                return (
+                                    <button key={b.id} onClick={() => setDocBranch(b.id)} className="rounded-[40px] border-[1.5px] px-4 py-2 text-[14px] font-semibold transition-all" style={{ borderColor: on ? RED : '#ece6e5', background: on ? RED : 'rgba(255,255,255,.6)', color: on ? '#fff' : '#6b6360' }}>
                                         {b.name}
                                     </button>
-                                ))}
+                                );
+                            })}
+                        </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                        {branchDoctors.slice(0, 8).map((d) => (
+                            <Link key={d.id} href="/doctors" className="rounded-[22px] border border-white/75 bg-white/60 p-3.5 shadow-[0_10px_30px_rgba(120,30,50,0.06)] backdrop-blur-lg">
+                                {d.photo_url ? (
+                                    <img src={d.photo_url} alt={d.name} className="mb-3.5 aspect-[1/1.12] w-full rounded-2xl object-cover" />
+                                ) : (
+                                    <Placeholder label="эмчийн зураг" className="mb-3.5 aspect-[1/1.12] w-full rounded-2xl" />
+                                )}
+                                <div className="px-1.5 pb-2">
+                                    <div className="font-onest text-[17px] font-bold">{d.name}</div>
+                                    <div className="text-[13px] font-medium text-[#c81e3a]">{d.specialization || 'Шүдний эмч'}</div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ── RESULTS (before / after) ─────────────────────────────────── */}
+            {showResults && (
+                <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
+                    <div className="mb-6 text-center">
+                        <div className="flex justify-center"><SectionBadge>Үр дүн</SectionBadge></div>
+                        <h2 className="font-onest text-[22px] font-extrabold sm:text-[40px]">Өмнө ба дараа</h2>
+                    </div>
+                    {resTabs.length > 1 && (
+                        <div className="mb-7 flex flex-wrap justify-center gap-2.5">
+                            {resTabs.map((t, i) => {
+                                const on = i === resCat;
+                                return (
+                                    <button key={t} onClick={() => setResCat(i)} className="rounded-[40px] border-[1.5px] px-4 py-2 text-[14px] font-semibold transition-all" style={{ borderColor: on ? RED : '#ece6e5', background: on ? RED : 'rgba(255,255,255,.6)', color: on ? '#fff' : '#6b6360' }}>
+                                        {t}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {shownResults.map((r) => {
+                            const pos = posOf(r.id);
+                            return (
+                                <div key={r.id}>
+                                    <div className="relative aspect-[4/3] overflow-hidden rounded-[20px] border border-[#ece6e5] shadow-[0_10px_30px_rgba(120,30,50,0.06)]">
+                                        {/* after (base) */}
+                                        {r.after_url ? (
+                                            <img src={r.after_url} alt="дараа" className="absolute inset-0 h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="absolute inset-0" style={{ background: 'repeating-linear-gradient(45deg,#fbeef0,#fbeef0 10px,#f6dfe3 10px,#f6dfe3 20px)' }} />
+                                        )}
+                                        {/* before (clipped overlay) */}
+                                        {r.before_url ? (
+                                            <img src={r.before_url} alt="өмнө" className="absolute inset-0 h-full w-full object-cover" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }} />
+                                        ) : (
+                                            <div className="absolute inset-0" style={{ background: 'repeating-linear-gradient(45deg,#ece4e2,#ece4e2 10px,#e1d6d3 10px,#e1d6d3 20px)', clipPath: `inset(0 ${100 - pos}% 0 0)` }} />
+                                        )}
+                                        <div className="absolute left-3 top-3 rounded-[30px] bg-white/85 px-2.5 py-1.5 text-[11px] font-bold text-[#6b6360]">Өмнө</div>
+                                        <div className="absolute right-3 top-3 rounded-[30px] bg-white/85 px-2.5 py-1.5 text-[11px] font-bold text-[#c81e3a]">Дараа</div>
+                                        <div className="pointer-events-none absolute bottom-0 top-0 w-[3px] -translate-x-1/2 bg-white shadow-[0_0_10px_rgba(0,0,0,0.25)]" style={{ left: `${pos}%` }} />
+                                        <div className="pointer-events-none absolute top-1/2 flex h-[38px] w-[38px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white font-onest text-[14px] font-bold text-[#c81e3a] shadow-[0_4px_12px_rgba(0,0,0,0.22)]" style={{ left: `${pos}%` }}>⇆</div>
+                                        <input type="range" min={0} max={100} value={pos} onChange={(e) => setCmp((c) => ({ ...c, [r.id]: +e.target.value }))} className="cuticul-range absolute inset-0 m-0 h-full w-full cursor-ew-resize opacity-0" />
+                                    </div>
+                                    {r.title && <div className="px-1 pt-3.5 text-[15px] font-semibold">{r.title}</div>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="mt-5 text-center text-[13px] font-medium text-[#9a918d]">← Гулсуулж өмнө/дарааг харьцуулна уу →</div>
+                </div>
+            )}
+
+            {/* ── FAQ ──────────────────────────────────────────────────────── */}
+            {showFaqs && (
+                <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
+                    <div className="mb-7 text-center">
+                        <div className="flex justify-center"><SectionBadge>Түгээмэл асуулт</SectionBadge></div>
+                        <h2 className="font-onest text-[22px] font-extrabold sm:text-[40px]">Асуулт хариулт</h2>
+                    </div>
+                    <div className="mx-auto flex max-w-[800px] flex-col gap-3">
+                        {faqs.map((f, i) => {
+                            const open = openFaq === i;
+                            return (
+                                <div
+                                    key={f.id}
+                                    className="overflow-hidden rounded-[18px] border bg-white/70 backdrop-blur-md transition-all"
+                                    style={{ borderColor: open ? '#f4d4da' : '#f1e8e7', boxShadow: open ? '0 12px 30px rgba(120,30,50,0.08)' : 'none' }}
+                                >
+                                    <button
+                                        onClick={() => setOpenFaq(open ? null : i)}
+                                        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+                                    >
+                                        <span className="font-onest text-[16px] font-bold text-[#1c1a1b] sm:text-[17px]">{f.question}</span>
+                                        <span
+                                            className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-all"
+                                            style={{ background: open ? RED : '#fbeef0', color: open ? '#fff' : RED, transform: open ? 'rotate(180deg)' : 'none' }}
+                                        >
+                                            <ChevronDown className="h-4 w-4" />
+                                        </span>
+                                    </button>
+                                    <div className="grid transition-all duration-300" style={{ gridTemplateRows: open ? '1fr' : '0fr' }}>
+                                        <div className="overflow-hidden">
+                                            <p className="px-6 pb-5 text-[14px] leading-[1.7] text-[#6b6360]">{f.answer}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* ── APPOINTMENT WIDGET ───────────────────────────────────────── */}
+            <div className="mt-7 overflow-hidden rounded-[30px] border border-white/75 bg-white/55 shadow-[0_24px_60px_rgba(120,30,50,0.12)] backdrop-blur-xl">
+                <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr]">
+                    {/* left: branch + doctor select */}
+                    <div className="p-6 text-white sm:p-10" style={{ background: 'linear-gradient(160deg,#c81e3a,#9e1730)' }}>
+                        <div className="mb-3 text-[12px] font-bold uppercase tracking-[0.1em] opacity-85">Цаг авах</div>
+                        <h2 className="mb-2.5 font-onest text-[22px] font-extrabold leading-tight sm:text-[34px]">Эхлээд салбараа сонгоно уу</h2>
+                        <p className="mb-5 text-[15px] leading-[1.6] opacity-90">Салбар, эмчээ сонгоод доорх календараас өдөр, цагаа сонгоорой.</p>
+                        {branches.length > 0 && (
+                            <div className="mb-5 flex flex-wrap gap-2">
+                                {branches.map((b) => {
+                                    const on = b.id === apBranch;
+                                    return (
+                                        <button key={b.id} onClick={() => { setApBranch(b.id); setApDoc(doctors.find((d) => d.branch_id === b.id)?.id ?? null); setApDay(null); setApTime(null); }} className="rounded-[30px] border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-all" style={{ borderColor: on ? '#fff' : 'rgba(255,255,255,.32)', background: on ? '#fff' : 'rgba(255,255,255,.08)', color: on ? RED : '#fff' }}>
+                                            {b.name}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
+                        <div className="flex flex-col gap-2.5">
+                            {apDoctors.slice(0, 5).map((d) => {
+                                const on = d.id === apDoc;
+                                return (
+                                    <button key={d.id} onClick={() => { setApDoc(d.id); setApDay(null); setApTime(null); }} className="flex items-center gap-3 rounded-2xl border-[1.5px] px-3.5 py-3 text-left transition-all" style={{ borderColor: on ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.22)', background: on ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.04)' }}>
+                                        <span className="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-xl bg-white/20 font-onest text-[17px] font-bold">{d.name.trim()[0]}</span>
+                                        <span className="leading-tight">
+                                            <span className="block font-onest text-[15px] font-bold">{d.name}</span>
+                                            <span className="block text-[12px] font-medium opacity-85">{d.specialization || 'Шүдний эмч'}</span>
+                                        </span>
+                                        <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full text-[13px] font-bold" style={{ background: on ? '#fff' : 'transparent', color: on ? RED : 'transparent' }}>✓</span>
+                                    </button>
+                                );
+                            })}
+                            {apDoctors.length === 0 && <div className="text-[14px] opacity-80">Энэ салбарт бүртгэлтэй эмч алга байна.</div>}
+                        </div>
+                    </div>
 
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-                            {(filteredDoctors.length > 0 ? filteredDoctors : [1,2,3,4].map(i => ({
-                                id: i, name: `Эмч ${i}`, specialization: 'Гажиг засалч', degree: null,
-                                experience_years: 5, description: null, phone: null, email: null,
-                                experiences: null, photo_url: null, branch_name: null, branch_id: null,
-                            } as Doctor))).map(doc => (
-                                <button key={doc.id} onClick={() => setSelectedDoctor(doc)}
-                                    className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all group text-left">
-                                    <div className="aspect-square bg-gradient-to-br from-rose-50 to-red-100 overflow-hidden relative">
-                                        {doc.photo_url
-                                            ? <img src={doc.photo_url} alt={doc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                                            : <div className="w-full h-full flex items-center justify-center">
-                                                <div className="w-20 h-20 bg-red-200 rounded-full flex items-center justify-center">
-                                                    <span className="text-red-700 font-black text-3xl">{doc.name.charAt(0)}</span>
-                                                </div>
-                                              </div>
+                    {/* right: calendar + times */}
+                    <div className="bg-white/60 p-6 sm:p-10">
+                        <div className="mb-1.5 flex items-center justify-between">
+                            <span className="font-onest text-[18px] font-bold">{y} оны {monthNames[m]}</span>
+                            {selDocObj && <span className="text-[13px] font-semibold text-[#c81e3a]">{selDocObj.name}</span>}
+                        </div>
+                        <div className="mb-4 text-[12px] font-medium text-[#9a918d]">{selBranchObj?.name ?? 'Салбар сонгоно уу'}</div>
+                        <div className="mb-2 grid grid-cols-7 gap-1.5 text-center text-[12px] font-semibold text-[#9a918d]">
+                            {['Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя', 'Ня'].map((w) => <span key={w}>{w}</span>)}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1.5 text-center">
+                            {Array.from({ length: firstOffset }).map((_, i) => <div key={`e${i}`} className="h-[42px]" />)}
+                            {Array.from({ length: daysInMonth }).map((_, i) => {
+                                const day = i + 1;
+                                const isPast = day < today.getDate();
+                                const sel = apDay === day;
+                                return (
+                                    <button
+                                        key={day}
+                                        disabled={isPast}
+                                        onClick={() => { setApDay(day); setApTime(null); }}
+                                        className="flex h-[42px] items-center justify-center rounded-[11px] text-[14px] font-semibold transition-all"
+                                        style={
+                                            sel ? { background: RED, color: '#fff', boxShadow: '0 6px 14px rgba(200,30,58,.32)' }
+                                                : isPast ? { color: '#cdc6c3', cursor: 'default' }
+                                                : { background: 'rgba(200,30,58,.09)', color: '#1c1a1b' }
                                         }
-                                        {/* Hover overlay */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                                            <span className="text-white text-xs font-bold bg-white/20 backdrop-blur-sm rounded-lg px-3 py-1.5">
-                                                Дэлгэрэнгүй харах →
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="p-2.5 sm:p-4">
-                                        <h3 className="font-bold text-gray-900 text-xs sm:text-sm group-hover:text-red-700 transition-colors leading-snug">{doc.name}</h3>
-                                        <p className="text-red-600 text-[10px] sm:text-xs font-semibold mt-0.5 line-clamp-1">{doc.specialization ?? 'Шүдний эмч'}</p>
-                                        {doc.experience_years && <p className="text-gray-400 text-[10px] mt-0.5 hidden sm:block">{doc.experience_years} жилийн туршлага</p>}
-                                        <div className="mt-2 sm:mt-3 pt-2 border-t border-gray-50 flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-red-500">
-                                            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5"/> Цаг захиалах
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
+                                    >
+                                        {day}
+                                    </button>
+                                );
+                            })}
                         </div>
-                    </div>
-                </section>
-
-                {/* Doctor Modal */}
-                {selectedDoctor && (
-                    <DoctorModal doctor={selectedDoctor} onClose={() => setSelectedDoctor(null)} />
-                )}
-
-                {/* Article Modal */}
-                {selectedArticle && (
-                    <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
-                )}
-
-                {/* GALLERY */}
-                <section className="py-16 md:py-20 bg-white">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex items-end justify-between gap-4 mb-8">
-                            <div>
-                                <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Үр дүн</span>
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">Бодит үр дүн</h2>
+                        <div className="my-5 h-px bg-[#ece6e5]" />
+                        <div className="mb-3 text-[13px] font-semibold text-[#6b6360]">
+                            {apDay ? `Боломжит цаг — ${monthNames[m]}ын ${apDay}` : 'Эхлээд өдрөө сонгоно уу'}
+                        </div>
+                        <div className="mb-5 flex flex-wrap gap-2.5">
+                            {(apDay ? SAMPLE_TIMES : []).map((t) => {
+                                const on = apTime === t;
+                                return (
+                                    <button key={t} onClick={() => setApTime(t)} className="rounded-[12px] border-[1.5px] px-4 py-2.5 text-[13px] font-semibold transition-all" style={{ borderColor: on ? RED : '#ece6e5', background: on ? RED : '#fff', color: on ? '#fff' : '#1c1a1b' }}>
+                                        {t}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="text-[13px] leading-tight text-[#6b6360]">
+                                {canConfirm ? `${selDocObj?.name} · ${monthNames[m]}ын ${apDay} · ${apTime}` : 'Эмч, өдөр, цагаа сонгоно уу'}
                             </div>
-                            <Link href="/gallery" className="flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
-                                Бүгдийг харах <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"/>
-                            </Link>
-                        </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                            {(gallery.length > 0 ? gallery.slice(0, 4) : Array.from({length: 4}, (_, i) => ({
-                                id: i+1, title: `Үр дүн #${i+1}`, category_name: 'Invisalign',
-                                before_url: null, after_url: null,
-                            } as GalleryItem))).map((item, i) => (
-                                <MaskGalleryCard key={item.id} item={item} delay={i * 900} />
-                            ))}
+                            <button onClick={goBooking} disabled={!canConfirm} className="whitespace-nowrap rounded-[14px] px-6 py-3.5 text-[15px] font-bold text-white transition-all" style={{ background: canConfirm ? RED : '#d9cfcd', boxShadow: canConfirm ? '0 8px 20px rgba(200,30,58,.3)' : 'none' }}>
+                                Цаг авах →
+                            </button>
                         </div>
                     </div>
-                </section>
-
-                {/* ARTICLES */}
-                <section className="py-24 bg-[#F9F4F2]">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
-                            <div>
-                                <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Мэдээ</span>
-                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2">Сүүлийн үеийн мэдээ</h2>
-                            </div>
-                            <Link href="/articles" className="flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700 flex-shrink-0 group">
-                                Бүгдийг харах <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform"/>
-                            </Link>
-                        </div>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {(articles.length > 0 ? articles.slice(0,3) : [
-                                { id:1, title:'Invisalign гэж юу вэ?', excerpt:'Орчин үеийн харагдахгүй тэгшлэгч систем.', category:'Эмчилгээ', featured_image:null, published_at:'2024.12.01', slug:'' },
-                                { id:2, title:'Брекет тавиулсны дараа арчлалт', excerpt:'Шүдний цэвэрлэгээ, хоолны дэглэм.', category:'Зөвлөгөө', featured_image:null, published_at:'2024.11.15', slug:'' },
-                                { id:3, title:'Хүүхдийн шүдний эрүүл мэнд', excerpt:'Сүү шүдний арчлалт.', category:'Урьдчилан сэргийлэлт', featured_image:null, published_at:'2024.11.01', slug:'' },
-                            ] as Article[]).map(a => (
-                                <button key={a.id} onClick={() => setSelectedArticle(a)}
-                                    className="text-left bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-md transition-all group w-full">
-                                    <div className="aspect-[16/9] bg-rose-50 overflow-hidden">
-                                        {a.featured_image
-                                            ? <img src={a.featured_image} alt={a.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                                            : <div className="w-full h-full flex items-center justify-center"><Smile className="w-10 h-10 text-red-200"/></div>
-                                        }
-                                    </div>
-                                    <div className="p-5">
-                                        {a.category && <span className="inline-block bg-red-50 text-red-600 text-[11px] font-bold px-3 py-1 rounded-full mb-3 uppercase tracking-wide">{a.category}</span>}
-                                        <h3 className="font-bold text-gray-900 mb-2 leading-snug line-clamp-2 group-hover:text-red-700 transition-colors">{a.title}</h3>
-                                        {a.excerpt && <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed mb-4">{a.excerpt}</p>}
-                                        <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-                                            {a.published_at && <span className="text-gray-400 text-xs">{a.published_at}</span>}
-                                            <span className="text-red-600 text-sm font-semibold flex items-center gap-1 ml-auto">Унших <ArrowRight className="w-3.5 h-3.5"/></span>
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                {/* FAQ */}
-                <section className="py-24 bg-white">
-                    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="mb-10">
-                            <span className="text-red-600 text-xs font-bold tracking-widest uppercase">Та асуух уу?</span>
-                            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mt-2">Ихэнх хүн асуудаг зүйлс</h2>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            {(faqs.length > 0 ? faqs : defaultFaqs).map(f => <FaqItem key={f.id} faq={f}/>)}
-                        </div>
-                    </div>
-                </section>
-
-                {/* BOOKING CTA */}
-                <section className="py-20 bg-[#16100A] relative overflow-hidden">
-                    <div className="absolute inset-0 opacity-[0.04]"
-                        style={{ backgroundImage:'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize:'28px 28px' }}/>
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-red-900/20 rounded-full blur-3xl pointer-events-none"/>
-                    <div className="relative max-w-2xl mx-auto px-4 text-center">
-                        <span className="text-red-400 text-xs font-bold uppercase tracking-widest">Цаг захиалах</span>
-                        <h2 className="text-4xl md:text-5xl font-black text-white mt-4 mb-5 leading-tight">Эхний алхмаа<br/>хамт хийцгээе</h2>
-                        <p className="text-gray-400 mb-8 leading-relaxed">Шүдний асуудлаа шийдэх нь таны бодсоноос хялбар.<br className="hidden sm:block"/> Бидэнд хандаад эмчтэйгээ уулзаарай — үлдсэнийг бид шийдэрнэ.</p>
-                        <Link href="/booking"
-                            className="inline-flex items-center gap-2.5 bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-2xl shadow-red-900/40 text-base">
-                            <Calendar className="w-5 h-5"/> Онлайн цаг захиалах
-                        </Link>
-                    </div>
-                </section>
-            </PublicLayout>
-        </>
+                </div>
+            </div>
+        </PublicLayout>
     );
 }

@@ -1,39 +1,61 @@
-import { Head, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { Head } from '@inertiajs/react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import PublicLayout from '@/layouts/public-layout';
-import { ArrowRight, Smile, X, Tag, Calendar, User, Clock, Link2, Check, BookOpen } from 'lucide-react';
+import { X, Tag, Calendar, Link2, Check } from 'lucide-react';
 
-// ── Facebook & Instagram SVG icons ─────────────────────────────────────────
-function IconFacebook() {
-    return (
-        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-            <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.514c-1.491 0-1.956.93-1.956 1.886v2.268h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
-        </svg>
-    );
-}
-function IconInstagram() {
-    return (
-        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-        </svg>
-    );
-}
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPES — backend-ээс ирэх жинхэнэ өгөгдөл
+   ═══════════════════════════════════════════════════════════════════════════ */
 interface Article {
-    id: number; title: string; slug: string; excerpt: string | null;
-    category: string | null; featured_image: string | null;
-    published_at: string | null; author: string | null;
+    id: number;
+    title: string;
+    slug: string;
+    excerpt: string | null;
+    category: string | null;
+    featured_image: string | null;
+    image_url?: string | null; // backend нь image_url нэрээр илгээдэг
+    published_at: string | null;
+    author?: string | null;
 }
 interface PageProps {
     [key: string]: unknown;
-    auth: { user?: { name: string } };
     articles: Article[];
 }
 
-// ── Modal Base ──────────────────────────────────────────────────────────────
-function Modal({ open, onClose, children }: {
-    open: boolean; onClose: () => void; children: React.ReactNode
-}) {
+const RED = '#c81e3a';
+
+/* glass card-н нийтлэг хүрээ */
+const glassPanel =
+    'rounded-[30px] border border-white/70 bg-white/50 shadow-[0_14px_40px_rgba(120,30,50,0.06)] backdrop-blur-xl';
+
+/* зургийн эх сурвалжийг нэгтгэх (featured_image эсвэл image_url) */
+const imgOf = (a: Article): string | null => a.featured_image || a.image_url || null;
+
+function SectionBadge({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="mb-4 inline-flex items-center gap-2 rounded-[30px] border border-[#c81e3a]/20 bg-[#c81e3a]/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.1em] text-[#c81e3a] shadow-[0_8px_20px_rgba(120,30,50,0.1)] backdrop-blur-md">
+            <span className="h-[7px] w-[7px] rounded-full bg-[#c81e3a]" />
+            {children}
+        </div>
+    );
+}
+
+/* зураг байхгүй үед — судалтай орлуулагч */
+function Placeholder({ label, className = '', style }: { label: string; className?: string; style?: CSSProperties }) {
+    return (
+        <div
+            className={`flex items-center justify-center text-center text-[12px] font-medium text-[#b3a7a3] ${className}`}
+            style={{ background: 'repeating-linear-gradient(45deg,#f3eceb,#f3eceb 11px,#eee3e2 11px,#eee3e2 22px)', ...style }}
+        >
+            {label}
+        </div>
+    );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODAL — мэдээний дэлгэрэнгүй (детал route байхгүй тул хуучин логикийг хадгалав)
+   ═══════════════════════════════════════════════════════════════════════════ */
+function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
     useEffect(() => {
         if (open) document.body.style.overflow = 'hidden';
         else document.body.style.overflow = '';
@@ -41,23 +63,30 @@ function Modal({ open, onClose, children }: {
     }, [open]);
     if (!open) return null;
     return (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
-            onClick={onClose}>
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"/>
-            <div className="relative w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl"
-                onClick={e => e.stopPropagation()}
-                style={{ animation: 'modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
+        <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4" onClick={onClose}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div
+                className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-3xl"
+                onClick={(e) => e.stopPropagation()}
+                style={{ animation: 'cuticulModalIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
+            >
                 {children}
             </div>
         </div>
     );
 }
 
-// ── Article Modal ───────────────────────────────────────────────────────────
-function ArticleModal({ article, onClose }: { article: Article | null; onClose: () => void }) {
-    const [copied, setCopied] = useState(false);
-    if (!article) return null;
+function IconFacebook() {
+    return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+            <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.514c-1.491 0-1.956.93-1.956 1.886v2.268h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" />
+        </svg>
+    );
+}
 
+function ArticleModal({ article, onClose }: { article: Article; onClose: () => void }) {
+    const [copied, setCopied] = useState(false);
+    const img = imgOf(article);
     const articleUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/articles/${article.slug}`
         : `/articles/${article.slug}`;
@@ -65,8 +94,7 @@ function ArticleModal({ article, onClose }: { article: Article | null; onClose: 
     const shareToFacebook = () => {
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(articleUrl)}`, '_blank', 'width=600,height=400');
     };
-
-    const shareToInstagram = () => {
+    const copyLink = () => {
         navigator.clipboard.writeText(articleUrl).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 2500);
@@ -75,87 +103,64 @@ function ArticleModal({ article, onClose }: { article: Article | null; onClose: 
 
     return (
         <Modal open onClose={onClose}>
-            {/* Header image */}
             <div className="relative">
-                {article.featured_image ? (
+                {img ? (
                     <div className="aspect-[16/7] overflow-hidden rounded-t-3xl">
-                        <img src={article.featured_image} alt={article.title} className="w-full h-full object-cover"/>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-t-3xl"/>
+                        <img src={img} alt={article.title} className="h-full w-full object-cover" />
+                        <div className="absolute inset-0 rounded-t-3xl bg-gradient-to-t from-black/60 to-transparent" />
                     </div>
                 ) : (
-                    <div className="aspect-[16/7] bg-gradient-to-br from-rose-100 to-red-50 rounded-t-3xl flex items-center justify-center">
-                        <Smile className="w-16 h-16 text-red-200"/>
-                    </div>
+                    <Placeholder label="мэдээний зураг" className="aspect-[16/7] w-full rounded-t-3xl" />
                 )}
-                <button onClick={onClose}
-                    className="absolute top-4 right-4 w-9 h-9 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all">
-                    <X className="w-5 h-5"/>
+                <button
+                    onClick={onClose}
+                    className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all hover:bg-black/50"
+                >
+                    <X className="h-5 w-5" />
                 </button>
                 {article.category && (
                     <div className="absolute bottom-4 left-5">
-                        <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/30 flex items-center gap-1.5">
-                            <Tag className="w-3 h-3"/> {article.category}
+                        <span className="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
+                            <Tag className="h-3 w-3" /> {article.category}
                         </span>
                     </div>
                 )}
             </div>
 
-            {/* Body */}
             <div className="p-6 sm:p-8">
-                {/* Meta row — автор + огноо + цаг */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 pb-4 border-b border-gray-100">
+                <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-gray-100 pb-4">
                     {article.author && (
-                        <span className="flex items-center gap-1.5 text-gray-700 text-sm font-semibold">
-                            <span className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
-                                <User className="w-3.5 h-3.5 text-red-600"/>
-                            </span>
-                            {article.author}
-                        </span>
+                        <span className="text-sm font-semibold text-gray-700">{article.author}</span>
                     )}
                     {article.published_at && (
-                        <span className="flex items-center gap-1.5 text-gray-400 text-sm">
-                            <Calendar className="w-3.5 h-3.5"/> {article.published_at}
-                        </span>
-                    )}
-                    {article.published_at && (
-                        <span className="flex items-center gap-1.5 text-gray-400 text-sm">
-                            <Clock className="w-3.5 h-3.5"/> {article.published_at.includes(':') ? '' : '09:00'}
+                        <span className="flex items-center gap-1.5 text-sm text-gray-400">
+                            <Calendar className="h-3.5 w-3.5" /> {article.published_at}
                         </span>
                     )}
                 </div>
 
-                {/* Title */}
-                <h2 className="text-2xl font-black text-gray-900 leading-tight mb-4">{article.title}</h2>
+                <h2 className="mb-4 font-onest text-2xl font-extrabold leading-tight text-gray-900">{article.title}</h2>
 
-                {/* Excerpt */}
                 {article.excerpt && (
-                    <p className="text-gray-600 leading-relaxed text-[15px] mb-6">{article.excerpt}</p>
+                    <p className="mb-6 text-[15px] leading-relaxed text-gray-600">{article.excerpt}</p>
                 )}
 
-                {/* Share buttons */}
-                <div className="pt-5 border-t border-gray-100">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Хуваалцах</p>
+                <div className="border-t border-gray-100 pt-5">
+                    <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Хуваалцах</p>
                     <div className="flex gap-2">
-                        {/* Facebook */}
-                        <button onClick={shareToFacebook}
-                            className="flex-1 flex items-center justify-center gap-2 bg-[#1877F2] hover:bg-[#166fe5] text-white text-sm font-bold py-3 rounded-xl transition-all shadow-sm">
-                            <IconFacebook/> Facebook
+                        <button
+                            onClick={shareToFacebook}
+                            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#1877F2] py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#166fe5]"
+                        >
+                            <IconFacebook /> Facebook
                         </button>
-                        {/* Instagram — link copy */}
-                        <button onClick={shareToInstagram}
-                            className={`flex-1 flex items-center justify-center gap-2 text-sm font-bold py-3 rounded-xl transition-all shadow-sm ${
-                                copied
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white hover:opacity-90'
-                            }`}>
-                            {copied ? <><Check className="w-4 h-4"/> Хуулагдлаа</> : <><IconInstagram/> Instagram</>}
-                        </button>
-                        {/* Copy link */}
-                        <button onClick={shareToInstagram} title="Холбоос хуулах"
-                            className={`w-12 flex items-center justify-center rounded-xl border transition-all ${
-                                copied ? 'border-green-300 bg-green-50 text-green-600' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-500'
-                            }`}>
-                            {copied ? <Check className="w-4 h-4"/> : <Link2 className="w-4 h-4"/>}
+                        <button
+                            onClick={copyLink}
+                            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
+                                copied ? 'bg-green-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                            }`}
+                        >
+                            {copied ? <><Check className="h-4 w-4" /> Хуулагдлаа</> : <><Link2 className="h-4 w-4" /> Холбоос хуулах</>}
                         </button>
                     </div>
                 </div>
@@ -164,204 +169,155 @@ function ArticleModal({ article, onClose }: { article: Article | null; onClose: 
     );
 }
 
-// ── Main Page ───────────────────────────────────────────────────────────────
-export default function ArticlesPage() {
-    const { articles } = usePage<PageProps>().props;
-    const [activeCategory, setActiveCategory] = useState<string | null>(null);
-    const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+export default function Articles({ articles = [] }: PageProps) {
     const fallback: Article[] = [
-        { id: 1, title: 'Invisalign гэж юу вэ? Бүрэн гарын авлага', slug: 'invisalign', excerpt: 'Харагдахгүй шилэн тэгшлэгч системийн давуу тал, зардал, хугацааны талаар дэлгэрэнгүй мэдэж ав.', category: 'Эмчилгээ', featured_image: null, published_at: '2024.12.01', author: 'Cuticul' },
-        { id: 2, title: 'Брекет тавиулсны дараа яаж арчилах вэ?', slug: 'breket', excerpt: 'Брекеттэй байхдаа шүдээ хэрхэн зөв цэвэрлэх, ямар хоол идвэл зохих талаар практик зөвлөгөө.', category: 'Зөвлөгөө', featured_image: null, published_at: '2024.11.15', author: 'Cuticul' },
-        { id: 3, title: 'Хүүхдийн шүдний эрүүл мэнд', slug: 'kids', excerpt: 'Хүүхдийн сүү шүд, байнгын шүдийг яаж арчлах, хэзээ эмчид очих талаар эцэг эхчүүдэд зориулсан зөвлөгөө.', category: 'Урьдчилан сэргийлэлт', featured_image: null, published_at: '2024.11.01', author: 'Cuticul' },
-        { id: 4, title: 'Шүд цайруулалт — Аюулгүй мөртлөө гоё', slug: 'whitening', excerpt: 'Мэргэжлийн шүд цайруулалтын тухай — гэрт хийдэг болон эмнэлэгт хийдэг аргуудын харьцуулалт.', category: 'Зөвлөгөө', featured_image: null, published_at: '2024.10.20', author: 'Cuticul' },
-        { id: 5, title: 'Retainer — Яагаад чухал вэ?', slug: 'retainer', excerpt: 'Брекет засал дуусгасны дараа retainer зайлшгүй шаардлагатай байдаг шалтгааны талаар.', category: 'Эмчилгээ', featured_image: null, published_at: '2024.10.05', author: 'Cuticul' },
-        { id: 6, title: 'Насанд хүрэгчдийн гажиг засал', slug: 'adult', excerpt: '30, 40 насандаа ч засал хийлгэх боломжтой — орчин үеийн аргуудыг танилцуулна.', category: 'Эмчилгээ', featured_image: null, published_at: '2024.09.18', author: 'Cuticul' },
+        { id: 1, title: 'Шинэ салбар Яармагт нээлтээ хийлээ', slug: 'yarmag-salbar', excerpt: 'Хотын баруун хэсэгт байрлах шинэ салбараа нээлээ. Орчин үеийн тоног төхөөрөмжөөр тоноглогдсон.', category: 'Эмнэлгийн мэдээ', featured_image: null, published_at: '2026.06.10', author: 'Кутикул' },
+        { id: 2, title: 'Шүдээ өдөрт хэдэн удаа угаах нь зөв вэ?', slug: 'shudee-ugaah', excerpt: 'Өглөө, оройд хоёр удаа, наад зах нь 2 минут угаах нь чухал. Зөв техникийн талаар.', category: 'Зөвлөгөө', featured_image: null, published_at: '2026.06.08', author: 'Кутикул' },
+        { id: 3, title: 'Зуны хямдрал: цайруулалт 30%-иар', slug: 'zuny-khyamdral', excerpt: '6-р сарын турш бүх төрлийн цайруулалтын үйлчилгээнд онцгой хямдрал.', category: 'Урамшуулал', featured_image: null, published_at: '2026.06.05', author: 'Кутикул' },
     ];
 
     const source = articles.length > 0 ? articles : fallback;
-    const categories = Array.from(new Set(source.map(a => a.category).filter(Boolean))) as string[];
-    const filtered = activeCategory ? source.filter(a => a.category === activeCategory) : source;
+
+    /* ангилалууд (жинхэнэ category утгуудаас) */
+    const categories = Array.from(new Set(source.map((a) => a.category).filter(Boolean))) as string[];
+    const tabs = ['Бүгд', ...categories];
+    const [cat, setCat] = useState(0);
+
+    const filtered = cat === 0 ? source : source.filter((a) => a.category === tabs[cat]);
     const [featured, ...rest] = filtered;
 
+    const [selected, setSelected] = useState<Article | null>(null);
+
     return (
-        <>
-            <Head title="Мэдээ"/>
-            <style>{`
-                @keyframes modalIn { from{opacity:0;transform:translateY(32px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
-                @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-            `}</style>
-            <PublicLayout>
+        <PublicLayout>
+            <Head title="Мэдээ — Кутикул">
+                <style>{`@keyframes cuticulModalIn { from { opacity:0; transform:translateY(24px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }`}</style>
+            </Head>
 
-                {/* ── Hero ───────────────────────────────────── */}
-                <section className="pt-20 sm:pt-28 pb-12 sm:pb-16 bg-[#16100A] relative overflow-hidden">
-                    <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full blur-[140px] -translate-x-1/3 translate-y-1/3 pointer-events-none"
-                        style={{ background: 'radial-gradient(circle, rgba(180,20,20,0.12) 0%, transparent 70%)' }}/>
-                    <div className="absolute inset-0 opacity-[0.03]"
-                        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }}/>
-                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="max-w-2xl">
-                            <span className="inline-flex items-center gap-2 text-red-500 text-xs font-bold uppercase tracking-widest mb-5 bg-red-500/10 px-3 py-1.5 rounded-full border border-red-500/20">
-                                <BookOpen className="w-3.5 h-3.5"/> Мэдээ мэдээлэл
-                            </span>
-                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white leading-tight mb-4">
-                                Шүдний эрүүл<br/>
-                                <span className="text-red-500">мэндийн мэдлэг</span>
-                            </h1>
-                            <p className="text-gray-400 text-base leading-relaxed">
-                                Гажиг засал, ерөнхий шүдний арчлалтын талаар мэдэхэд хэрэгтэй бүхнийг тайлбарласан нийтлэлүүд.
-                            </p>
-                        </div>
-                        {/* Stats row */}
-                        <div className="flex gap-6 mt-8 pt-8 border-t border-white/8">
-                            <div>
-                                <p className="text-white font-black text-2xl">{source.length}</p>
-                                <p className="text-gray-500 text-xs mt-0.5">Нийтлэл</p>
+            {/* ── HERO + FEATURED ───────────────────────────────────────────── */}
+            <div className="mt-6 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[0.78fr_1.22fr]">
+                <div className={`flex flex-col justify-center p-8 sm:p-11 ${glassPanel}`}>
+                    <SectionBadge>Мэдээ</SectionBadge>
+                    <h1 className="mb-3.5 font-onest text-[32px] font-extrabold leading-[1.12] tracking-tight text-[#1c1a1b] sm:text-[38px]">
+                        Мэдээ, зөвлөгөө
+                    </h1>
+                    <p className="text-[15px] leading-[1.7] text-[#6b6360]">
+                        Эмнэлгийн шинэ мэдээ, урамшуулал, шүдний эрүүл мэндийн талаарх ашигтай зөвлөгөөг эндээс уншаарай.
+                    </p>
+                </div>
+
+                {featured ? (
+                    <button
+                        onClick={() => setSelected(featured)}
+                        className="group relative flex min-h-[320px] items-end overflow-hidden rounded-[30px] border border-white/60 text-left shadow-[0_16px_44px_rgba(120,30,50,0.12)]"
+                    >
+                        {imgOf(featured) ? (
+                            <img
+                                src={imgOf(featured)!}
+                                alt={featured.title}
+                                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            />
+                        ) : (
+                            <Placeholder label="онцлох мэдээний зураг" className="absolute inset-0 h-full w-full" />
+                        )}
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(0deg,rgba(20,6,10,.72) 0%,rgba(20,6,10,.1) 55%,transparent 100%)' }} />
+                        <div className="relative p-8 sm:p-9">
+                            <span className="mb-3.5 inline-block rounded-[30px] bg-[#c81e3a] px-3.5 py-1.5 text-[11px] font-bold text-white">Онцлох</span>
+                            <h2 className="mb-2.5 max-w-[560px] font-onest text-[24px] font-extrabold leading-[1.2] text-white sm:text-[28px]">{featured.title}</h2>
+                            <div className="text-[13px] font-medium text-white/80">
+                                {featured.published_at}{featured.published_at && featured.category ? ' · ' : ''}{featured.category}
                             </div>
-                            <div className="w-px bg-white/8"/>
-                            <div>
-                                <p className="text-white font-black text-2xl">{categories.length}</p>
-                                <p className="text-gray-500 text-xs mt-0.5">Ангилал</p>
-                            </div>
                         </div>
+                    </button>
+                ) : (
+                    <div className="relative flex min-h-[320px] items-center justify-center overflow-hidden rounded-[30px] border border-white/60">
+                        <Placeholder label="онцлох мэдээ алга" className="absolute inset-0 h-full w-full" />
                     </div>
-                </section>
+                )}
+            </div>
 
-                {/* ── Category Filter ─────────────────────────── */}
-                {categories.length > 0 && (
-                    <div className="bg-white border-b border-gray-100 shadow-sm sticky top-[68px] z-40">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex gap-2 overflow-x-auto scrollbar-hide">
-                            <button onClick={() => setActiveCategory(null)}
-                                className={`px-4 py-2 rounded-xl text-sm font-semibold flex-shrink-0 transition-all ${activeCategory === null ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600'}`}>
-                                Бүгд <span className="ml-1.5 text-[10px] opacity-70">{source.length}</span>
-                            </button>
-                            {categories.map(c => (
-                                <button key={c} onClick={() => setActiveCategory(c)}
-                                    className={`px-4 py-2 rounded-xl text-sm font-semibold flex-shrink-0 transition-all ${activeCategory === c ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600'}`}>
-                                    {c}
-                                    <span className="ml-1.5 text-[10px] opacity-70">
-                                        {source.filter(a => a.category === c).length}
-                                    </span>
+            {/* ── NEWS GRID ─────────────────────────────────────────────────── */}
+            <div className={`mt-7 p-7 sm:p-11 ${glassPanel}`}>
+                {tabs.length > 1 && (
+                    <div className="mb-7 flex flex-wrap gap-2.5">
+                        {tabs.map((t, i) => {
+                            const on = i === cat;
+                            return (
+                                <button
+                                    key={t}
+                                    onClick={() => setCat(i)}
+                                    className="rounded-[40px] border-[1.5px] px-4 py-2 text-[14px] font-semibold transition-all"
+                                    style={{ borderColor: on ? RED : '#ece6e5', background: on ? RED : 'rgba(255,255,255,.6)', color: on ? '#fff' : '#6b6360' }}
+                                >
+                                    {t}
                                 </button>
-                            ))}
-                        </div>
+                            );
+                        })}
                     </div>
                 )}
 
-                {/* ── Articles ────────────────────────────────── */}
-                <section className="py-10 sm:py-14 bg-[#F9F4F2] min-h-[50vh]">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        {filtered.length > 0 ? (
-                            <div className="flex flex-col gap-8">
-
-                                {/* Featured */}
-                                {featured && (
-                                    <button onClick={() => setSelectedArticle(featured)}
-                                        className="group w-full text-left bg-white rounded-3xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-xl transition-all duration-300"
-                                        style={{ animation: 'fadeUp 0.4s ease forwards' }}>
-                                        <div className="grid md:grid-cols-5">
-                                            <div className="md:col-span-2 aspect-[4/3] md:aspect-auto bg-gradient-to-br from-rose-50 to-red-100 overflow-hidden min-h-[200px]">
-                                                {featured.featured_image
-                                                    ? <img src={featured.featured_image} alt={featured.title}
-                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"/>
-                                                    : <div className="w-full h-full flex items-center justify-center">
-                                                        <Smile className="w-14 h-14 text-red-200"/>
-                                                      </div>
-                                                }
-                                            </div>
-                                            <div className="md:col-span-3 p-7 md:p-10 flex flex-col justify-center">
-                                                <div className="flex items-center gap-3 mb-4">
-                                                    {featured.category && (
-                                                        <span className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                                                            {featured.category}
-                                                        </span>
-                                                    )}
-                                                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Онцлох</span>
-                                                </div>
-                                                <h2 className="font-black text-gray-900 text-xl md:text-2xl leading-snug mb-3 group-hover:text-red-700 transition-colors">
-                                                    {featured.title}
-                                                </h2>
-                                                {featured.excerpt && (
-                                                    <p className="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-6">{featured.excerpt}</p>
-                                                )}
-                                                <div className="flex items-center justify-between mt-auto">
-                                                    {featured.published_at && (
-                                                        <span className="text-gray-400 text-xs flex items-center gap-1.5">
-                                                            <Calendar className="w-3 h-3"/> {featured.published_at}
-                                                        </span>
-                                                    )}
-                                                    <span className="flex items-center gap-2 text-red-600 font-bold text-sm ml-auto group-hover:gap-3 transition-all">
-                                                        Дэлгэрэнгүй <ArrowRight className="w-4 h-4"/>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </button>
-                                )}
-
-                                {/* Grid */}
-                                {rest.length > 0 && (
-                                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                                        {rest.map((a, i) => (
-                                            <button key={a.id} onClick={() => setSelectedArticle(a)}
-                                                className="group w-full text-left bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-red-200 hover:shadow-lg transition-all duration-300"
-                                                style={{ animation: `fadeUp 0.4s ease ${i * 0.06}s both` }}>
-                                                <div className="aspect-[16/9] bg-gradient-to-br from-rose-50 to-red-100 overflow-hidden">
-                                                    {a.featured_image
-                                                        ? <img src={a.featured_image} alt={a.title}
-                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
-                                                        : <div className="w-full h-full flex items-center justify-center">
-                                                            <Smile className="w-9 h-9 text-red-200"/>
-                                                          </div>
-                                                    }
-                                                </div>
-                                                <div className="p-5">
-                                                    {a.category && (
-                                                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 text-[10px] font-bold px-2.5 py-1 rounded-full mb-3 uppercase tracking-wide">
-                                                            <Tag className="w-2.5 h-2.5"/> {a.category}
-                                                        </span>
-                                                    )}
-                                                    <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 mb-2 group-hover:text-red-700 transition-colors">
-                                                        {a.title}
-                                                    </h3>
-                                                    {a.excerpt && (
-                                                        <p className="text-gray-400 text-xs leading-relaxed line-clamp-2 mb-4">{a.excerpt}</p>
-                                                    )}
-                                                    <div className="flex items-center justify-between pt-3.5 border-t border-gray-50">
-                                                        {a.published_at && (
-                                                            <span className="text-gray-400 text-[11px] flex items-center gap-1">
-                                                                <Calendar className="w-3 h-3"/> {a.published_at}
-                                                            </span>
-                                                        )}
-                                                        <span className="flex items-center gap-1 text-red-600 text-xs font-bold ml-auto group-hover:gap-1.5 transition-all">
-                                                            Унших <ArrowRight className="w-3 h-3"/>
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </button>
-                                        ))}
+                {rest.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        {rest.map((a) => {
+                            const img = imgOf(a);
+                            return (
+                                <button
+                                    key={a.id}
+                                    onClick={() => setSelected(a)}
+                                    className="group block overflow-hidden rounded-[20px] border border-[#f1e8e7] bg-white text-left shadow-[0_1px_2px_rgba(120,30,50,0.04)] transition-all hover:-translate-y-1 hover:border-[#f4d4da] hover:shadow-[0_16px_38px_rgba(120,30,50,0.13)]"
+                                >
+                                    <div className="relative aspect-[16/10] overflow-hidden">
+                                        {img ? (
+                                            <img src={img} alt={a.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                        ) : (
+                                            <Placeholder label="мэдээний зураг" className="h-full w-full" />
+                                        )}
+                                        {a.category && (
+                                            <div className="absolute left-3 top-3 rounded-[30px] bg-white/90 px-3 py-1.5 text-[11px] font-bold text-[#c81e3a] backdrop-blur-sm">{a.category}</div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="text-center py-24 text-gray-400">
-                                <Smile className="w-12 h-12 mx-auto mb-4 text-gray-200"/>
-                                <p className="text-lg font-medium">Энэ ангилалд нийтлэл байхгүй байна.</p>
-                                <button onClick={() => setActiveCategory(null)}
-                                    className="mt-4 text-sm text-red-600 font-semibold hover:underline">
-                                    Бүх нийтлэл харах
+                                    <div className="p-5 sm:p-[22px]">
+                                        {a.published_at && <div className="mb-2 text-[12px] font-medium text-[#9a918d]">{a.published_at}</div>}
+                                        <h3 className="mb-2.5 font-onest text-[18px] font-bold leading-[1.3]">{a.title}</h3>
+                                        {a.excerpt && <p className="mb-3.5 line-clamp-2 text-[14px] leading-[1.6] text-[#6b6360]">{a.excerpt}</p>}
+                                        <span className="text-[13px] font-bold text-[#c81e3a]">Дэлгэрэнгүй унших →</span>
+                                    </div>
                                 </button>
-                            </div>
-                        )}
+                            );
+                        })}
                     </div>
-                </section>
+                ) : (
+                    <div className="py-16 text-center text-[15px] font-medium text-[#9a918d]">
+                        {featured ? 'Энэ ангилалд өөр мэдээ алга байна.' : 'Энэ ангилалд мэдээ байхгүй байна.'}
+                    </div>
+                )}
+            </div>
 
-            </PublicLayout>
+            {/* ── NEWSLETTER ────────────────────────────────────────────────── */}
+            <div className="mt-7 flex flex-wrap items-center justify-between gap-7 rounded-[30px] bg-[#1c1a1b]/95 px-8 py-12 text-white sm:px-12">
+                <div>
+                    <h2 className="mb-2.5 font-onest text-[26px] font-extrabold leading-[1.18] sm:text-[30px]">Шинэ мэдээ, урамшууллыг хүлээж аваарай</h2>
+                    <p className="max-w-[440px] text-[15px] leading-[1.6] text-[#b6aeac]">И-мэйл хаягаа үлдээгээд эмнэлгийн шинэ мэдээ, хямдралын мэдээллийг хүлээн авна уу.</p>
+                </div>
+                <div className="flex flex-none gap-2.5">
+                    <input
+                        type="email"
+                        placeholder="И-мэйл хаяг"
+                        className="w-[240px] rounded-[13px] border border-[#3a3533] bg-[#26221f] px-[18px] py-3.5 text-[14px] font-medium text-white outline-none placeholder:text-[#9a918d]"
+                    />
+                    <button
+                        type="button"
+                        className="whitespace-nowrap rounded-[13px] bg-[#c81e3a] px-6 py-3.5 text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(200,30,58,0.3)]"
+                    >
+                        Бүртгүүлэх
+                    </button>
+                </div>
+            </div>
 
-            {/* Article Modal */}
-            {selectedArticle && (
-                <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)}/>
-            )}
-        </>
+            {selected && <ArticleModal article={selected} onClose={() => setSelected(null)} />}
+        </PublicLayout>
     );
 }

@@ -7,6 +7,7 @@ use App\Models\Social\SocialAccount;
 use App\Models\Social\SocialContact;
 use App\Models\Social\SocialConversation;
 use App\Models\Social\SocialMessage;
+use App\Services\Social\GenderGuesser;
 use App\Services\Social\MetaGraphService;
 use App\Services\Social\SocialCommentHandler;
 use App\Services\Social\SocialFlowRunner;
@@ -109,8 +110,8 @@ class ProcessSocialEvent implements ShouldQueue
     /**
      * Echo мессеж — page-аас гарсан мессежийн хуулбар.
      *  • Манай ботын/апп-ийн өөрийн мессеж бол алгасна.
-     *  • Meta Page Inbox-оос (эсвэл өөр апп) ХҮН бичсэн бол ботыг зогсоож (open),
-     *    тэр мессежийг манай inbox-д операторын хариу болгож харуулна.
+     *  • Meta Page Inbox-оос (эсвэл өөр апп) ХҮН бичсэн бол тэр мессежийг манай inbox-д
+     *    операторын хариу болгож харуулна. Ботыг зогсоохгүй (бот зөвхөн handoff үед зогсоно).
      */
     private function handleEcho(SocialAccount $account, string $channel, array $event): void
     {
@@ -156,11 +157,8 @@ class ProcessSocialEvent implements ShouldQueue
             return;
         }
 
-        // Хүн Meta inbox-оос хариулсан тул ботыг зогсооно.
-        if ($conversation->status === SocialConversation::STATUS_BOT) {
-            $conversation->update(['status' => SocialConversation::STATUS_OPEN, 'awaiting_node_id' => null]);
-        }
-
+        // Хүн Meta inbox-оос хариулсан мессежийг операторын хариу болгож хадгална.
+        // Гэхдээ ботыг зогсоохгүй — бот зөвхөн handoff (Оператортой холбогдох) үед л зогсоно.
         $text = $message['text'] ?? null;
         $stored = SocialMessage::create([
             'social_conversation_id' => $conversation->id,
@@ -277,6 +275,14 @@ class ProcessSocialEvent implements ShouldQueue
                 $contact->username = $profile['username'] ?? $contact->username;
                 $contact->avatar = $profile['avatar'] ?? $contact->avatar;
             }
+            if (! empty($profile['gender'])) {
+                $contact->gender = $profile['gender'];
+            }
+        }
+
+        // Хүйс хоосон бол нэрээр таамаглана (Meta өгдөггүй тул best-effort).
+        if (empty($contact->gender) && ! empty($contact->name)) {
+            $contact->gender = (new GenderGuesser)->guess($contact->name);
         }
 
         $contact->last_interacted_at = now();

@@ -53,6 +53,44 @@ class MetaGraphService
         return "{$this->graphUrl}/{$this->version}";
     }
 
+    /**
+     * Энэ instance-ийн дараагийн send дуудлагуудад хэрэглэх messaging tag.
+     * null = энгийн RESPONSE (24ц цонхны дотор). 'HUMAN_AGENT' = операторын хариу
+     * 24ц өнгөрсөн ч 7 хоног хүртэл (Meta-гийн Human Agent feature батлагдсан байх ёстой).
+     */
+    private ?string $messagingTag = null;
+
+    public function useMessagingTag(?string $tag): static
+    {
+        $this->messagingTag = $tag;
+
+        return $this;
+    }
+
+    /**
+     * Send payload-д орох messaging_type (+ шаардвал tag).
+     *
+     * @return array<string, string>
+     */
+    private function envelope(): array
+    {
+        return $this->messagingTag
+            ? ['messaging_type' => 'MESSAGE_TAG', 'tag' => $this->messagingTag]
+            : ['messaging_type' => 'RESPONSE'];
+    }
+
+    /** Meta-гийн gender утгыг 'male'/'female'/null болгож нормчилно. */
+    private function normalizeGender(?string $g): ?string
+    {
+        $g = mb_strtolower(trim((string) $g));
+
+        return match ($g) {
+            'male', 'm' => 'male',
+            'female', 'f' => 'female',
+            default => null,
+        };
+    }
+
     // ─── 1. Facebook login URL ────────────────────────────────────────────────
 
     public function buildLoginUrl(string $redirectUri, string $state): string
@@ -419,15 +457,16 @@ class MetaGraphService
     // ─── Контактын профайл (нэр / зураг) ─────────────────────────────────────
 
     /**
-     * @return array{name:?string, username:?string, avatar:?string}
+     * @return array{name:?string, username:?string, avatar:?string, gender:?string}
      */
     public function getUserProfile(SocialAccount $account, string $userId, string $channel): array
     {
-        $empty = ['name' => null, 'username' => null, 'avatar' => null];
+        $empty = ['name' => null, 'username' => null, 'avatar' => null, 'gender' => null];
 
         // 1) Шууд профайл (Advanced Access / App Review байвал зураг хүртэл ирнэ).
+        // gender нь ихэнхдээ ирдэггүй (Meta PSID-ийн хүйс өгдөггүй) — байвал л авна.
         try {
-            $fields = $channel === 'instagram' ? 'name,username,profile_pic' : 'name,profile_pic';
+            $fields = $channel === 'instagram' ? 'name,username,profile_pic' : 'name,profile_pic,gender';
             $response = Http::timeout(10)->get("{$this->base()}/{$userId}", [
                 'fields' => $fields,
                 'access_token' => $account->page_access_token,
@@ -438,6 +477,7 @@ class MetaGraphService
                     'name' => $response->json('name'),
                     'username' => $response->json('username'),
                     'avatar' => $response->json('profile_pic'),
+                    'gender' => $this->normalizeGender($response->json('gender')),
                 ];
             }
         } catch (\Throwable $e) {
@@ -462,6 +502,7 @@ class MetaGraphService
                             'name' => $p['name'] ?? null,
                             'username' => $p['username'] ?? null,
                             'avatar' => null,
+                            'gender' => null,
                         ];
                     }
                 }
@@ -487,7 +528,7 @@ class MetaGraphService
             $response = Http::timeout(15)->post("{$this->base()}/{$account->page_id}/messages", [
                 'recipient' => ['id' => $recipientId],
                 'message' => ['text' => $text],
-                'messaging_type' => 'RESPONSE',
+                ...$this->envelope(),
                 'access_token' => $account->page_access_token,
             ]);
 
@@ -540,7 +581,7 @@ class MetaGraphService
                     ->attach('filedata', $contents, $filename)
                     ->post("{$this->base()}/{$account->page_id}/messages", [
                         'recipient' => json_encode(['id' => $recipientId]),
-                        'messaging_type' => 'RESPONSE',
+                        ...$this->envelope(),
                         'message' => json_encode(['attachment' => ['type' => $type, 'payload' => ['is_reusable' => true]]]),
                         'access_token' => $account->page_access_token,
                     ]);
@@ -550,7 +591,7 @@ class MetaGraphService
                 }
                 $response = Http::timeout(30)->post("{$this->base()}/{$account->page_id}/messages", [
                     'recipient' => ['id' => $recipientId],
-                    'messaging_type' => 'RESPONSE',
+                    ...$this->envelope(),
                     'message' => ['attachment' => ['type' => $type, 'payload' => ['url' => $url, 'is_reusable' => true]]],
                     'access_token' => $account->page_access_token,
                 ]);
@@ -597,7 +638,7 @@ class MetaGraphService
         try {
             $response = Http::timeout(15)->post("{$this->base()}/{$account->page_id}/messages", [
                 'recipient' => ['id' => $recipientId],
-                'messaging_type' => 'RESPONSE',
+                ...$this->envelope(),
                 'message' => $message,
                 'access_token' => $account->page_access_token,
             ]);
@@ -641,7 +682,7 @@ class MetaGraphService
         try {
             $response = Http::timeout(20)->post("{$this->base()}/{$account->page_id}/messages", [
                 'recipient' => ['id' => $recipientId],
-                'messaging_type' => 'RESPONSE',
+                ...$this->envelope(),
                 'message' => ['attachment' => ['type' => 'template', 'payload' => ['template_type' => 'generic', 'elements' => array_values($elements)]]],
                 'access_token' => $account->page_access_token,
             ]);
@@ -692,7 +733,7 @@ class MetaGraphService
         try {
             $response = Http::timeout(15)->post("{$this->base()}/{$account->page_id}/messages", [
                 'recipient' => ['id' => $recipientId],
-                'messaging_type' => 'RESPONSE',
+                ...$this->envelope(),
                 'message' => [
                     'text' => $text,
                     'quick_replies' => $quickReplies,

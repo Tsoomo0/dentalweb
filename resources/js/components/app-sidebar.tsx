@@ -24,6 +24,7 @@ import {
     Landmark,
     LayoutGrid,
     LogOut,
+    Megaphone,
     MessageCircle,
     MessageSquare,
     Newspaper,
@@ -237,6 +238,11 @@ const chatItems: NavItem[] = [
 
 const socialItems: NavItem[] = [
     {
+        title: 'Хяналтын самбар',
+        url: '/admin/social/dashboard',
+        icon: TrendingUp,
+    },
+    {
         title: 'Холболт (FB/IG)',
         url: '/admin/social/accounts',
         icon: Share2,
@@ -245,6 +251,11 @@ const socialItems: NavItem[] = [
         title: 'Social Inbox',
         url: '/admin/social/inbox',
         icon: MessageCircle,
+    },
+    {
+        title: 'Маркетинг (Broadcast)',
+        url: '/admin/social/broadcasts',
+        icon: Megaphone,
     },
     {
         title: 'Social Flow',

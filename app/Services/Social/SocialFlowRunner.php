@@ -151,6 +151,33 @@ class SocialFlowRunner
     }
 
     /**
+     * Оператор Inbox-оос flow-г одоо байгаа харилцаа руу гараар илгээх.
+     * $messagingTag заасан бол (жишээ нь 'HUMAN_AGENT') 24ц цонх хаагдсан ч илгээнэ.
+     */
+    public function sendFlowToConversation(SocialConversation $conversation, SocialFlow $flow, ?string $messagingTag = null): void
+    {
+        $conversation->loadMissing(['account', 'contact']);
+        if ($conversation->account && $conversation->contact) {
+            $this->meta->useMessagingTag($messagingTag);
+            $this->startFlow($conversation->account, $conversation, $conversation->contact, $flow);
+        }
+    }
+
+    /**
+     * Оператор Inbox-оос НЭГ блокийг (мессеж/карусель/зураг/видео/файл) гараар илгээх —
+     * дараагийн node руу үргэлжлүүлэхгүй, зөвхөн тухайн блокийг илгээнэ.
+     */
+    public function sendNodeToConversation(SocialConversation $conversation, SocialFlowNode $node, ?string $messagingTag = null): void
+    {
+        $conversation->loadMissing(['account', 'contact']);
+        if ($conversation->account && $conversation->contact) {
+            $this->meta->useMessagingTag($messagingTag);
+            // execute() дараагийн node-ийг буцаадаг ч үүнийг үл хэрэгсэж зөвхөн энэ блокийг илгээнэ.
+            $this->execute($conversation->account, $conversation, $conversation->contact, $node);
+        }
+    }
+
+    /**
      * Коммент дээрээс flow эхлүүлэх: эхний node-ийг private reply (comment_id)-аар (текст + товч) илгээнэ.
      * Хариунаас ирэх messaging PSID (recipient_id)-аар contact/conversation үүсгэнэ — хэрэглэгч товч
      * дартал postback ирж flow энгийн журмаар (ProcessSocialEvent → handlePayload) үргэлжилнэ.
@@ -451,6 +478,12 @@ class SocialFlowRunner
                     return $b;
                 }, $tpl);
                 $result = $this->meta->sendGenericTemplate($account, $contact->external_id, [['title' => '👇 Сонгоно уу', 'buttons' => array_slice($igButtons, 0, 3)]]);
+                $result['mid'] = $result['mid'] ?? $mid;
+            } elseif (mb_strlen(trim($body)) > 300) {
+                // Facebook: button template нь нарийн карт болж урт текстийг муухай харуулдаг.
+                // Урт текстийг энгийн текстээр (өргөн) илгээгээд, товчнуудыг тусдаа богино template-аар.
+                $mid = $this->sendBodyChunks($account, $conversation, $contact->external_id, $body);
+                $result = $this->meta->sendButtonTemplate($account, $contact->external_id, '👇 Сонгоно уу', $tpl, $quick);
                 $result['mid'] = $result['mid'] ?? $mid;
             } else {
                 $text = trim($body) !== '' ? $body : '⠀'; // button template-д текст заавал

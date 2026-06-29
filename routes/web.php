@@ -20,7 +20,9 @@ use App\Http\Controllers\Admin\PatientController as AdminPatientController;
 use App\Http\Controllers\Admin\PaymentAdminController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\SocialAccountController;
+use App\Http\Controllers\Admin\SocialBroadcastController;
 use App\Http\Controllers\Admin\SocialCommentRuleController;
+use App\Http\Controllers\Admin\SocialDashboardController;
 use App\Http\Controllers\Admin\SocialFlowController;
 use App\Http\Controllers\Admin\SocialFormController;
 use App\Http\Controllers\Admin\SocialInboxController;
@@ -394,6 +396,16 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::post('social/accounts/{account}/resubscribe', [SocialAccountController::class, 'resubscribe'])->name('social.accounts.resubscribe');
     Route::delete('social/accounts/{account}', [SocialAccountController::class, 'destroy'])->name('social.accounts.destroy');
 
+    // Social marketing dashboard
+    Route::get('social/dashboard', [SocialDashboardController::class, 'index'])->name('social.dashboard');
+
+    // Social broadcast (масс маркетинг мессеж)
+    Route::get('social/broadcasts', [SocialBroadcastController::class, 'index'])->name('social.broadcasts');
+    Route::post('social/broadcasts/audience', [SocialBroadcastController::class, 'audience'])->name('social.broadcasts.audience');
+    Route::post('social/broadcasts/image', [SocialBroadcastController::class, 'uploadImage'])->name('social.broadcasts.image');
+    Route::post('social/broadcasts', [SocialBroadcastController::class, 'store'])->name('social.broadcasts.store');
+    Route::get('social/broadcasts/{broadcast}', [SocialBroadcastController::class, 'show'])->name('social.broadcasts.show');
+
     // Social flow builder
     Route::get('social/flows', [SocialFlowController::class, 'index'])->name('social.flows');
     Route::post('social/flows', [SocialFlowController::class, 'storeFlow'])->name('social.flows.store');
@@ -430,6 +442,9 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Social inbox
     Route::get('social/inbox', [SocialInboxController::class, 'index'])->name('social.inbox');
     Route::get('social/inbox/conversations', [SocialInboxController::class, 'conversations'])->name('social.inbox.conversations');
+    Route::get('social/inbox/flows', [SocialInboxController::class, 'flows'])->name('social.inbox.flows');
+    Route::post('social/inbox/conversations/{conversation}/send-flow', [SocialInboxController::class, 'sendFlow'])->name('social.inbox.send-flow');
+    Route::post('social/inbox/conversations/{conversation}/send-node', [SocialInboxController::class, 'sendNode'])->name('social.inbox.send-node');
     Route::get('social/inbox/conversations/{conversation}/messages', [SocialInboxController::class, 'messages'])->name('social.inbox.messages');
     Route::post('social/inbox/conversations/{conversation}/reply', [SocialInboxController::class, 'reply'])->name('social.inbox.reply');
     Route::post('social/inbox/conversations/{conversation}/attach', [SocialInboxController::class, 'attach'])->name('social.inbox.attach');
