@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useState, useEffect, type CSSProperties } from 'react';
 import PublicLayout from '@/layouts/public-layout';
-import { X, Tag, Calendar, Link2, Check } from 'lucide-react';
+import { X, Tag, Calendar } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    TYPES — backend-ээс ирэх жинхэнэ өгөгдөл
@@ -76,30 +76,8 @@ function Modal({ open, onClose, children }: { open: boolean; onClose: () => void
     );
 }
 
-function IconFacebook() {
-    return (
-        <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-            <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.514c-1.491 0-1.956.93-1.956 1.886v2.268h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" />
-        </svg>
-    );
-}
-
 function ArticleModal({ article, onClose }: { article: Article; onClose: () => void }) {
-    const [copied, setCopied] = useState(false);
     const img = imgOf(article);
-    const articleUrl = typeof window !== 'undefined'
-        ? `${window.location.origin}/articles/${article.slug}`
-        : `/articles/${article.slug}`;
-
-    const shareToFacebook = () => {
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(articleUrl)}`, '_blank', 'width=600,height=400');
-    };
-    const copyLink = () => {
-        navigator.clipboard.writeText(articleUrl).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2500);
-        });
-    };
 
     return (
         <Modal open onClose={onClose}>
@@ -128,42 +106,19 @@ function ArticleModal({ article, onClose }: { article: Article; onClose: () => v
             </div>
 
             <div className="p-6 sm:p-8">
-                <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-gray-100 pb-4">
-                    {article.author && (
-                        <span className="text-sm font-semibold text-gray-700">{article.author}</span>
-                    )}
-                    {article.published_at && (
+                {article.published_at && (
+                    <div className="mb-4 flex items-center border-b border-gray-100 pb-4">
                         <span className="flex items-center gap-1.5 text-sm text-gray-400">
                             <Calendar className="h-3.5 w-3.5" /> {article.published_at}
                         </span>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 <h2 className="mb-4 font-onest text-2xl font-extrabold leading-tight text-gray-900">{article.title}</h2>
 
                 {article.excerpt && (
-                    <p className="mb-6 text-[15px] leading-relaxed text-gray-600">{article.excerpt}</p>
+                    <p className="text-[15px] leading-relaxed text-gray-600">{article.excerpt}</p>
                 )}
-
-                <div className="border-t border-gray-100 pt-5">
-                    <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Хуваалцах</p>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={shareToFacebook}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#1877F2] py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#166fe5]"
-                        >
-                            <IconFacebook /> Facebook
-                        </button>
-                        <button
-                            onClick={copyLink}
-                            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
-                                copied ? 'bg-green-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                            {copied ? <><Check className="h-4 w-4" /> Хуулагдлаа</> : <><Link2 className="h-4 w-4" /> Холбоос хуулах</>}
-                        </button>
-                    </div>
-                </div>
             </div>
         </Modal>
     );
@@ -173,13 +128,8 @@ function ArticleModal({ article, onClose }: { article: Article; onClose: () => v
    PAGE
    ═══════════════════════════════════════════════════════════════════════════ */
 export default function Articles({ articles = [] }: PageProps) {
-    const fallback: Article[] = [
-        { id: 1, title: 'Шинэ салбар Яармагт нээлтээ хийлээ', slug: 'yarmag-salbar', excerpt: 'Хотын баруун хэсэгт байрлах шинэ салбараа нээлээ. Орчин үеийн тоног төхөөрөмжөөр тоноглогдсон.', category: 'Эмнэлгийн мэдээ', featured_image: null, published_at: '2026.06.10', author: 'Кутикул' },
-        { id: 2, title: 'Шүдээ өдөрт хэдэн удаа угаах нь зөв вэ?', slug: 'shudee-ugaah', excerpt: 'Өглөө, оройд хоёр удаа, наад зах нь 2 минут угаах нь чухал. Зөв техникийн талаар.', category: 'Зөвлөгөө', featured_image: null, published_at: '2026.06.08', author: 'Кутикул' },
-        { id: 3, title: 'Зуны хямдрал: цайруулалт 30%-иар', slug: 'zuny-khyamdral', excerpt: '6-р сарын турш бүх төрлийн цайруулалтын үйлчилгээнд онцгой хямдрал.', category: 'Урамшуулал', featured_image: null, published_at: '2026.06.05', author: 'Кутикул' },
-    ];
-
-    const source = articles.length > 0 ? articles : fallback;
+    /* зөвхөн backend-ээс ирсэн жинхэнэ мэдээ — хуурамч контентгүй */
+    const source = articles;
 
     /* ангилалууд (жинхэнэ category утгуудаас) */
     const categories = Array.from(new Set(source.map((a) => a.category).filter(Boolean))) as string[];
@@ -294,27 +244,6 @@ export default function Articles({ articles = [] }: PageProps) {
                         {featured ? 'Энэ ангилалд өөр мэдээ алга байна.' : 'Энэ ангилалд мэдээ байхгүй байна.'}
                     </div>
                 )}
-            </div>
-
-            {/* ── NEWSLETTER ────────────────────────────────────────────────── */}
-            <div className="mt-7 flex flex-wrap items-center justify-between gap-7 rounded-[30px] bg-[#1c1a1b]/95 px-8 py-12 text-white sm:px-12">
-                <div>
-                    <h2 className="mb-2.5 font-onest text-[26px] font-extrabold leading-[1.18] sm:text-[30px]">Шинэ мэдээ, урамшууллыг хүлээж аваарай</h2>
-                    <p className="max-w-[440px] text-[15px] leading-[1.6] text-[#b6aeac]">И-мэйл хаягаа үлдээгээд эмнэлгийн шинэ мэдээ, хямдралын мэдээллийг хүлээн авна уу.</p>
-                </div>
-                <div className="flex flex-none gap-2.5">
-                    <input
-                        type="email"
-                        placeholder="И-мэйл хаяг"
-                        className="w-[240px] rounded-[13px] border border-[#3a3533] bg-[#26221f] px-[18px] py-3.5 text-[14px] font-medium text-white outline-none placeholder:text-[#9a918d]"
-                    />
-                    <button
-                        type="button"
-                        className="whitespace-nowrap rounded-[13px] bg-[#c81e3a] px-6 py-3.5 text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(200,30,58,0.3)]"
-                    >
-                        Бүртгүүлэх
-                    </button>
-                </div>
             </div>
 
             {selected && <ArticleModal article={selected} onClose={() => setSelected(null)} />}

@@ -4,8 +4,10 @@ import PublicLayout from '@/layouts/public-layout';
 /* ═══════════════════════════════════════════════════════════════════════════
    TYPES — backend-ээс ирэх жинхэнэ өгөгдөл (about() нь зөвхөн stats дамжуулна)
    ═══════════════════════════════════════════════════════════════════════════ */
+interface Branch { id: number; name: string; address: string | null; phone: string | null }
 interface PageProps {
     stats: { doctors: number; appointments: number; branches: number };
+    branches: Branch[];
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -36,17 +38,21 @@ const VALUES = [
     { icon: '♡', title: 'Хүнлэг харьцаа', text: 'Өвчтөн бүртэй хүндэтгэлтэй, тэвчээртэй, айдасгүй орчинд харьцана.' },
 ];
 
-const BRANCHES = [
-    { name: 'Сансар салбар', addr: 'БЗД, Сансар, Их дэлгүүрийн зүүн талд', phone: '+976 7700 8899' },
-    { name: 'Хороолол салбар', addr: 'СБД, 1-р хороолол, 32-ын тойрон', phone: '+976 7701 8899' },
-    { name: 'Цамбагарав салбар', addr: 'СХД, Цамбагарав зам дагуу', phone: '+976 7702 8899' },
-    { name: 'Яармаг салбар', addr: 'ХУД, Яармаг, шинэ замын эхэнд', phone: '+976 7703 8899' },
+/* backend салбар хоосон үед л харагдах нөөц жагсаалт */
+const FALLBACK_BRANCHES = [
+    { id: -1, name: 'Сансар салбар', address: 'БЗД, Сансар, Их дэлгүүрийн зүүн талд', phone: '+976 7700 8899' },
+    { id: -2, name: 'Хороолол салбар', address: 'СБД, 1-р хороолол, 32-ын тойрон', phone: '+976 7701 8899' },
+    { id: -3, name: 'Цамбагарав салбар', address: 'СХД, Цамбагарав зам дагуу', phone: '+976 7702 8899' },
+    { id: -4, name: 'Яармаг салбар', address: 'ХУД, Яармаг, шинэ замын эхэнд', phone: '+976 7703 8899' },
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PAGE
    ═══════════════════════════════════════════════════════════════════════════ */
-export default function About({ stats = { doctors: 0, appointments: 0, branches: 0 } }: PageProps) {
+export default function About({ stats = { doctors: 0, appointments: 0, branches: 0 }, branches = [] }: PageProps) {
+    /* жинхэнэ салбар — байхгүй үед л нөөц жагсаалт */
+    const branchList = branches.length > 0 ? branches : FALLBACK_BRANCHES;
+
     /* жинхэнэ stats-аас бүтсэн тоонууд (хоосон үед дизайн эвдрэхгүйн тулд fallback) */
     const statCards = [
         { num: '10+', label: 'жилийн туршлага' },
@@ -132,13 +138,13 @@ export default function About({ stats = { doctors: 0, appointments: 0, branches:
                     <Link href="/contact" className="whitespace-nowrap text-[14px] font-bold text-[#c81e3a]">Байршил харах →</Link>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {BRANCHES.map((b) => (
-                        <div key={b.name} className="overflow-hidden rounded-[22px] border border-[#f1e8e7] bg-white shadow-[0_1px_2px_rgba(120,30,50,0.04)]">
+                    {branchList.map((b) => (
+                        <div key={b.id} className="overflow-hidden rounded-[22px] border border-[#f1e8e7] bg-white shadow-[0_1px_2px_rgba(120,30,50,0.04)]">
                             <div className="flex aspect-[4/3] w-full items-center justify-center text-[11px] font-medium text-[#b3a7a3]" style={{ background: STRIPE }}>салбарын зураг</div>
                             <div className="p-[18px]">
                                 <h3 className="mb-1.5 font-onest text-[17px] font-bold text-[#1c1a1b]">{b.name}</h3>
-                                <p className="mb-1 text-[13px] leading-[1.55] text-[#6b6360]">{b.addr}</p>
-                                <p className="text-[13px] font-semibold text-[#c81e3a]">{b.phone}</p>
+                                {b.address && <p className="mb-1 text-[13px] leading-[1.55] text-[#6b6360]">{b.address}</p>}
+                                {b.phone && <p className="text-[13px] font-semibold text-[#c81e3a]">{b.phone}</p>}
                             </div>
                         </div>
                     ))}

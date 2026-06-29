@@ -438,7 +438,7 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
                             </div>
                         )}
                         <div className="flex flex-col gap-2.5">
-                            {apDoctors.slice(0, 5).map((d) => {
+                            {apDoctors.map((d) => {
                                 const on = d.id === apDoc;
                                 return (
                                     <button key={d.id} onClick={() => { setApDoc(d.id); setApDay(null); setApTime(null); }} className="flex items-center gap-3 rounded-2xl border-[1.5px] px-3.5 py-3 text-left transition-all" style={{ borderColor: on ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.22)', background: on ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.04)' }}>

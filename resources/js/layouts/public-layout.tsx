@@ -105,14 +105,19 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         link.href = faviconUrl;
     }, [faviconUrl]);
 
-    const Logo = ({ size = 38 }: { size?: number }) => (
-        <div
-            className="flex items-center justify-center rounded-xl bg-[#c81e3a] font-onest font-extrabold text-white overflow-hidden"
-            style={{ width: size, height: size, fontSize: size * 0.5 }}
-        >
-            {logoUrl ? <img src={logoUrl} alt={siteName} className="w-full h-full object-cover" /> : 'К'}
-        </div>
-    );
+    const Logo = ({ size = 38, variant = 'red' }: { size?: number; variant?: 'red' | 'white' }) => {
+        const white = variant === 'white';
+        return (
+            <div
+                className={`flex items-center justify-center overflow-hidden rounded-xl font-onest font-extrabold ${
+                    white ? 'border border-[#efe2e0] bg-white text-[#c81e3a]' : 'bg-[#c81e3a] text-white'
+                }`}
+                style={{ width: size, height: size, fontSize: size * 0.5 }}
+            >
+                {logoUrl ? <img src={logoUrl} alt={siteName} className="h-full w-full object-cover" /> : 'К'}
+            </div>
+        );
+    };
 
     return (
         <div className="cuticul relative min-h-screen overflow-x-clip">
@@ -138,7 +143,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                 }`}>
                     {/* Brand */}
                     <div onClick={handleLogoClick} className="flex cursor-pointer select-none items-center gap-3">
-                        <Logo />
+                        <Logo variant="white" />
                         <div className="leading-tight">
                             <div className="font-onest text-[18px] font-extrabold text-[#1c1a1b]">{siteName}</div>
                             <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#9a918d]">Шүдний эмнэлэг</div>

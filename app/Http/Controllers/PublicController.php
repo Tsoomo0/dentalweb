@@ -48,7 +48,7 @@ class PublicController extends Controller
             'faqs' => Faq::where('is_active', true)->orderBy('order')
                 ->get(['id', 'question', 'answer', 'category']),
 
-            'branches' => Branch::where('is_active', true)->orderBy('order')
+            'branches' => $this->publicBranchQuery()->orderBy('order')
                 ->get(['id', 'name', 'address', 'phone', 'type']),
 
             'stats' => $this->stats(),
@@ -59,6 +59,8 @@ class PublicController extends Controller
     {
         return Inertia::render('about', [
             'stats' => $this->stats(),
+            'branches' => $this->publicBranchQuery()->orderBy('order')
+                ->get(['id', 'name', 'address', 'phone']),
         ]);
     }
 
@@ -88,7 +90,7 @@ class PublicController extends Controller
     {
         return Inertia::render('doctors', [
             'doctors' => $this->doctorList(),
-            'branches' => Branch::where('is_active', true)->orderBy('order')
+            'branches' => $this->publicBranchQuery()->orderBy('order')
                 ->get(['id', 'name', 'address', 'phone']),
         ]);
     }
@@ -114,7 +116,7 @@ class PublicController extends Controller
     public function contact(): Response
     {
         return Inertia::render('contact', [
-            'branches' => Branch::where('is_active', true)->orderBy('order')
+            'branches' => $this->publicBranchQuery()->orderBy('order')
                 ->get(['id', 'name', 'address', 'phone', 'type']),
         ]);
     }
@@ -162,12 +164,24 @@ class PublicController extends Controller
         ];
     }
 
+    /**
+     * Нийтэд харагдах салбарууд — "Оффис/Офис/Office" зэрэг эмнэлэг бус
+     * байршлыг хасна (case-insensitive collation дээр ажиллана).
+     */
+    private function publicBranchQuery()
+    {
+        return Branch::where('is_active', true)
+            ->where('name', 'not like', '%офис%')
+            ->where('name', 'not like', '%оффис%')
+            ->where('name', 'not like', '%office%');
+    }
+
     private function stats(): array
     {
         return Cache::remember('public_stats', 1800, fn () => [
             'doctors' => Doctor::where('is_active', true)->count(),
             'appointments' => Appointment::count(),
-            'branches' => Branch::where('is_active', true)->count(),
+            'branches' => $this->publicBranchQuery()->count(),
         ]);
     }
 }

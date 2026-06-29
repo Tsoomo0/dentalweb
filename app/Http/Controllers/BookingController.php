@@ -27,6 +27,9 @@ class BookingController extends Controller
         return Inertia::render('booking', [
             'consultation_fee' => (int) Setting::get('online_consultation_fee', 50000),
             'branches' => Branch::where('is_active', true)
+                ->where('name', 'not like', '%офис%')
+                ->where('name', 'not like', '%оффис%')
+                ->where('name', 'not like', '%office%')
                 ->orderBy('order')
                 ->get(['id', 'name', 'address', 'phone']),
             'doctors' => Doctor::where('is_active', true)
