@@ -106,6 +106,18 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     }, [faviconUrl]);
 
     const Logo = ({ size = 38, variant = 'red' }: { size?: number; variant?: 'red' | 'white' }) => {
+        /* Жинхэнэ лого зураг байвал — хайрцаггүйгээр цэвэрхэн харуулна */
+        if (logoUrl) {
+            return (
+                <img
+                    src={logoUrl}
+                    alt={siteName}
+                    className="object-contain"
+                    style={{ height: size + 6, width: 'auto', maxWidth: (size + 6) * 2 }}
+                />
+            );
+        }
+        /* Лого байхгүй үед — "К" үсэгтэй хайрцаг */
         const white = variant === 'white';
         return (
             <div
@@ -114,7 +126,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                 }`}
                 style={{ width: size, height: size, fontSize: size * 0.5 }}
             >
-                {logoUrl ? <img src={logoUrl} alt={siteName} className="h-full w-full object-cover" /> : 'К'}
+                К
             </div>
         );
     };
