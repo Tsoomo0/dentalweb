@@ -8,7 +8,11 @@ use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\Faq;
 use App\Models\GalleryItem;
+use App\Models\Setting;
+use App\Models\Social\SocialAccount;
 use App\Models\TreatmentCategory;
+use App\Services\Social\MetaGraphService;
+use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -52,6 +56,8 @@ class PublicController extends Controller
                 ->get(['id', 'name', 'address', 'phone', 'type']),
 
             'stats' => $this->stats(),
+
+            'reels' => $this->fbPosts(),
         ]);
     }
 
@@ -174,6 +180,43 @@ class PublicController extends Controller
             ->where('name', 'not like', '%офис%')
             ->where('name', 'not like', '%оффис%')
             ->where('name', 'not like', '%office%');
+    }
+
+    /**
+     * Холбогдсон FB/IG хуудасны сүүлийн постуудыг жинхэнэ preview зурагтай нь татна.
+     * (Reel-ийг гадны сайтад тоглуулах боломжгүй тул зураг + линкээр харуулна.)
+     *
+     * @return array<int, array{image:string, permalink:?string, text:string}>
+     */
+    private function fbPosts(): array
+    {
+        return Cache::remember('home_fb_posts', 1800, function () {
+            $account = SocialAccount::whereNotNull('page_id')
+                ->when(
+                    \Illuminate\Support\Facades\Schema::hasColumn('social_accounts', 'status'),
+                    fn ($q) => $q->where('status', 'active')
+                )
+                ->first();
+
+            if (! $account) {
+                return [];
+            }
+
+            try {
+                $posts = app(MetaGraphService::class)->fetchPosts($account);
+            } catch (\Throwable $e) {
+                return [];
+            }
+
+            return collect($posts)
+                ->filter(fn ($p) => ! empty($p['image']))
+                ->map(fn ($p) => [
+                    'image' => (string) $p['image'],
+                    'permalink' => $p['permalink'] ?? null,
+                    'text' => Str::limit((string) ($p['text'] ?? ''), 120),
+                ])
+                ->take(12)->values()->all();
+        });
     }
 
     private function stats(): array

@@ -1,6 +1,6 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { useState, useEffect, type CSSProperties } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { ChevronDown, Facebook, X } from 'lucide-react';
 import PublicLayout from '@/layouts/public-layout';
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -23,12 +23,21 @@ interface GalleryItem {
 }
 interface Branch { id: number; name: string; address: string | null; phone: string | null }
 interface Faq { id: number; question: string; answer: string; category: string | null }
+interface Article {
+    id: number; title: string; slug: string; excerpt: string | null;
+    image_url?: string | null; published_at: string | null;
+}
+interface Stats { doctors: number; appointments: number; branches: number }
+interface Reel { image: string; permalink: string | null; text: string }
 interface PageProps {
     doctors: Doctor[];
     treatments: TreatmentCategory[];
     gallery: GalleryItem[];
     branches: Branch[];
     faqs: Faq[];
+    articles: Article[];
+    stats: Stats;
+    reels: Reel[];
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -131,7 +140,7 @@ const HERO_SLIDES = [
 /* ═══════════════════════════════════════════════════════════════════════════
    PAGE
    ═══════════════════════════════════════════════════════════════════════════ */
-export default function Welcome({ doctors = [], treatments = [], gallery = [], branches = [], faqs = [] }: PageProps) {
+export default function Welcome({ doctors = [], treatments = [], gallery = [], branches = [], faqs = [], articles = [], stats = { doctors: 0, appointments: 0, branches: 0 }, reels = [] }: PageProps) {
     /* ── Hero slider ── */
     const [hero, setHero] = useState(0);
     useEffect(() => {
@@ -160,23 +169,12 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
     const [openFaq, setOpenFaq] = useState<number | null>(0);
     const showFaqs = faqs.length > 0;
 
-    /* ── Appointment widget ── */
-    const [apBranch, setApBranch] = useState<number | null>(branches[0]?.id ?? null);
-    const apDoctors = apBranch == null ? doctors : doctors.filter((d) => d.branch_id === apBranch);
-    const [apDoc, setApDoc] = useState<number | null>(apDoctors[0]?.id ?? null);
-    const today = new Date();
-    const [apDay, setApDay] = useState<number | null>(null);
-    const [apTime, setApTime] = useState<string | null>(null);
-    const SAMPLE_TIMES = ['09:30', '11:00', '13:30', '15:00', '16:30'];
-
-    const selBranchObj = branches.find((b) => b.id === apBranch);
-    const selDocObj = apDoctors.find((d) => d.id === apDoc);
-    const monthNames = ['1-р сар', '2-р сар', '3-р сар', '4-р сар', '5-р сар', '6-р сар', '7-р сар', '8-р сар', '9-р сар', '10-р сар', '11-р сар', '12-р сар'];
-    const y = today.getFullYear(), m = today.getMonth();
-    const firstOffset = (new Date(y, m, 1).getDay() + 6) % 7; // Даваа эхэлсэн
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const canConfirm = apDoc != null && apDay != null && apTime != null;
-    const goBooking = () => router.visit('/booking');
+    /* Facebook хуудасны линк (site_settings-ээс) */
+    const { site_settings: siteSettings = {} } = usePage<{ site_settings?: { facebook_url?: string } }>().props;
+    const fbUrl = siteSettings.facebook_url?.trim() || '';
+    const [lightbox, setLightbox] = useState<Reel | null>(null);
+    const reelScroll = useRef<HTMLDivElement>(null);
+    const scrollReels = (dir: number) => reelScroll.current?.scrollBy({ left: dir * 264, behavior: 'smooth' });
 
     /* fallback (хоосон үед дизайн эвдрэхгүйн тулд) */
     const showServices = serviceCards.length > 0;
@@ -252,6 +250,22 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
                         <p className="text-[14px] leading-[1.65] text-[#6b6360]">{f.d}</p>
                     </div>
                 ))}
+            </div>
+
+            {/* ── STATS (жинхэнэ тоо) ──────────────────────────────────────── */}
+            <div className="mt-7 overflow-hidden rounded-[26px] p-6 text-white shadow-[0_18px_50px_rgba(120,30,50,0.18)] sm:rounded-[30px] sm:p-10" style={{ background: 'linear-gradient(125deg,#c81e3a,#9e1730)' }}>
+                <div className="grid grid-cols-3 gap-5 text-center">
+                    {[
+                        { num: '10+', label: 'жилийн туршлага' },
+                        { num: `${stats.doctors || 0}`, label: 'мэргэжлийн эмч' },
+                        { num: `${stats.branches || 0}`, label: 'салбар' },
+                    ].map((s) => (
+                        <div key={s.label} className="py-1.5">
+                            <div className="mb-1 font-onest text-[28px] font-extrabold tracking-tight sm:text-[42px]">{s.num}</div>
+                            <div className="text-[13px] font-medium text-white/85 sm:text-[14px]">{s.label}</div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* ── SERVICES ─────────────────────────────────────────────────── */}
@@ -377,6 +391,28 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
                 </div>
             )}
 
+            {/* ── PROCESS (эмчилгээний явц) ────────────────────────────────── */}
+            <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
+                <div className="mb-8 text-center">
+                    <div className="flex justify-center"><SectionBadge>Эмчилгээний явц</SectionBadge></div>
+                    <h2 className="font-onest text-[22px] font-extrabold sm:text-[40px]">Хэрхэн явагддаг вэ?</h2>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                        { num: '01', t: 'Цаг захиалах', d: 'Онлайнаар эсвэл утсаар өөрт тохирох цагаа сонгоно.' },
+                        { num: '02', t: 'Үзлэг, оношилгоо', d: 'Эмч амны хөндийг шалгаж, шаардлагатай оношилгоо хийнэ.' },
+                        { num: '03', t: 'Төлөвлөгөө', d: 'Тохирох эмчилгээний төлөвлөгөө, төсвийг танилцуулна.' },
+                        { num: '04', t: 'Эмчилгээ, хяналт', d: 'Эмчилгээ хийж, үр дүнг тогтмол хянана.' },
+                    ].map((st) => (
+                        <div key={st.num} className="rounded-[20px] border border-[#f1e8e7] bg-white p-6 shadow-[0_1px_2px_rgba(120,30,50,0.04)]">
+                            <div className="mb-3 font-onest text-[32px] font-extrabold text-[#f0b8c1]">{st.num}</div>
+                            <h3 className="mb-2 font-onest text-[17px] font-bold">{st.t}</h3>
+                            <p className="text-[13px] leading-[1.6] text-[#6b6360]">{st.d}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             {/* ── FAQ ──────────────────────────────────────────────────────── */}
             {showFaqs && (
                 <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
@@ -417,102 +453,148 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
                 </div>
             )}
 
-            {/* ── APPOINTMENT WIDGET ───────────────────────────────────────── */}
-            <div className="mt-7 overflow-hidden rounded-[30px] border border-white/75 bg-white/55 shadow-[0_24px_60px_rgba(120,30,50,0.12)] backdrop-blur-xl">
-                <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr]">
-                    {/* left: branch + doctor select */}
-                    <div className="p-6 text-white sm:p-10" style={{ background: 'linear-gradient(160deg,#c81e3a,#9e1730)' }}>
-                        <div className="mb-3 text-[12px] font-bold uppercase tracking-[0.1em] opacity-85">Цаг авах</div>
-                        <h2 className="mb-2.5 font-onest text-[22px] font-extrabold leading-tight sm:text-[34px]">Эхлээд салбараа сонгоно уу</h2>
-                        <p className="mb-5 text-[15px] leading-[1.6] opacity-90">Салбар, эмчээ сонгоод доорх календараас өдөр, цагаа сонгоорой.</p>
-                        {branches.length > 0 && (
-                            <div className="mb-5 flex flex-wrap gap-2">
-                                {branches.map((b) => {
-                                    const on = b.id === apBranch;
-                                    return (
-                                        <button key={b.id} onClick={() => { setApBranch(b.id); setApDoc(doctors.find((d) => d.branch_id === b.id)?.id ?? null); setApDay(null); setApTime(null); }} className="rounded-[30px] border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition-all" style={{ borderColor: on ? '#fff' : 'rgba(255,255,255,.32)', background: on ? '#fff' : 'rgba(255,255,255,.08)', color: on ? RED : '#fff' }}>
-                                            {b.name}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        <div className="flex flex-col gap-2.5">
-                            {apDoctors.map((d) => {
-                                const on = d.id === apDoc;
-                                return (
-                                    <button key={d.id} onClick={() => { setApDoc(d.id); setApDay(null); setApTime(null); }} className="flex items-center gap-3 rounded-2xl border-[1.5px] px-3.5 py-3 text-left transition-all" style={{ borderColor: on ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.22)', background: on ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.04)' }}>
-                                        <span className="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-xl bg-white/20 font-onest text-[17px] font-bold">{d.name.trim()[0]}</span>
-                                        <span className="leading-tight">
-                                            <span className="block font-onest text-[15px] font-bold">{d.name}</span>
-                                            <span className="block text-[12px] font-medium opacity-85">{d.specialization || 'Шүдний эмч'}</span>
-                                        </span>
-                                        <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full text-[13px] font-bold" style={{ background: on ? '#fff' : 'transparent', color: on ? RED : 'transparent' }}>✓</span>
-                                    </button>
-                                );
-                            })}
-                            {apDoctors.length === 0 && <div className="text-[14px] opacity-80">Энэ салбарт бүртгэлтэй эмч алга байна.</div>}
+            {/* ── LATEST NEWS (жинхэнэ мэдээ) ──────────────────────────────── */}
+            {articles.length > 0 && (
+                <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
+                    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <SectionBadge>Мэдээ</SectionBadge>
+                            <h2 className="font-onest text-[22px] font-extrabold sm:text-[40px]">Сүүлийн үеийн мэдээ</h2>
                         </div>
+                        <Link href="/articles" className="whitespace-nowrap text-[14px] font-bold text-[#c81e3a]">Бүх мэдээ →</Link>
                     </div>
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        {articles.slice(0, 3).map((a) => (
+                            <Link key={a.id} href="/articles" className="group overflow-hidden rounded-[20px] border border-[#f1e8e7] bg-white shadow-[0_1px_2px_rgba(120,30,50,0.04)] transition-all hover:-translate-y-1 hover:border-[#f4d4da] hover:shadow-[0_16px_38px_rgba(120,30,50,0.13)]">
+                                <div className="relative aspect-[16/10] overflow-hidden">
+                                    {a.image_url ? (
+                                        <img src={a.image_url} alt={a.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                    ) : (
+                                        <Placeholder label="мэдээний зураг" className="h-full w-full" />
+                                    )}
+                                </div>
+                                <div className="p-5">
+                                    {a.published_at && <div className="mb-2 text-[12px] font-medium text-[#9a918d]">{a.published_at}</div>}
+                                    <h3 className="mb-2 font-onest text-[17px] font-bold leading-[1.3]">{a.title}</h3>
+                                    {a.excerpt && <p className="mb-3 line-clamp-2 text-[14px] leading-[1.6] text-[#6b6360]">{a.excerpt}</p>}
+                                    <span className="text-[13px] font-bold text-[#c81e3a]">Унших →</span>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
-                    {/* right: calendar + times */}
-                    <div className="bg-white/60 p-6 sm:p-10">
-                        <div className="mb-1.5 flex items-center justify-between">
-                            <span className="font-onest text-[18px] font-bold">{y} оны {monthNames[m]}</span>
-                            {selDocObj && <span className="text-[13px] font-semibold text-[#c81e3a]">{selDocObj.name}</span>}
+            {/* ── BRANCHES (жинхэнэ салбар) ────────────────────────────────── */}
+            {branches.length > 0 && (
+                <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
+                    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <SectionBadge>Салбарууд</SectionBadge>
+                            <h2 className="font-onest text-[22px] font-extrabold sm:text-[40px]">Танд ойрхон салбар</h2>
                         </div>
-                        <div className="mb-4 text-[12px] font-medium text-[#9a918d]">{selBranchObj?.name ?? 'Салбар сонгоно уу'}</div>
-                        <div className="mb-2 grid grid-cols-7 gap-1.5 text-center text-[12px] font-semibold text-[#9a918d]">
-                            {['Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя', 'Ня'].map((w) => <span key={w}>{w}</span>)}
-                        </div>
-                        <div className="grid grid-cols-7 gap-1.5 text-center">
-                            {Array.from({ length: firstOffset }).map((_, i) => <div key={`e${i}`} className="h-[42px]" />)}
-                            {Array.from({ length: daysInMonth }).map((_, i) => {
-                                const day = i + 1;
-                                const isPast = day < today.getDate();
-                                const sel = apDay === day;
-                                return (
-                                    <button
-                                        key={day}
-                                        disabled={isPast}
-                                        onClick={() => { setApDay(day); setApTime(null); }}
-                                        className="flex h-[42px] items-center justify-center rounded-[11px] text-[14px] font-semibold transition-all"
-                                        style={
-                                            sel ? { background: RED, color: '#fff', boxShadow: '0 6px 14px rgba(200,30,58,.32)' }
-                                                : isPast ? { color: '#cdc6c3', cursor: 'default' }
-                                                : { background: 'rgba(200,30,58,.09)', color: '#1c1a1b' }
-                                        }
-                                    >
-                                        {day}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <div className="my-5 h-px bg-[#ece6e5]" />
-                        <div className="mb-3 text-[13px] font-semibold text-[#6b6360]">
-                            {apDay ? `Боломжит цаг — ${monthNames[m]}ын ${apDay}` : 'Эхлээд өдрөө сонгоно уу'}
-                        </div>
-                        <div className="mb-5 flex flex-wrap gap-2.5">
-                            {(apDay ? SAMPLE_TIMES : []).map((t) => {
-                                const on = apTime === t;
-                                return (
-                                    <button key={t} onClick={() => setApTime(t)} className="rounded-[12px] border-[1.5px] px-4 py-2.5 text-[13px] font-semibold transition-all" style={{ borderColor: on ? RED : '#ece6e5', background: on ? RED : '#fff', color: on ? '#fff' : '#1c1a1b' }}>
-                                        {t}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="text-[13px] leading-tight text-[#6b6360]">
-                                {canConfirm ? `${selDocObj?.name} · ${monthNames[m]}ын ${apDay} · ${apTime}` : 'Эмч, өдөр, цагаа сонгоно уу'}
+                        <Link href="/contact" className="whitespace-nowrap text-[14px] font-bold text-[#c81e3a]">Байршил харах →</Link>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {branches.map((b) => (
+                            <div key={b.id} className="rounded-[20px] border border-[#f1e8e7] bg-white p-5 shadow-[0_1px_2px_rgba(120,30,50,0.04)]">
+                                <span className="mb-3 flex h-[38px] w-[38px] items-center justify-center rounded-[11px] bg-[#fbeef0] font-onest text-[16px] font-bold text-[#c81e3a]">◍</span>
+                                <h3 className="mb-1 font-onest text-[16px] font-bold text-[#1c1a1b]">{b.name}</h3>
+                                {b.address && <p className="mb-1 text-[13px] leading-[1.5] text-[#6b6360]">{b.address}</p>}
+                                {b.phone && <a href={`tel:${b.phone}`} className="text-[13px] font-semibold text-[#c81e3a]">{b.phone}</a>}
                             </div>
-                            <button onClick={goBooking} disabled={!canConfirm} className="whitespace-nowrap rounded-[14px] px-6 py-3.5 text-[15px] font-bold text-white transition-all" style={{ background: canConfirm ? RED : '#d9cfcd', boxShadow: canConfirm ? '0 8px 20px rgba(200,30,58,.3)' : 'none' }}>
-                                Цаг авах →
-                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ── FB REELS / ПОСТУУД (admin-аас удирддаг) ──────────────────── */}
+            {reels.length > 0 && (
+                <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
+                    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <SectionBadge>Сошиал</SectionBadge>
+                            <h2 className="font-onest text-[22px] font-extrabold sm:text-[40px]">Манай сүүлийн бичлэгүүд</h2>
+                        </div>
+                        {fbUrl && (
+                            <a href={fbUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 whitespace-nowrap rounded-[13px] bg-[#1877F2] px-5 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-[#166fe5]">
+                                <Facebook className="h-4 w-4" /> Facebook дээр үзэх →
+                            </a>
+                        )}
+                    </div>
+                    <div className="relative">
+                        {/* arrows (desktop) */}
+                        <button
+                            onClick={() => scrollReels(-1)}
+                            className="absolute left-[-6px] top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#f1e8e7] bg-white font-onest text-[22px] text-[#1c1a1b] shadow-[0_8px_20px_rgba(120,30,50,0.14)] transition-colors hover:text-[#c81e3a] sm:flex"
+                            aria-label="Өмнөх"
+                        >‹</button>
+                        <button
+                            onClick={() => scrollReels(1)}
+                            className="absolute right-[-6px] top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#f1e8e7] bg-white font-onest text-[22px] text-[#1c1a1b] shadow-[0_8px_20px_rgba(120,30,50,0.14)] transition-colors hover:text-[#c81e3a] sm:flex"
+                            aria-label="Дараах"
+                        >›</button>
+
+                        {/* carousel track */}
+                        <div
+                            ref={reelScroll}
+                            className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        >
+                            {reels.map((r, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => setLightbox(r)}
+                                    className="group relative aspect-[4/5] w-[46%] shrink-0 snap-start overflow-hidden rounded-[18px] border border-[#f1e8e7] shadow-[0_1px_2px_rgba(120,30,50,0.04)] transition-all hover:border-[#f4d4da] hover:shadow-[0_16px_38px_rgba(120,30,50,0.13)] sm:w-[240px]"
+                                >
+                                    <img src={r.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
+                                    <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#1877F2] shadow-sm">
+                                        <Facebook className="h-4 w-4" />
+                                    </span>
+                                    {r.text && <p className="absolute inset-x-0 bottom-0 line-clamp-2 p-3 text-left text-[12px] font-medium leading-[1.4] text-white">{r.text}</p>}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* ── ЦАГ АВАХ CTA (booking хуудас руу шилжинэ) ────────────────── */}
+            <div className="relative mt-7 overflow-hidden rounded-[26px] border border-white/20 shadow-[0_24px_60px_rgba(120,30,50,0.16)] sm:rounded-[30px]">
+                <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 85% 15%, rgba(255,255,255,.18), transparent 46%), linear-gradient(135deg,#c81e3a,#9e1730)' }} />
+                <div className="pointer-events-none absolute left-[-40px] top-[-60px] h-[240px] w-[240px] rounded-full border border-dashed border-white/20" style={{ animation: 'cuticulSpinSlow 46s linear infinite' }} />
+                <div className="relative z-[2] flex flex-col items-start gap-6 p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-12">
+                    <div>
+                        <div className="mb-3 inline-flex items-center gap-2 rounded-[40px] bg-white/85 px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#c81e3a] sm:text-[12px]">✦ Цаг авах</div>
+                        <h2 className="mb-2.5 font-onest text-[24px] font-extrabold leading-[1.15] sm:text-[34px]">Онлайнаар хялбар цаг захиалаарай</h2>
+                        <p className="max-w-[460px] text-[14px] leading-[1.6] text-white/90 sm:text-[15px]">Салбар, эмчээ сонгож, өөрт тохирох цагаа хэдхэн товшилтоор баталгаажуулаарай.</p>
+                    </div>
+                    <Link href="/booking" className="flex-none whitespace-nowrap rounded-[16px] bg-white px-8 py-4 text-[15px] font-bold text-[#c81e3a] shadow-[0_12px_28px_rgba(60,8,18,0.3)] transition-transform hover:-translate-y-0.5">
+                        Цаг авах →
+                    </Link>
+                </div>
             </div>
+
+            {/* ── LIGHTBOX (пост зургийг сайт дотор томруулж харуулна) ──────── */}
+            {lightbox && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+                    <div className="relative max-h-[92vh] w-full max-w-[440px] overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setLightbox(null)} className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60">
+                            <X className="h-5 w-5" />
+                        </button>
+                        <img src={lightbox.image} alt="" className="max-h-[68vh] w-full bg-black object-contain" />
+                        <div className="p-5">
+                            {lightbox.text && <p className="mb-4 text-[14px] leading-[1.6] text-[#3a3533]">{lightbox.text}</p>}
+                            {lightbox.permalink && (
+                                <a href={lightbox.permalink} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-[14px] bg-[#1877F2] py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-[#166fe5]">
+                                    <Facebook className="h-4 w-4" /> Facebook дээр нээх / бичлэг үзэх ↗
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </PublicLayout>
     );
 }

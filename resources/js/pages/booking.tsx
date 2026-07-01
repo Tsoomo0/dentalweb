@@ -45,6 +45,13 @@ interface Props {
 
 type BookingType = 'online' | 'in_person';
 
+/* Эмчийн нэрийг "А.Цолмон" маягаар — овог зөвхөн эхний үсэг */
+function shortName(full: string): string {
+    const parts = full.trim().replace(/\./g, ' ').split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0].charAt(0)}.${parts[parts.length - 1]}`;
+    return full.trim();
+}
+
 const RED = '#c81e3a';
 
 /* glass карт-н нийтлэг хүрээ */
@@ -93,7 +100,7 @@ function formatDate(dateStr: string) {
 export default function BookingPage({ doctors, branches, treatments, consultation_fee }: Props) {
     const { flash } = usePage<{ [key: string]: unknown; flash?: { booking_success?: string; inperson_success?: boolean } }>().props;
 
-    const [bookingType,      setBookingType]      = useState<BookingType>('online');
+    const [bookingType,      setBookingType]      = useState<BookingType>('in_person');
     const [selectedBranchId, setSelectedBranchId] = useState<string>('');
     const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
     const [selectedSlotId,   setSelectedSlotId]   = useState<string>('');
@@ -354,24 +361,6 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                     </div>
                 </div>
 
-                {/* ── Type toggle ───────────────────────────────────── */}
-                <div className="mt-7 flex gap-2.5 rounded-[20px] border border-white/70 bg-white/55 p-1.5 shadow-[0_8px_30px_rgba(120,30,50,0.06)] backdrop-blur-lg sm:max-w-[560px]">
-                    <button type="button" onClick={() => switchType('online')}
-                        className="flex flex-1 items-center justify-center gap-2.5 rounded-[14px] px-4 py-3 text-sm font-bold transition-all"
-                        style={bookingType === 'online'
-                            ? { background: RED, color: '#fff', boxShadow: '0 8px 20px rgba(200,30,58,.28)' }
-                            : { background: 'transparent', color: '#9a918d' }}>
-                        <Video className="h-4 w-4"/> Онлайн зөвлөгөө
-                    </button>
-                    <button type="button" onClick={() => switchType('in_person')}
-                        className="flex flex-1 items-center justify-center gap-2.5 rounded-[14px] px-4 py-3 text-sm font-bold transition-all"
-                        style={bookingType === 'in_person'
-                            ? { background: RED, color: '#fff', boxShadow: '0 8px 20px rgba(200,30,58,.28)' }
-                            : { background: 'transparent', color: '#9a918d' }}>
-                        <Building2 className="h-4 w-4"/> Биечлэн ирэх
-                    </button>
-                </div>
-
                 {/* ── Online success ────────────────────────────────── */}
                 {flash?.booking_success && (
                     <div className="mt-7 flex items-start gap-4 rounded-[20px] border border-green-200 bg-green-50/80 p-5 backdrop-blur-md">
@@ -488,7 +477,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                                         </div>
                                                     )}
                                                     <div className="min-w-0 flex-1">
-                                                        <p className="truncate font-onest text-sm font-bold text-[#1c1a1b]">{d.name}</p>
+                                                        <p className="truncate font-onest text-sm font-bold text-[#1c1a1b]">{shortName(d.name)}</p>
                                                         {d.specialization && (
                                                             <p className="mt-0.5 truncate text-xs text-[#c81e3a]">{d.specialization}</p>
                                                         )}
@@ -659,7 +648,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                                 <User className="h-4 w-4 flex-shrink-0 text-[#f4a9b6]"/>
                                                 <div className="min-w-0">
                                                     <p className="text-[11px] text-[#9a918d]">Эмч</p>
-                                                    <p className="truncate font-onest text-sm font-bold text-white">{selectedDoctor.name}</p>
+                                                    <p className="truncate font-onest text-sm font-bold text-white">{shortName(selectedDoctor.name)}</p>
                                                 </div>
                                             </div>
                                         )}
@@ -776,7 +765,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                                                         {d.name.charAt(0)}
                                                     </div>
                                                     <div className="min-w-0 flex-1">
-                                                        <p className="truncate font-onest text-sm font-bold text-[#1c1a1b]">{d.name}</p>
+                                                        <p className="truncate font-onest text-sm font-bold text-[#1c1a1b]">{shortName(d.name)}</p>
                                                         {d.specialization && <p className="truncate text-[11px] text-[#c81e3a]">{d.specialization}</p>}
                                                     </div>
                                                     <div className="h-4 w-4 flex-shrink-0 rounded-full border-2"

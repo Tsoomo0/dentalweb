@@ -84,6 +84,15 @@ class SettingSeeder extends Seeder
                 'type' => 'string',
                 'is_sensitive' => false,
             ],
+            [
+                'key' => 'home_reels',
+                'value' => '',
+                'group' => 'general',
+                'label' => 'Нүүр хуудасны Reels / постууд',
+                'description' => 'FB reel/видео постын линкийг мөр бүрт нэгээр бичнэ (нүүр хуудсанд 4 баганаар харагдана). Жишээ: https://www.facebook.com/reel/1234567890',
+                'type' => 'text',
+                'is_sensitive' => false,
+            ],
 
             // ── Төлбөрийн тохиргоо ──────────────────────────────────────────
             [
