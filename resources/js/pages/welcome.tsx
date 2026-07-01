@@ -174,7 +174,21 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
     const fbUrl = siteSettings.facebook_url?.trim() || '';
     const [lightbox, setLightbox] = useState<Reel | null>(null);
     const reelScroll = useRef<HTMLDivElement>(null);
+    const reelPaused = useRef(false);
     const scrollReels = (dir: number) => reelScroll.current?.scrollBy({ left: dir * 264, behavior: 'smooth' });
+
+    /* Автоматаар гүйдэг carousel (hover дээр түр зогсоно) */
+    useEffect(() => {
+        if (reels.length === 0) return;
+        const id = setInterval(() => {
+            const el = reelScroll.current;
+            if (!el || reelPaused.current) return;
+            const max = el.scrollWidth - el.clientWidth;
+            if (el.scrollLeft >= max - 8) el.scrollTo({ left: 0, behavior: 'smooth' });
+            else el.scrollBy({ left: 264, behavior: 'smooth' });
+        }, 3000);
+        return () => clearInterval(id);
+    }, [reels.length]);
 
     /* fallback (хоосон үед дизайн эвдрэхгүйн тулд) */
     const showServices = serviceCards.length > 0;
@@ -512,12 +526,13 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
             {reels.length > 0 && (
                 <div className={`mt-7 p-5 sm:p-11 ${glassPanel}`}>
                     <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-                        <div>
+                        <div className="max-w-[560px]">
                             <SectionBadge>Сошиал</SectionBadge>
-                            <h2 className="font-onest text-[22px] font-extrabold sm:text-[40px]">Манай сүүлийн бичлэгүүд</h2>
+                            <h2 className="font-onest text-[19px] font-extrabold leading-[1.2] sm:text-[28px]">Шинэ мэдээ, урамшууллыг манай пэйж хуудаснаас</h2>
+                            <p className="mt-1.5 text-[13px] text-[#9a918d] sm:text-[14px]">Facebook хуудсаа дагаж, шинэ мэдээ мэдээллийг түрүүлж хүлээн аваарай.</p>
                         </div>
                         {fbUrl && (
-                            <a href={fbUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 whitespace-nowrap rounded-[13px] bg-[#1877F2] px-5 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-[#166fe5]">
+                            <a href={fbUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 whitespace-nowrap rounded-[13px] bg-[#c81e3a] px-5 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-[#a91730]">
                                 <Facebook className="h-4 w-4" /> Facebook дээр үзэх →
                             </a>
                         )}
@@ -538,6 +553,9 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
                         {/* carousel track */}
                         <div
                             ref={reelScroll}
+                            onMouseEnter={() => { reelPaused.current = true; }}
+                            onMouseLeave={() => { reelPaused.current = false; }}
+                            onTouchStart={() => { reelPaused.current = true; }}
                             className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         >
                             {reels.map((r, i) => (
@@ -548,7 +566,7 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
                                 >
                                     <img src={r.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
-                                    <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#1877F2] shadow-sm">
+                                    <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#c81e3a] shadow-sm">
                                         <Facebook className="h-4 w-4" />
                                     </span>
                                     {r.text && <p className="absolute inset-x-0 bottom-0 line-clamp-2 p-3 text-left text-[12px] font-medium leading-[1.4] text-white">{r.text}</p>}
@@ -587,7 +605,7 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
                         <div className="p-5">
                             {lightbox.text && <p className="mb-4 text-[14px] leading-[1.6] text-[#3a3533]">{lightbox.text}</p>}
                             {lightbox.permalink && (
-                                <a href={lightbox.permalink} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-[14px] bg-[#1877F2] py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-[#166fe5]">
+                                <a href={lightbox.permalink} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-[14px] bg-[#c81e3a] py-3.5 text-[14px] font-bold text-white transition-colors hover:bg-[#a91730]">
                                     <Facebook className="h-4 w-4" /> Facebook дээр нээх / бичлэг үзэх ↗
                                 </a>
                             )}

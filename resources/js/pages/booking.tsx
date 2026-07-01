@@ -691,17 +691,6 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                             tabIndex={-1} autoComplete="off" aria-hidden="true"
                             style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '1px', height: '1px', overflow: 'hidden' }}/>
 
-                        {/* Info banner */}
-                        <div className="flex items-start gap-3 rounded-[20px] border border-white/70 bg-white/55 px-5 py-4 backdrop-blur-lg">
-                            <Building2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#c81e3a]"/>
-                            <div>
-                                <p className="font-onest text-sm font-bold text-[#1c1a1b]">Биечлэн ирэхийг хүсч байна уу?</p>
-                                <p className="mt-0.5 text-xs text-[#6b6360]">
-                                    Хүсэлтээ илгээгээрэй — манай ажилтан тантай холбогдож, тохиромжтой цагийг хамт олох болно.
-                                </p>
-                            </div>
-                        </div>
-
                         {/* 1. Салбар сонгох */}
                         <Card step={1} title="Салбараа сонгоно уу" icon={Building2}>
                             {branches.length === 0 ? (
