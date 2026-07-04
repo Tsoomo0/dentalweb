@@ -198,9 +198,14 @@ class DailySheetController extends Controller
                 $sum = $mobile + $card + $cash + $storepay;
 
                 // Энэ баримтад холбогдсон илүү тооцооноос ашигласан credit (Дутуу/Илүү тооцооны зөв тооцоонд)
+                // Баримтын дугаар давтагддаг тул зөвхөн энэ хуудасны өдөр, энэ салбарт ашигласан кредитийг тооцно
                 $appliedCredit = 0;
                 if ($aptNumber) {
-                    $appliedCredit = (int) OverpaidUsage::where('target_receipt', $aptNumber)->sum('amount');
+                    $appliedCredit = (int) OverpaidUsage::where('target_receipt', $aptNumber)
+                        ->whereDate('created_at', $date)
+                        ->whereHas('sourceEntry', fn ($sq) => $sq->withTrashed()
+                            ->whereHas('dailySheet', fn ($dq) => $dq->withTrashed()->where('branch_id', $branchId)))
+                        ->sum('amount');
                 }
                 $effective = $sum + $appliedCredit;
 
@@ -537,68 +542,19 @@ class DailySheetController extends Controller
         return $e ? trim($e->last_name.' '.$e->first_name) : null;
     }
 
-    /** Энэ баримтад орсон credit-ийн дэлгэрэнгүй мэдээлэл — зөвхөн илүү тооцооноос ашигласан */
-    private function appliedCreditDetails(?string $aptNumber): array
-    {
-        if (! $aptNumber) {
-            return [];
-        }
-        $details = [];
-
-        OverpaidUsage::where('target_receipt', $aptNumber)
-            ->with('sourceEntry.dailySheet')
-            ->get()
-            ->each(function ($u) use (&$details) {
-                $details[] = [
-                    'kind' => 'overpaid',
-                    'amount' => (int) $u->amount,
-                    'method' => $u->method,
-                    'from_date' => $u->sourceEntry?->dailySheet?->date?->toDateString(),
-                    'from_name' => $u->sourceEntry?->patient_name,
-                ];
-            });
-
-        return $details;
-    }
-
-    /** Бусад entry-ээс холбогдсон credit (overpaid_used + outstanding_paid) хэмжээ */
-    private function appliedCreditFor(?string $aptNumber): array
-    {
-        $out = ['mobile' => 0, 'card' => 0, 'cash' => 0, 'storepay' => 0];
-        if (! $aptNumber) {
-            return $out;
-        }
-
-        OverpaidUsage::where('target_receipt', $aptNumber)
-            ->get(['method', 'amount'])
-            ->each(function ($u) use (&$out) {
-                $m = $u->method;
-                if (isset($out[$m])) {
-                    $out[$m] += (int) $u->amount;
-                }
-            });
-        DailySheetEntry::where('outstanding_paid_receipt', $aptNumber)
-            ->whereNotNull('outstanding_paid_at')
-            ->get(['outstanding_paid_method', 'outstanding_paid_amount'])
-            ->each(function ($p) use (&$out) {
-                $m = $p->outstanding_paid_method;
-                if (isset($out[$m])) {
-                    $out[$m] += (int) $p->outstanding_paid_amount;
-                }
-            });
-
-        return $out;
-    }
-
     private function mapSheet(DailySheet $sheet, int $currentUserId): array
     {
         $entries = $sheet->entries;
 
         // Batch: бүх entry-ийн applied credit-ийг нэг query-ээр татна (N+1 болохгүй)
+        // Баримтын дугаар давтагддаг тул зөвхөн энэ хуудасны өдөр, энэ салбарын кредитийг авна
         $apptNumbers = $entries->pluck('appointment_number')->filter()->unique()->values()->all();
         $creditsByReceipt = empty($apptNumbers)
             ? collect()
             : OverpaidUsage::whereIn('target_receipt', $apptNumbers)
+                ->whereDate('created_at', $sheet->date)
+                ->whereHas('sourceEntry', fn ($sq) => $sq->withTrashed()
+                    ->whereHas('dailySheet', fn ($dq) => $dq->withTrashed()->where('branch_id', $sheet->branch_id)))
                 ->with('sourceEntry.dailySheet')
                 ->get()
                 ->groupBy('target_receipt');
