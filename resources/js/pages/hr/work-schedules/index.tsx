@@ -1,927 +1,899 @@
 import AppLayout from '@/layouts/app-layout';
 import { ToastContainer } from '@/components/toast';
-import { router, useForm, usePage } from '@inertiajs/react';
+import OrthoView, { type OrthoAssistant, type OrthoBranch, type OrthoDoctor, type OrthoSchedule } from './ortho-view';
+import { router, usePage } from '@inertiajs/react';
+import type { FormDataConvertible } from '@inertiajs/core';
 import {
-    CalendarDays, ChevronLeft, ChevronRight, Plus, Stethoscope, Trash2, X,
+    Braces, Building2, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Copy,
+    Plus, Printer, Save, Stethoscope, Trash2, Users, X,
 } from 'lucide-react';
-import { FormEvent, useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
-interface Branch   { id: number; name: string; }
-interface Employee { id: number; name: string; position: string | null; branch_id: number | null; branch: string | null; }
+interface Branch   { id: number; name: string; abbr: string; }
+interface Employee {
+    id: number; name: string; position_id: number | null; position: string | null;
+    role_group: string; branch_id: number | null; branch: string | null; photo_url: string | null;
+}
+interface Doctor   { id: number; name: string; }
 interface Schedule {
-    id: number; employee_id: number;
-    employee_name: string; employee_position: string | null;
-    date: string; shift_type: string; shift_label: string;
+    id: number; employee_id: number; date: string;
+    shift_type: string; shift_label: string;
     start_time: string | null; end_time: string | null;
     room: string | null; assigned_doctor_id: number | null;
-    assigned_doctor_name: string | null; notes: string | null;
+    duties: string[]; notes: string | null;
+}
+interface CardProduceRow { doctor_id: number | null; nurse_id: number | null; }
+interface NurseTimeRow   { person_id: number | null; time: string; }
+interface DayTasks {
+    card_produce?: CardProduceRow[]; card_collect?: NurseTimeRow[];
+    model_room?: NurseTimeRow[]; print_cover?: NurseTimeRow[];
 }
 interface PageProps {
-    schedules: Schedule[]; employees: Employee[]; doctors: Employee[];
-    branches: Branch[];
-    year: number; month: number; [key: string]: unknown;
+    employees: Employee[]; doctors: Doctor[]; branches: Branch[];
+    schedules: Schedule[]; day_plans: Record<string, DayTasks>;
+    task_types: Record<string, string>; week_start: string;
+    ortho_assistants: OrthoAssistant[]; ortho_doctors: OrthoDoctor[];
+    ortho_schedules: OrthoSchedule[]; ortho_states: Record<string, string>;
+    ortho_year: number; ortho_month: number;
+    [key: string]: unknown;
 }
-type ViewMode = 'month' | 'week' | 'day';
+type Row = { s: Schedule; emp: Employee };
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
-const MONTHS_MN = ['1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар',
-                   '7-р сар','8-р сар','9-р сар','10-р сар','11-р сар','12-р сар'];
-const DAYS_MN   = ['Да','Мя','Лх','Пү','Ба','Бя','Ня'];
-const DAYS_FULL = ['Даваа','Мягмар','Лхагва','Пүрэв','Баасан','Бямба','Ням'];
+const MONTHS_MN  = ['1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар',
+                    '7-р сар','8-р сар','9-р сар','10-р сар','11-р сар','12-р сар'];
+const DAYS_SHORT = ['Да','Мя','Лх','Пү','Ба','Бя','Ня'];
+const DAYS_FULL  = ['Даваа','Мягмар','Лхагва','Пүрэв','Баасан','Бямба','Ням'];
 
-const SHIFT_COLORS: Record<string, string> = {
-    morning:   'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
-    afternoon: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-    full:      'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-    off:       'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-};
-const SHIFT_DOT: Record<string, string> = {
-    morning: 'bg-sky-500', afternoon: 'bg-orange-500', full: 'bg-emerald-500', off: 'bg-gray-400',
-};
-const SHIFT_BORDER: Record<string, string> = {
-    morning: 'border-l-sky-400', afternoon: 'border-l-orange-400',
-    full: 'border-l-emerald-400', off: 'border-l-gray-300',
-};
+/* Зүүн багана = эмч + үйлчилгээний роль; Баруун багана = сувилагч/туслах */
+const LEFT_ROLES  = new Set(['doctor', 'xray', 'reception', 'cleaner', 'technician', 'other']);
+const RIGHT_ROLES = new Set(['nurse', 'assistant']);
 
 const SHIFTS = [
-    { value: 'morning',   label: 'Өглөөний ээлж', time: '08:30–15:00' },
-    { value: 'afternoon', label: 'Өдрийн ээлж',   time: '12:30–20:30' },
-    { value: 'full',      label: 'Бүтэн өдөр',    time: '08:30–20:30' },
-    { value: 'off',       label: 'Амралт',         time: '' },
+    { value: 'morning',   label: 'Өглөө' },
+    { value: 'afternoon', label: 'Орой' },
+    { value: 'full',      label: 'Бүтэн' },
+    { value: 'custom',    label: 'Тусгай' },
+    { value: 'off',       label: 'Амралт' },
 ];
-const SHIFT_DEFAULTS: Record<string, { start: string; end: string }> = {
-    morning:   { start: '08:30', end: '15:00' },
-    afternoon: { start: '12:30', end: '20:30' },
-    full:      { start: '08:30', end: '20:30' },
-    off:       { start: '',      end: '' },
+const SHIFT_BTN: Record<string, string> = {
+    morning: 'bg-sky-600', afternoon: 'bg-orange-600',
+    full: 'bg-emerald-600', custom: 'bg-violet-600', off: 'bg-gray-500',
 };
+
+/* Эмчийн өнгөний палитр (PDF шиг пастел) + үйлчилгээний ролийн өнгө */
+const DOC_PALETTE = [
+    { bg: '#bbf7d0', text: '#166534' }, { bg: '#fbcfe8', text: '#9d174d' },
+    { bg: '#bfdbfe', text: '#1e40af' }, { bg: '#ddd6fe', text: '#5b21b6' },
+    { bg: '#fde68a', text: '#854d0e' }, { bg: '#99f6e4', text: '#115e59' },
+    { bg: '#c7d2fe', text: '#3730a3' }, { bg: '#fecdd3', text: '#9f1239' },
+];
+const ROLE_FIXED: Record<string, { bg: string; text: string }> = {
+    xray:       { bg: '#fdba74', text: '#7c2d12' },
+    reception:  { bg: '#fde047', text: '#713f12' },
+    cleaner:    { bg: '#e2e8f0', text: '#334155' },
+    technician: { bg: '#a5f3fc', text: '#155e75' },
+    other:      { bg: '#e5e7eb', text: '#374151' },
+};
+
+/* Албан тушаалын секцийн эрэмбэ + өнгө */
+const ROLE_ORDER: Record<string, number> = {
+    nurse: 1, assistant: 2, reception: 3, xray: 4, technician: 5, cleaner: 6, other: 7,
+};
+const ROLE_BADGE: Record<string, string> = {
+    nurse:      'bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400',
+    assistant:  'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400',
+    reception:  'bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400',
+    xray:       'bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400',
+    technician: 'bg-cyan-100 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-400',
+    cleaner:    'bg-lime-100 text-lime-600 dark:bg-lime-950/50 dark:text-lime-400',
+    other:      'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+};
+function roleBadge(r: string) { return ROLE_BADGE[r] ?? ROLE_BADGE.other; }
+
+/* Салбар tile-ийн градиент */
+const TILE_GRADIENTS = [
+    'from-indigo-500 to-violet-600',
+    'from-emerald-500 to-teal-600',
+    'from-sky-500 to-blue-600',
+    'from-amber-500 to-orange-600',
+    'from-rose-500 to-pink-600',
+    'from-cyan-500 to-blue-500',
+];
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 function pad(n: number) { return String(n).padStart(2, '0'); }
-function toDateStr(y: number, m: number, d: number) { return `${y}-${pad(m)}-${pad(d)}`; }
-function parseDate(s: string) { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); }
-function addDays(date: Date, n: number) { const d = new Date(date); d.setDate(d.getDate()+n); return d; }
-function getMondayOfWeek(date: Date) {
-    const d = new Date(date);
-    const day = d.getDay(); // 0=Sun
-    const diff = day === 0 ? -6 : 1 - day;
-    d.setDate(d.getDate() + diff);
-    return d;
+function toDateStr(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function parseDate(s: string) { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+function isTodayStr(s: string) { return s === toDateStr(new Date()); }
+function shiftDefaults(role: string, shift: string): [string, string] {
+    const doc = role === 'doctor';
+    switch (shift) {
+        case 'morning':   return doc ? ['09:00', '15:00'] : ['08:30', '16:30'];
+        case 'afternoon': return doc ? ['15:00', '20:00'] : ['12:30', '20:30'];
+        case 'full':      return doc ? ['09:00', '20:00'] : ['08:30', '20:30'];
+        default:          return ['', ''];
+    }
 }
-function isToday(y: number, m: number, d: number) {
-    const n = new Date();
-    return n.getFullYear()===y && (n.getMonth()+1)===m && n.getDate()===d;
-}
-function isTodayStr(s: string) {
-    const n = new Date();
-    return s === toDateStr(n.getFullYear(), n.getMonth()+1, n.getDate());
-}
-function buildMonthGrid(y: number, m: number): (number|null)[] {
-    const first = new Date(y,m-1,1).getDay();
-    const days  = new Date(y,m,0).getDate();
-    const off   = first===0 ? 6 : first-1;
-    const cells: (number|null)[] = Array(off).fill(null);
-    for (let d=1;d<=days;d++) cells.push(d);
-    while (cells.length%7) cells.push(null);
-    return cells;
-}
-function isNurseOrAssistant(pos: string|null) {
-    if (!pos) return false;
-    const p = pos.toLowerCase();
-    return p.includes('сувилагч') || p.includes('туслах');
-}
-function getShiftShort(type: string) {
-    return type==='morning' ? 'Өглөө' : type==='afternoon' ? 'Өдөр' : type==='full' ? 'Бүтэн' : 'Амралт';
-}
-function shortName(full: string) {
-    const parts = full.trim().split(' ');
-    if (parts.length < 2) return full;
-    return `${parts[0].charAt(0)}. ${parts.slice(1).join(' ')}`;
-}
-function initials(full: string) {
-    return full.trim().split(' ').map(p => p.charAt(0).toUpperCase()).join('').slice(0, 2);
+function timeText(s: Schedule) {
+    if (s.shift_type === 'off') return 'Амралт';
+    if (!s.start_time && !s.end_time) return '';
+    return `${s.start_time ?? ''}-${s.end_time ?? ''}`;
 }
 
-/* ─── Avatar colors ─────────────────────────────────────────────────────── */
-const AVATAR_COLORS: Record<string, string> = {
-    morning:   'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
-    afternoon: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
-    full:      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
-    off:       'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-};
+/* ═══════════════════════════════════════════════════════════════════════════ */
+export default function WorkSchedulesIndex() {
+    const { employees, doctors, branches, schedules, day_plans, task_types, week_start,
+        ortho_assistants, ortho_doctors, ortho_schedules, ortho_states, ortho_year, ortho_month } =
+        usePage<PageProps>().props;
 
-/* ─── Month chip ─────────────────────────────────────────────────────────── */
-function ScheduleChip({ s, onClick }: { s: Schedule; onClick: (e: React.MouseEvent) => void }) {
-    const col = SHIFT_COLORS[s.shift_type] ?? SHIFT_COLORS.full;
-    return (
-        <div onClick={onClick}
-            title={`${s.employee_name} · ${s.shift_label}${s.start_time ? ' ' + s.start_time + '–' + s.end_time : ''}${s.room ? ' · Өрөө ' + s.room : ''}`}
-            className={`rounded-lg px-1.5 py-1 text-[10px] font-semibold cursor-pointer hover:opacity-80 active:scale-95 transition-all flex items-center gap-1.5 ${col}`}>
-            <span className="size-4 rounded-md flex items-center justify-center bg-white/40 dark:bg-black/20 text-[8px] font-black shrink-0 leading-none">
-                {s.employee_name.charAt(0)}
-            </span>
-            <span className="truncate flex-1">{shortName(s.employee_name)}</span>
-            {s.start_time && (
-                <span className="shrink-0 opacity-70 text-[9px] font-medium tabular-nums">{s.start_time}</span>
-            )}
-        </div>
-    );
-}
+    const [tab, setTab] = useState<'clinic' | 'ortho'>('clinic');
 
-/* ─── Week card ─────────────────────────────────────────────────────────── */
-function WeekCard({ s, onClick }: { s: Schedule; onClick: (e: React.MouseEvent) => void }) {
-    const bord = SHIFT_BORDER[s.shift_type] ?? 'border-l-gray-300';
-    const dot  = SHIFT_DOT[s.shift_type]   ?? SHIFT_DOT.full;
-    return (
-        <div onClick={onClick}
-            className={`rounded-xl border border-gray-200 dark:border-gray-700 border-l-4 ${bord} bg-card hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all cursor-pointer p-2`}>
-            <div className="flex items-center gap-1.5">
-                <div className={`size-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${AVATAR_COLORS[s.shift_type] ?? AVATAR_COLORS.full}`}>
-                    {initials(s.employee_name)}
+    /* ── Lookups ── */
+    const empMap = useMemo(() => {
+        const m = new Map<number, Employee>();
+        employees.forEach(e => m.set(e.id, e));
+        return m;
+    }, [employees]);
+
+    const docColorIndex = useMemo(() => {
+        const m = new Map<number, number>();
+        employees.filter(e => e.role_group === 'doctor').forEach((e, i) => m.set(e.id, i));
+        return m;
+    }, [employees]);
+    function colorFor(emp: Employee): { bg: string; text: string } | null {
+        if (emp.role_group === 'doctor') return DOC_PALETTE[(docColorIndex.get(emp.id) ?? 0) % DOC_PALETTE.length];
+        return ROLE_FIXED[emp.role_group] ?? null;
+    }
+
+    /* ── Week days ── */
+    const weekDays = useMemo(() => {
+        const start = parseDate(week_start);
+        return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    }, [week_start]);
+
+    /* ── Selected day ── */
+    const [selected, setSelected] = useState<string>(() => {
+        const t = toDateStr(new Date());
+        return weekDays.some(d => toDateStr(d) === t) ? t : toDateStr(weekDays[0]);
+    });
+    useEffect(() => {
+        if (!weekDays.some(d => toDateStr(d) === selected)) {
+            const t = toDateStr(new Date());
+            setSelected(weekDays.some(d => toDateStr(d) === t) ? t : toDateStr(weekDays[0]));
+        }
+    }, [week_start]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ── Selected branch (null = салбар сонгох landing) ── */
+    const [branch, setBranch] = useState<number | 'all' | null>(branches.length > 0 ? null : 'all');
+    const branchEmployees = useMemo(() =>
+        employees.filter(e => branch === 'all' || e.branch_id === branch),
+        [employees, branch]);
+    const branchEmpIds = useMemo(() => new Set(branchEmployees.map(e => e.id)), [branchEmployees]);
+
+    /* ── Scheduled rows for the selected day (within branch) ── */
+    const dayRows = useMemo<Row[]>(() =>
+        schedules
+            .filter(s => s.date === selected)
+            .map(s => ({ s, emp: empMap.get(s.employee_id)! }))
+            .filter(x => x.emp && branchEmpIds.has(x.emp.id)),
+        [schedules, selected, empMap, branchEmpIds]);
+
+    const rightRows = dayRows.filter(x => RIGHT_ROLES.has(x.emp.role_group));
+
+    const shiftOrd = (s: Schedule) => s.shift_type === 'afternoon' ? 1 : s.shift_type === 'off' ? 2 : 0;
+    /* Эмч нар дээр (Өглөө→Орой) */
+    const doctorRows = dayRows.filter(x => x.emp.role_group === 'doctor')
+        .sort((a, b) => shiftOrd(a.s) - shiftOrd(b.s) || (a.s.start_time ?? '').localeCompare(b.s.start_time ?? ''));
+    const rightSorted = [...rightRows].sort((a, b) => (a.s.start_time ?? '').localeCompare(b.s.start_time ?? ''));
+
+    /* Эмч бүрт хариуцах сувилагчид */
+    const presentDoctorIds = new Set(doctorRows.map(x => x.emp.id));
+    const nursesByDoctor = new Map<number, Row[]>();
+    const pairedSchedIds = new Set<number>();
+    for (const n of rightSorted) {
+        const did = n.s.assigned_doctor_id;
+        if (did && presentDoctorIds.has(did)) {
+            const arr = nursesByDoctor.get(did) ?? [];
+            arr.push(n); nursesByDoctor.set(did, arr);
+            pairedSchedIds.add(n.s.id);
+        }
+    }
+
+    /* Эмчээс бусад, эмчид хослоогүй ажилтнуудыг АЛБАН ТУШААЛААР нь бүлэглэх */
+    const staffSecMap = new Map<string, { key: string; label: string; role: string; items: Row[] }>();
+    for (const x of dayRows) {
+        if (x.emp.role_group === 'doctor' || pairedSchedIds.has(x.s.id)) continue;
+        const key = x.emp.position_id ? `p${x.emp.position_id}` : `r-${x.emp.role_group}`;
+        const label = x.emp.position ?? 'Бусад';
+        if (!staffSecMap.has(key)) staffSecMap.set(key, { key, label, role: x.emp.role_group, items: [] });
+        staffSecMap.get(key)!.items.push(x);
+    }
+    const staffSections = [...staffSecMap.values()]
+        .sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9) || a.label.localeCompare(b.label));
+    staffSections.forEach(s => s.items.sort((a, b) => a.emp.name.localeCompare(b.emp.name)));
+
+    const docCount   = doctorRows.filter(x => x.s.shift_type !== 'off').length;
+    const nurseCount = rightRows.filter(x => x.s.shift_type !== 'off').length;
+    const dayCount = (ds: string) =>
+        schedules.filter(s => s.date === ds && s.shift_type !== 'off' && branchEmpIds.has(s.employee_id)).length;
+
+    /* ── Editor / picker ── */
+    const [editor, setEditor] = useState<{ employee: Employee; existing: Schedule | null; presetDoctorId?: number } | null>(null);
+    const [picker, setPicker] = useState<{ kind: 'doctor' | 'staff' | 'nurse'; doctorId?: number } | null>(null);
+
+    /* ── Navigation ── */
+    function navWeek(dir: number) {
+        const target = addDays(parseDate(week_start), dir * 7);
+        router.get('/hr/work-schedules', { date: toDateStr(target) },
+            { preserveState: true, preserveScroll: true, only: ['schedules', 'day_plans', 'week_start'] });
+    }
+    function goToday() {
+        const t = toDateStr(new Date());
+        router.get('/hr/work-schedules', { date: t },
+            { preserveState: true, preserveScroll: true, only: ['schedules', 'day_plans', 'week_start'],
+              onSuccess: () => setSelected(t) });
+    }
+    function copyPrevWeek() {
+        if (!confirm('Өмнөх 7 хоногийн хуваарийг энэ долоо хоног руу хуулах уу?')) return;
+        router.post('/hr/work-schedules/copy-week', { target_week_start: week_start },
+            { preserveState: true, preserveScroll: true, only: ['schedules', 'day_plans'] });
+    }
+
+    const weekLabel = (() => {
+        const [a, b] = [weekDays[0], weekDays[6]];
+        return a.getMonth() === b.getMonth()
+            ? `${MONTHS_MN[a.getMonth()]} ${a.getDate()}–${b.getDate()}`
+            : `${a.getDate()} ${MONTHS_MN[a.getMonth()]} – ${b.getDate()} ${MONTHS_MN[b.getMonth()]}`;
+    })();
+
+    const selDate = parseDate(selected);
+    const selDow  = (selDate.getDay() + 6) % 7;
+
+    /* ── Time badge ── */
+    function TimeBadge({ s }: { s: Schedule }) {
+        if (s.shift_type === 'off')
+            return <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">Амралт</span>;
+        return <span className="text-[11px] font-bold tabular-nums text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-md px-2 py-0.5 shrink-0">{timeText(s)}</span>;
+    }
+
+    /* ── Doctor + assigned nurses (paired row, PDF шиг) ── */
+    function DoctorPair({ x, nurses }: { x: Row; nurses: Row[] }) {
+        const col = colorFor(x.emp);
+        const off = x.s.shift_type === 'off';
+        const accent = col?.text ?? '#94a3b8';
+        const tag = x.s.shift_type === 'afternoon' ? 'Орой' : 'Өглөө';
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 rounded-2xl border border-gray-100 dark:border-gray-800 bg-card overflow-hidden shadow-sm hover:shadow-md transition-all"
+                style={{ borderLeftWidth: 4, borderLeftColor: off ? '#cbd5e1' : accent }}>
+                {/* Doctor */}
+                <button onClick={() => setEditor({ employee: x.emp, existing: x.s })}
+                    className="flex items-center gap-2.5 px-3.5 py-3 text-left transition-all hover:brightness-[0.97]"
+                    style={{ background: off ? undefined : col ? `${col.bg}26` : undefined }}>
+                    {off
+                        ? <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground bg-muted rounded px-1.5 py-0.5">Амралт</span>
+                        : <span className={`text-[9px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 ${x.s.shift_type === 'afternoon' ? 'text-orange-600 bg-orange-100 dark:bg-orange-950/40 dark:text-orange-400' : 'text-sky-600 bg-sky-100 dark:bg-sky-950/40 dark:text-sky-400'}`}>{tag}</span>}
+                    <span className="flex-1 min-w-0 text-sm font-black truncate" style={off ? undefined : { color: accent }}>{x.emp.name}</span>
+                    {!off && <TimeBadge s={x.s} />}
+                </button>
+                {/* Assigned nurses */}
+                <div className="border-t sm:border-t-0 sm:border-l border-gray-100 dark:border-gray-800 bg-gray-50/40 dark:bg-gray-900/20">
+                    {nurses.map(n => (
+                        <button key={n.s.id} onClick={() => setEditor({ employee: n.emp, existing: n.s })}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-muted/50 border-b border-gray-100/70 dark:border-gray-800/50 last:border-b-0 transition-colors">
+                            <span className="size-1.5 rounded-full bg-indigo-400 shrink-0" />
+                            <span className="flex-1 min-w-0 text-[13px] font-semibold truncate">{n.emp.name}</span>
+                            <TimeBadge s={n.s} />
+                        </button>
+                    ))}
+                    <button onClick={() => setPicker({ kind: 'nurse', doctorId: x.emp.id })}
+                        className="w-full flex items-center gap-1 px-3 py-1.5 text-[11px] font-semibold text-indigo-500 dark:text-indigo-400 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 transition-colors">
+                        <Plus className="size-3" /> Сувилагч нэмэх
+                    </button>
                 </div>
-                <span className="text-[11px] font-semibold truncate text-gray-900 dark:text-gray-100">{shortName(s.employee_name)}</span>
             </div>
-            {s.start_time && (
-                <div className="flex items-center gap-1 mt-1.5">
-                    <span className={`size-1.5 rounded-full shrink-0 ${dot}`} />
-                    <span className="text-[9px] text-muted-foreground">{s.start_time}–{s.end_time}</span>
-                </div>
-            )}
-            {s.room && <p className="text-[9px] text-muted-foreground mt-0.5 truncate">📍 {s.room}</p>}
-            {s.assigned_doctor_name && (
-                <p className="text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 flex items-center gap-0.5 truncate">
-                    <Stethoscope className="size-2.5 shrink-0" />{shortName(s.assigned_doctor_name)}
-                </p>
-            )}
-        </div>
-    );
-}
+        );
+    }
 
-/* ─── Popup card ─────────────────────────────────────────────────────────── */
-function PopupCard({ s, onClick }: { s: Schedule; onClick: () => void }) {
-    const bord = SHIFT_BORDER[s.shift_type] ?? 'border-l-gray-300';
+    /* ── Other staff / unassigned nurse simple row ── */
+    function SimpleRow({ x, accentHex }: { x: Row; accentHex: string }) {
+        const off = x.s.shift_type === 'off';
+        const assignedName = x.s.assigned_doctor_id ? empMap.get(x.s.assigned_doctor_id)?.name : null;
+        const tag = x.s.shift_type === 'afternoon' ? 'Орой' : (x.s.shift_type === 'morning' || x.s.shift_type === 'full') ? 'Өглөө' : null;
+        const ini = x.emp.name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        return (
+            <button onClick={() => setEditor({ employee: x.emp, existing: x.s })}
+                className="group text-left rounded-2xl border border-gray-100 dark:border-gray-800 bg-card p-3 flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 hover:border-gray-200 dark:hover:border-gray-700 transition-all">
+                <div className="size-9 rounded-xl flex items-center justify-center text-[11px] font-black shrink-0 overflow-hidden"
+                    style={{ background: off ? 'var(--muted)' : `${accentHex}1a`, color: off ? undefined : accentHex }}>
+                    {x.emp.photo_url ? <img src={x.emp.photo_url} alt="" className="size-full object-cover" /> : ini}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-bold truncate text-foreground">{x.emp.name}</p>
+                    {off ? (
+                        <p className="text-[11px] font-semibold text-muted-foreground mt-0.5">Амралттай</p>
+                    ) : (
+                        <p className="text-[11px] font-semibold tabular-nums text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                            {tag && <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: accentHex }}>{tag}</span>}
+                            {x.s.start_time}–{x.s.end_time}
+                        </p>
+                    )}
+                    {assignedName && (
+                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 flex items-center gap-0.5 truncate font-semibold mt-0.5">
+                            <Stethoscope className="size-2.5 shrink-0" />{assignedName}
+                        </p>
+                    )}
+                </div>
+            </button>
+        );
+    }
+
+    /* ════════════════════════ RENDER ════════════════════════ */
     return (
-        <div onClick={onClick}
-            className={`rounded-xl border border-l-4 ${bord} bg-card hover:shadow-sm transition-all cursor-pointer p-3 flex items-start gap-3`}>
-            <div className={`size-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${AVATAR_COLORS[s.shift_type] ?? AVATAR_COLORS.full}`}>
-                {initials(s.employee_name)}
-            </div>
-            <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{shortName(s.employee_name)}</p>
-                {s.employee_position && <p className="text-[11px] text-muted-foreground truncate">{s.employee_position}</p>}
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {s.shift_label}{s.start_time ? ` · ${s.start_time}–${s.end_time}` : ''}
-                </p>
-                {s.room && <p className="text-[11px] text-muted-foreground">📍 {s.room}</p>}
-                {s.assigned_doctor_name && (
-                    <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5 flex items-center gap-1 truncate">
-                        <Stethoscope className="size-3 shrink-0" />{shortName(s.assigned_doctor_name)}
-                    </p>
+        <AppLayout breadcrumbs={[{ title: 'HR', href: '/hr/employees' }, { title: 'Ажлын хуваарь', href: '/hr/work-schedules' }]}>
+            <div className="p-4 md:p-6 space-y-5">
+
+                {/* ── Top bar ── */}
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30">
+                            <CalendarDays className="size-5" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-black tracking-tight text-gray-900 dark:text-gray-100 leading-none">Ажлын хуваарь</h1>
+                            <p className="text-xs text-muted-foreground mt-1">Эмч · сувилагчийн 7 хоногийн хуваарь</p>
+                        </div>
+                    </div>
+                    {tab === 'clinic' && branch !== null && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-0.5 rounded-full border bg-card p-1 shadow-sm">
+                                <button onClick={() => navWeek(-1)} className="p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"><ChevronLeft className="size-4" /></button>
+                                <span className="text-sm font-bold px-3 min-w-[140px] text-center">{weekLabel}</span>
+                                <button onClick={() => navWeek(1)} className="p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"><ChevronRight className="size-4" /></button>
+                            </div>
+                            <button onClick={goToday} className="px-3.5 py-2 rounded-full border bg-card text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors shadow-sm">Өнөөдөр</button>
+                            <button onClick={copyPrevWeek}
+                                className="flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors shadow-sm">
+                                <Copy className="size-4" /> <span className="hidden sm:inline">Өмнөх 7 хоног хуулах</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Tabs (шууд солигдоно) ── */}
+                <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm w-fit">
+                    <button onClick={() => setTab('clinic')}
+                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${tab === 'clinic' ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow' : 'text-muted-foreground hover:bg-muted'}`}>
+                        <CalendarDays className="size-4" /> Эмч сувилагчийн хуваарь
+                    </button>
+                    <button onClick={() => setTab('ortho')}
+                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${tab === 'ortho' ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow' : 'text-muted-foreground hover:bg-muted'}`}>
+                        <Braces className="size-4" /> Гажиг засал / туслах эмчийн хуваарь
+                    </button>
+                </div>
+
+                {tab === 'ortho' ? (
+                    <OrthoView
+                        assistants={ortho_assistants}
+                        doctors={ortho_doctors}
+                        branches={branches as OrthoBranch[]}
+                        schedules={ortho_schedules}
+                        states={ortho_states}
+                        year={ortho_year}
+                        month={ortho_month}
+                        onNavMonth={(y, m) => router.get('/hr/work-schedules', { oyear: y, omonth: m },
+                            { preserveState: true, preserveScroll: true, only: ['ortho_schedules', 'ortho_year', 'ortho_month'] })}
+                    />
+                ) : branch === null ? (
+                    /* ══════ Landing: салбар сонгох (premium full-width) ══════ */
+                    <div className="space-y-6">
+                        {/* Hero */}
+                        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-800 via-slate-800 to-indigo-900 px-8 py-9 shadow-xl">
+                            <div className="absolute -right-12 -top-16 size-56 rounded-full bg-indigo-500/20 blur-3xl" />
+                            <div className="absolute right-32 top-4 size-28 rounded-full bg-violet-500/10 blur-2xl" />
+                            <div className="relative flex items-center gap-4">
+                                <div className="flex size-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur ring-1 ring-white/20 text-white shadow-lg">
+                                    <Plus className="size-7" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black tracking-tight text-white leading-none">Хуваарь нэмэх</h2>
+                                    <p className="text-sm text-white/60 mt-2">Аль салбарын 7 хоногийн хуваарь оруулахаа сонгоно уу</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Branch tiles — full width */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {branches.map((b, i) => {
+                                const grad = TILE_GRADIENTS[i % TILE_GRADIENTS.length];
+                                const cnt = employees.filter(e => e.branch_id === b.id).length;
+                                return (
+                                    <button key={b.id} onClick={() => setBranch(b.id)}
+                                        className="group relative overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700/70 bg-card p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all">
+                                        <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${grad}`} />
+                                        <div className="flex items-center gap-4">
+                                            <div className={`flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br ${grad} text-white shadow-lg shrink-0`}>
+                                                <Building2 className="size-7" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-lg font-black tracking-tight truncate">{b.name}</p>
+                                                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Users className="size-3" /> {cnt} ажилтан</p>
+                                            </div>
+                                            <ChevronRight className="size-5 text-muted-foreground group-hover:translate-x-1 group-hover:text-indigo-500 transition-all shrink-0" />
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                            {/* Бүх салбар */}
+                            <button onClick={() => setBranch('all')}
+                                className="group relative overflow-hidden rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-card/50 p-5 text-left hover:border-gray-400 hover:bg-muted/40 hover:-translate-y-1 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground shrink-0">
+                                        <Building2 className="size-7" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-lg font-black tracking-tight truncate">Бүх салбар</p>
+                                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Users className="size-3" /> {employees.length} ажилтан</p>
+                                    </div>
+                                    <ChevronRight className="size-5 text-muted-foreground group-hover:translate-x-1 transition-all shrink-0" />
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                  <>
+                {/* ── Идэвхтэй салбар ── */}
+                <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-2.5 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                        <div className="flex size-8 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400"><Building2 className="size-4" /></div>
+                        <div>
+                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide leading-none">Салбар</p>
+                            <p className="text-sm font-black leading-tight mt-0.5">{branch === 'all' ? 'Бүх салбар' : branches.find(b => b.id === branch)?.name}</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setBranch(null)}
+                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg px-2.5 py-1.5 transition-colors">
+                        <Building2 className="size-3.5" /> Салбар солих
+                    </button>
+                </div>
+
+                {/* ── Day tabs ── */}
+                <div className="grid grid-cols-7 gap-2">
+                    {weekDays.map((d, i) => {
+                        const ds = toDateStr(d);
+                        const isSel = ds === selected;
+                        const today = isTodayStr(ds);
+                        const wkend = i >= 5;
+                        const cnt = dayCount(ds);
+                        return (
+                            <button key={ds} onClick={() => setSelected(ds)}
+                                className={`relative rounded-2xl py-2.5 flex flex-col items-center transition-all duration-200 ${
+                                    isSel ? 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30 -translate-y-0.5'
+                                    : `bg-card border hover:border-indigo-300 hover:shadow-md ${today ? 'ring-2 ring-indigo-400/60' : ''}`}`}>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isSel ? 'text-white/80' : wkend ? 'text-orange-500' : 'text-muted-foreground'}`}>{DAYS_SHORT[i]}</span>
+                                <span className={`text-xl font-black leading-tight ${isSel ? 'text-white' : wkend ? 'text-orange-500' : 'text-foreground'}`}>{d.getDate()}</span>
+                                <span className={`mt-0.5 text-[9px] font-bold ${isSel ? 'text-white/70' : 'text-muted-foreground'}`}>{cnt > 0 ? `${cnt}` : '·'}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* ── Day sheet ── */}
+                <div className="rounded-3xl border border-gray-200 dark:border-gray-700/70 overflow-hidden bg-card shadow-xl shadow-gray-200/40 dark:shadow-black/20">
+                    {/* Banner */}
+                    <div className="relative overflow-hidden bg-gradient-to-r from-slate-800 via-slate-800 to-indigo-900 px-6 py-4">
+                        <div className="absolute -right-10 -top-12 size-48 rounded-full bg-indigo-500/20 blur-3xl" />
+                        <div className="relative flex items-center gap-5">
+                            <div className="text-white">
+                                <p className="text-4xl font-black leading-none">{selDate.getDate()}</p>
+                                <p className="text-[11px] font-medium text-white/60 mt-0.5">{MONTHS_MN[selDate.getMonth()]}</p>
+                            </div>
+                            <div className="w-px h-11 bg-white/15" />
+                            <div className="flex-1">
+                                <p className="text-white text-lg font-bold leading-tight">{DAYS_FULL[selDow]}</p>
+                                <p className="text-[11px] text-white/50">{selDate.getFullYear()} он · {branch === 'all' ? 'Бүх салбар' : branches.find(b => b.id === branch)?.name}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="rounded-2xl bg-white/10 backdrop-blur px-3.5 py-1.5 text-center min-w-[60px]">
+                                    <p className="text-lg font-black text-white leading-none">{docCount}</p>
+                                    <p className="text-[9px] text-white/60 mt-0.5 flex items-center justify-center gap-0.5"><Stethoscope className="size-2.5" /> Эмч</p>
+                                </div>
+                                <div className="rounded-2xl bg-white/10 backdrop-blur px-3.5 py-1.5 text-center min-w-[60px]">
+                                    <p className="text-lg font-black text-white leading-none">{nurseCount}</p>
+                                    <p className="text-[9px] text-white/60 mt-0.5 flex items-center justify-center gap-0.5"><Users className="size-2.5" /> Сувилагч</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-4 sm:p-6 space-y-7">
+
+                        {/* Эмч ↔ хариуцах сувилагч */}
+                        <div>
+                            <div className="flex items-center gap-2.5 mb-3">
+                                <span className="flex size-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"><Stethoscope className="size-4" /></span>
+                                <h2 className="text-base font-black tracking-tight">Эмч <span className="font-bold text-muted-foreground">↔ хариуцах сувилагч</span></h2>
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">{doctorRows.length}</span>
+                                <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-700" />
+                            </div>
+                            <div className="space-y-2.5">
+                                {doctorRows.map(x => <DoctorPair key={x.s.id} x={x} nurses={nursesByDoctor.get(x.emp.id) ?? []} />)}
+                            </div>
+                            {doctorRows.length === 0 && <p className="px-3 py-6 text-xs text-center text-muted-foreground italic rounded-2xl border border-dashed">Эмчийн цаг тавиагүй байна</p>}
+                            <button onClick={() => setPicker({ kind: 'doctor' })}
+                                className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-900 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors">
+                                <Plus className="size-3.5" /> Эмч нэмэх
+                            </button>
+                        </div>
+
+                        {/* Албан тушаал бүрээр (Ресепшн, Ариутгалын сувилагч, Рентген техникч...) */}
+                        {staffSections.map(sec => (
+                            <div key={sec.key}>
+                                <div className="flex items-center gap-2.5 mb-3">
+                                    <span className={`flex size-8 items-center justify-center rounded-xl ${roleBadge(sec.role)}`}><Users className="size-4" /></span>
+                                    <h2 className="text-base font-black tracking-tight">{sec.label}</h2>
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${roleBadge(sec.role)}`}>{sec.items.length}</span>
+                                    <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-700" />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                                    {sec.items.map(x => <SimpleRow key={x.s.id} x={x} accentHex={colorFor(x.emp)?.text ?? '#6366f1'} />)}
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Ажилтан нэмэх */}
+                        <button onClick={() => setPicker({ kind: 'staff' })}
+                            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-xs font-bold text-muted-foreground hover:bg-muted transition-colors">
+                            <Plus className="size-3.5" /> Ажилтан нэмэх (сувилагч, ресепшн, рентген, үйлчлэгч...)
+                        </button>
+                    </div>
+
+                    {/* Tasks */}
+                    <TaskSection
+                        key={selected}
+                        date={selected}
+                        initial={day_plans[selected] ?? {}}
+                        taskTypes={task_types}
+                        employees={branchEmployees}
+                        doctors={doctors}
+                        empMap={empMap}
+                        colorFor={colorFor}
+                    />
+                </div>
+                  </>
                 )}
+            </div>
+
+            {picker && (
+                <AddPicker
+                    kind={picker.kind}
+                    employees={branchEmployees}
+                    scheduledIds={new Set(dayRows.map(x => x.emp.id))}
+                    onClose={() => setPicker(null)}
+                    onPick={(emp) => { const did = picker.doctorId; setPicker(null); setEditor({ employee: emp, existing: null, presetDoctorId: did }); }}
+                />
+            )}
+
+            {editor && (
+                <CellEditor
+                    employee={editor.employee}
+                    date={selected}
+                    weekStart={week_start}
+                    existing={editor.existing}
+                    presetDoctorId={editor.presetDoctorId}
+                    doctors={doctors}
+                    onClose={() => setEditor(null)}
+                />
+            )}
+
+            <ToastContainer />
+        </AppLayout>
+    );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  Task section ("Хийх ажил")                                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function TaskSection({ date, initial, taskTypes, employees, doctors, empMap, colorFor }: {
+    date: string; initial: DayTasks; taskTypes: Record<string, string>;
+    employees: Employee[]; doctors: Doctor[]; empMap: Map<number, Employee>;
+    colorFor: (e: Employee) => { bg: string; text: string } | null;
+}) {
+    const [tasks, setTasks] = useState<DayTasks>(initial);
+    const [dirty, setDirty] = useState(false);
+    const [busy, setBusy]   = useState(false);
+    useEffect(() => { setTasks(initial); setDirty(false); }, [initial]);
+
+    const nurses = useMemo(() => employees.filter(e => e.role_group === 'nurse' || e.role_group === 'assistant'), [employees]);
+    function update(next: DayTasks) { setTasks(next); setDirty(true); }
+    function save() {
+        setBusy(true);
+        router.post('/hr/work-schedules/save-tasks', { date, tasks: tasks as unknown as Record<string, FormDataConvertible> },
+            { preserveState: true, preserveScroll: true, only: ['day_plans'],
+              onFinish: () => setBusy(false), onSuccess: () => setDirty(false) });
+    }
+
+    const cp = tasks.card_produce ?? [];
+    function setCp(rows: CardProduceRow[]) { update({ ...tasks, card_produce: rows }); }
+    function ntList(key: 'card_collect' | 'model_room' | 'print_cover') { return tasks[key] ?? []; }
+    function setNt(key: 'card_collect' | 'model_room' | 'print_cover', rows: NurseTimeRow[]) { update({ ...tasks, [key]: rows }); }
+    const selCls = 'rounded-lg border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
+
+    return (
+        <div className="border-t border-gray-100 dark:border-gray-800 bg-gradient-to-b from-gray-50/80 to-transparent dark:from-gray-900/40">
+            <div className="flex items-center justify-between px-5 py-3.5">
+                <div className="flex items-center gap-2.5">
+                    <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
+                        <ClipboardList className="size-4" />
+                    </div>
+                    <h3 className="text-base font-black tracking-tight">Хийх ажил</h3>
+                </div>
+                {dirty && (
+                    <button onClick={save} disabled={busy}
+                        className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-500/30 hover:shadow-lg disabled:opacity-50 transition-shadow">
+                        {busy ? <span className="size-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Save className="size-3.5" />}
+                        Хадгалах
+                    </button>
+                )}
+            </div>
+
+            <div className="px-5 pb-5 grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-4 gap-3">
+                {/* Карт, загвар гаргах */}
+                <div className="rounded-2xl border bg-card p-3.5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2.5">
+                        <div className="flex size-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"><ClipboardList className="size-3.5" /></div>
+                        <p className="text-xs font-bold">{taskTypes.card_produce}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                        {cp.map((row, i) => {
+                            const docEmp = row.doctor_id ? empMap.get(row.doctor_id) : undefined;
+                            const col = docEmp ? colorFor(docEmp) : null;
+                            return (
+                                <div key={i} className="flex items-center gap-1.5">
+                                    <select value={row.doctor_id ?? ''} onChange={e => setCp(cp.map((r,j) => j===i ? { ...r, doctor_id: e.target.value ? Number(e.target.value) : null } : r))}
+                                        className={`${selCls} flex-1`} style={col ? { background: col.bg, color: col.text } : undefined}>
+                                        <option value="">— Эмч сонгох —</option>
+                                        {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                    </select>
+                                    <span className="text-muted-foreground text-xs">→</span>
+                                    <select value={row.nurse_id ?? ''} onChange={e => setCp(cp.map((r,j) => j===i ? { ...r, nurse_id: e.target.value ? Number(e.target.value) : null } : r))}
+                                        className={`${selCls} flex-1`}>
+                                        <option value="">— Сувилагч сонгох —</option>
+                                        {nurses.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                    </select>
+                                    <button onClick={() => setCp(cp.filter((_,j) => j!==i))} className="p-1 text-red-400 hover:text-red-600"><X className="size-3.5" /></button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <button onClick={() => setCp([...cp, { doctor_id: null, nurse_id: null }])}
+                        className="mt-2 flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                        <Plus className="size-3" /> Мөр нэмэх
+                    </button>
+                </div>
+
+                <NurseTimeBlock label={taskTypes.card_collect} rows={ntList('card_collect')} nurses={nurses}
+                    onChange={rows => setNt('card_collect', rows)} selCls={selCls} optionalPerson
+                    icon={<CalendarClock className="size-3.5" />} accent="bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400" />
+                <NurseTimeBlock label={taskTypes.model_room} rows={ntList('model_room')} nurses={nurses}
+                    onChange={rows => setNt('model_room', rows)} selCls={selCls}
+                    icon={<ClipboardList className="size-3.5" />} accent="bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400" />
+                <NurseTimeBlock label={taskTypes.print_cover} rows={ntList('print_cover')} nurses={employees}
+                    onChange={rows => setNt('print_cover', rows)} selCls={selCls}
+                    icon={<Printer className="size-3.5" />} accent="bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400" />
+            </div>
+        </div>
+    );
+}
+
+function NurseTimeBlock({ label, rows, nurses, onChange, selCls, optionalPerson, icon, accent }: {
+    label: string; rows: NurseTimeRow[]; nurses: Employee[];
+    onChange: (rows: NurseTimeRow[]) => void; selCls: string; optionalPerson?: boolean;
+    icon?: React.ReactNode; accent?: string;
+}) {
+    return (
+        <div className="rounded-2xl border bg-card p-3.5 shadow-sm">
+            <div className="flex items-center gap-2 mb-2.5">
+                {icon && <div className={`flex size-6 items-center justify-center rounded-lg ${accent}`}>{icon}</div>}
+                <p className="text-xs font-bold">{label}</p>
+            </div>
+            <div className="space-y-1.5">
+                {rows.map((row, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                        <select value={row.person_id ?? ''} onChange={e => onChange(rows.map((r,j) => j===i ? { ...r, person_id: e.target.value ? Number(e.target.value) : null } : r))}
+                            className={`${selCls} flex-1`}>
+                            <option value="">{optionalPerson ? '— Сонгох (заавал биш) —' : '— Сонгох —'}</option>
+                            {nurses.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                        </select>
+                        <input value={row.time} onChange={e => onChange(rows.map((r,j) => j===i ? { ...r, time: e.target.value } : r))}
+                            placeholder="20:00-20:30" className={`${selCls} w-28`} />
+                        <button onClick={() => onChange(rows.filter((_,j) => j!==i))} className="p-1 text-red-400 hover:text-red-600"><X className="size-3.5" /></button>
+                    </div>
+                ))}
+            </div>
+            <button onClick={() => onChange([...rows, { person_id: null, time: '' }])}
+                className="mt-2 flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+                <Plus className="size-3" /> Мөр нэмэх
+            </button>
+        </div>
+    );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  Add picker                                                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function AddPicker({ kind, employees, scheduledIds, onClose, onPick }: {
+    kind: 'doctor' | 'staff' | 'nurse'; employees: Employee[];
+    scheduledIds: Set<number>; onClose: () => void; onPick: (e: Employee) => void;
+}) {
+    const [q, setQ] = useState('');
+    const roles = kind === 'doctor' ? new Set(['doctor'])
+        : kind === 'nurse' ? RIGHT_ROLES
+        : new Set([...LEFT_ROLES, ...RIGHT_ROLES].filter(r => r !== 'doctor'));
+    const title = kind === 'doctor' ? 'Эмч нэмэх' : kind === 'nurse' ? 'Сувилагч нэмэх' : 'Ажилтан нэмэх';
+    const list = employees
+        .filter(e => roles.has(e.role_group) && !scheduledIds.has(e.id))
+        .filter(e => !q || e.name.toLowerCase().includes(q.toLowerCase()));
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+            <div className="w-full max-w-sm rounded-3xl border bg-card shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-5 py-3.5 border-b">
+                    <h3 className="font-bold text-sm">{title}</h3>
+                    <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-muted"><X className="size-4" /></button>
+                </div>
+                <div className="p-3">
+                    <input value={q} onChange={e => setQ(e.target.value)} placeholder="Хайх..." autoFocus
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <div className="max-h-80 overflow-y-auto space-y-1">
+                        {list.map(e => (
+                            <button key={e.id} onClick={() => onPick(e)}
+                                className="w-full flex items-center justify-between text-left rounded-lg px-3 py-2 hover:bg-muted">
+                                <span className="text-sm font-medium">{e.name}</span>
+                                {e.position && <span className="text-[11px] text-muted-foreground">{e.position}</span>}
+                            </button>
+                        ))}
+                        {list.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">Олдсонгүй</p>}
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-export default function WorkSchedulesIndex() {
-    const { schedules: serverSchedules, employees, doctors, branches, year, month } =
-        usePage<PageProps>().props;
+/*  Cell editor                                                                 */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function CellEditor({ employee, date, weekStart, existing, presetDoctorId, doctors, onClose }: {
+    employee: Employee; date: string; weekStart: string; existing: Schedule | null;
+    presetDoctorId?: number; doctors: Doctor[]; onClose: () => void;
+}) {
+    const showAssign = employee.role_group === 'nurse' || employee.role_group === 'assistant';
+    const def = shiftDefaults(employee.role_group, 'full');
 
-    const [schedules,    setSchedules]    = useState(serverSchedules);
-    const [view,         setView]         = useState<ViewMode>('month');
-    const [focusDate,    setFocusDate]    = useState(() => {
-        const n = new Date();
-        return toDateStr(n.getFullYear(), n.getMonth()+1, n.getDate());
-    });
-    const [filterBranch, setFilterBranch] = useState<number | ''>('');
-    const [filterEmp,    setFilterEmp]    = useState<number | ''>('');
-    const [dayPopup,     setDayPopup]     = useState<string | null>(null);
+    const [shift, setShift] = useState(existing?.shift_type ?? 'full');
+    const [start, setStart] = useState(existing?.start_time ?? def[0]);
+    const [end,   setEnd]   = useState(existing?.end_time ?? def[1]);
+    const [docId, setDocId] = useState(existing?.assigned_doctor_id ? String(existing.assigned_doctor_id) : (presetDoctorId ? String(presetDoctorId) : ''));
+    const [applyWeek, setApplyWeek] = useState(false);
+    const [weekdaysOnly, setWeekdaysOnly] = useState(true);
+    const [busy, setBusy] = useState(false);
 
-    // Modal
-    const [modal,    setModal]        = useState<'create'|'edit'|null>(null);
-    const [editItem, setEditItem]     = useState<Schedule|null>(null);
+    const d = parseDate(date);
+    const dayLabel = `${DAYS_FULL[(d.getDay()+6)%7]}, ${d.getDate()} ${MONTHS_MN[d.getMonth()]}`;
 
-    useEffect(() => setSchedules(serverSchedules), [serverSchedules]);
+    function pickShift(v: string) {
+        setShift(v);
+        if (v !== 'off' && v !== 'custom') { const [a, b] = shiftDefaults(employee.role_group, v); setStart(a); setEnd(b); }
+        if (v === 'off') { setStart(''); setEnd(''); }
+    }
+    const opts = { preserveState: true, preserveScroll: true, only: ['schedules'] as string[],
+        onStart: () => setBusy(true), onFinish: () => setBusy(false), onSuccess: onClose };
 
-    /* ── Form ── */
-    const { data, setData, post, put, delete: destroy, processing, errors, reset } = useForm({
-        employee_id: '', date: '', shift_type: 'full',
-        start_time: '08:30', end_time: '20:30',
-        room: '', assigned_doctor_id: '', notes: '',
-    });
-
-    /* ── Server navigation (month reload) ── */
-    function loadMonth(y: number, m: number, keepFocus?: string) {
-        router.get('/hr/work-schedules', { year: y, month: m }, {
-            preserveState: true,
-            only: ['schedules', 'year', 'month'],
-            onSuccess: () => { if (keepFocus) setFocusDate(keepFocus); },
-        });
+    function save() {
+        const base = {
+            employee_id: employee.id, shift_type: shift,
+            start_time: shift === 'off' ? null : (start || null),
+            end_time: shift === 'off' ? null : (end || null),
+            assigned_doctor_id: showAssign && docId ? Number(docId) : null,
+            room: null,
+        };
+        if (applyWeek) router.post('/hr/work-schedules/row-fill', { ...base, week_start: weekStart, weekdays_only: weekdaysOnly }, opts);
+        else router.post('/hr/work-schedules', { ...base, date }, opts);
+    }
+    function clearCell() {
+        if (!existing) { onClose(); return; }
+        if (!confirm('Энэ өдрийн хуваарийг устгах уу?')) return;
+        router.delete(`/hr/work-schedules/${existing.id}`, opts);
     }
 
-    /* ── Month view navigation ── */
-    function navMonth(dy: number) {
-        let m = month + dy, y = year;
-        if (m > 12) { m = 1; y++; }
-        if (m < 1)  { m = 12; y--; }
-        loadMonth(y, m);
-    }
-
-    /* ── Week view navigation ── */
-    function getWeekDates(): Date[] {
-        const mon = getMondayOfWeek(parseDate(focusDate));
-        return Array.from({ length: 7 }, (_, i) => addDays(mon, i));
-    }
-    function navWeek(dir: number) {
-        const mon = getMondayOfWeek(parseDate(focusDate));
-        const next = addDays(mon, dir * 7);
-        const newFocus = toDateStr(next.getFullYear(), next.getMonth()+1, next.getDate());
-        setFocusDate(newFocus);
-        const nm = next.getMonth()+1, ny = next.getFullYear();
-        if (ny !== year || nm !== month) loadMonth(ny, nm, newFocus);
-    }
-
-    /* ── Day view navigation ── */
-    function navDay(dir: number) {
-        const d = parseDate(focusDate);
-        const next = addDays(d, dir);
-        const newFocus = toDateStr(next.getFullYear(), next.getMonth()+1, next.getDate());
-        setFocusDate(newFocus);
-        const nm = next.getMonth()+1, ny = next.getFullYear();
-        if (ny !== year || nm !== month) loadMonth(ny, nm, newFocus);
-    }
-
-    /* ── Modal helpers ── */
-    function openCreate(dateStr: string) {
-        reset();
-        setData(d => ({ ...d, date: dateStr, shift_type: 'full', start_time: '08:30', end_time: '20:30' }));
-        setEditItem(null); setDayPopup(null); setModal('create');
-    }
-    function openEdit(s: Schedule, e?: React.MouseEvent) {
-        e?.stopPropagation();
-        setData({
-            employee_id:        String(s.employee_id),
-            date:               s.date,
-            shift_type:         s.shift_type,
-            start_time:         s.start_time  ?? '',
-            end_time:           s.end_time    ?? '',
-            room:               s.room        ?? '',
-            assigned_doctor_id: s.assigned_doctor_id ? String(s.assigned_doctor_id) : '',
-            notes:              s.notes       ?? '',
-        });
-        setEditItem(s); setDayPopup(null); setModal('edit');
-    }
-    function handleShiftChange(v: string) {
-        const def = SHIFT_DEFAULTS[v];
-        setData(d => ({ ...d, shift_type: v, start_time: def.start, end_time: def.end }));
-    }
-    function handleCreate(e: FormEvent) {
-        e.preventDefault();
-        post('/hr/work-schedules', { preserveScroll: true, onSuccess: () => { setModal(null); reset(); } });
-    }
-    function handleUpdate(e: FormEvent) {
-        e.preventDefault();
-        if (!editItem) return;
-        put(`/hr/work-schedules/${editItem.id}`, { preserveScroll: true, onSuccess: () => { setModal(null); reset(); } });
-    }
-    function handleDelete() {
-        if (!editItem || !confirm('Устгах уу?')) return;
-        destroy(`/hr/work-schedules/${editItem.id}`, { preserveScroll: true, onSuccess: () => setModal(null) });
-    }
-
-    /* ── Filtered data ── */
-    const branchEmpIds = filterBranch
-        ? new Set(employees.filter(e => e.branch_id === filterBranch).map(e => e.id))
-        : null;
-    const filtered = schedules.filter(s => {
-        if (filterEmp   && s.employee_id !== filterEmp)          return false;
-        if (branchEmpIds && !branchEmpIds.has(s.employee_id))    return false;
-        return true;
-    });
-    const byDate = filtered.reduce<Record<string, Schedule[]>>((acc, s) => {
-        (acc[s.date] ??= []).push(s); return acc;
-    }, {});
-
-    const displayedEmployees = filterBranch
-        ? employees.filter(e => e.branch_id === filterBranch)
-        : employees;
-
-    const selectedEmp   = employees.find(e => String(e.id) === data.employee_id);
-    const showDocPicker = isNurseOrAssistant(selectedEmp?.position ?? null)
-                       || (modal === 'edit' && isNurseOrAssistant(editItem?.employee_position ?? null));
-
-    /* ── Week dates ── */
-    const weekDates = getWeekDates();
-
-    /* ── Header label ── */
-    const headerLabel = view === 'month'
-        ? `${year} · ${MONTHS_MN[month-1]}`
-        : view === 'week'
-            ? (() => {
-                const [mon, sun] = [weekDates[0], weekDates[6]];
-                return `${mon.getMonth()===sun.getMonth()
-                    ? `${MONTHS_MN[mon.getMonth()]} ${mon.getDate()}–${sun.getDate()}`
-                    : `${mon.getDate()} ${MONTHS_MN[mon.getMonth()]} – ${sun.getDate()} ${MONTHS_MN[sun.getMonth()]}`}`;
-              })()
-            : (() => {
-                const d = parseDate(focusDate);
-                return `${DAYS_FULL[(d.getDay()+6)%7]}, ${d.getDate()} ${MONTHS_MN[d.getMonth()]}`;
-              })();
-
-    /* ══════════════════════════ RENDER ══════════════════════════ */
     return (
-        <AppLayout breadcrumbs={[{ title: 'HR', href: '/hr/employees' }, { title: 'Ажлын хуваарь', href: '/hr/work-schedules' }]}>
-            <div className="p-4 md:p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+            <div className="w-full max-w-md rounded-3xl border bg-card shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-slate-50 to-indigo-50/50 dark:from-gray-900 dark:to-indigo-950/30">
+                    <div>
+                        <h3 className="font-black text-foreground tracking-tight">{employee.name}</h3>
+                        <p className="text-xs text-muted-foreground">{employee.position ?? ''} · {dayLabel}</p>
+                    </div>
+                    <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-muted"><X className="size-4" /></button>
+                </div>
 
-                {/* ── Top bar ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                            <CalendarDays className="size-5 text-blue-500" />
-                            Ажлын хуваарь
-                        </h1>
-
-                        {/* View toggle */}
-                        <div className="flex rounded-xl border bg-card overflow-hidden text-sm">
-                            {(['month','week','day'] as ViewMode[]).map(v => (
-                                <button key={v} onClick={() => { setView(v); if (v==='day'&&!focusDate) setFocusDate(toDateStr(year,month,1)); }}
-                                    className={`px-3 py-1.5 font-medium transition-colors ${view===v ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-muted'}`}>
-                                    {v==='month'?'Сар':v==='week'?'7 хоног':'Өдөр'}
+                <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+                    <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Ээлж</label>
+                        <div className="grid grid-cols-5 gap-1.5">
+                            {SHIFTS.map(s => (
+                                <button key={s.value} type="button" onClick={() => pickShift(s.value)}
+                                    className={`rounded-lg py-2 text-xs font-semibold transition-colors ${
+                                        shift === s.value ? `${SHIFT_BTN[s.value]} text-white` : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}>
+                                    {s.label}
                                 </button>
                             ))}
                         </div>
-
-                        {/* Navigation */}
-                        <div className="flex items-center gap-1 rounded-xl border bg-card px-1">
-                            <button onClick={() => view==='month' ? navMonth(-1) : view==='week' ? navWeek(-1) : navDay(-1)}
-                                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-                                <ChevronLeft className="size-4" />
-                            </button>
-                            <span className="text-sm font-semibold px-2 min-w-[120px] text-center">{headerLabel}</span>
-                            <button onClick={() => view==='month' ? navMonth(1)  : view==='week' ? navWeek(1)  : navDay(1)}
-                                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-                                <ChevronRight className="size-4" />
-                            </button>
-                        </div>
-
-                        {/* Today */}
-                        <button onClick={() => {
-                            const n = new Date();
-                            const fd = toDateStr(n.getFullYear(),n.getMonth()+1,n.getDate());
-                            setFocusDate(fd);
-                            if (n.getFullYear()!==year||(n.getMonth()+1)!==month) loadMonth(n.getFullYear(),n.getMonth()+1,fd);
-                        }} className="px-3 py-1.5 rounded-xl border bg-card text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
-                            Өнөөдөр
-                        </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        {branches.length > 0 && (
-                            <select value={filterBranch}
-                                onChange={e => { setFilterBranch(e.target.value ? Number(e.target.value) : ''); setFilterEmp(''); }}
-                                className="rounded-xl border bg-background text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 max-w-[160px]">
-                                <option value="">Бүх салбар</option>
-                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {shift !== 'off' && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-muted-foreground mb-1">Эхлэх</label>
+                                <input type="time" value={start} onChange={e => setStart(e.target.value)}
+                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-muted-foreground mb-1">Дуусах</label>
+                                <input type="time" value={end} onChange={e => setEnd(e.target.value)}
+                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            </div>
+                        </div>
+                    )}
+
+                    {showAssign && shift !== 'off' && (
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                                <Stethoscope className="size-3" /> Хариуцах эмч <span className="opacity-60">(заавал биш)</span>
+                            </label>
+                            <select value={docId} onChange={e => setDocId(e.target.value)}
+                                className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="">— Эмч сонгох —</option>
+                                {doctors.map(dc => <option key={dc.id} value={dc.id}>{dc.name}</option>)}
                             </select>
+                        </div>
+                    )}
+
+                    <div className="rounded-xl border border-dashed border-indigo-300 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 p-3 space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-300 cursor-pointer">
+                            <input type="checkbox" checked={applyWeek} onChange={e => setApplyWeek(e.target.checked)}
+                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                            Энэ ээлжийг долоо хоногийн бүх өдөрт тавих
+                        </label>
+                        {applyWeek && (
+                            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer pl-6">
+                                <input type="checkbox" checked={weekdaysOnly} onChange={e => setWeekdaysOnly(e.target.checked)}
+                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                Зөвхөн ажлын өдрүүд (Да–Ба)
+                            </label>
                         )}
-                        <select value={filterEmp} onChange={e => setFilterEmp(e.target.value ? Number(e.target.value) : '')}
-                            className="rounded-xl border bg-background text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 max-w-[180px]">
-                            <option value="">Бүх ажилтан</option>
-                            {displayedEmployees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                        </select>
-                        <button onClick={() => openCreate(focusDate || toDateStr(year,month,new Date().getDate()))}
-                            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-                            <Plus className="size-4" /> Хуваарь нэмэх
+                    </div>
+                </div>
+
+                <div className="flex gap-2 px-5 py-4 border-t">
+                    <button onClick={save} disabled={busy}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-500/30 hover:shadow-lg disabled:opacity-50 transition-shadow">
+                        {busy ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <CalendarClock className="size-4" />}
+                        Хадгалах
+                    </button>
+                    {existing && (
+                        <button onClick={clearCell} disabled={busy}
+                            className="rounded-xl border border-red-200 dark:border-red-800 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30">
+                            <Trash2 className="size-4" />
                         </button>
-                    </div>
+                    )}
+                    <button onClick={onClose} className="rounded-xl border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">Цуцлах</button>
                 </div>
-
-                {/* ── Legend ── */}
-                <div className="flex flex-wrap gap-3">
-                    {SHIFTS.map(s => (
-                        <div key={s.value} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <span className={`size-2.5 rounded-full ${SHIFT_DOT[s.value]}`} />
-                            {s.label}{s.time ? ` (${s.time})` : ''}
-                        </div>
-                    ))}
-                </div>
-
-                {/* ══════════════ MONTH VIEW ══════════════ */}
-                {view === 'month' && (() => {
-                    const grid = buildMonthGrid(year, month);
-                    return (
-                        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-card shadow-sm">
-                            <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                                {DAYS_MN.map(d => (
-                                    <div key={d} className="py-2 text-center text-xs font-semibold text-muted-foreground">{d}</div>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-7">
-                                {grid.map((day, idx) => {
-                                    const dateStr     = day ? toDateStr(year,month,day) : '';
-                                    const dayScheds   = day ? (byDate[dateStr] ?? []) : [];
-                                    const today       = day ? isToday(year,month,day) : false;
-                                    const isWeekend   = idx%7 >= 5;
-                                    const MAX_SHOW    = 3;
-                                    const visible     = dayScheds.slice(0, MAX_SHOW);
-                                    const remaining   = dayScheds.length - MAX_SHOW;
-
-                                    return (
-                                        <div key={idx}
-                                            onClick={() => day && openCreate(dateStr)}
-                                            className={`relative min-h-[110px] border-b border-r border-gray-100 dark:border-gray-800 p-1.5 transition-all
-                                                ${day ? 'cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/10' : 'bg-gray-50/50 dark:bg-gray-900/30'}
-                                                ${isWeekend && day ? 'bg-orange-50/40 dark:bg-orange-900/5' : ''}
-                                                ${today ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}
-                                            `}>
-                                            {/* Colored top accent */}
-                                            {day && dayScheds.length > 0 && (
-                                                <div className={`absolute inset-x-0 top-0 h-[3px] rounded-t
-                                                    ${dayScheds.some(s => s.shift_type === 'full') ? 'bg-emerald-400'
-                                                    : dayScheds.some(s => s.shift_type === 'morning') ? 'bg-sky-400'
-                                                    : dayScheds.some(s => s.shift_type === 'afternoon') ? 'bg-orange-400'
-                                                    : 'bg-gray-300'}`} />
-                                            )}
-                                            {day && (
-                                                <>
-                                                    {/* Date + count */}
-                                                    <div className="flex items-center justify-between mb-1 pt-0.5">
-                                                        <button
-                                                            onClick={e => { e.stopPropagation(); setFocusDate(dateStr); setView('day'); }}
-                                                            className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full hover:ring-2 hover:ring-blue-400 transition-all
-                                                                ${today ? 'bg-blue-600 text-white' : isWeekend ? 'text-orange-500' : 'text-gray-700 dark:text-gray-300'}
-                                                            `}>
-                                                            {day}
-                                                        </button>
-                                                        {dayScheds.length > 0 && (
-                                                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full
-                                                                ${today ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-800 text-muted-foreground'}`}>
-                                                                {dayScheds.length}
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Chips or compact summary */}
-                                                    {dayScheds.length > 5 ? (
-                                                        /* Compact mode: 5+ employees → shift summary */
-                                                        <button
-                                                            onClick={e => { e.stopPropagation(); setDayPopup(dateStr); }}
-                                                            className="w-full space-y-0.5 text-left">
-                                                            {(['morning','full','afternoon','off'] as const).map(type => {
-                                                                const cnt = dayScheds.filter(s => s.shift_type === type).length;
-                                                                if (!cnt) return null;
-                                                                return (
-                                                                    <div key={type} className={`flex items-center justify-between rounded-md px-1.5 py-0.5 ${SHIFT_COLORS[type]}`}>
-                                                                        <div className="flex items-center gap-1">
-                                                                            <span className={`size-1.5 rounded-full shrink-0 ${SHIFT_DOT[type]}`} />
-                                                                            <span className="text-[9px] font-semibold">{getShiftShort(type)}</span>
-                                                                        </div>
-                                                                        <span className="text-[10px] font-black">{cnt}</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </button>
-                                                    ) : (
-                                                        /* Normal chip display */
-                                                        <div className="space-y-0.5">
-                                                            {visible.map(s => (
-                                                                <ScheduleChip key={s.id} s={s} onClick={e => openEdit(s, e)} />
-                                                            ))}
-                                                            {remaining > 0 && (
-                                                                <button
-                                                                    onClick={e => { e.stopPropagation(); setDayPopup(dateStr); }}
-                                                                    className="w-full text-left px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-                                                                    +{remaining} ажилтан
-                                                                </button>
-                                                            )}
-                                                            {dayScheds.length === 0 && (
-                                                                <div className="text-[9px] text-gray-300 dark:text-gray-700 pt-1">—</div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* ══════════════ WEEK VIEW ══════════════ */}
-                {view === 'week' && (
-                    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-card shadow-sm">
-                        {/* Week header */}
-                        <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
-                            {weekDates.map((d, i) => {
-                                const ds    = toDateStr(d.getFullYear(), d.getMonth()+1, d.getDate());
-                                const today = isTodayStr(ds);
-                                const wkend = i >= 5;
-                                const cnt   = byDate[ds]?.length ?? 0;
-                                return (
-                                    <div key={i} className={`py-3 text-center border-r border-gray-200 dark:border-gray-700 last:border-r-0 transition-colors
-                                        ${today ? 'bg-blue-600' : wkend ? 'bg-orange-50 dark:bg-orange-950/20' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
-                                        <p className={`text-[11px] font-semibold ${today ? 'text-blue-100' : wkend ? 'text-orange-400 dark:text-orange-500' : 'text-muted-foreground'}`}>
-                                            {DAYS_MN[i]}
-                                        </p>
-                                        <button
-                                            onClick={() => { setFocusDate(ds); setView('day'); }}
-                                            className={`mx-auto mt-1 text-sm font-bold flex items-center justify-center w-8 h-8 rounded-full transition-all
-                                                ${today ? 'bg-white/20 text-white hover:bg-white/30'
-                                                : wkend ? 'text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30'
-                                                : 'text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700'}
-                                            `}>
-                                            {d.getDate()}
-                                        </button>
-                                        {cnt > 0 ? (
-                                            <span className={`mt-1.5 inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full
-                                                ${today ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-muted-foreground'}`}>
-                                                {cnt}
-                                            </span>
-                                        ) : (
-                                            <span className="mt-1.5 inline-block text-[10px] opacity-0 select-none">0</span>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Week body */}
-                        <div className="grid grid-cols-7 divide-x divide-gray-100 dark:divide-gray-800">
-                            {weekDates.map((d, i) => {
-                                const ds     = toDateStr(d.getFullYear(), d.getMonth()+1, d.getDate());
-                                const scheds = byDate[ds] ?? [];
-                                const wkend  = i >= 5;
-                                const today  = isTodayStr(ds);
-                                return (
-                                    <div key={i}
-                                        onClick={() => openCreate(ds)}
-                                        className={`min-h-[200px] p-2 cursor-pointer transition-colors space-y-1.5
-                                            ${today ? 'bg-blue-50/30 dark:bg-blue-900/10 hover:bg-blue-50/50 dark:hover:bg-blue-900/15'
-                                            : wkend ? 'bg-orange-50/30 dark:bg-orange-900/5 hover:bg-orange-50/60 dark:hover:bg-orange-900/10'
-                                            : 'hover:bg-gray-50 dark:hover:bg-gray-800/40'}
-                                        `}>
-                                        {scheds.map(s => (
-                                            <WeekCard key={s.id} s={s} onClick={e => openEdit(s, e)} />
-                                        ))}
-                                        {scheds.length === 0 && (
-                                            <div className="flex items-center justify-center min-h-[120px]">
-                                                <Plus className="size-4 text-gray-200 dark:text-gray-700" />
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* ══════════════ DAY VIEW ══════════════ */}
-                {view === 'day' && (() => {
-                    const dayScheds = byDate[focusDate] ?? [];
-                    const d         = parseDate(focusDate);
-                    const today     = isTodayStr(focusDate);
-                    const dow       = (d.getDay() + 6) % 7; // Mon=0
-                    const isWeekend = dow >= 5;
-
-                    const SHIFT_ORDER = ['morning', 'full', 'afternoon', 'off'];
-                    const groups = SHIFT_ORDER.map(key => ({
-                        key,
-                        items: dayScheds.filter(s => s.shift_type === key),
-                    })).filter(g => g.items.length > 0);
-
-                    const AVATAR_BG: Record<string, string> = {
-                        morning:   'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
-                        afternoon: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
-                        full:      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
-                        off:       'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-                    };
-                    const GROUP_HEADER: Record<string, string> = {
-                        morning:   'bg-sky-50 border-sky-200 dark:bg-sky-900/20 dark:border-sky-800',
-                        afternoon: 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800',
-                        full:      'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800',
-                        off:       'bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-700',
-                    };
-                    const GROUP_TITLE: Record<string, string> = {
-                        morning:   'text-sky-700 dark:text-sky-300',
-                        afternoon: 'text-orange-700 dark:text-orange-300',
-                        full:      'text-emerald-700 dark:text-emerald-300',
-                        off:       'text-gray-500 dark:text-gray-400',
-                    };
-
-                    return (
-                        <div className="space-y-5">
-
-                            {/* ── Date banner ── */}
-                            <div className={`rounded-2xl border overflow-hidden ${today ? 'border-blue-200 dark:border-blue-800' : isWeekend ? 'border-orange-200 dark:border-orange-800' : 'border-gray-200 dark:border-gray-700'}`}>
-                                <div className={`px-6 py-5 flex items-center gap-5
-                                    ${today ? 'bg-gradient-to-r from-blue-600 to-blue-500'
-                                    : isWeekend ? 'bg-gradient-to-r from-orange-500 to-orange-400'
-                                    : 'bg-gradient-to-r from-gray-700 to-gray-600 dark:from-gray-600 dark:to-gray-700'}`}>
-                                    {/* Big day number */}
-                                    <div className="text-white">
-                                        <p className="text-5xl font-black leading-none">{d.getDate()}</p>
-                                        <p className="text-sm font-semibold opacity-80 mt-1">{MONTHS_MN[d.getMonth()]} {d.getFullYear()}</p>
-                                    </div>
-
-                                    <div className="w-px h-12 bg-white/20" />
-
-                                    {/* Day name + stats */}
-                                    <div className="flex-1">
-                                        <p className="text-white text-xl font-bold">{DAYS_FULL[dow]}</p>
-                                        {today && <span className="inline-block mt-1 text-[11px] bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">Өнөөдөр</span>}
-                                        {isWeekend && !today && <span className="inline-block mt-1 text-[11px] bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">Амралтын өдөр</span>}
-                                    </div>
-
-                                    {/* Stats */}
-                                    <div className="text-right">
-                                        <p className="text-3xl font-black text-white">{dayScheds.filter(s => s.shift_type !== 'off').length}</p>
-                                        <p className="text-xs text-white/70">ажлын ажилтан</p>
-                                        {dayScheds.some(s => s.shift_type === 'off') && (
-                                            <p className="text-xs text-white/50 mt-0.5">{dayScheds.filter(s => s.shift_type === 'off').length} амралттай</p>
-                                        )}
-                                    </div>
-
-                                    {/* Add button */}
-                                    <button onClick={() => openCreate(focusDate)}
-                                        className="flex items-center gap-1.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 px-3 py-2 text-white text-sm font-semibold transition-colors">
-                                        <Plus className="size-4" /> Нэмэх
-                                    </button>
-                                </div>
-
-                                {/* Shift summary bar */}
-                                {dayScheds.length > 0 && (
-                                    <div className="flex divide-x divide-gray-100 dark:divide-gray-800 bg-card">
-                                        {SHIFTS.map(s => {
-                                            const cnt = dayScheds.filter(x => x.shift_type === s.value).length;
-                                            if (!cnt) return null;
-                                            return (
-                                                <div key={s.value} className="flex-1 flex items-center gap-2 px-4 py-2.5">
-                                                    <span className={`size-2.5 rounded-full shrink-0 ${SHIFT_DOT[s.value]}`} />
-                                                    <div>
-                                                        <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{cnt} ажилтан</p>
-                                                        <p className="text-[10px] text-muted-foreground">{s.label}</p>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* ── Empty state ── */}
-                            {dayScheds.length === 0 && (
-                                <div className="py-20 text-center rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-                                    <CalendarDays className="size-12 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-                                    <p className="text-sm text-muted-foreground">Энэ өдөр хуваарь байхгүй байна</p>
-                                    <button onClick={() => openCreate(focusDate)}
-                                        className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-                                        <Plus className="size-4" /> Хуваарь нэмэх
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* ── Shift groups ── */}
-                            {groups.map(group => (
-                                <div key={group.key} className="space-y-2">
-                                    {/* Group header */}
-                                    <div className={`flex items-center gap-2.5 rounded-xl border px-4 py-2.5 ${GROUP_HEADER[group.key]}`}>
-                                        <span className={`size-3 rounded-full shrink-0 ${SHIFT_DOT[group.key]}`} />
-                                        <span className={`font-bold text-sm ${GROUP_TITLE[group.key]}`}>
-                                            {SHIFTS.find(s => s.value === group.key)?.label}
-                                        </span>
-                                        {SHIFTS.find(s => s.value === group.key)?.time && (
-                                            <span className={`text-xs opacity-60 ${GROUP_TITLE[group.key]}`}>
-                                                {SHIFTS.find(s => s.value === group.key)?.time}
-                                            </span>
-                                        )}
-                                        <span className={`ml-auto text-xs font-semibold ${GROUP_TITLE[group.key]}`}>
-                                            {group.items.length} ажилтан
-                                        </span>
-                                    </div>
-
-                                    {/* Employee cards */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
-                                        {group.items.map(s => (
-                                            <button key={s.id} onClick={() => openEdit(s)}
-                                                className="text-left rounded-xl border border-gray-200 dark:border-gray-700 bg-card hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all group p-3.5 flex items-start gap-3">
-
-                                                {/* Avatar */}
-                                                <div className={`size-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0 ${AVATAR_BG[s.shift_type]}`}>
-                                                    {initials(s.employee_name)}
-                                                </div>
-
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                                        {shortName(s.employee_name)}
-                                                    </p>
-                                                    {s.employee_position && (
-                                                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{s.employee_position}</p>
-                                                    )}
-                                                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1.5">
-                                                        {s.start_time && (
-                                                            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                                                <span className={`size-1.5 rounded-full ${SHIFT_DOT[s.shift_type]}`} />
-                                                                {s.start_time}–{s.end_time}
-                                                            </span>
-                                                        )}
-                                                        {s.room && (
-                                                            <span className="text-[11px] text-muted-foreground">📍 {s.room}</span>
-                                                        )}
-                                                    </div>
-                                                    {s.assigned_doctor_name && (
-                                                        <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 truncate">
-                                                            <Stethoscope className="size-3 shrink-0" />
-                                                            {shortName(s.assigned_doctor_name)}
-                                                        </p>
-                                                    )}
-                                                    {s.notes && (
-                                                        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1 italic">{s.notes}</p>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    );
-                })()}
             </div>
-
-            {/* ── Day popup ("+N more") ── */}
-            {dayPopup && (
-                <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setDayPopup(null)}>
-                    <div className="fixed bottom-0 left-0 right-0 sm:absolute sm:inset-auto z-50"
-                        onClick={e => e.stopPropagation()}
-                        style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div className="w-full max-w-sm rounded-2xl border bg-card shadow-xl p-4 mx-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-sm">{dayPopup} — бүх хуваарь</h4>
-                                <button onClick={() => setDayPopup(null)}><X className="size-4 text-muted-foreground" /></button>
-                            </div>
-                            <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                                {(byDate[dayPopup] ?? []).map(s => (
-                                    <PopupCard key={s.id} s={s} onClick={() => openEdit(s)} />
-                                ))}
-                            </div>
-                            <button onClick={() => { setDayPopup(null); openCreate(dayPopup); }}
-                                className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-                                <Plus className="size-4" /> Хуваарь нэмэх
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Create / Edit Modal ── */}
-            {modal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-md rounded-2xl border bg-card shadow-xl overflow-hidden">
-                        <div className="flex items-center justify-between px-5 py-4 border-b">
-                            <h3 className="font-bold text-foreground">
-                                {modal==='create' ? 'Хуваарь нэмэх' : 'Хуваарь засах'}
-                            </h3>
-                            <button onClick={() => { setModal(null); reset(); }}
-                                className="rounded-lg p-1 text-muted-foreground hover:bg-muted transition-colors">
-                                <X className="size-4" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={modal==='create' ? handleCreate : handleUpdate}
-                            className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-
-                            {/* Employee */}
-                            {modal==='create' ? (
-                                <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1">Ажилтан *</label>
-                                    <select value={data.employee_id} onChange={e => setData('employee_id', e.target.value)}
-                                        className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="">— Ажилтан сонгох —</option>
-                                        {displayedEmployees.map(e => (
-                                            <option key={e.id} value={e.id}>{e.name}{e.position ? ` · ${e.position}` : ''}</option>
-                                        ))}
-                                    </select>
-                                    {errors.employee_id && <p className="mt-1 text-xs text-red-500">{errors.employee_id}</p>}
-                                </div>
-                            ) : (
-                                <div className="rounded-xl bg-muted/40 px-3 py-2 text-sm">
-                                    <span className="font-medium">{editItem?.employee_name}</span>
-                                    {editItem?.employee_position && <span className="text-muted-foreground ml-2 text-xs">{editItem.employee_position}</span>}
-                                </div>
-                            )}
-
-                            {/* Date */}
-                            <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">Огноо *</label>
-                                <input type="date" value={data.date} onChange={e => setData('date', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                {errors.date && <p className="mt-1 text-xs text-red-500">{errors.date}</p>}
-                            </div>
-
-                            {/* Shift type */}
-                            <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Ээлжийн төрөл *</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {SHIFTS.map(s => (
-                                        <button key={s.value} type="button" onClick={() => handleShiftChange(s.value)}
-                                            className={`rounded-xl border py-2.5 px-2 text-xs font-medium text-center transition-colors ${
-                                                data.shift_type===s.value
-                                                    ? `${SHIFT_COLORS[s.value]} border-current`
-                                                    : 'text-muted-foreground hover:bg-muted border-border'
-                                            }`}>
-                                            <div className={`size-2 rounded-full mx-auto mb-1 ${SHIFT_DOT[s.value]}`} />
-                                            <div>{s.label}</div>
-                                            {s.time && <div className="text-[10px] opacity-60 mt-0.5">{s.time}</div>}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Times */}
-                            {data.shift_type !== 'off' && (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-xs font-medium text-muted-foreground mb-1">Эхлэх цаг</label>
-                                        <input type="time" value={data.start_time} onChange={e => setData('start_time', e.target.value)}
-                                            className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-muted-foreground mb-1">Дуусах цаг</label>
-                                        <input type="time" value={data.end_time} onChange={e => setData('end_time', e.target.value)}
-                                            className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Room */}
-                            <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                                    Өрөө / Суудал <span className="opacity-60">(заавал биш)</span>
-                                </label>
-                                <input value={data.room} onChange={e => setData('room', e.target.value)}
-                                    placeholder="Жнэ: Өрөө 1, Суудал A..."
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                            </div>
-
-                            {/* Doctor picker for nurses/assistants */}
-                            {showDocPicker && (
-                                <div>
-                                    <label className="block text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                                        <Stethoscope className="size-3" /> Хариуцах эмч <span className="opacity-60">(заавал биш)</span>
-                                    </label>
-                                    <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs text-blue-700 dark:text-blue-300 mb-1.5">
-                                        Тухайн өдөр ямар эмчтэй хамт ажиллахыг сонгоно
-                                    </div>
-                                    <select value={data.assigned_doctor_id} onChange={e => setData('assigned_doctor_id', e.target.value)}
-                                        className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="">— Эмч сонгох —</option>
-                                        {doctors.map(d => (
-                                            <option key={d.id} value={d.id}>{d.name}{d.position ? ` · ${d.position}` : ''}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {/* Notes */}
-                            <div>
-                                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                                    Тэмдэглэл <span className="opacity-60">(заавал биш)</span>
-                                </label>
-                                <textarea value={data.notes} onChange={e => setData('notes', e.target.value)}
-                                    rows={2} placeholder="Нэмэлт мэдээлэл..."
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                            </div>
-
-                            <div className="flex gap-2 pt-1">
-                                <button type="submit"
-                                    disabled={processing || !data.date || (modal==='create' && !data.employee_id)}
-                                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                                    {processing
-                                        ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                        : <CalendarDays className="size-4" />}
-                                    {modal==='create' ? 'Хадгалах' : 'Шинэчлэх'}
-                                </button>
-                                {modal==='edit' && (
-                                    <button type="button" onClick={handleDelete}
-                                        className="rounded-xl border border-red-200 dark:border-red-800 px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
-                                        <Trash2 className="size-4" />
-                                    </button>
-                                )}
-                                <button type="button" onClick={() => { setModal(null); reset(); }}
-                                    className="rounded-xl border px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
-                                    Цуцлах
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            <ToastContainer />
-        </AppLayout>
+        </div>
     );
 }

@@ -13,6 +13,7 @@ use App\Http\Controllers\HR\ExitChecklistController;
 use App\Http\Controllers\HR\FeedbackController;
 use App\Http\Controllers\HR\LeaveRequestController;
 use App\Http\Controllers\HR\NurseBonusController;
+use App\Http\Controllers\HR\OrthoScheduleController;
 use App\Http\Controllers\HR\PayrollController;
 use App\Http\Controllers\HR\PositionController;
 use App\Http\Controllers\HR\ReceptionBonusController;
@@ -111,8 +112,17 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     // ── Ажлын хуваарь ────────────────────────────────────────────────────────
     Route::get('work-schedules', [WorkScheduleController::class, 'index'])->name('work-schedules.index');
     Route::post('work-schedules', [WorkScheduleController::class, 'store'])->name('work-schedules.store');
-    Route::put('work-schedules/{workSchedule}', [WorkScheduleController::class, 'update'])->name('work-schedules.update');
+    Route::post('work-schedules/copy-week', [WorkScheduleController::class, 'copyWeek'])->name('work-schedules.copy-week');
+    Route::post('work-schedules/row-fill', [WorkScheduleController::class, 'rowFill'])->name('work-schedules.row-fill');
+    Route::post('work-schedules/save-tasks', [WorkScheduleController::class, 'saveTasks'])->name('work-schedules.save-tasks');
     Route::delete('work-schedules/{workSchedule}', [WorkScheduleController::class, 'destroy'])->name('work-schedules.destroy');
+
+    // ── Гажиг заслын хуваарь (харагдац нь work-schedules доторх таб) ──────────
+    Route::get('ortho-schedules', fn () => redirect()->route('hr.work-schedules.index'))->name('ortho-schedules.index');
+    Route::post('ortho-schedules', [OrthoScheduleController::class, 'store'])->name('ortho-schedules.store');
+    Route::post('ortho-schedules/range', [OrthoScheduleController::class, 'range'])->name('ortho-schedules.range');
+    Route::post('ortho-schedules/clear-range', [OrthoScheduleController::class, 'clearRange'])->name('ortho-schedules.clear-range');
+    Route::delete('ortho-schedules/{orthoSchedule}', [OrthoScheduleController::class, 'destroy'])->name('ortho-schedules.destroy');
 
     // ── Гарах бүртгэл ────────────────────────────────────────────────────────
     Route::get('exit-checklists', [ExitChecklistController::class, 'index'])->name('exit-checklists.index');
