@@ -55,6 +55,20 @@ return [
         'secret' => env('TURNSTILE_SECRET_KEY'),
     ],
 
+    // Google Gemini (AI чат — Social Bot модулийн ухаалаг fallback)
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+    ],
+
+    // Groq (үнэгүй, өгөөмөр хязгаар — OpenAI-compatible)
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY'),
+        'model' => env('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+        'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+    ],
+
     // Meta (Facebook Page + Instagram) — Social Bot модуль
     'meta' => [
         'app_id' => env('META_APP_ID'),

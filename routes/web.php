@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\SocialAccountController;
 use App\Http\Controllers\Admin\SocialBroadcastController;
 use App\Http\Controllers\Admin\SocialCommentRuleController;
+use App\Http\Controllers\Admin\SocialAiController;
 use App\Http\Controllers\Admin\SocialDashboardController;
 use App\Http\Controllers\Admin\SocialFlowController;
 use App\Http\Controllers\Admin\SocialFormController;
@@ -398,6 +399,16 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
 
     // Social marketing dashboard
     Route::get('social/dashboard', [SocialDashboardController::class, 'index'])->name('social.dashboard');
+
+    // Social AI туслах (Gemini чат + тохиргоо)
+    Route::get('social/ai', [SocialAiController::class, 'index'])->name('social.ai');
+    Route::put('social/ai', [SocialAiController::class, 'update'])->name('social.ai.update');
+    Route::post('social/ai/test', [SocialAiController::class, 'test'])->name('social.ai.test');
+    Route::post('social/ai/document', [SocialAiController::class, 'document'])->name('social.ai.document');
+    Route::post('social/ai/faqs', [SocialAiController::class, 'storeFaq'])->name('social.ai.faqs.store');
+    Route::post('social/ai/faqs/import', [SocialAiController::class, 'importFaqs'])->name('social.ai.faqs.import');
+    Route::put('social/ai/faqs/{faq}', [SocialAiController::class, 'updateFaq'])->name('social.ai.faqs.update');
+    Route::delete('social/ai/faqs/{faq}', [SocialAiController::class, 'destroyFaq'])->name('social.ai.faqs.destroy');
 
     // Social broadcast (масс маркетинг мессеж)
     Route::get('social/broadcasts', [SocialBroadcastController::class, 'index'])->name('social.broadcasts');

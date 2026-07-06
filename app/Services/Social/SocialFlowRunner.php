@@ -25,6 +25,7 @@ class SocialFlowRunner
     public function __construct(
         private readonly MetaGraphService $meta,
         private readonly PersonalizationResolver $personalize,
+        private readonly SocialAiReplyService $ai,
     ) {}
 
     // ─── Орох цэг ──────────────────────────────────────────────────────────────
@@ -77,7 +78,14 @@ class SocialFlowRunner
             }
         }
 
-        // 4. default (fallback)
+        // 4. AI ухаалаг fallback — чөлөөт текст keyword-д таараагүй бол Gemini-ээр хариулна.
+        if ($text !== null && $this->ai->isEnabled($account)) {
+            if ($this->ai->reply($account, $conversation, $contact, $text)) {
+                return;
+            }
+        }
+
+        // 5. default (fallback) — AI унтраалттай эсвэл хариулж чадаагүй бол.
         $default = $this->triggerFlow($account, SocialFlow::TRIGGER_DEFAULT);
         if ($default) {
             $this->startFlow($account, $conversation, $contact, $default);

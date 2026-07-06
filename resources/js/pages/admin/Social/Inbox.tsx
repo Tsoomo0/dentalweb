@@ -484,7 +484,7 @@ export default function Inbox({ conversations: initial }: Props) {
                                                     {isCarousel
                                                         ? <InboxCarousel cards={atts as SlideCard[]} onZoom={setLightbox} />
                                                         : atts.map((a, i) => <AttachmentView key={i} a={a} out={out} onZoom={setLightbox} />)}
-                                                    <div className="px-1 text-[10px] text-muted-foreground">{timeAgo(m.created_at)}{out && m.sender === 'bot' ? ' · бот' : ''}</div>
+                                                    <div className="px-1 text-[10px] text-muted-foreground">{timeAgo(m.created_at)}{out && m.sender === 'bot' ? ' · бот' : out && m.sender === 'ai' ? ' · AI' : ''}</div>
                                                 </div>
                                             ) : (
                                                 <div className={`space-y-1.5 rounded-[20px] px-3.5 py-2.5 text-sm ${btnLabels.length > 0 ? 'w-[262px]' : 'max-w-[68%]'} ${out ? 'rounded-br-[6px] bg-gradient-to-br from-[#3b8bf7] to-[#1664db] text-white shadow-[0_4px_14px_-3px_rgba(29,78,216,0.45)]' : 'rounded-bl-[6px] border border-border/60 bg-card shadow-[0_2px_8px_-3px_rgba(0,0,0,0.12)]'}`}>
@@ -497,7 +497,7 @@ export default function Inbox({ conversations: initial }: Props) {
                                                             ))}
                                                         </div>
                                                     )}
-                                                    <div className={`flex items-center gap-1 text-[10px] ${out ? 'text-white/65' : 'text-muted-foreground'}`}>{timeAgo(m.created_at)}{out && m.sender === 'bot' ? <span className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-px font-medium"><Bot className="h-2.5 w-2.5" />бот</span> : ''}</div>
+                                                    <div className={`flex items-center gap-1 text-[10px] ${out ? 'text-white/65' : 'text-muted-foreground'}`}>{timeAgo(m.created_at)}{out && (m.sender === 'bot' || m.sender === 'ai') ? <span className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-px font-medium"><Bot className="h-2.5 w-2.5" />{m.sender === 'ai' ? 'AI' : 'бот'}</span> : ''}</div>
                                                 </div>
                                             )}
                                         </div>
