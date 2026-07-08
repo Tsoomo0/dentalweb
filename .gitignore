@@ -28,3 +28,4 @@ yarn-error.log
 
 # Generated reports
 *.pdf
+composer.phar
