@@ -37,6 +37,7 @@ interface Employee {
     bank_name: string | null; bank_account: string | null; bank_account_name: string | null;
     is_married: boolean; has_children: boolean; children_count: number;
     notes: string | null;
+    extra_portals: string[]; schedule_permissions: string[];
     contracts: Contract[]; licenses: License[]; family_members: FamilyMember[];
 }
 
@@ -92,6 +93,22 @@ function fmtMoney(n: number) {
     if (!n) return '—';
     return n.toLocaleString('mn-MN', { maximumFractionDigits: 0 }) + '₮';
 }
+
+const PORTAL_LABELS: Record<string, string> = {
+    reception: 'Ресепшн портал',
+    lab: 'Лаб портал',
+    hr: 'HR портал',
+};
+
+const SCHEDULE_LABELS: Record<string, string> = {
+    clinic: 'Эмч сувилагчийн хуваарь',
+    ortho: 'Гажиг засал / туслах эмчийн хуваарь',
+    xray: 'Рентген техникчийн хуваарь',
+    sterile: 'Ариутгалын сувилагчийн хуваарь',
+    reception: 'Ресепшний хуваарь',
+    cleaner: 'Үйлчлэгчийн хуваарь',
+    technician: 'Шүдний техникчийн хуваарь',
+};
 
 export default function ShowEmployee({ employee: e, payrollHistory, exit_checklist_id }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -259,11 +276,6 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                         <Row label="Банк"          value={e.bank_name} />
                         <Row label="Дансны дугаар" value={e.bank_account} />
                         <Row label="Дансны нэр"    value={e.bank_account_name} />
-                        <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700">
-                            <p><strong>НДШ:</strong> {Math.round(e.salary * 0.1).toLocaleString()}₮ (10%)</p>
-                            <p><strong>ХАОАТ:</strong> {Math.round(e.salary * 0.1).toLocaleString()}₮ (10%)</p>
-                            <p className="mt-1 font-semibold">Гарт авах: {Math.round(e.salary * 0.8).toLocaleString()}₮</p>
-                        </div>
                     </Section>
 
                     {/* Гэрээ */}
@@ -345,9 +357,26 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                             <p className="mb-2 text-muted-foreground">Ажилтан доорх порталуудад нэвтэрч болно:</p>
                             <div className="flex flex-wrap gap-2">
                                 <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Ажлын портал</span>
-                                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">HR портал</span>
+                                {e.extra_portals.map(p => (
+                                    <span key={p} className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                                        {PORTAL_LABELS[p] ?? p}
+                                    </span>
+                                ))}
                             </div>
                         </div>
+
+                        {e.schedule_permissions.length > 0 && (
+                            <div className="mt-3 rounded-lg bg-muted/50 p-3 text-sm">
+                                <p className="mb-2 text-muted-foreground">Хуваарь гаргах эрх:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {e.schedule_permissions.map(p => (
+                                        <span key={p} className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
+                                            {SCHEDULE_LABELS[p] ?? p}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </Section>
                 </div>
 

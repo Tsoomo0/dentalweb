@@ -100,7 +100,7 @@ export default function Dashboard({ stats, gender, channels, statuses, growth, t
                     ]} />
                     <DonutCard title="Харилцааны төлөв" data={[
                         { name: 'Бот', value: statuses.bot, color: '#10b981' },
-                        { name: 'Оператор', value: statuses.open, color: '#3b8bf7' },
+                        { name: 'Ажилтан', value: statuses.open, color: '#3b8bf7' },
                         { name: 'Хаагдсан', value: statuses.closed, color: '#94a3b8' },
                     ]} />
                 </div>
@@ -137,7 +137,7 @@ export default function Dashboard({ stats, gender, channels, statuses, growth, t
                                 <span className="font-bold tabular-nums">{stats.bot_messages.toLocaleString('mn-MN')}</span>
                             </div>
                             <div className="mt-1.5 flex items-center justify-between text-sm">
-                                <span className="flex items-center gap-1.5 text-[#1664db]"><Send className="h-4 w-4" /> Оператор</span>
+                                <span className="flex items-center gap-1.5 text-[#1664db]"><Send className="h-4 w-4" /> Ажилтан</span>
                                 <span className="font-bold tabular-nums">{stats.agent_messages.toLocaleString('mn-MN')}</span>
                             </div>
                         </div>

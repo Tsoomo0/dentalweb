@@ -22,11 +22,22 @@ class SocialFlowRunner
 {
     private const MAX_STEPS = 30;
 
+    /** Симуляц (тест чат) горим: broadcast хийхгүй, delay-г шууд алгасаж үргэлжлүүлнэ. */
+    private bool $simulate = false;
+
     public function __construct(
         private readonly MetaGraphService $meta,
         private readonly PersonalizationResolver $personalize,
         private readonly SocialAiReplyService $ai,
     ) {}
+
+    /** Тест чатын симуляц горимыг асаана. */
+    public function simulate(bool $on = true): static
+    {
+        $this->simulate = $on;
+
+        return $this;
+    }
 
     // ─── Орох цэг ──────────────────────────────────────────────────────────────
 
@@ -85,10 +96,14 @@ class SocialFlowRunner
             }
         }
 
-        // 5. default (fallback) — AI унтраалттай эсвэл хариулж чадаагүй бол.
+        // 5. Эцсийн fallback — keyword таараагүй, AI унтраалттай эсвэл хариулж чадаагүй бол:
+        //    Default flow тохируулсан бол түүнийг, үгүй бол шууд АЖИЛТАНД шилжүүлнэ.
+        //    (AI унтраалттай үед → Flow + ажилтан; асаалттай үед → Flow + AI + ажилтан.)
         $default = $this->triggerFlow($account, SocialFlow::TRIGGER_DEFAULT);
         if ($default) {
             $this->startFlow($account, $conversation, $contact, $default);
+        } else {
+            $this->handoff($account, $conversation, $contact);
         }
     }
 
@@ -604,7 +619,8 @@ class SocialFlowRunner
 
     private function execDelay(SocialAccount $account, SocialConversation $conversation, SocialContact $contact, SocialFlowNode $node): ?SocialFlowNode
     {
-        if ($node->next_node_id && $node->delay_seconds) {
+        // Симуляцад хүлээлгүй шууд дараагийн блок руу үргэлжилнэ (queue дуудахгүй).
+        if ($node->next_node_id && $node->delay_seconds && ! $this->simulate) {
             SocialFlowContinue::dispatch($account->id, $conversation->id, $contact->id, $node->next_node_id)
                 ->delay(now()->addSeconds($node->delay_seconds));
 
@@ -618,7 +634,7 @@ class SocialFlowRunner
 
     private function handoff(SocialAccount $account, SocialConversation $conversation, SocialContact $contact): void
     {
-        $text = 'Таны хүсэлтийг операторт дамжууллаа. Удахгүй хариу өгөх болно. 💬';
+        $text = 'Таны хүсэлтийг ажилтанд дамжууллаа. Удахгүй хариу өгөх болно. 💬';
         $result = $this->meta->sendText($account, $contact->external_id, $text);
         $this->record($conversation, null, $text, $result['mid'] ?? null, [], 'text');
 
@@ -697,6 +713,10 @@ class SocialFlowRunner
             $update['last_message_text'] = mb_substr($text, 0, 1000);
         }
         $conversation->update($update);
+
+        if ($this->simulate) {
+            return; // тест чат — real-time broadcast хийхгүй
+        }
 
         try {
             broadcast(new SocialMessageReceived($message));

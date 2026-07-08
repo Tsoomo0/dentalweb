@@ -42,6 +42,7 @@ class LabOrderExport implements FromCollection, ShouldAutoSize, WithEvents, With
             'Үйлчлүүлэгч авсан',
             'Баримт №',
             'Статус',
+            'Цалин бодсон',
             'Тэмдэглэл',
         ];
     }
@@ -67,6 +68,7 @@ class LabOrderExport implements FromCollection, ShouldAutoSize, WithEvents, With
             $order['pickup_date'] ?? '—',
             $order['final_payment_receipt'] ?? '—',
             $order['is_completed'] ?? '—',
+            $order['payroll_counted'] ?? '—',
             $order['notes'] ?? '—',
         ];
     }
@@ -95,7 +97,7 @@ class LabOrderExport implements FromCollection, ShouldAutoSize, WithEvents, With
                 $sheet->setCellValue('I'.$summaryRow, $this->orders->sum('amount_paid'));
                 $sheet->setCellValue('J'.$summaryRow, $this->orders->sum('outstanding'));
 
-                $sheet->getStyle('A'.$summaryRow.':S'.$summaryRow)->applyFromArray([
+                $sheet->getStyle('A'.$summaryRow.':T'.$summaryRow)->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FFF1F5F9']],
                 ]);

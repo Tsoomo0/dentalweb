@@ -13,7 +13,7 @@ import { useAppearance } from '@/hooks/use-appearance';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import {
-    AlertTriangle, BookOpen, Briefcase, CalendarCheck, CalendarDays, ChevronsUpDown, DollarSign, Eye, EyeOff, FileText, KeyRound,
+    AlertTriangle, BookOpen, Briefcase, CalendarCheck, CalendarClock, CalendarDays, ChevronsUpDown, DollarSign, Eye, EyeOff, FileText, KeyRound,
     LayoutGrid, LogOut, MessageCircle, MessageSquare, Monitor, Moon, Package, Smile, Stethoscope, Sun, Umbrella, UserCircle2, X,
 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
@@ -26,6 +26,7 @@ interface PageProps {
             photo_url: string | null;
             position: string | null;
             extra_portals?: string[];
+            schedule_permissions?: string[];
         } | null;
     };
     [key: string]: unknown;
@@ -37,15 +38,18 @@ export function MySidebar() {
 
     const positionLower = (employee?.position ?? '').toLowerCase();
     const extras = (employee?.extra_portals ?? []) as string[];
+    const schedulePerms = (employee?.schedule_permissions ?? []) as string[];
     // Ресепшний урамшуулал: үндсэн ресепшн ЭСВЭЛ extra_portals дотор 'reception' (хайбрид сувилагч)
     const isReception = positionLower.includes('ресепш') || extras.includes('reception');
     const isNurse     = positionLower.includes('сувилагч');
+    const canManageSchedule = schedulePerms.length > 0;
 
     const navItems = [
         { title: 'Хяналтын самбар',       url: '/my/home',              icon: LayoutGrid },
         { title: 'Чат',                   url: '/my/chat',              icon: MessageCircle },
         { title: 'Хувийн мэдээлэл',      url: '/my/profile',           icon: UserCircle2 },
         { title: 'Ажлын хуваарь',        url: '/my/work-schedule',     icon: CalendarCheck },
+        ...(canManageSchedule ? [{ title: 'Хуваарь гаргах', url: '/my/schedule-manage', icon: CalendarClock }] : []),
         { title: 'Чөлөөний хүсэлт',      url: '/my/leave-requests',    icon: CalendarDays },
         { title: 'Ээлжийн амралт',        url: '/my/vacation-requests', icon: Umbrella },
         { title: 'Цалингийн задаргаа',    url: '/my/payroll',           icon: DollarSign },

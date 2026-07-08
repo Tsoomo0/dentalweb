@@ -22,7 +22,7 @@ interface Props {
     breadcrumbs?: BreadcrumbItem[];
 }
 interface PageProps {
-    auth: { employee?: { full_name: string; position: string | null; extra_portals?: string[] } | null };
+    auth: { employee?: { full_name: string; position: string | null; extra_portals?: string[]; schedule_permissions?: string[] } | null };
     [key: string]: unknown;
 }
 
@@ -47,11 +47,15 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
     const employee    = page.props.auth?.employee;
     const positionLower = (employee?.position ?? '').toLowerCase();
     const extras       = (employee?.extra_portals ?? []) as string[];
+    const schedulePerms = (employee?.schedule_permissions ?? []) as string[];
     // Ресепшний урамшуулал: үндсэн ресепшн, ЭСВЭЛ extra_portals дотор 'reception' (сувилагч мөн ресепшний ажил хийдэг)
     const isReception = positionLower.includes('ресепш') || extras.includes('reception');
     const isNurse     = positionLower.includes('сувилагч');
+    const canManageSchedule = schedulePerms.length > 0;
     const moreItems = [
-        ...MORE_ITEMS.slice(0, 4), // ажлын хуваарь, чөлөө, амралт, цалин
+        ...MORE_ITEMS.slice(0, 1), // ажлын хуваарь
+        ...(canManageSchedule ? [{ label: 'Хуваарь гаргах', Icon: CalendarCheck, href: '/my/schedule-manage', color: '#4f46e5', bg: '#eef2ff' }] : []),
+        ...MORE_ITEMS.slice(1, 4), // чөлөө, амралт, цалин
         ...(isReception ? [{ label: 'Ресепшний урамшуулал', Icon: Smile,        href: '/my/reception-bonus', color: '#ec4899', bg: '#fdf2f8' }] : []),
         ...(isNurse     ? [{ label: 'Сувилагчийн урамшуулал', Icon: Stethoscope, href: '/my/nurse-bonus',    color: '#0d9488', bg: '#f0fdfa' }] : []),
         ...MORE_ITEMS.slice(4), // номын сан, тоног, санал, сануулга, баримт
@@ -92,6 +96,7 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
         || url === '/my/vacation-requests' || url.startsWith('/my/vacation-requests?')
         || url === '/my/payroll'           || url.startsWith('/my/payroll?')
         || url === '/my/work-schedule'     || url.startsWith('/my/work-schedule?')
+        || url === '/my/schedule-manage'   || url.startsWith('/my/schedule-manage?')
         || url === '/my/book-rentals'      || url.startsWith('/my/book-rentals?')
         || url === '/my/equipment'         || url.startsWith('/my/equipment?')
         || url === '/my/feedback'          || url.startsWith('/my/feedback?')

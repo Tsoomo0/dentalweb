@@ -44,7 +44,7 @@ const TRIGGER_LABEL: Record<string, string> = { welcome: 'Эхний мессе�
 const ACTION_META: Record<Action, { label: string; icon: typeof CornerDownRight }> = {
     next_node: { label: 'Дараагийн алхам', icon: CornerDownRight },
     flow_start: { label: 'Өөр урсгал', icon: ArrowRightLeft },
-    handoff: { label: 'Оператор', icon: Headset },
+    handoff: { label: 'Ажилтан', icon: Headset },
     url: { label: 'Холбоос', icon: ExternalLink },
     web_form: { label: 'Вэбформ', icon: ClipboardList },
     call: { label: 'Залгах (утас)', icon: Phone },
@@ -174,7 +174,7 @@ function ActionSummary({ node }: { node: NodeT }) {
         set_field: `Талбар: ${node.action_field} = ${node.action_value}`,
         add_tag: `Тэмдэг нэмэх: ${node.action_value}`,
         remove_tag: `Тэмдэг хасах: ${node.action_value}`,
-        mark_open: 'Оператор руу шилжүүлэх',
+        mark_open: 'Ажилтан руу шилжүүлэх',
         start_flow: 'Өөр урсгал эхлүүлэх',
     };
     return <span className="flex items-center gap-1 text-muted-foreground"><Tag className="h-3 w-3" /> {map[node.action_type ?? ''] ?? 'Үйлдэл тохируулаагүй'}</span>;
@@ -851,7 +851,7 @@ function NodeDrawer({ flow, allFlows, forms, node, tokens, patchFlow, onClose }:
                 {d.type === 'action' && <>
                     <Sel placeholder="— үйлдэл сонгох —" value={d.action_type ?? ''} onChange={v => set('action_type', v)} options={[
                         { value: 'add_tag', label: 'Тэмдэг нэмэх' }, { value: 'remove_tag', label: 'Тэмдэг хасах' },
-                        { value: 'set_field', label: 'Талбар тохируулах' }, { value: 'mark_open', label: 'Оператор руу шилжүүлэх' },
+                        { value: 'set_field', label: 'Талбар тохируулах' }, { value: 'mark_open', label: 'Ажилтан руу шилжүүлэх' },
                         { value: 'start_flow', label: 'Өөр урсгал эхлүүлэх' },
                     ]} />
                     {(d.action_type === 'add_tag' || d.action_type === 'remove_tag') && <input value={d.action_value ?? ''} onChange={e => set('action_value', e.target.value)} placeholder="Тэмдгийн нэр" className="w-full rounded-lg border px-3 py-2 text-sm" />}

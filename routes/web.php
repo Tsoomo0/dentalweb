@@ -56,6 +56,7 @@ use App\Http\Controllers\My\PasswordController;
 use App\Http\Controllers\My\PayrollController;
 use App\Http\Controllers\My\ProfileController as MyProfileController;
 use App\Http\Controllers\My\ReceptionBonusController;
+use App\Http\Controllers\My\ScheduleManageController;
 use App\Http\Controllers\My\VacationRequestController;
 use App\Http\Controllers\My\WarningController;
 use App\Http\Controllers\My\WorkScheduleController;
@@ -246,6 +247,22 @@ Route::middleware(['either.auth'])->group(function () {
         Route::patch('/warnings/{warning}/acknowledge', [WarningController::class, 'acknowledge'])->name('warnings.acknowledge');
         // Ажлын хуваарь
         Route::get('/work-schedule', [WorkScheduleController::class, 'index'])->name('work-schedule.index');
+
+        // Хуваарь гаргах (эрхтэй ажилтан — зөвхөн өөрийн салбарын хэмжээнд)
+        Route::prefix('schedule-manage')->name('schedule-manage.')->group(function () {
+            Route::get('/', [ScheduleManageController::class, 'index'])->name('index');
+            Route::post('/', [ScheduleManageController::class, 'storeWork'])->name('store');
+            Route::post('/row-fill', [ScheduleManageController::class, 'rowFillWork'])->name('row-fill');
+            Route::post('/save-tasks', [ScheduleManageController::class, 'saveTasks'])->name('save-tasks');
+            Route::post('/ortho', [ScheduleManageController::class, 'storeOrtho'])->name('ortho.store');
+            Route::post('/ortho/range', [ScheduleManageController::class, 'rangeOrtho'])->name('ortho.range');
+            Route::post('/ortho/clear-range', [ScheduleManageController::class, 'clearRangeOrtho'])->name('ortho.clear-range');
+            Route::delete('/ortho/{orthoSchedule}', [ScheduleManageController::class, 'destroyOrtho'])->name('ortho.destroy');
+            Route::post('/support', [ScheduleManageController::class, 'storeSupport'])->name('support.store');
+            Route::post('/support/row-fill', [ScheduleManageController::class, 'rowFillSupport'])->name('support.row-fill');
+            Route::delete('/support/{supportSchedule}', [ScheduleManageController::class, 'destroySupport'])->name('support.destroy');
+            Route::delete('/{workSchedule}', [ScheduleManageController::class, 'destroyWork'])->name('destroy');
+        });
         // Баримт бичиг
         Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
         Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
@@ -373,9 +390,10 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Ортодонт аппарат бүртгэл (read-only admin view)
     Route::get('ortho-appliances', [OrthoApplianceController::class, 'adminIndex'])->name('ortho-appliances.index');
 
-    // Лаб бүртгэл (read-only admin view)
+    // Лаб бүртгэл (read-only admin view + цалин бодсон тэмдэглэгээ)
     Route::get('lab-orders', [\App\Http\Controllers\Admin\LabOrderController::class, 'index'])->name('lab-orders.index');
     Route::get('lab-orders/export', [\App\Http\Controllers\Admin\LabOrderController::class, 'exportExcel'])->name('lab-orders.export');
+    Route::post('lab-orders/{labOrder}/payroll', [\App\Http\Controllers\Admin\LabOrderController::class, 'togglePayroll'])->name('lab-orders.payroll');
 
     // ── Bot Builder ─────────────────────────────────────────────────────────
     Route::get('chatbot-flows', [BotBuilderController::class, 'index'])->name('chatbot-flows.index');
@@ -404,6 +422,7 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::get('social/ai', [SocialAiController::class, 'index'])->name('social.ai');
     Route::put('social/ai', [SocialAiController::class, 'update'])->name('social.ai.update');
     Route::post('social/ai/test', [SocialAiController::class, 'test'])->name('social.ai.test');
+    Route::post('social/ai/simulate', [SocialAiController::class, 'simulate'])->name('social.ai.simulate');
     Route::post('social/ai/document', [SocialAiController::class, 'document'])->name('social.ai.document');
     Route::post('social/ai/faqs', [SocialAiController::class, 'storeFaq'])->name('social.ai.faqs.store');
     Route::post('social/ai/faqs/import', [SocialAiController::class, 'importFaqs'])->name('social.ai.faqs.import');

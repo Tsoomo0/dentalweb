@@ -17,6 +17,7 @@ use App\Http\Controllers\HR\OrthoScheduleController;
 use App\Http\Controllers\HR\PayrollController;
 use App\Http\Controllers\HR\PositionController;
 use App\Http\Controllers\HR\ReceptionBonusController;
+use App\Http\Controllers\HR\SupportScheduleController;
 use App\Http\Controllers\HR\VacationRequestController;
 use App\Http\Controllers\HR\WarningController;
 use App\Http\Controllers\HR\WorkScheduleController;
@@ -123,6 +124,11 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     Route::post('ortho-schedules/range', [OrthoScheduleController::class, 'range'])->name('ortho-schedules.range');
     Route::post('ortho-schedules/clear-range', [OrthoScheduleController::class, 'clearRange'])->name('ortho-schedules.clear-range');
     Route::delete('ortho-schedules/{orthoSchedule}', [OrthoScheduleController::class, 'destroy'])->name('ortho-schedules.destroy');
+
+    // ── Туслах ажилтны хуваарь (рентген техникч / ариутгал / ресепшн — work-schedules доторх таб) ──
+    Route::post('support-schedules', [SupportScheduleController::class, 'store'])->name('support-schedules.store');
+    Route::post('support-schedules/row-fill', [SupportScheduleController::class, 'rowFill'])->name('support-schedules.row-fill');
+    Route::delete('support-schedules/{supportSchedule}', [SupportScheduleController::class, 'destroy'])->name('support-schedules.destroy');
 
     // ── Гарах бүртгэл ────────────────────────────────────────────────────────
     Route::get('exit-checklists', [ExitChecklistController::class, 'index'])->name('exit-checklists.index');

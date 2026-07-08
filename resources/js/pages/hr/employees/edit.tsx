@@ -37,6 +37,7 @@ interface Employee {
     emergency_name: string | null; emergency_phone: string | null; emergency_relation: string | null;
     branch_id: number | null; position_id: number | null;
     extra_portals: string[];
+    schedule_permissions?: string[];
     salary: number; hired_date: string | null; probation_end_date: string | null;
     status: 'active' | 'inactive';
     vacation_days: number; vacation_extra_days: number;
@@ -152,6 +153,7 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
         branch_id:          String(employee.branch_id ?? ''),
         position_id:        String(employee.position_id ?? ''),
         extra_portals:      (employee.extra_portals ?? []) as string[],
+        schedule_permissions: (employee.schedule_permissions ?? []) as string[],
         salary:             String(employee.salary),
         hired_date:         employee.hired_date ?? '',
         probation_end_date: employee.probation_end_date ?? '',
@@ -185,7 +187,10 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
         setProcessing(true);
         const fd = new FormData();
         fd.append('_method', 'PUT');
-        Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
+        Object.entries(form).forEach(([k, v]) => {
+            if (Array.isArray(v)) v.forEach(item => fd.append(`${k}[]`, String(item)));
+            else fd.append(k, String(v));
+        });
         if (newPhoto) fd.append('photo', newPhoto);
         newLicenses.forEach((l, i) => Object.entries(l).forEach(([k, v]) => fd.append(`licenses[${i}][${k}]`, v)));
         newFamily.forEach((f, i) => Object.entries(f).forEach(([k, v]) => fd.append(`family_members[${i}][${k}]`, v)));
@@ -407,6 +412,44 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
                                                                 else set('extra_portals', form.extra_portals.filter(p => p !== opt.value));
                                                             }}
                                                             className="size-4 rounded text-violet-600 focus:ring-violet-500" />
+                                                        <span className="text-sm font-medium">{opt.label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Хуваарь гаргах эрх */}
+                                    <SectionTitle>Хуваарь гаргах эрх</SectionTitle>
+                                    <div className="rounded-lg border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/15 p-4">
+                                        <p className="text-xs text-indigo-700 dark:text-indigo-300 mb-3">
+                                            Тэмдэглэсэн хуваарийг <strong>өөрийн эрхээрээ нэвтэрч, зөвхөн өөрийн салбарын хэмжээнд</strong> гаргах эрх олгоно. Нэг ажилтанд хэд хэдэн төрлийн хуваарь өгч болно.
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {[
+                                                { value: 'clinic',     label: 'Эмч сувилагчийн хуваарь' },
+                                                { value: 'ortho',      label: 'Гажиг засал / туслах эмчийн хуваарь' },
+                                                { value: 'xray',       label: 'Рентген техникчийн хуваарь' },
+                                                { value: 'sterile',    label: 'Ариутгалын сувилагчийн хуваарь' },
+                                                { value: 'reception',  label: 'Ресепшний хуваарь' },
+                                                { value: 'cleaner',    label: 'Үйлчлэгчийн хуваарь' },
+                                                { value: 'technician', label: 'Шүдний техникчийн хуваарь' },
+                                            ].map(opt => {
+                                                const list = form.schedule_permissions ?? [];
+                                                const checked = list.includes(opt.value);
+                                                return (
+                                                    <label key={opt.value}
+                                                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
+                                                            checked
+                                                                ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 dark:border-indigo-700'
+                                                                : 'border-gray-200 dark:border-gray-700 hover:bg-muted/30'
+                                                        }`}>
+                                                        <input type="checkbox" checked={checked}
+                                                            onChange={e => {
+                                                                if (e.target.checked) set('schedule_permissions', [...list, opt.value]);
+                                                                else set('schedule_permissions', list.filter(p => p !== opt.value));
+                                                            }}
+                                                            className="size-4 rounded text-indigo-600 focus:ring-indigo-500" />
                                                         <span className="text-sm font-medium">{opt.label}</span>
                                                     </label>
                                                 );

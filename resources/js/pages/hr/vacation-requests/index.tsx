@@ -38,6 +38,8 @@ interface VacationRequest {
 
 interface Props { requests: VacationRequest[] }
 
+const PAGE_SIZE = 10;
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'HR', href: '/hr/employees' },
     { title: 'Ээлжийн амралт', href: '/hr/vacation-requests' },
@@ -81,6 +83,7 @@ export default function HrVacationRequests({ requests }: Props) {
     const [expanded, setExpanded] = useState<number | null>(null);
     const [rejectId, setRejectId] = useState<number | null>(null);
     const [balanceId, setBalanceId] = useState<number | null>(null);
+    const [page, setPage]         = useState(1);
 
     const rejectForm  = useForm({ rejection_reason: '' });
     const balanceForm = useForm({ vacation_days: 15, vacation_extra_days: 0 });
@@ -94,6 +97,13 @@ export default function HrVacationRequests({ requests }: Props) {
     const approved = requests.filter(r => r.status === 'approved').length;
     const rejected = requests.filter(r => r.status === 'rejected').length;
     const filtered = filter === 'all' ? requests : requests.filter(r => r.status === filter);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+    // Шүүлтүүр солигдох эсвэл хуудасны тоо өөрчлөгдөхөд хүрээнд байлгах
+    useEffect(() => { setPage(1); }, [filter]);
+    useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
 
     function approve(id: number) {
         router.patch(`/hr/vacation-requests/${id}/approve`, {}, { preserveScroll: true });
@@ -200,7 +210,7 @@ export default function HrVacationRequests({ requests }: Props) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
-                                {filtered.map(r => (
+                                {paged.map(r => (
                                     <>
                                         <tr key={r.id}
                                             className={`transition-colors hover:bg-muted/20 ${expanded === r.id ? 'bg-muted/20' : ''}`}>
@@ -359,6 +369,33 @@ export default function HrVacationRequests({ requests }: Props) {
                         </table>
                     )}
                 </div>
+
+                {/* Pagination */}
+                {filtered.length > PAGE_SIZE && (
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                            Нийт {filtered.length} хүсэлтээс {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} харуулж байна
+                        </p>
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                                className="rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                                Өмнөх
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                                <button key={p} onClick={() => setPage(p)}
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        p === page
+                                            ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900'
+                                            : 'border text-muted-foreground hover:bg-muted'
+                                    }`}>{p}</button>
+                            ))}
+                            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                                className="rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                                Дараах
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <ToastContainer />

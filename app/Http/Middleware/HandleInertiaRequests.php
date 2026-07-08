@@ -210,6 +210,7 @@ class HandleInertiaRequests extends Middleware
                         'position' => $emp->position?->name,
                         'portal' => $emp->position?->portal,
                         'extra_portals' => $emp->extra_portals ?? [],
+                        'schedule_permissions' => $emp->schedule_permissions ?? [],
                     ];
                 })(),
             ],

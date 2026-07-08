@@ -39,6 +39,8 @@ class Employee extends Model
         'notes',
         // Нэмэлт портал нэвтрэх эрх (жишээ: сувилагч → ['reception'])
         'extra_portals',
+        // Хуваарь гаргах эрх (жишээ: ['clinic']) — өөрийн салбарын хэмжээнд
+        'schedule_permissions',
     ];
 
     protected $casts = [
@@ -50,7 +52,31 @@ class Employee extends Model
         'has_children' => 'boolean',
         'salary' => 'decimal:2',
         'extra_portals' => 'array',
+        'schedule_permissions' => 'array',
     ];
+
+    /** Боломжит хуваарь гаргах эрхийн төрлүүд (таб бүрд тус тусдаа). */
+    public const SCHEDULE_AREAS = [
+        'clinic'     => 'Эмч сувилагчийн хуваарь',
+        'ortho'      => 'Гажиг засал / туслах эмчийн хуваарь',
+        'xray'       => 'Рентген техникчийн хуваарь',
+        'sterile'    => 'Ариутгалын сувилагчийн хуваарь',
+        'reception'  => 'Ресепшний хуваарь',
+        'cleaner'    => 'Үйлчлэгчийн хуваарь',
+        'technician' => 'Шүдний техникчийн хуваарь',
+    ];
+
+    /** Тухайн хэсгийн хуваарь гаргах эрхтэй эсэх. */
+    public function canManageSchedule(string $area): bool
+    {
+        return in_array($area, $this->schedule_permissions ?? [], true);
+    }
+
+    /** Ямар нэг хуваарь гаргах эрхтэй эсэх. */
+    public function canManageAnySchedule(): bool
+    {
+        return ! empty($this->schedule_permissions);
+    }
 
     /**
      * Тухайн портал руу нэвтрэх эрхтэй эсэхийг шалгана.

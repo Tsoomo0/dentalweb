@@ -129,6 +129,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
         emergency_name: '', emergency_phone: '', emergency_relation: '',
         branch_id: '', position_id: '', salary: '', hired_date: '',
         extra_portals: [] as string[],
+        schedule_permissions: [] as string[],
         probation_end_date: '', status: 'active',
         vacation_extra_days: 0,
         contract_type: 'fixed', contract_start_date: '', contract_end_date: '', contract_notes: '',
@@ -152,6 +153,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
         Object.entries(data).forEach(([k, v]) => {
             if (v !== null && v !== undefined) {
                 if (v instanceof File) fd.append(k, v);
+                else if (Array.isArray(v)) v.forEach(item => fd.append(`${k}[]`, String(item)));
                 else fd.append(k, String(v));
             }
         });
@@ -472,6 +474,43 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                                                 else setData('extra_portals', data.extra_portals.filter((p: string) => p !== opt.value));
                                                             }}
                                                             className="size-4 rounded text-violet-600 focus:ring-violet-500" />
+                                                        <span className="text-sm font-medium">{opt.label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Хуваарь гаргах эрх */}
+                                    <SectionTitle>Хуваарь гаргах эрх</SectionTitle>
+                                    <div className="rounded-lg border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/15 p-4">
+                                        <p className="text-xs text-indigo-700 dark:text-indigo-300 mb-3">
+                                            Тэмдэглэсэн хуваарийг <strong>өөрийн эрхээрээ нэвтэрч, зөвхөн өөрийн салбарын хэмжээнд</strong> гаргах эрх олгоно. Нэг ажилтанд хэд хэдэн төрлийн хуваарь өгч болно.
+                                        </p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {[
+                                                { value: 'clinic',     label: 'Эмч сувилагчийн хуваарь' },
+                                                { value: 'ortho',      label: 'Гажиг засал / туслах эмчийн хуваарь' },
+                                                { value: 'xray',       label: 'Рентген техникчийн хуваарь' },
+                                                { value: 'sterile',    label: 'Ариутгалын сувилагчийн хуваарь' },
+                                                { value: 'reception',  label: 'Ресепшний хуваарь' },
+                                                { value: 'cleaner',    label: 'Үйлчлэгчийн хуваарь' },
+                                                { value: 'technician', label: 'Шүдний техникчийн хуваарь' },
+                                            ].map(opt => {
+                                                const checked = data.schedule_permissions.includes(opt.value);
+                                                return (
+                                                    <label key={opt.value}
+                                                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
+                                                            checked
+                                                                ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 dark:border-indigo-700'
+                                                                : 'border-gray-200 dark:border-gray-700 hover:bg-muted/30'
+                                                        }`}>
+                                                        <input type="checkbox" checked={checked}
+                                                            onChange={e => {
+                                                                if (e.target.checked) setData('schedule_permissions', [...data.schedule_permissions, opt.value]);
+                                                                else setData('schedule_permissions', data.schedule_permissions.filter((p: string) => p !== opt.value));
+                                                            }}
+                                                            className="size-4 rounded text-indigo-600 focus:ring-indigo-500" />
                                                         <span className="text-sm font-medium">{opt.label}</span>
                                                     </label>
                                                 );

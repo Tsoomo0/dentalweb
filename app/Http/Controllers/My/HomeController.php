@@ -7,6 +7,8 @@ use App\Models\HR\AttendanceLog;
 use App\Models\HR\EmployeeWarning;
 use App\Models\HR\HrDocument;
 use App\Models\HR\LeaveRequest;
+use App\Models\HR\OrthoSchedule;
+use App\Models\HR\SupportSchedule;
 use App\Models\HR\VacationRequest;
 use App\Models\HR\WorkSchedule;
 use Carbon\Carbon;
@@ -28,30 +30,62 @@ class HomeController extends Controller
         $today = Carbon::today();
         $weekStart = $today->copy()->startOfWeek(Carbon::MONDAY);
 
-        $weekSchedules = WorkSchedule::where('employee_id', $employee->id)
-            ->whereBetween('date', [$weekStart, $weekStart->copy()->addDays(6)])
-            ->get()
-            ->keyBy(fn ($s) => $s->date->format('Y-m-d'));
+        $weekEnd = $weekStart->copy()->addDays(6);
+
+        // Хуваарь 3 эх сурвалжид байж болно (эмч сувилагч / туслах / гажиг засал).
+        // Гурвыг нь огноогоор нэгтгэнэ (давуу эрх: work > support > ortho).
+        $byDate = [];
+
+        foreach (OrthoSchedule::with('assignedDoctor')->where('employee_id', $employee->id)
+            ->whereBetween('date', [$weekStart, $weekEnd])->get() as $o) {
+            $working = in_array($o->state, ['work', 'warehouse'], true);
+            $byDate[$o->date->format('Y-m-d')] = [
+                'shift_type' => $working ? 'full' : 'off',
+                'shift_label' => OrthoSchedule::STATES[$o->state] ?? $o->state,
+                'start_time' => null, 'end_time' => null, 'room' => null,
+                'assigned_doctor_name' => $o->assignedDoctor?->full_name, 'notes' => $o->note,
+            ];
+        }
+        foreach (SupportSchedule::where('employee_id', $employee->id)
+            ->whereBetween('date', [$weekStart, $weekEnd])->get() as $sp) {
+            $byDate[$sp->date->format('Y-m-d')] = [
+                'shift_type' => $sp->shift_type,
+                'shift_label' => SupportSchedule::SHIFTS[$sp->shift_type] ?? $sp->shift_type,
+                'start_time' => $sp->start_time ? substr($sp->start_time, 0, 5) : null,
+                'end_time' => $sp->end_time ? substr($sp->end_time, 0, 5) : null,
+                'room' => null, 'assigned_doctor_name' => null, 'notes' => $sp->note,
+            ];
+        }
+        foreach (WorkSchedule::with('assignedDoctor')->where('employee_id', $employee->id)
+            ->whereBetween('date', [$weekStart, $weekEnd])->get() as $s) {
+            $byDate[$s->date->format('Y-m-d')] = [
+                'shift_type' => $s->shift_type,
+                'shift_label' => $s->shift_label,
+                'start_time' => $s->start_time ? substr($s->start_time, 0, 5) : null,
+                'end_time' => $s->end_time ? substr($s->end_time, 0, 5) : null,
+                'room' => $s->room, 'assigned_doctor_name' => $s->assignedDoctor?->full_name, 'notes' => $s->notes,
+            ];
+        }
 
         $dayLabels = ['Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя', 'Ня'];
 
-        $weekDays = collect(range(0, 6))->map(function ($i) use ($weekStart, $weekSchedules, $dayLabels) {
+        $weekDays = collect(range(0, 6))->map(function ($i) use ($weekStart, $byDate, $dayLabels) {
             $day = $weekStart->copy()->addDays($i);
             $dateStr = $day->format('Y-m-d');
-            $sched = $weekSchedules->get($dateStr);
+            $sched = $byDate[$dateStr] ?? null;
 
             return [
                 'date' => $dateStr,
                 'day_num' => $day->day,
                 'day_label' => $dayLabels[$i],
                 'is_today' => $day->isToday(),
-                'shift_type' => $sched?->shift_type,
-                'start_time' => $sched ? substr($sched->start_time ?? '', 0, 5) : null,
-                'end_time' => $sched ? substr($sched->end_time ?? '', 0, 5) : null,
+                'shift_type' => $sched['shift_type'] ?? null,
+                'start_time' => $sched['start_time'] ?? null,
+                'end_time' => $sched['end_time'] ?? null,
             ];
         });
 
-        $todaySched = $weekSchedules->get($today->format('Y-m-d'));
+        $todaySched = $byDate[$today->format('Y-m-d')] ?? null;
 
         $pendingLeave = LeaveRequest::where('employee_id', $employee->id)->where('status', 'pending')->count();
         $pendingVacation = VacationRequest::where('employee_id', $employee->id)->where('status', 'pending')->count();
@@ -75,14 +109,15 @@ class HomeController extends Controller
                 'branch' => $employee->branch?->name,
                 'photo_url' => $employee->photo_url,
             ],
+            'can_manage_schedule' => $employee->canManageAnySchedule(),
             'today_schedule' => $todaySched ? [
-                'shift_type' => $todaySched->shift_type,
-                'shift_label' => $todaySched->shift_label,
-                'start_time' => substr($todaySched->start_time ?? '', 0, 5),
-                'end_time' => substr($todaySched->end_time ?? '', 0, 5),
-                'room' => $todaySched->room,
-                'assigned_doctor_name' => $todaySched->assignedDoctor?->full_name,
-                'notes' => $todaySched->notes,
+                'shift_type' => $todaySched['shift_type'],
+                'shift_label' => $todaySched['shift_label'],
+                'start_time' => $todaySched['start_time'],
+                'end_time' => $todaySched['end_time'],
+                'room' => $todaySched['room'],
+                'assigned_doctor_name' => $todaySched['assigned_doctor_name'],
+                'notes' => $todaySched['notes'],
             ] : null,
             'week_days' => $weekDays,
             'stats' => [

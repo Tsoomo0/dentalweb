@@ -2,9 +2,9 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
-    AlertCircle, Building2, CalendarClock, CheckCircle2, ChevronDown, ChevronRight,
+    Building2, CalendarClock, Check, CheckCircle2, ChevronLeft, ChevronRight,
     CreditCard, FileSpreadsheet, FlaskConical, Package, Receipt, Search, Send, Sparkles,
-    Stethoscope, User, X,
+    Stethoscope, User, Wallet, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -37,6 +37,8 @@ interface LabOrder {
     pickup_date: string | null;
     is_completed: boolean;
     completed_at: string | null;
+    payroll_counted: boolean;
+    payroll_counted_at: string | null;
     notes: string | null;
     created_by_name: string | null;
 }
@@ -48,9 +50,10 @@ interface Stats {
     total_paid: number;
     total_outstanding: number;
     final_paid_count: number;
+    payroll_counted: number;
 }
 interface Branch { id: number; name: string }
-interface Filters { status: 'active' | 'completed' | 'all'; search: string; branch: number | null }
+interface Filters { status: 'active' | 'completed' | 'all' | 'payroll'; search: string; branch: number | null }
 interface Props { orders: LabOrder[]; stats: Stats; branches: Branch[]; filters: Filters }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -89,14 +92,15 @@ function go(patch: Partial<Filters>, current: Filters) {
 /* ══════════════════════════════════════════════════════════
    Main
 ══════════════════════════════════════════════════════════ */
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
+const ALL_TAB = '__all__';
+const NO_BRANCH = '— Салбаргүй —';
 
-export default function AdminLabOrdersIndex({ orders, stats, branches, filters }: Props) {
+export default function AdminLabOrdersIndex({ orders, stats, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [openId, setOpenId] = useState<number | null>(null);
     const [page, setPage] = useState(1);
-    // Эхэндээ бүх салбарын section нээлттэй
-    const [collapsedBranches, setCollapsedBranches] = useState<Set<string>>(new Set());
+    const [activeTab, setActiveTab] = useState<string>(ALL_TAB);
 
     useEffect(() => {
         const id = setInterval(() => {
@@ -105,9 +109,8 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
         return () => clearInterval(id);
     }, []);
 
-    useEffect(() => { setPage(1); }, [search, filters.status, filters.branch]);
-
-    const filtered = useMemo(() => {
+    // Хайлт хийсний дараа зөвхөн салбараар нь шүүсэн жагсаалт
+    const searchFiltered = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return orders;
         return orders.filter(o =>
@@ -121,22 +124,47 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
         );
     }, [orders, search]);
 
-    // Branch-аар бүлэглэснийг тус бүрд нь pagination хийнэ
-    const groupedByBranch = useMemo(() => {
-        const m = new Map<string, LabOrder[]>();
-        for (const o of filtered) {
-            const key = o.branch_name ?? '— Салбаргүй —';
-            if (!m.has(key)) m.set(key, []);
-            m.get(key)!.push(o);
+    // Салбар бүрийн таб (зөвхөн бичлэгтэй салбарууд) + тоо
+    const branchTabs = useMemo(() => {
+        const m = new Map<string, number>();
+        for (const o of searchFiltered) {
+            const key = o.branch_name ?? NO_BRANCH;
+            m.set(key, (m.get(key) ?? 0) + 1);
         }
         return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
-    }, [filtered]);
+    }, [searchFiltered]);
 
-    const toggleBranch = (name: string) => {
-        setCollapsedBranches(prev => {
-            const next = new Set(prev);
-            if (next.has(name)) next.delete(name); else next.add(name);
-            return next;
+    // Идэвхтэй таб алга болвол "Бүгд" рүү буцаана
+    useEffect(() => {
+        if (activeTab !== ALL_TAB && !branchTabs.some(([name]) => name === activeTab)) {
+            setActiveTab(ALL_TAB);
+        }
+    }, [branchTabs, activeTab]);
+
+    // Идэвхтэй табаар шүүсэн жагсаалт
+    const tabFiltered = useMemo(() => {
+        if (activeTab === ALL_TAB) return searchFiltered;
+        return searchFiltered.filter(o => (o.branch_name ?? NO_BRANCH) === activeTab);
+    }, [searchFiltered, activeTab]);
+
+    useEffect(() => { setPage(1); }, [search, filters.status, activeTab]);
+
+    const totalPages = Math.max(1, Math.ceil(tabFiltered.length / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const pageOrders = useMemo(
+        () => tabFiltered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+        [tabFiltered, safePage],
+    );
+    const tabOutstanding = useMemo(() => tabFiltered.reduce((s, o) => s + o.outstanding, 0), [tabFiltered]);
+    const activeBranchId = activeTab === ALL_TAB ? '' : (tabFiltered[0]?.branch_id ?? '');
+    const exportHref = `/admin/lab-orders/export?status=${filters.status}&branch=${activeBranchId}&q=${encodeURIComponent(search)}`;
+
+    const togglePayroll = (o: LabOrder, e: React.MouseEvent) => {
+        e.stopPropagation();
+        router.post(`/admin/lab-orders/${o.id}/payroll`, {}, {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['orders', 'stats'],
         });
     };
 
@@ -160,7 +188,7 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
                             </h1>
                             <p className="text-[11px] text-muted-foreground">Бүх салбарын лаб ажлууд</p>
                         </div>
-                        <a href={`/admin/lab-orders/export?status=${filters.status}&branch=${filters.branch ?? ''}&q=${encodeURIComponent(filters.search)}`}
+                        <a href={exportHref}
                             className="hidden md:inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors">
                             <FileSpreadsheet className="size-3.5" />
                             Excel
@@ -168,13 +196,14 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
                     </div>
 
                     {/* Compact inline stats */}
-                    <div className="grid grid-cols-3 md:grid-cols-6 divide-x divide-violet-100/60 dark:divide-violet-900/30">
+                    <div className="grid grid-cols-3 md:grid-cols-7 divide-x divide-violet-100/60 dark:divide-violet-900/30">
                         <InlineStat label="Идэвхтэй" value={stats.active.toLocaleString()} accent="violet" />
                         <InlineStat label="Дууссан" value={stats.completed.toLocaleString()} accent="emerald" />
                         <InlineStat label="Нийт төлөх" value={`${(stats.total_due / 1000).toFixed(0)}K₮`} title={`${stats.total_due.toLocaleString()}₮`} accent="gray" />
                         <InlineStat label="Төлсөн" value={`${(stats.total_paid / 1000).toFixed(0)}K₮`} title={`${stats.total_paid.toLocaleString()}₮`} accent="emerald" />
                         <InlineStat label="Дутуу" value={`${(stats.total_outstanding / 1000).toFixed(0)}K₮`} title={`${stats.total_outstanding.toLocaleString()}₮`} accent="red" />
                         <InlineStat label="Хаагдсан" value={stats.final_paid_count.toLocaleString()} accent="indigo" />
+                        <InlineStat label="Цалин бодсон" value={stats.payroll_counted.toLocaleString()} accent="blue" />
                     </div>
                 </div>
 
@@ -187,17 +216,12 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
                             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none" />
                     </div>
 
-                    <select value={filters.branch ?? ''} onChange={e => go({ branch: e.target.value ? Number(e.target.value) : null }, filters)}
-                        className="rounded-lg border border-gray-200 dark:border-gray-700 bg-card px-3 py-1.5 text-xs">
-                        <option value="">Бүх салбар</option>
-                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
-
                     <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                         {([
                             { key: 'all',       label: 'Бүгд',     color: 'bg-gray-700' },
                             { key: 'active',    label: 'Идэвхтэй', color: 'bg-violet-600' },
                             { key: 'completed', label: 'Дууссан',  color: 'bg-emerald-600' },
+                            { key: 'payroll',   label: 'Цалин бодсон', color: 'bg-blue-600' },
                         ] as const).map(t => (
                             <button key={t.key} onClick={() => go({ status: t.key }, filters)}
                                 className={`px-3 py-1.5 text-[11px] font-semibold transition-all ${
@@ -211,125 +235,133 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
                     </div>
 
                     <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
-                        {filtered.length} бичлэг
+                        {tabFiltered.length} бичлэг
                     </span>
 
-                    <a href={`/admin/lab-orders/export?status=${filters.status}&branch=${filters.branch ?? ''}&q=${encodeURIComponent(filters.search)}`}
+                    <a href={exportHref}
                         className="md:hidden inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white">
                         <FileSpreadsheet className="size-3.5" />
                     </a>
                 </div>
 
-                {/* Grouped branches */}
-                {groupedByBranch.length === 0 ? (
+                {/* Branch tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto premium-scroll rounded-xl border border-gray-200 dark:border-gray-800 bg-card p-1.5 shadow-sm">
+                    <TabButton active={activeTab === ALL_TAB} onClick={() => setActiveTab(ALL_TAB)} label="Бүгд" count={searchFiltered.length} />
+                    {branchTabs.map(([name, count]) => (
+                        <TabButton key={name} active={activeTab === name} onClick={() => setActiveTab(name)} label={name} count={count} />
+                    ))}
+                </div>
+
+                {/* Table */}
+                {tabFiltered.length === 0 ? (
                     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm p-12 text-center text-muted-foreground">
                         <FlaskConical className="size-10 mx-auto mb-2 text-violet-300" />
                         <p className="text-sm font-semibold">Лаб бүртгэл байхгүй</p>
                     </div>
                 ) : (
-                    groupedByBranch.map(([branchName, list]) => {
-                        const collapsed = collapsedBranches.has(branchName);
-                        const branchOutstanding = list.reduce((s, o) => s + o.outstanding, 0);
-                        const visible = collapsed ? [] : list.slice(0, page * PAGE_SIZE);
-                        const hasMore = !collapsed && page * PAGE_SIZE < list.length;
-                        return (
-                            <div key={branchName} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm overflow-hidden">
-                                <button onClick={() => toggleBranch(branchName)}
-                                    className="w-full flex items-center justify-between gap-3 border-b border-border bg-gradient-to-r from-violet-100/40 to-fuchsia-100/30 dark:from-violet-950/30 dark:to-fuchsia-950/20 px-4 py-2.5 hover:from-violet-100/70 dark:hover:from-violet-950/50 transition-colors">
-                                    <div className="flex items-center gap-2">
-                                        {collapsed ? <ChevronRight className="size-3.5 text-violet-600" /> : <ChevronDown className="size-3.5 text-violet-600" />}
-                                        <Building2 className="size-3.5 text-violet-600" />
-                                        <h2 className="text-sm font-bold text-foreground">{branchName}</h2>
-                                        <span className="rounded-full bg-violet-100 dark:bg-violet-950/40 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300 tabular-nums">
-                                            {list.length}
-                                        </span>
-                                    </div>
-                                    {branchOutstanding > 0 && (
-                                        <span className="text-[11px] font-bold text-red-600 dark:text-red-400 tabular-nums">
-                                            Дутуу {branchOutstanding.toLocaleString()}₮
-                                        </span>
-                                    )}
-                                </button>
-                                {!collapsed && (
-                                    <>
-                                        <div className="overflow-x-auto premium-scroll">
-                                            <table className="w-full text-xs">
-                                                <thead>
-                                                    <tr className="bg-gray-50/70 dark:bg-gray-800/40 text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">
-                                                        <th className="px-3 py-1.5 text-center font-semibold w-8">№</th>
-                                                        <th className="px-2 py-1.5 text-left font-semibold w-24">Захиалсан</th>
-                                                        <th className="px-2 py-1.5 text-left font-semibold">Өвчтөн</th>
-                                                        <th className="px-2 py-1.5 text-left font-semibold">Лаб / Ажил</th>
-                                                        <th className="px-2 py-1.5 text-left font-semibold w-28 hidden md:table-cell">Эмч</th>
-                                                        <th className="px-2 py-1.5 text-right font-semibold w-24">Дүн</th>
-                                                        <th className="px-2 py-1.5 text-right font-semibold w-20 hidden md:table-cell">Дутуу</th>
-                                                        <th className="px-2 py-1.5 text-center font-semibold w-28">Статус</th>
-                                                        <th className="px-2 py-1.5 text-center font-semibold w-6"></th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {visible.map((o, idx) => {
-                                                        const s = stage(o);
-                                                        const patient = combinePatient(o.patient_last_name, o.patient_first_name, o.patient_phone);
-                                                        return (
-                                                            <tr key={o.id}
-                                                                onClick={() => setOpenId(o.id)}
-                                                                className={`cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
-                                                                    o.is_completed ? 'bg-emerald-50/15 dark:bg-emerald-950/5' :
-                                                                    idx % 2 === 0 ? '' : 'bg-gray-50/30 dark:bg-gray-800/10'
-                                                                }`}>
-                                                                <td className="px-3 py-2 text-center text-gray-400 text-[11px] tabular-nums">{idx + 1}</td>
-                                                                <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 tabular-nums whitespace-nowrap">{o.order_date ?? '—'}</td>
-                                                                <td className="px-2 py-2 max-w-[200px]">
-                                                                    <div className="font-semibold text-foreground truncate text-[12px]">{patient || '—'}</div>
-                                                                </td>
-                                                                <td className="px-2 py-2 max-w-[260px]">
-                                                                    <div className="font-medium text-foreground truncate text-[12px]">{o.lab_name}</div>
-                                                                    <div className="text-[10px] text-muted-foreground truncate">{o.work_description}</div>
-                                                                </td>
-                                                                <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 truncate hidden md:table-cell">{o.doctor_name ?? '—'}</td>
-                                                                <td className="px-2 py-2 text-right tabular-nums text-[11px] whitespace-nowrap">
-                                                                    <span className="font-bold text-foreground">{(o.effective_due ?? o.amount_due).toLocaleString()}₮</span>
-                                                                    {o.discount_percent > 0 && (
-                                                                        <div className="text-[9px] text-orange-600 dark:text-orange-400">−{o.discount_percent}%</div>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-2 text-right tabular-nums text-[11px] whitespace-nowrap hidden md:table-cell">
-                                                                    {o.outstanding > 0 ? (
-                                                                        <span className="text-red-600 dark:text-red-400 font-bold">{o.outstanding.toLocaleString()}₮</span>
-                                                                    ) : (
-                                                                        <span className="text-emerald-600 dark:text-emerald-400">✓</span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-2 text-center">
-                                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold whitespace-nowrap ${s.color}`}>
-                                                                        {s.label}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-2 py-2 text-center text-gray-400">›</td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        {hasMore && (
-                                            <div className="border-t border-border bg-muted/20">
-                                                <button onClick={() => setPage(p => p + 1)}
-                                                    className="w-full px-3 py-2 text-xs text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30 font-semibold transition-colors">
-                                                    Үлдсэн {list.length - visible.length}-г харах
-                                                </button>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between gap-3 border-b border-border bg-gradient-to-r from-violet-100/40 to-fuchsia-100/30 dark:from-violet-950/30 dark:to-fuchsia-950/20 px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                                <Building2 className="size-3.5 text-violet-600" />
+                                <h2 className="text-sm font-bold text-foreground">{activeTab === ALL_TAB ? 'Бүх салбар' : activeTab}</h2>
+                                <span className="rounded-full bg-violet-100 dark:bg-violet-950/40 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300 tabular-nums">
+                                    {tabFiltered.length}
+                                </span>
                             </div>
-                        );
-                    })
+                            {tabOutstanding > 0 && (
+                                <span className="text-[11px] font-bold text-red-600 dark:text-red-400 tabular-nums">
+                                    Дутуу {tabOutstanding.toLocaleString()}₮
+                                </span>
+                            )}
+                        </div>
+                        <div className="overflow-x-auto premium-scroll">
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="bg-gray-50/70 dark:bg-gray-800/40 text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">
+                                        <th className="px-3 py-1.5 text-center font-semibold w-8">№</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold w-24">Захиалсан</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold">Өвчтөн</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold">Лаб / Ажил</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold w-28 hidden md:table-cell">Эмч</th>
+                                        <th className="px-2 py-1.5 text-right font-semibold w-24">Дүн</th>
+                                        <th className="px-2 py-1.5 text-right font-semibold w-20 hidden md:table-cell">Дутуу</th>
+                                        <th className="px-2 py-1.5 text-center font-semibold w-28">Статус</th>
+                                        <th className="px-2 py-1.5 text-center font-semibold w-16">
+                                            <span className="inline-flex items-center justify-center gap-1">
+                                                <Wallet className="size-3 text-blue-500" />Цалин
+                                            </span>
+                                        </th>
+                                        <th className="px-2 py-1.5 text-center font-semibold w-6"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pageOrders.map((o, idx) => {
+                                        const s = stage(o);
+                                        const patient = combinePatient(o.patient_last_name, o.patient_first_name, o.patient_phone);
+                                        const rowNo = (safePage - 1) * PAGE_SIZE + idx + 1;
+                                        return (
+                                            <tr key={o.id}
+                                                onClick={() => setOpenId(o.id)}
+                                                className={`cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
+                                                    o.is_completed ? 'bg-emerald-50/15 dark:bg-emerald-950/5' :
+                                                    idx % 2 === 0 ? '' : 'bg-gray-50/30 dark:bg-gray-800/10'
+                                                }`}>
+                                                <td className="px-3 py-2 text-center text-gray-400 text-[11px] tabular-nums">{rowNo}</td>
+                                                <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 tabular-nums whitespace-nowrap">{o.order_date ?? '—'}</td>
+                                                <td className="px-2 py-2 max-w-[200px]">
+                                                    <div className="font-semibold text-foreground truncate text-[12px]">{patient || '—'}</div>
+                                                </td>
+                                                <td className="px-2 py-2 max-w-[260px]">
+                                                    <div className="font-medium text-foreground truncate text-[12px]">{o.lab_name}</div>
+                                                    <div className="text-[10px] text-muted-foreground truncate">{o.work_description}</div>
+                                                </td>
+                                                <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 truncate hidden md:table-cell">{o.doctor_name ?? '—'}</td>
+                                                <td className="px-2 py-2 text-right tabular-nums text-[11px] whitespace-nowrap">
+                                                    <span className="font-bold text-foreground">{(o.effective_due ?? o.amount_due).toLocaleString()}₮</span>
+                                                    {o.discount_percent > 0 && (
+                                                        <div className="text-[9px] text-orange-600 dark:text-orange-400">−{o.discount_percent}%</div>
+                                                    )}
+                                                </td>
+                                                <td className="px-2 py-2 text-right tabular-nums text-[11px] whitespace-nowrap hidden md:table-cell">
+                                                    {o.outstanding > 0 ? (
+                                                        <span className="text-red-600 dark:text-red-400 font-bold">{o.outstanding.toLocaleString()}₮</span>
+                                                    ) : (
+                                                        <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-2 py-2 text-center">
+                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold whitespace-nowrap ${s.color}`}>
+                                                        {s.label}
+                                                    </span>
+                                                </td>
+                                                <td className="px-2 py-2 text-center">
+                                                    <PayrollCheck
+                                                        checked={o.payroll_counted}
+                                                        countedAt={o.payroll_counted_at}
+                                                        onClick={e => togglePayroll(o, e)}
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 text-center text-gray-400">›</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                        {totalPages > 1 && (
+                            <Pagination
+                                page={safePage}
+                                totalPages={totalPages}
+                                total={tabFiltered.length}
+                                pageSize={PAGE_SIZE}
+                                onPage={setPage}
+                            />
+                        )}
+                    </div>
                 )}
 
                 <p className="text-[10px] text-muted-foreground text-center">
-                    💡 Мөр дээр дарж дэлгэрэнгүйг үзнэ үү · Салбарын нэр дээр дарж нуух/нээх
+                    💡 Мөр дээр дарж дэлгэрэнгүйг үзнэ үү · Салбар бүрийг табаар шүүнэ · «Цалин» нүдэн дээр дарж цалин бодогдсоныг тэмдэглэнэ
                 </p>
             </div>
 
@@ -338,6 +370,114 @@ export default function AdminLabOrdersIndex({ orders, stats, branches, filters }
                 <AdminDetailDrawer key={openOrder.id} order={openOrder} onClose={() => setOpenId(null)} />
             )}
         </AppLayout>
+    );
+}
+
+/* ── Payroll checkbox ───────────────────────────────────────────── */
+function PayrollCheck({ checked, countedAt, onClick }: {
+    checked: boolean;
+    countedAt: string | null;
+    onClick: (e: React.MouseEvent) => void;
+}) {
+    return (
+        <button
+            type="button"
+            role="checkbox"
+            aria-checked={checked}
+            onClick={onClick}
+            title={checked
+                ? `Цалин бодогдсон${countedAt ? ' · ' + countedAt.slice(0, 10) : ''} · дарж болих`
+                : 'Цалин бодогдсон гэж тэмдэглэх'}
+            className={`group relative inline-flex size-[22px] items-center justify-center rounded-[7px] border outline-none transition-all duration-200 active:scale-90 focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
+                checked
+                    ? 'border-transparent bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm shadow-blue-500/40'
+                    : 'border-gray-300 bg-white text-transparent hover:border-blue-400 hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-blue-500 dark:hover:bg-blue-950/40'
+            }`}>
+            {checked ? (
+                <Check className="size-3.5 animate-in zoom-in-50 duration-200" strokeWidth={3.5} />
+            ) : (
+                <Check className="size-3.5 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-gray-500" strokeWidth={3} />
+            )}
+        </button>
+    );
+}
+
+/* ── Branch tab ─────────────────────────────────────────────────── */
+function TabButton({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: number }) {
+    return (
+        <button onClick={onClick}
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                active
+                    ? 'bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm'
+                    : 'text-muted-foreground hover:bg-violet-50 dark:hover:bg-violet-950/30'
+            }`}>
+            {label}
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                active ? 'bg-white/25 text-white' : 'bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300'
+            }`}>
+                {count}
+            </span>
+        </button>
+    );
+}
+
+/* ── Pagination ─────────────────────────────────────────────────── */
+function Pagination({ page, totalPages, total, pageSize, onPage }: {
+    page: number; totalPages: number; total: number; pageSize: number; onPage: (p: number) => void;
+}) {
+    // Харагдах хуудасны дугаарууд (одоогийн хуудасны эргэн тойрон)
+    const pages: number[] = [];
+    const from = Math.max(1, page - 2);
+    const to = Math.min(totalPages, from + 4);
+    for (let i = Math.max(1, to - 4); i <= to; i++) pages.push(i);
+
+    const start = (page - 1) * pageSize + 1;
+    const end = Math.min(total, page * pageSize);
+
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/20 px-3 py-2">
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+                {start}–{end} / {total}
+            </span>
+            <div className="flex items-center gap-1">
+                <button onClick={() => onPage(page - 1)} disabled={page <= 1}
+                    className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:bg-violet-50 dark:hover:bg-violet-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <ChevronLeft className="size-3.5" />
+                </button>
+                {pages[0] > 1 && (
+                    <>
+                        <PageDot n={1} active={page === 1} onClick={() => onPage(1)} />
+                        {pages[0] > 2 && <span className="px-1 text-[11px] text-muted-foreground">…</span>}
+                    </>
+                )}
+                {pages.map(p => (
+                    <PageDot key={p} n={p} active={p === page} onClick={() => onPage(p)} />
+                ))}
+                {pages[pages.length - 1] < totalPages && (
+                    <>
+                        {pages[pages.length - 1] < totalPages - 1 && <span className="px-1 text-[11px] text-muted-foreground">…</span>}
+                        <PageDot n={totalPages} active={page === totalPages} onClick={() => onPage(totalPages)} />
+                    </>
+                )}
+                <button onClick={() => onPage(page + 1)} disabled={page >= totalPages}
+                    className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:bg-violet-50 dark:hover:bg-violet-950/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <ChevronRight className="size-3.5" />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function PageDot({ n, active, onClick }: { n: number; active: boolean; onClick: () => void }) {
+    return (
+        <button onClick={onClick}
+            className={`min-w-[28px] rounded-lg px-2 py-1 text-[11px] font-semibold tabular-nums transition-colors ${
+                active
+                    ? 'bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm'
+                    : 'border border-border bg-card text-muted-foreground hover:bg-violet-50 dark:hover:bg-violet-950/30'
+            }`}>
+            {n}
+        </button>
     );
 }
 
@@ -493,6 +633,13 @@ function AdminDetailDrawer({ order, onClose }: { order: LabOrder; onClose: () =>
                         {order.is_completed && order.completed_at && (
                             <Field label="Бүртгэл дуусгасан" value={order.completed_at} icon={<CheckCircle2 className="size-3.5 text-emerald-600" />} />
                         )}
+                        <Field
+                            label="Цалин бодогдсон"
+                            value={order.payroll_counted ? (order.payroll_counted_at ?? 'Тийм') : 'Үгүй'}
+                            icon={order.payroll_counted
+                                ? <CheckCircle2 className="size-3.5 text-blue-600" />
+                                : <CreditCard className="size-3.5 text-muted-foreground" />}
+                        />
                     </Section>
 
                     {/* Тэмдэглэл */}

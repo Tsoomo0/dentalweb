@@ -283,7 +283,7 @@ function NumCell({ value, onChange, readOnly, cls }: {
             onFocus={e => { live.current = true; e.target.select(); }}
             onBlur={() => { live.current = false; const n = parseNum(raw); setRaw(n > 0 ? String(n) : ''); onChange?.(n); }}
             onChange={e => setRaw(e.target.value)}
-            className={`${base} bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-900/30`}
+            className={`${base} bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-900/30 ${cls ?? ''}`}
         />
     );
 }
@@ -405,7 +405,7 @@ function DoctorSelect({ value, onChange, doctors, technicians }: {
     const displayName = value.startsWith('d:')
         ? shortDoctorName(doctors.find(d => `d:${d.id}` === value)?.name)
         : value.startsWith('t:')
-            ? (technicians.find(t => `t:${t.id}` === value)?.name ?? '')
+            ? shortDoctorName(technicians.find(t => `t:${t.id}` === value)?.name)
             : '';
 
     const itemCls = (v: string) => [
@@ -453,7 +453,7 @@ function DoctorSelect({ value, onChange, doctors, technicians }: {
                         <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider uppercase text-gray-400 dark:text-gray-500">Рентген техникч</div>
                         {technicians.map(t => (
                             <div key={`t:${t.id}`} className={itemCls(`t:${t.id}`)} onClick={() => pick(`t:${t.id}`)}>
-                                {t.name}
+                                {shortDoctorName(t.name)}
                             </div>
                         ))}
                     </>)}
@@ -532,7 +532,7 @@ function Row({
                         {entry.discount > 0 ? `${entry.discount}%` : ''}
                       </div>
                     : <div className="relative">
-                        <NumCell value={entry.discount} readOnly={false} cls="text-gray-500 pr-4"
+                        <NumCell value={entry.discount} readOnly={false} cls="text-gray-500 !pr-5"
                             onChange={v => upd({ discount: Math.min(100, Math.max(0, v)) })} />
                         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">%</span>
                       </div>
@@ -651,7 +651,7 @@ function Row({
                             {entry.doctor_id
                                 ? shortDoctorName(entry.doctor_name ?? doctors.find(d => d.id === entry.doctor_id)?.name)
                                 : entry.technician_employee_id
-                                    ? (entry.technician_name ?? technicians.find(t => t.id === entry.technician_employee_id)?.name ?? '')
+                                    ? shortDoctorName(entry.technician_name ?? technicians.find(t => t.id === entry.technician_employee_id)?.name)
                                     : ''}
                         </span>
                       </div>
@@ -1109,7 +1109,9 @@ export default function DailySheetIndex({ sheet, date, branch_id, doctors, techn
     }, []);
 
     const B  = 'border border-gray-200 dark:border-gray-700';
-    const BH = 'border border-gray-300 dark:border-gray-600';
+    /* Sticky толгой — border-collapse дээр scroll хийхэд хүрээ алга болдог тул
+       inset box-shadow-оор дээд/доод зураасыг бэхэлж, загвар нурахаас сэргийлнэ */
+    const BH = 'border border-gray-300 dark:border-gray-600 shadow-[inset_0_-1px_0_0_rgb(209_213_219),inset_0_1px_0_0_rgb(209_213_219)] dark:shadow-[inset_0_-1px_0_0_rgb(75_85_99),inset_0_1px_0_0_rgb(75_85_99)]';
 
     /* Эргүүлэгдсэн толгойн өндөр — хамгийн урт label-аар тодорхойлогдоно */
     const rotatedHeaderStyle: React.CSSProperties = {
@@ -1198,43 +1200,43 @@ export default function DailySheetIndex({ sheet, date, branch_id, doctors, techn
                 {/* ── Хүснэгт ── */}
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                     <div ref={scrollRef} className="overflow-x-auto overflow-y-auto premium-scroll" style={{ maxHeight: '72vh' }}>
-                        <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed', minWidth: 1400 }}>
+                        <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed', minWidth: 1600 }}>
                             <colgroup>
                                 <col style={{ width: 30 }} />   {/* № */}
-                                <col />                          {/* Үйлчлүүлэгч */}
-                                <col style={{ width: 48 }} />   {/* Хүйс */}
-                                <col />                          {/* Оношилгоо */}
-                                <col style={{ width: 88 }} />   {/* Дугаар */}
-                                <col style={{ width: 90 }} />   {/* Нийт төлөх ёстой дүн */}
-                                <col style={{ width: 58 }} />   {/* Хөнг. % */}
-                                <col style={{ width: 78 }} />   {/* Мобайл */}
-                                <col style={{ width: 78 }} />   {/* Карт */}
-                                <col style={{ width: 78 }} />   {/* Бэлэн */}
-                                <col style={{ width: 78 }} />   {/* Storepay */}
-                                <col style={{ width: 72 }} />   {/* Илүү дүн */}
-                                <col style={{ width: 78 }} />   {/* Нийт дүн */}
-                                <col style={{ width: 70 }} />   {/* Дутуу */}
-                                <col style={{ width: 130 }} />  {/* Эмч */}
-                                <col style={{ width: 80 }} />   {/* Ресепшн */}
+                                <col style={{ width: 140 }} />  {/* Үйлчлүүлэгч */}
+                                <col style={{ width: 46 }} />   {/* Хүйс */}
+                                <col style={{ width: 200 }} />  {/* Оношилгоо */}
+                                <col style={{ width: 64 }} />   {/* Дугаар */}
+                                <col style={{ width: 80 }} />   {/* Нийт төлөх ёстой дүн */}
+                                <col style={{ width: 62 }} />   {/* Хөнг. % */}
+                                <col style={{ width: 70 }} />   {/* Мобайл */}
+                                <col style={{ width: 66 }} />   {/* Карт */}
+                                <col style={{ width: 66 }} />   {/* Бэлэн */}
+                                <col style={{ width: 70 }} />   {/* Storepay */}
+                                <col style={{ width: 60 }} />   {/* Илүү дүн */}
+                                <col style={{ width: 74 }} />   {/* Нийт дүн */}
+                                <col style={{ width: 62 }} />   {/* Дутуу */}
+                                <col style={{ width: 104 }} />  {/* Эмч */}
+                                <col style={{ width: 74 }} />   {/* Ресепшн */}
                                 {/* Хэрэгсэл — нарийн, эргүүлэгдсэн толгойтой */}
-                                <col style={{ width: 30 }} />
-                                <col style={{ width: 30 }} />
-                                <col style={{ width: 30 }} />
-                                <col style={{ width: 30 }} />
-                                <col style={{ width: 30 }} />
-                                <col style={{ width: 30 }} />
-                                <col style={{ width: 130 }} />  {/* Тэмдэглэл */}
+                                <col style={{ width: 28 }} />
+                                <col style={{ width: 28 }} />
+                                <col style={{ width: 28 }} />
+                                <col style={{ width: 28 }} />
+                                <col style={{ width: 28 }} />
+                                <col style={{ width: 28 }} />
+                                <col style={{ width: 92 }} />   {/* Тэмдэглэл */}
                                 {/* Хадгалах / Устгах */}
-                                <col style={{ width: 86 }} />
+                                <col style={{ width: 76 }} />
                             </colgroup>
 
                             {/* ── Header ── */}
                             <thead className="sticky top-0 z-10">
                                 <tr className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300" style={{ verticalAlign: 'bottom' }}>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>№</th>
-                                    <th className={`${BH} px-2 pb-1.5 text-left`} style={{ minWidth: 100 }}>Үйлчлүүлэгч</th>
+                                    <th className={`${BH} px-2 pb-1.5 text-left`}>Үйлчлүүлэгч</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Хүйс</th>
-                                    <th className={`${BH} px-2 pb-1.5 text-left`} style={{ minWidth: 110 }}>Оношилгоо / эмчилгээ</th>
+                                    <th className={`${BH} px-2 pb-1.5 text-left`}>Оношилгоо / эмчилгээ</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Дугаар</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Нийт төлөх</th>
                                     <th className={`${BH} px-1 pb-1.5 text-center`}>Хөнг.%</th>

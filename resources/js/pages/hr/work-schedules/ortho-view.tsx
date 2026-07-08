@@ -34,10 +34,11 @@ function dateStr(y: number, m: number, d: number) { return `${y}-${pad(m)}-${pad
 function isToday(s: string) { const n = new Date(); return s === dateStr(n.getFullYear(), n.getMonth()+1, n.getDate()); }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-export default function OrthoView({ assistants, doctors, branches, schedules, states, year, month, onNavMonth }: {
+export default function OrthoView({ assistants, doctors, branches, schedules, states, year, month, onNavMonth, apiBase = '/hr/ortho-schedules', lockedBranchId = null }: {
     assistants: OrthoAssistant[]; doctors: OrthoDoctor[]; branches: OrthoBranch[];
     schedules: OrthoSchedule[]; states: Record<string, string>;
     year: number; month: number; onNavMonth: (y: number, m: number) => void;
+    apiBase?: string; lockedBranchId?: number | null;
 }) {
     const docColor = useMemo(() => {
         const m = new Map<number, { bg: string; text: string }>();
@@ -199,20 +200,22 @@ export default function OrthoView({ assistants, doctors, branches, schedules, st
 
             {editor && (
                 <OrthoEditor emp={editor.emp} ds={editor.ds} existing={editor.existing} range={editor.range}
-                    doctors={doctors} branches={branches} states={states} onClose={() => setEditor(null)} />
+                    doctors={doctors} branches={branches} states={states} apiBase={apiBase} lockedBranchId={lockedBranchId}
+                    onClose={() => setEditor(null)} />
             )}
         </div>
     );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-function OrthoEditor({ emp, ds, existing, range, doctors, branches, states, onClose }: {
+function OrthoEditor({ emp, ds, existing, range, doctors, branches, states, apiBase, lockedBranchId, onClose }: {
     emp: OrthoAssistant; ds: string; existing: OrthoSchedule | null;
     range?: { start: string; end: string; ids: number[] };
-    doctors: OrthoDoctor[]; branches: OrthoBranch[]; states: Record<string, string>; onClose: () => void;
+    doctors: OrthoDoctor[]; branches: OrthoBranch[]; states: Record<string, string>;
+    apiBase: string; lockedBranchId: number | null; onClose: () => void;
 }) {
     const [state, setState]   = useState(existing?.state ?? 'work');
-    const [branchId, setBranchId] = useState(existing?.branch_id ? String(existing.branch_id) : '');
+    const [branchId, setBranchId] = useState(existing?.branch_id ? String(existing.branch_id) : (lockedBranchId ? String(lockedBranchId) : ''));
     const [docId, setDocId]   = useState(existing?.assigned_doctor_id ? String(existing.assigned_doctor_id) : '');
     const [endDate, setEndDate] = useState(range && range.end !== range.start ? range.end : '');
     const [allAsst, setAllAsst] = useState(false);
@@ -228,7 +231,7 @@ function OrthoEditor({ emp, ds, existing, range, doctors, branches, states, onCl
         const useRange = (endDate && endDate !== ds) || allAsst;
         const work = state === 'work';
         if (useRange) {
-            router.post('/hr/ortho-schedules/range', {
+            router.post(`${apiBase}/range`, {
                 employee_id: allAsst ? null : emp.id,
                 date: ds, end_date: endDate || ds, state,
                 branch_id: work && branchId ? Number(branchId) : null,
@@ -236,7 +239,7 @@ function OrthoEditor({ emp, ds, existing, range, doctors, branches, states, onCl
                 all_assistants: allAsst,
             } as Record<string, FormDataConvertible>, opts);
         } else {
-            router.post('/hr/ortho-schedules', {
+            router.post(apiBase, {
                 employee_id: emp.id, date: ds, state,
                 branch_id: work && branchId ? Number(branchId) : null,
                 assigned_doctor_id: work && docId ? Number(docId) : null,
@@ -247,10 +250,10 @@ function OrthoEditor({ emp, ds, existing, range, doctors, branches, states, onCl
         if (!existing) { onClose(); return; }
         if (!confirm('Устгах уу?')) return;
         if (range && range.ids.length > 1) {
-            router.post('/hr/ortho-schedules/clear-range',
+            router.post(`${apiBase}/clear-range`,
                 { employee_id: emp.id, date: range.start, end_date: range.end } as Record<string, FormDataConvertible>, opts);
         } else {
-            router.delete(`/hr/ortho-schedules/${existing.id}`, opts);
+            router.delete(`${apiBase}/${existing.id}`, opts);
         }
     }
 

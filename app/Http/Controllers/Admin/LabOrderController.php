@@ -19,10 +19,11 @@ class LabOrderController extends Controller
         $status   = $request->get('status', 'all');
         $search   = trim((string) $request->get('q', ''));
 
-        $orders = LabOrder::with(['branch', 'doctor', 'bender', 'polisher', 'creator'])
+        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
             ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
+            ->when($status === 'payroll',   fn ($q) => $q->where('payroll_counted', true))
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->where('patient_first_name', 'like', "%{$search}%")
                 ->orWhere('patient_last_name', 'like', "%{$search}%")
@@ -49,8 +50,8 @@ class LabOrderController extends Controller
                 'effective_due'         => (int) $o->effective_due,
                 'amount_paid'           => (int) $o->amount_paid,
                 'outstanding'           => $o->outstanding_amount,
-                'bender_name'           => $o->bender ? trim($o->bender->last_name.' '.$o->bender->first_name) : null,
-                'polisher_name'         => $o->polisher ? trim($o->polisher->last_name.' '.$o->polisher->first_name) : null,
+                'bender_name'           => $o->benders->isNotEmpty() ? implode(', ', LabOrder::employeeNames($o->benders)) : null,
+                'polisher_name'         => $o->polishers->isNotEmpty() ? implode(', ', LabOrder::employeeNames($o->polishers)) : null,
                 'lab_ready_date'        => $o->lab_ready_date?->toDateString(),
                 'arrived_date'          => $o->arrived_date?->toDateString(),
                 'pickup_date'           => $o->pickup_date?->toDateString(),
@@ -59,6 +60,8 @@ class LabOrderController extends Controller
                 'final_payment_at'      => $o->final_payment_at?->toDateString(),
                 'is_completed'          => $o->is_completed ? 'Дууссан' : 'Идэвхтэй',
                 'completed_at'          => $o->completed_at?->toDateString(),
+                'payroll_counted'       => $o->payroll_counted ? 'Тийм' : 'Үгүй',
+                'payroll_counted_at'    => $o->payroll_counted_at?->toDateString(),
                 'notes'                 => $o->notes,
                 'created_by_name'       => $o->creator?->name,
             ]);
@@ -72,10 +75,11 @@ class LabOrderController extends Controller
         $status   = $request->get('status', 'all'); // active | completed | all
         $search   = trim((string) $request->get('q', ''));
 
-        $orders = LabOrder::with(['branch', 'doctor', 'bender', 'polisher', 'creator'])
+        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
             ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
+            ->when($status === 'payroll',   fn ($q) => $q->where('payroll_counted', true))
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->where('patient_first_name', 'like', "%{$search}%")
                 ->orWhere('patient_last_name', 'like', "%{$search}%")
@@ -108,13 +112,15 @@ class LabOrderController extends Controller
                 'final_payment_receipt' => $o->final_payment_receipt,
                 'final_payment_method'  => $o->final_payment_method,
                 'final_payment_at'      => $o->final_payment_at?->toDateTimeString(),
-                'bender_name'           => $o->bender ? trim($o->bender->last_name.' '.$o->bender->first_name) : null,
-                'polisher_name'         => $o->polisher ? trim($o->polisher->last_name.' '.$o->polisher->first_name) : null,
+                'bender_name'           => $o->benders->isNotEmpty() ? implode(', ', LabOrder::employeeNames($o->benders)) : null,
+                'polisher_name'         => $o->polishers->isNotEmpty() ? implode(', ', LabOrder::employeeNames($o->polishers)) : null,
                 'lab_ready_date'        => $o->lab_ready_date?->toDateString(),
                 'arrived_date'          => $o->arrived_date?->toDateString(),
                 'pickup_date'           => $o->pickup_date?->toDateString(),
                 'is_completed'          => $o->is_completed,
                 'completed_at'          => $o->completed_at?->toDateTimeString(),
+                'payroll_counted'       => $o->payroll_counted,
+                'payroll_counted_at'    => $o->payroll_counted_at?->toDateTimeString(),
                 'notes'                 => $o->notes,
                 'created_by_name'       => $o->creator?->name,
             ])
@@ -128,6 +134,7 @@ class LabOrderController extends Controller
             'total_paid'        => (int) LabOrder::sum('amount_paid'),
             'total_outstanding' => (int) LabOrder::where('is_completed', false)->whereColumn('amount_paid', '<', 'amount_due')->selectRaw('SUM(amount_due - amount_paid) as t')->value('t') ?? 0,
             'final_paid_count'  => LabOrder::whereNotNull('final_payment_at')->count(),
+            'payroll_counted'   => LabOrder::where('payroll_counted', true)->count(),
         ];
 
         $branches = Branch::orderBy('name')->get(['id', 'name']);
@@ -142,5 +149,19 @@ class LabOrderController extends Controller
                 'branch' => $branchId,
             ],
         ]);
+    }
+
+    /** Цалин бодогдсон эсэхийг сэлгэх (checkbox) */
+    public function togglePayroll(Request $request, LabOrder $labOrder): \Illuminate\Http\RedirectResponse
+    {
+        $counted = ! $labOrder->payroll_counted;
+
+        $labOrder->update([
+            'payroll_counted'    => $counted,
+            'payroll_counted_at' => $counted ? now() : null,
+            'payroll_counted_by' => $counted ? $request->user()?->id : null,
+        ]);
+
+        return back();
     }
 }

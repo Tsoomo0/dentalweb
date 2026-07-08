@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\HR\Employee;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LabOrder extends Model
@@ -18,9 +19,9 @@ class LabOrder extends Model
         'work_description',
         'amount_due', 'discount_percent', 'amount_paid',
         'final_payment_receipt', 'final_payment_method', 'final_payment_at',
-        'bender_employee_id', 'polisher_employee_id',
         'lab_ready_date', 'arrived_date', 'pickup_date',
         'is_completed', 'completed_at',
+        'payroll_counted', 'payroll_counted_at', 'payroll_counted_by',
         'notes', 'created_by',
     ];
 
@@ -32,6 +33,8 @@ class LabOrder extends Model
         'pickup_date'       => 'date:Y-m-d',
         'final_payment_at'  => 'datetime',
         'completed_at'      => 'datetime',
+        'payroll_counted'   => 'boolean',
+        'payroll_counted_at' => 'datetime',
         'is_completed'      => 'boolean',
         'amount_due'        => 'integer',
         'discount_percent'  => 'integer',
@@ -48,14 +51,26 @@ class LabOrder extends Model
         return $this->belongsTo(Doctor::class);
     }
 
-    public function bender(): BelongsTo
+    /** Нугалсан ажилтнууд (олон) */
+    public function benders(): BelongsToMany
     {
-        return $this->belongsTo(Employee::class, 'bender_employee_id');
+        return $this->belongsToMany(Employee::class, 'lab_order_employee', 'lab_order_id', 'employee_id')
+            ->withPivotValue('role', 'bender')
+            ->withTimestamps();
     }
 
-    public function polisher(): BelongsTo
+    /** Өнгөлсөн ажилтнууд (олон) */
+    public function polishers(): BelongsToMany
     {
-        return $this->belongsTo(Employee::class, 'polisher_employee_id');
+        return $this->belongsToMany(Employee::class, 'lab_order_employee', 'lab_order_id', 'employee_id')
+            ->withPivotValue('role', 'polisher')
+            ->withTimestamps();
+    }
+
+    /** Хоёуланд ашиглах — нэрсийн массив */
+    public static function employeeNames($collection): array
+    {
+        return $collection->map(fn ($e) => trim($e->last_name.' '.$e->first_name))->values()->all();
     }
 
     public function creator(): BelongsTo

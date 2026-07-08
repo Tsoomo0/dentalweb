@@ -1,11 +1,15 @@
 import AppLayout from '@/layouts/app-layout';
+import MyLayout from '@/layouts/my-layout';
 import { ToastContainer } from '@/components/toast';
+import { ChatIcon } from '@/components/chat-icon';
+import { NotificationBell } from '@/components/notification-bell';
 import OrthoView, { type OrthoAssistant, type OrthoBranch, type OrthoDoctor, type OrthoSchedule } from './ortho-view';
+import RoleWeekView, { type RoleAccent, type SupportBranch, type SupportSchedule, type SupportStaff } from './support-view';
 import { router, usePage } from '@inertiajs/react';
 import type { FormDataConvertible } from '@inertiajs/core';
 import {
     Braces, Building2, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Copy,
-    Plus, Printer, Save, Stethoscope, Trash2, Users, X,
+    Plus, Radiation, Save, ShieldCheck, Sparkles, Stethoscope, Trash2, Users, Wrench, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -23,22 +27,31 @@ interface Schedule {
     room: string | null; assigned_doctor_id: number | null;
     duties: string[]; notes: string | null;
 }
-interface CardProduceRow { doctor_id: number | null; nurse_id: number | null; }
-interface NurseTimeRow   { person_id: number | null; time: string; }
+interface TaskState { person_id: number | null; done: boolean; }
 interface DayTasks {
-    card_produce?: CardProduceRow[]; card_collect?: NurseTimeRow[];
-    model_room?: NurseTimeRow[]; print_cover?: NurseTimeRow[];
+    reception?: Record<string, TaskState>;
+    nurse?: Record<string, TaskState>;
 }
 interface PageProps {
     employees: Employee[]; doctors: Doctor[]; branches: Branch[];
     schedules: Schedule[]; day_plans: Record<string, DayTasks>;
-    task_types: Record<string, string>; week_start: string;
+    reception_tasks: Record<string, string>; nurse_tasks: Record<string, string>; week_start: string;
     ortho_assistants: OrthoAssistant[]; ortho_doctors: OrthoDoctor[];
     ortho_schedules: OrthoSchedule[]; ortho_states: Record<string, string>;
     ortho_year: number; ortho_month: number;
+    support_staff: SupportStaff[]; support_schedules: SupportSchedule[];
+    support_shifts: Record<string, string>; support_week_start: string;
+    // Дахин ашиглах (my портал): портал төрөл, route суурь, түгжсэн салбар, зөвшөөрсөн табууд
+    portal?: 'hr' | 'my';
+    route_base?: { work: string; ortho: string; support: string };
+    locked_branch_id?: number | null;
+    allowed_tabs?: TabKey[] | null;
+    manager_name?: string;
+    manager_position?: string | null;
     [key: string]: unknown;
 }
 type Row = { s: Schedule; emp: Employee };
+type TabKey = 'clinic' | 'ortho' | 'xray' | 'sterile' | 'reception' | 'cleaner' | 'technician';
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 const MONTHS_MN  = ['1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар',
@@ -58,23 +71,23 @@ const SHIFTS = [
     { value: 'off',       label: 'Амралт' },
 ];
 const SHIFT_BTN: Record<string, string> = {
-    morning: 'bg-sky-600', afternoon: 'bg-orange-600',
-    full: 'bg-emerald-600', custom: 'bg-violet-600', off: 'bg-gray-500',
+    morning: 'bg-sky-500', afternoon: 'bg-orange-500',
+    full: 'bg-emerald-500', custom: 'bg-violet-500', off: 'bg-gray-400',
 };
 
-/* Эмчийн өнгөний палитр (PDF шиг пастел) + үйлчилгээний ролийн өнгө */
+/* Эмчийн өнгөний палитр (зөөлөн пастел) + үйлчилгээний ролийн өнгө */
 const DOC_PALETTE = [
-    { bg: '#bbf7d0', text: '#166534' }, { bg: '#fbcfe8', text: '#9d174d' },
-    { bg: '#bfdbfe', text: '#1e40af' }, { bg: '#ddd6fe', text: '#5b21b6' },
-    { bg: '#fde68a', text: '#854d0e' }, { bg: '#99f6e4', text: '#115e59' },
-    { bg: '#c7d2fe', text: '#3730a3' }, { bg: '#fecdd3', text: '#9f1239' },
+    { bg: '#d1fae5', text: '#047857' }, { bg: '#fce7f3', text: '#be185d' },
+    { bg: '#dbeafe', text: '#1d4ed8' }, { bg: '#ede9fe', text: '#6d28d9' },
+    { bg: '#fef3c7', text: '#b45309' }, { bg: '#cffafe', text: '#0e7490' },
+    { bg: '#e0e7ff', text: '#4338ca' }, { bg: '#ffe4e6', text: '#be123c' },
 ];
 const ROLE_FIXED: Record<string, { bg: string; text: string }> = {
-    xray:       { bg: '#fdba74', text: '#7c2d12' },
-    reception:  { bg: '#fde047', text: '#713f12' },
-    cleaner:    { bg: '#e2e8f0', text: '#334155' },
-    technician: { bg: '#a5f3fc', text: '#155e75' },
-    other:      { bg: '#e5e7eb', text: '#374151' },
+    xray:       { bg: '#fed7aa', text: '#c2410c' },
+    reception:  { bg: '#fde68a', text: '#b45309' },
+    cleaner:    { bg: '#e2e8f0', text: '#475569' },
+    technician: { bg: '#bae6fd', text: '#0369a1' },
+    other:      { bg: '#e5e7eb', text: '#4b5563' },
 };
 
 /* Албан тушаалын секцийн эрэмбэ + өнгө */
@@ -92,14 +105,14 @@ const ROLE_BADGE: Record<string, string> = {
 };
 function roleBadge(r: string) { return ROLE_BADGE[r] ?? ROLE_BADGE.other; }
 
-/* Салбар tile-ийн градиент */
+/* Салбар tile-ийн градиент (зөөлөвтөр) */
 const TILE_GRADIENTS = [
-    'from-indigo-500 to-violet-600',
-    'from-emerald-500 to-teal-600',
-    'from-sky-500 to-blue-600',
-    'from-amber-500 to-orange-600',
-    'from-rose-500 to-pink-600',
-    'from-cyan-500 to-blue-500',
+    'from-indigo-400 to-violet-500',
+    'from-emerald-400 to-teal-500',
+    'from-sky-400 to-blue-500',
+    'from-amber-400 to-orange-500',
+    'from-rose-400 to-pink-500',
+    'from-cyan-400 to-blue-400',
 ];
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
@@ -123,13 +136,46 @@ function timeText(s: Schedule) {
     return `${s.start_time ?? ''}-${s.end_time ?? ''}`;
 }
 
+/* Туслах ажилтны табуудын тохиргоо (тус бүр өөрийн таб) */
+type SupportKey = 'xray' | 'sterile' | 'reception' | 'cleaner' | 'technician';
+const SUPPORT_LABELS: Record<SupportKey, string> = {
+    xray: 'Рентген техникч', sterile: 'Ариутгалын сувилагч', reception: 'Ресепшн', cleaner: 'Үйлчлэгч', technician: 'Шүдний техникч',
+};
+const SUPPORT_TAB_LABELS: Record<SupportKey, string> = {
+    xray: 'Рентген', sterile: 'Ариутгал', reception: 'Ресепшн', cleaner: 'Үйлчлэгч', technician: 'Шүд. техникч',
+};
+const SUPPORT_ICONS: Record<SupportKey, React.ReactNode> = {
+    xray: <Radiation className="size-4" />, sterile: <ShieldCheck className="size-4" />,
+    reception: <Users className="size-4" />, cleaner: <Sparkles className="size-4" />,
+    technician: <Wrench className="size-4" />,
+};
+const SUPPORT_ACCENTS: Record<SupportKey, RoleAccent> = {
+    xray:       { grad: 'from-amber-400 to-orange-500',  hex: '#f59e0b', ring: 'ring-amber-400/60',  soft: 'bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400',    tile: 'from-amber-500 via-orange-500 to-orange-600' },
+    sterile:    { grad: 'from-teal-400 to-emerald-500',  hex: '#14b8a6', ring: 'ring-teal-400/60',   soft: 'bg-teal-100 text-teal-600 dark:bg-teal-950/50 dark:text-teal-400',        tile: 'from-teal-500 via-emerald-500 to-emerald-600' },
+    reception:  { grad: 'from-sky-400 to-blue-500',      hex: '#0ea5e9', ring: 'ring-sky-400/60',    soft: 'bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400',            tile: 'from-sky-500 via-blue-500 to-blue-600' },
+    cleaner:    { grad: 'from-lime-400 to-green-500',    hex: '#65a30d', ring: 'ring-lime-400/60',   soft: 'bg-lime-100 text-lime-600 dark:bg-lime-950/50 dark:text-lime-400',        tile: 'from-lime-500 via-green-500 to-green-600' },
+    technician: { grad: 'from-violet-400 to-purple-500', hex: '#7c3aed', ring: 'ring-violet-400/60', soft: 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400', tile: 'from-violet-500 via-purple-500 to-purple-600' },
+};
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 export default function WorkSchedulesIndex() {
-    const { employees, doctors, branches, schedules, day_plans, task_types, week_start,
-        ortho_assistants, ortho_doctors, ortho_schedules, ortho_states, ortho_year, ortho_month } =
+    const { employees, doctors, branches, schedules, day_plans, reception_tasks, nurse_tasks, week_start,
+        ortho_assistants, ortho_doctors, ortho_schedules, ortho_states, ortho_year, ortho_month,
+        support_staff, support_schedules, support_shifts, support_week_start,
+        portal = 'hr', route_base, locked_branch_id = null, allowed_tabs = null,
+        manager_name, manager_position } =
         usePage<PageProps>().props;
 
-    const [tab, setTab] = useState<'clinic' | 'ortho'>('clinic');
+    /* Портал / route суурь / түгжсэн салбар */
+    const Layout = portal === 'my' ? MyLayout : AppLayout;
+    const RB = route_base ?? { work: '/hr/work-schedules', ortho: '/hr/ortho-schedules', support: '/hr/support-schedules' };
+    const isLocked = locked_branch_id != null;
+
+    /* Зөвшөөрсөн табууд (my портал дээр л хязгаарлагдана) */
+    const allTabs: TabKey[] = ['clinic', 'ortho', 'xray', 'sterile', 'reception', 'cleaner', 'technician'];
+    const visibleTabs = allowed_tabs ? allTabs.filter(t => allowed_tabs.includes(t)) : allTabs;
+
+    const [tab, setTab] = useState<'clinic' | 'ortho' | SupportKey>(() => visibleTabs[0] ?? 'clinic');
 
     /* ── Lookups ── */
     const empMap = useMemo(() => {
@@ -167,7 +213,9 @@ export default function WorkSchedulesIndex() {
     }, [week_start]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ── Selected branch (null = салбар сонгох landing) ── */
-    const [branch, setBranch] = useState<number | 'all' | null>(branches.length > 0 ? null : 'all');
+    const [branch, setBranch] = useState<number | 'all' | null>(
+        isLocked ? locked_branch_id : (branches.length > 0 ? null : 'all'));
+    const branchName = branch === 'all' ? 'Бүх салбар' : branches.find(b => b.id === branch)?.name ?? '';
     const branchEmployees = useMemo(() =>
         employees.filter(e => branch === 'all' || e.branch_id === branch),
         [employees, branch]);
@@ -227,18 +275,18 @@ export default function WorkSchedulesIndex() {
     /* ── Navigation ── */
     function navWeek(dir: number) {
         const target = addDays(parseDate(week_start), dir * 7);
-        router.get('/hr/work-schedules', { date: toDateStr(target) },
+        router.get(RB.work, { date: toDateStr(target) },
             { preserveState: true, preserveScroll: true, only: ['schedules', 'day_plans', 'week_start'] });
     }
     function goToday() {
         const t = toDateStr(new Date());
-        router.get('/hr/work-schedules', { date: t },
+        router.get(RB.work, { date: t },
             { preserveState: true, preserveScroll: true, only: ['schedules', 'day_plans', 'week_start'],
               onSuccess: () => setSelected(t) });
     }
     function copyPrevWeek() {
         if (!confirm('Өмнөх 7 хоногийн хуваарийг энэ долоо хоног руу хуулах уу?')) return;
-        router.post('/hr/work-schedules/copy-week', { target_week_start: week_start },
+        router.post(`${RB.work}/copy-week`, { target_week_start: week_start },
             { preserveState: true, preserveScroll: true, only: ['schedules', 'day_plans'] });
     }
 
@@ -332,18 +380,49 @@ export default function WorkSchedulesIndex() {
 
     /* ════════════════════════ RENDER ════════════════════════ */
     return (
-        <AppLayout breadcrumbs={[{ title: 'HR', href: '/hr/employees' }, { title: 'Ажлын хуваарь', href: '/hr/work-schedules' }]}>
-            <div className="p-4 md:p-6 space-y-5">
+        <Layout breadcrumbs={portal === 'my'
+            ? [{ title: 'Хуваарь гаргах', href: RB.work }]
+            : [{ title: 'HR', href: '/hr/employees' }, { title: 'Ажлын хуваарь', href: '/hr/work-schedules' }]}>
+            <div className={portal === 'my'
+                ? 'p-3 sm:p-4 md:p-6 space-y-4 md:space-y-5 max-md:flex-1 max-md:min-h-0 max-md:overflow-y-auto max-md:overscroll-contain max-md:pb-28'
+                : 'p-4 md:p-6 space-y-5'}
+                style={portal === 'my' ? { WebkitOverflowScrolling: 'touch' } : undefined}>
+
+                {/* ── Mobile red hero (my portal) ── */}
+                {portal === 'my' && (
+                    <div className="md:hidden -mx-3 sm:-mx-4 -mt-3 sm:-mt-4 mb-1">
+                        <div className="relative overflow-hidden px-4 pt-3 pb-5"
+                            style={{ background: 'linear-gradient(160deg, #ef4444 0%, #dc2626 30%, #b91c1c 65%, #7f1d1d 100%)' }}>
+                            <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', top: -70, right: -60, pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', top: 30, right: 30, pointerEvents: 'none' }} />
+                            <div className="relative flex items-center gap-2.5">
+                                <span className="flex-1 text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(255,255,255,0.65)' }}>HR · ХУВААРЬ ГАРГАХ</span>
+                                <ChatIcon variant="ghost" />
+                                <NotificationBell variant="ghost" />
+                            </div>
+                            <div className="relative mt-3">
+                                <h1 className="leading-none" style={{ letterSpacing: -0.5 }}>
+                                    <span style={{ fontSize: 32, fontWeight: 900, color: 'white' }}>Хуваарь </span>
+                                    <span style={{ fontSize: 24, fontWeight: 300, fontStyle: 'italic', color: 'rgba(255,255,255,0.7)', fontFamily: 'Georgia, "Times New Roman", serif' }}>гаргах</span>
+                                </h1>
+                                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, margin: '8px 0 0', fontWeight: 500 }}>
+                                    {manager_name ?? ''}{manager_position ? ` · ${manager_position}` : ''}
+                                    {branchName ? ` · ${branchName}` : ''}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Top bar ── */}
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30">
+                    <div className={`flex items-center gap-3 ${portal === 'my' ? 'max-md:hidden' : ''}`}>
+                        <div className="flex size-11 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
                             <CalendarDays className="size-5" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-black tracking-tight text-gray-900 dark:text-gray-100 leading-none">Ажлын хуваарь</h1>
-                            <p className="text-xs text-muted-foreground mt-1">Эмч · сувилагчийн 7 хоногийн хуваарь</p>
+                            <h1 className="text-xl font-black tracking-tight text-gray-900 dark:text-gray-100 leading-none">{portal === 'my' ? 'Хуваарь гаргах' : 'Ажлын хуваарь'}</h1>
+                            <p className="text-xs text-muted-foreground mt-1">{portal === 'my' ? 'Өөрийн салбарын хуваарь оруулах' : 'Эмч · сувилагчийн 7 хоногийн хуваарь'}</p>
                         </div>
                     </div>
                     {tab === 'clinic' && branch !== null && (
@@ -354,25 +433,39 @@ export default function WorkSchedulesIndex() {
                                 <button onClick={() => navWeek(1)} className="p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"><ChevronRight className="size-4" /></button>
                             </div>
                             <button onClick={goToday} className="px-3.5 py-2 rounded-full border bg-card text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors shadow-sm">Өнөөдөр</button>
-                            <button onClick={copyPrevWeek}
-                                className="flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors shadow-sm">
-                                <Copy className="size-4" /> <span className="hidden sm:inline">Өмнөх 7 хоног хуулах</span>
-                            </button>
+                            {portal !== 'my' && (
+                                <button onClick={copyPrevWeek}
+                                    className="flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors shadow-sm">
+                                    <Copy className="size-4" /> <span className="hidden sm:inline">Өмнөх 7 хоног хуулах</span>
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
 
                 {/* ── Tabs (шууд солигдоно) ── */}
-                <div className="flex items-center gap-1 rounded-full border bg-card p-1 shadow-sm w-fit">
-                    <button onClick={() => setTab('clinic')}
-                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${tab === 'clinic' ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow' : 'text-muted-foreground hover:bg-muted'}`}>
-                        <CalendarDays className="size-4" /> Эмч сувилагчийн хуваарь
-                    </button>
-                    <button onClick={() => setTab('ortho')}
-                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${tab === 'ortho' ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow' : 'text-muted-foreground hover:bg-muted'}`}>
-                        <Braces className="size-4" /> Гажиг засал / туслах эмчийн хуваарь
-                    </button>
+                {visibleTabs.length > 1 && (
+                <div className="flex flex-wrap items-center gap-1 rounded-2xl border bg-card p-1 shadow-sm w-fit max-w-full">
+                    {visibleTabs.includes('clinic') && (
+                        <button onClick={() => setTab('clinic')}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold transition-colors ${tab === 'clinic' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300' : 'text-muted-foreground hover:bg-muted'}`}>
+                            <CalendarDays className="size-4" /> Эмч сувилагчийн хуваарь
+                        </button>
+                    )}
+                    {visibleTabs.includes('ortho') && (
+                        <button onClick={() => setTab('ortho')}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold transition-colors ${tab === 'ortho' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : 'text-muted-foreground hover:bg-muted'}`}>
+                            <Braces className="size-4" /> Гажиг засал / туслах эмчийн хуваарь
+                        </button>
+                    )}
+                    {(['xray', 'sterile', 'reception', 'cleaner', 'technician'] as SupportKey[]).filter(k => visibleTabs.includes(k)).map(k => (
+                        <button key={k} onClick={() => setTab(k)}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold transition-colors ${tab === k ? SUPPORT_ACCENTS[k].soft : 'text-muted-foreground hover:bg-muted'}`}>
+                            {SUPPORT_ICONS[k]} {SUPPORT_TAB_LABELS[k]}
+                        </button>
+                    ))}
                 </div>
+                )}
 
                 {tab === 'ortho' ? (
                     <OrthoView
@@ -383,61 +476,78 @@ export default function WorkSchedulesIndex() {
                         states={ortho_states}
                         year={ortho_year}
                         month={ortho_month}
-                        onNavMonth={(y, m) => router.get('/hr/work-schedules', { oyear: y, omonth: m },
+                        apiBase={RB.ortho}
+                        lockedBranchId={locked_branch_id}
+                        onNavMonth={(y, m) => router.get(RB.work, { oyear: y, omonth: m },
                             { preserveState: true, preserveScroll: true, only: ['ortho_schedules', 'ortho_year', 'ortho_month'] })}
+                    />
+                ) : tab === 'xray' || tab === 'sterile' || tab === 'reception' || tab === 'cleaner' || tab === 'technician' ? (
+                    <RoleWeekView
+                        key={tab}
+                        roleLabel={SUPPORT_LABELS[tab]}
+                        roleIcon={SUPPORT_ICONS[tab]}
+                        accent={SUPPORT_ACCENTS[tab]}
+                        staff={support_staff.filter(e => e.group === tab)}
+                        schedules={support_schedules}
+                        shifts={support_shifts}
+                        branches={branches as SupportBranch[]}
+                        weekStart={support_week_start}
+                        apiBase={RB.support}
+                        lockedBranchId={locked_branch_id}
+                        onNavWeek={(ds) => router.get(RB.work, { sdate: ds },
+                            { preserveState: true, preserveScroll: true, only: ['support_schedules', 'support_week_start'] })}
                     />
                 ) : branch === null ? (
                     /* ══════ Landing: салбар сонгох (premium full-width) ══════ */
                     <div className="space-y-6">
                         {/* Hero */}
-                        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-800 via-slate-800 to-indigo-900 px-8 py-9 shadow-xl">
-                            <div className="absolute -right-12 -top-16 size-56 rounded-full bg-indigo-500/20 blur-3xl" />
-                            <div className="absolute right-32 top-4 size-28 rounded-full bg-violet-500/10 blur-2xl" />
-                            <div className="relative flex items-center gap-4">
-                                <div className="flex size-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur ring-1 ring-white/20 text-white shadow-lg">
-                                    <Plus className="size-7" />
+                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 px-6 py-6 shadow-md">
+                            <div className="absolute -right-10 -top-12 size-44 rounded-full bg-white/5 blur-3xl" />
+                            <div className="relative flex items-center gap-3.5">
+                                <div className="flex size-12 items-center justify-center rounded-xl bg-white/10 backdrop-blur ring-1 ring-white/20 text-white">
+                                    <Plus className="size-6" />
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-black tracking-tight text-white leading-none">Хуваарь нэмэх</h2>
-                                    <p className="text-sm text-white/60 mt-2">Аль салбарын 7 хоногийн хуваарь оруулахаа сонгоно уу</p>
+                                    <h2 className="text-xl font-black tracking-tight text-white leading-none">Хуваарь нэмэх</h2>
+                                    <p className="text-[13px] text-white/60 mt-1.5">Аль салбарын 7 хоногийн хуваарь оруулахаа сонгоно уу</p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Branch tiles — full width */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                             {branches.map((b, i) => {
                                 const grad = TILE_GRADIENTS[i % TILE_GRADIENTS.length];
                                 const cnt = employees.filter(e => e.branch_id === b.id).length;
                                 return (
                                     <button key={b.id} onClick={() => setBranch(b.id)}
-                                        className="group relative overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-700/70 bg-card p-5 text-left shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all">
-                                        <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${grad}`} />
-                                        <div className="flex items-center gap-4">
-                                            <div className={`flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br ${grad} text-white shadow-lg shrink-0`}>
-                                                <Building2 className="size-7" />
+                                        className="group relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700/70 bg-card p-3.5 text-left shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+                                        <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${grad}`} />
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 shrink-0">
+                                                <Building2 className="size-5" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-lg font-black tracking-tight truncate">{b.name}</p>
-                                                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Users className="size-3" /> {cnt} ажилтан</p>
+                                                <p className="text-sm font-black tracking-tight truncate">{b.name}</p>
+                                                <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1"><Users className="size-3" /> {cnt}</p>
                                             </div>
-                                            <ChevronRight className="size-5 text-muted-foreground group-hover:translate-x-1 group-hover:text-indigo-500 transition-all shrink-0" />
+                                            <ChevronRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 group-hover:text-indigo-500 transition-all shrink-0" />
                                         </div>
                                     </button>
                                 );
                             })}
                             {/* Бүх салбар */}
                             <button onClick={() => setBranch('all')}
-                                className="group relative overflow-hidden rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-card/50 p-5 text-left hover:border-gray-400 hover:bg-muted/40 hover:-translate-y-1 transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground shrink-0">
-                                        <Building2 className="size-7" />
+                                className="group relative overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-card/50 p-3.5 text-left hover:border-gray-400 hover:bg-muted/40 hover:-translate-y-0.5 transition-all">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground shrink-0">
+                                        <Building2 className="size-5" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-lg font-black tracking-tight truncate">Бүх салбар</p>
-                                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Users className="size-3" /> {employees.length} ажилтан</p>
+                                        <p className="text-sm font-black tracking-tight truncate">Бүх салбар</p>
+                                        <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1"><Users className="size-3" /> {employees.length}</p>
                                     </div>
-                                    <ChevronRight className="size-5 text-muted-foreground group-hover:translate-x-1 transition-all shrink-0" />
+                                    <ChevronRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
                                 </div>
                             </button>
                         </div>
@@ -453,14 +563,16 @@ export default function WorkSchedulesIndex() {
                             <p className="text-sm font-black leading-tight mt-0.5">{branch === 'all' ? 'Бүх салбар' : branches.find(b => b.id === branch)?.name}</p>
                         </div>
                     </div>
-                    <button onClick={() => setBranch(null)}
-                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg px-2.5 py-1.5 transition-colors">
-                        <Building2 className="size-3.5" /> Салбар солих
-                    </button>
+                    {!isLocked && (
+                        <button onClick={() => setBranch(null)}
+                            className="flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg px-2.5 py-1.5 transition-colors">
+                            <Building2 className="size-3.5" /> Салбар солих
+                        </button>
+                    )}
                 </div>
 
                 {/* ── Day tabs ── */}
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1.5">
                     {weekDays.map((d, i) => {
                         const ds = toDateStr(d);
                         const isSel = ds === selected;
@@ -469,39 +581,41 @@ export default function WorkSchedulesIndex() {
                         const cnt = dayCount(ds);
                         return (
                             <button key={ds} onClick={() => setSelected(ds)}
-                                className={`relative rounded-2xl py-2.5 flex flex-col items-center transition-all duration-200 ${
-                                    isSel ? 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30 -translate-y-0.5'
-                                    : `bg-card border hover:border-indigo-300 hover:shadow-md ${today ? 'ring-2 ring-indigo-400/60' : ''}`}`}>
-                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isSel ? 'text-white/80' : wkend ? 'text-orange-500' : 'text-muted-foreground'}`}>{DAYS_SHORT[i]}</span>
-                                <span className={`text-xl font-black leading-tight ${isSel ? 'text-white' : wkend ? 'text-orange-500' : 'text-foreground'}`}>{d.getDate()}</span>
-                                <span className={`mt-0.5 text-[9px] font-bold ${isSel ? 'text-white/70' : 'text-muted-foreground'}`}>{cnt > 0 ? `${cnt}` : '·'}</span>
+                                className={`relative rounded-xl py-2 flex flex-col items-center border transition-all duration-150 ${
+                                    isSel ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900'
+                                    : `bg-card border-transparent hover:bg-muted/40 ${today ? 'ring-1 ring-indigo-200 dark:ring-indigo-900' : ''}`}`}>
+                                <span className={`text-[9px] font-bold uppercase tracking-wide ${isSel ? 'text-indigo-500 dark:text-indigo-400' : wkend ? 'text-orange-400' : 'text-muted-foreground'}`}>{DAYS_SHORT[i]}</span>
+                                <span className={`text-base font-black leading-tight ${isSel ? 'text-indigo-700 dark:text-indigo-300' : wkend ? 'text-orange-500/90' : 'text-foreground'}`}>{d.getDate()}</span>
+                                <span className="h-1 mt-0.5 flex items-center">
+                                    {cnt > 0 ? <span className={`text-[8px] font-bold ${isSel ? 'text-indigo-400' : 'text-muted-foreground'}`}>{cnt}</span> : <span className={`size-1 rounded-full ${isSel ? 'bg-indigo-300' : 'bg-gray-300 dark:bg-gray-600'}`} />}
+                                </span>
                             </button>
                         );
                     })}
                 </div>
 
                 {/* ── Day sheet ── */}
-                <div className="rounded-3xl border border-gray-200 dark:border-gray-700/70 overflow-hidden bg-card shadow-xl shadow-gray-200/40 dark:shadow-black/20">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700/70 overflow-hidden bg-card shadow-sm">
                     {/* Banner */}
-                    <div className="relative overflow-hidden bg-gradient-to-r from-slate-800 via-slate-800 to-indigo-900 px-6 py-4">
-                        <div className="absolute -right-10 -top-12 size-48 rounded-full bg-indigo-500/20 blur-3xl" />
-                        <div className="relative flex items-center gap-5">
+                    <div className="relative overflow-hidden bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 px-5 py-3.5">
+                        <div className="absolute -right-10 -top-12 size-40 rounded-full bg-white/5 blur-3xl" />
+                        <div className="relative flex items-center gap-4">
                             <div className="text-white">
-                                <p className="text-4xl font-black leading-none">{selDate.getDate()}</p>
-                                <p className="text-[11px] font-medium text-white/60 mt-0.5">{MONTHS_MN[selDate.getMonth()]}</p>
+                                <p className="text-3xl font-black leading-none">{selDate.getDate()}</p>
+                                <p className="text-[10px] font-medium text-white/60 mt-0.5">{MONTHS_MN[selDate.getMonth()]}</p>
                             </div>
-                            <div className="w-px h-11 bg-white/15" />
+                            <div className="w-px h-10 bg-white/15" />
                             <div className="flex-1">
-                                <p className="text-white text-lg font-bold leading-tight">{DAYS_FULL[selDow]}</p>
+                                <p className="text-white text-base font-bold leading-tight">{DAYS_FULL[selDow]}</p>
                                 <p className="text-[11px] text-white/50">{selDate.getFullYear()} он · {branch === 'all' ? 'Бүх салбар' : branches.find(b => b.id === branch)?.name}</p>
                             </div>
-                            <div className="flex gap-2">
-                                <div className="rounded-2xl bg-white/10 backdrop-blur px-3.5 py-1.5 text-center min-w-[60px]">
-                                    <p className="text-lg font-black text-white leading-none">{docCount}</p>
+                            <div className="flex gap-1.5">
+                                <div className="rounded-xl bg-white/10 backdrop-blur px-3 py-1.5 text-center min-w-[54px]">
+                                    <p className="text-base font-black text-white leading-none">{docCount}</p>
                                     <p className="text-[9px] text-white/60 mt-0.5 flex items-center justify-center gap-0.5"><Stethoscope className="size-2.5" /> Эмч</p>
                                 </div>
-                                <div className="rounded-2xl bg-white/10 backdrop-blur px-3.5 py-1.5 text-center min-w-[60px]">
-                                    <p className="text-lg font-black text-white leading-none">{nurseCount}</p>
+                                <div className="rounded-xl bg-white/10 backdrop-blur px-3 py-1.5 text-center min-w-[54px]">
+                                    <p className="text-base font-black text-white leading-none">{nurseCount}</p>
                                     <p className="text-[9px] text-white/60 mt-0.5 flex items-center justify-center gap-0.5"><Users className="size-2.5" /> Сувилагч</p>
                                 </div>
                             </div>
@@ -509,7 +623,7 @@ export default function WorkSchedulesIndex() {
                     </div>
 
                     {/* Body */}
-                    <div className="p-4 sm:p-6 space-y-7">
+                    <div className="p-4 sm:p-5 space-y-6">
 
                         {/* Эмч ↔ хариуцах сувилагч */}
                         <div>
@@ -556,11 +670,10 @@ export default function WorkSchedulesIndex() {
                         key={selected}
                         date={selected}
                         initial={day_plans[selected] ?? {}}
-                        taskTypes={task_types}
+                        receptionTasks={reception_tasks}
+                        nurseTasks={nurse_tasks}
                         employees={branchEmployees}
-                        doctors={doctors}
-                        empMap={empMap}
-                        colorFor={colorFor}
+                        workBase={RB.work}
                     />
                 </div>
                   </>
@@ -585,139 +698,121 @@ export default function WorkSchedulesIndex() {
                     existing={editor.existing}
                     presetDoctorId={editor.presetDoctorId}
                     doctors={doctors}
+                    workBase={RB.work}
                     onClose={() => setEditor(null)}
                 />
             )}
 
             <ToastContainer />
-        </AppLayout>
+        </Layout>
     );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*  Task section ("Хийх ажил")                                                  */
+/*  Task section (Рессепшн / Сувилагчийн хийх зүйлс)                             */
 /* ═══════════════════════════════════════════════════════════════════════════ */
-function TaskSection({ date, initial, taskTypes, employees, doctors, empMap, colorFor }: {
-    date: string; initial: DayTasks; taskTypes: Record<string, string>;
-    employees: Employee[]; doctors: Doctor[]; empMap: Map<number, Employee>;
-    colorFor: (e: Employee) => { bg: string; text: string } | null;
+function TaskSection({ date, initial, receptionTasks, nurseTasks, employees, workBase }: {
+    date: string; initial: DayTasks;
+    receptionTasks: Record<string, string>; nurseTasks: Record<string, string>;
+    employees: Employee[]; workBase: string;
 }) {
     const [tasks, setTasks] = useState<DayTasks>(initial);
     const [dirty, setDirty] = useState(false);
     const [busy, setBusy]   = useState(false);
     useEffect(() => { setTasks(initial); setDirty(false); }, [initial]);
 
-    const nurses = useMemo(() => employees.filter(e => e.role_group === 'nurse' || e.role_group === 'assistant'), [employees]);
-    function update(next: DayTasks) { setTasks(next); setDirty(true); }
+    const receptionStaff = useMemo(() => {
+        const r = employees.filter(e => e.role_group === 'reception');
+        return r.length ? r : employees;
+    }, [employees]);
+    const nurses = useMemo(() => {
+        const n = employees.filter(e => e.role_group === 'nurse' || e.role_group === 'assistant');
+        return n.length ? n : employees;
+    }, [employees]);
+
     function save() {
         setBusy(true);
-        router.post('/hr/work-schedules/save-tasks', { date, tasks: tasks as unknown as Record<string, FormDataConvertible> },
+        router.post(`${workBase}/save-tasks`, { date, tasks: tasks as unknown as Record<string, FormDataConvertible> },
             { preserveState: true, preserveScroll: true, only: ['day_plans'],
               onFinish: () => setBusy(false), onSuccess: () => setDirty(false) });
     }
 
-    const cp = tasks.card_produce ?? [];
-    function setCp(rows: CardProduceRow[]) { update({ ...tasks, card_produce: rows }); }
-    function ntList(key: 'card_collect' | 'model_room' | 'print_cover') { return tasks[key] ?? []; }
-    function setNt(key: 'card_collect' | 'model_room' | 'print_cover', rows: NurseTimeRow[]) { update({ ...tasks, [key]: rows }); }
-    const selCls = 'rounded-lg border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
+    function get(group: 'reception' | 'nurse', key: string): TaskState {
+        return tasks[group]?.[key] ?? { person_id: null, done: false };
+    }
+    function set(group: 'reception' | 'nurse', key: string, next: TaskState) {
+        setTasks(t => ({ ...t, [group]: { ...(t[group] ?? {}), [key]: next } }));
+        setDirty(true);
+    }
+
+    const receptionAssigned = Object.keys(receptionTasks).filter(k => get('reception', k).person_id != null).length;
+    const nurseAssigned     = Object.keys(nurseTasks).filter(k => get('nurse', k).person_id != null).length;
 
     return (
         <div className="border-t border-gray-100 dark:border-gray-800 bg-gradient-to-b from-gray-50/80 to-transparent dark:from-gray-900/40">
             <div className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-2.5">
-                    <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
+                    <div className="flex size-8 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
                         <ClipboardList className="size-4" />
                     </div>
-                    <h3 className="text-base font-black tracking-tight">Хийх ажил</h3>
+                    <h3 className="text-base font-black tracking-tight">Өдрийн хийх зүйлс</h3>
                 </div>
                 {dirty && (
                     <button onClick={save} disabled={busy}
-                        className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-500/30 hover:shadow-lg disabled:opacity-50 transition-shadow">
+                        className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:shadow-lg disabled:opacity-50 transition-shadow">
                         {busy ? <span className="size-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Save className="size-3.5" />}
                         Хадгалах
                     </button>
                 )}
             </div>
 
-            <div className="px-5 pb-5 grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-4 gap-3">
-                {/* Карт, загвар гаргах */}
-                <div className="rounded-2xl border bg-card p-3.5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <div className="flex size-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"><ClipboardList className="size-3.5" /></div>
-                        <p className="text-xs font-bold">{taskTypes.card_produce}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                        {cp.map((row, i) => {
-                            const docEmp = row.doctor_id ? empMap.get(row.doctor_id) : undefined;
-                            const col = docEmp ? colorFor(docEmp) : null;
-                            return (
-                                <div key={i} className="flex items-center gap-1.5">
-                                    <select value={row.doctor_id ?? ''} onChange={e => setCp(cp.map((r,j) => j===i ? { ...r, doctor_id: e.target.value ? Number(e.target.value) : null } : r))}
-                                        className={`${selCls} flex-1`} style={col ? { background: col.bg, color: col.text } : undefined}>
-                                        <option value="">— Эмч сонгох —</option>
-                                        {doctors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                    </select>
-                                    <span className="text-muted-foreground text-xs">→</span>
-                                    <select value={row.nurse_id ?? ''} onChange={e => setCp(cp.map((r,j) => j===i ? { ...r, nurse_id: e.target.value ? Number(e.target.value) : null } : r))}
-                                        className={`${selCls} flex-1`}>
-                                        <option value="">— Сувилагч сонгох —</option>
-                                        {nurses.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-                                    </select>
-                                    <button onClick={() => setCp(cp.filter((_,j) => j!==i))} className="p-1 text-red-400 hover:text-red-600"><X className="size-3.5" /></button>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <button onClick={() => setCp([...cp, { doctor_id: null, nurse_id: null }])}
-                        className="mt-2 flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-                        <Plus className="size-3" /> Мөр нэмэх
-                    </button>
-                </div>
-
-                <NurseTimeBlock label={taskTypes.card_collect} rows={ntList('card_collect')} nurses={nurses}
-                    onChange={rows => setNt('card_collect', rows)} selCls={selCls} optionalPerson
-                    icon={<CalendarClock className="size-3.5" />} accent="bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400" />
-                <NurseTimeBlock label={taskTypes.model_room} rows={ntList('model_room')} nurses={nurses}
-                    onChange={rows => setNt('model_room', rows)} selCls={selCls}
-                    icon={<ClipboardList className="size-3.5" />} accent="bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400" />
-                <NurseTimeBlock label={taskTypes.print_cover} rows={ntList('print_cover')} nurses={employees}
-                    onChange={rows => setNt('print_cover', rows)} selCls={selCls}
-                    icon={<Printer className="size-3.5" />} accent="bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400" />
+            <div className="px-5 pb-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <ChecklistCard
+                    title="Рессепшн хийх зүйлс" items={receptionTasks} staff={receptionStaff}
+                    assignedCount={receptionAssigned} icon={<Users className="size-3.5" />}
+                    accent="bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
+                    get={k => get('reception', k)} set={(k, v) => set('reception', k, v)} />
+                <ChecklistCard
+                    title="Сувилагчийн хийх зүйлс" items={nurseTasks} staff={nurses}
+                    assignedCount={nurseAssigned} icon={<Stethoscope className="size-3.5" />}
+                    accent="bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400"
+                    get={k => get('nurse', k)} set={(k, v) => set('nurse', k, v)} />
             </div>
         </div>
     );
 }
 
-function NurseTimeBlock({ label, rows, nurses, onChange, selCls, optionalPerson, icon, accent }: {
-    label: string; rows: NurseTimeRow[]; nurses: Employee[];
-    onChange: (rows: NurseTimeRow[]) => void; selCls: string; optionalPerson?: boolean;
-    icon?: React.ReactNode; accent?: string;
+function ChecklistCard({ title, items, staff, assignedCount, icon, accent, get, set }: {
+    title: string; items: Record<string, string>; staff: Employee[]; assignedCount: number;
+    icon: React.ReactNode; accent: string;
+    get: (key: string) => TaskState; set: (key: string, next: TaskState) => void;
 }) {
+    const keys = Object.keys(items);
+    const selCls = 'rounded-lg border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400';
     return (
-        <div className="rounded-2xl border bg-card p-3.5 shadow-sm">
-            <div className="flex items-center gap-2 mb-2.5">
-                {icon && <div className={`flex size-6 items-center justify-center rounded-lg ${accent}`}>{icon}</div>}
-                <p className="text-xs font-bold">{label}</p>
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+                <div className={`flex size-6 items-center justify-center rounded-lg ${accent}`}>{icon}</div>
+                <p className="text-sm font-bold flex-1">{title}</p>
+                <span className="text-[11px] font-bold text-muted-foreground tabular-nums">{assignedCount}/{keys.length}</span>
             </div>
             <div className="space-y-1.5">
-                {rows.map((row, i) => (
-                    <div key={i} className="flex items-center gap-1.5">
-                        <select value={row.person_id ?? ''} onChange={e => onChange(rows.map((r,j) => j===i ? { ...r, person_id: e.target.value ? Number(e.target.value) : null } : r))}
-                            className={`${selCls} flex-1`}>
-                            <option value="">{optionalPerson ? '— Сонгох (заавал биш) —' : '— Сонгох —'}</option>
-                            {nurses.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-                        </select>
-                        <input value={row.time} onChange={e => onChange(rows.map((r,j) => j===i ? { ...r, time: e.target.value } : r))}
-                            placeholder="20:00-20:30" className={`${selCls} w-28`} />
-                        <button onClick={() => onChange(rows.filter((_,j) => j!==i))} className="p-1 text-red-400 hover:text-red-600"><X className="size-3.5" /></button>
-                    </div>
-                ))}
+                {keys.map(key => {
+                    const st = get(key);
+                    const assigned = st.person_id != null;
+                    return (
+                        <div key={key} className="flex items-center gap-2 rounded-xl border border-gray-100 dark:border-gray-800 bg-background/50 px-2.5 py-2">
+                            <span className={`size-1.5 rounded-full shrink-0 ${assigned ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                            <span className="flex-1 text-xs font-medium leading-snug">{items[key]}</span>
+                            <select value={st.person_id ?? ''} onChange={e => set(key, { ...st, person_id: e.target.value ? Number(e.target.value) : null })}
+                                className={`${selCls} w-28 shrink-0`}>
+                                <option value="">— Хэн —</option>
+                                {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                        </div>
+                    );
+                })}
             </div>
-            <button onClick={() => onChange([...rows, { person_id: null, time: '' }])}
-                className="mt-2 flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-                <Plus className="size-3" /> Мөр нэмэх
-            </button>
         </div>
     );
 }
@@ -767,9 +862,9 @@ function AddPicker({ kind, employees, scheduledIds, onClose, onPick }: {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Cell editor                                                                 */
 /* ═══════════════════════════════════════════════════════════════════════════ */
-function CellEditor({ employee, date, weekStart, existing, presetDoctorId, doctors, onClose }: {
+function CellEditor({ employee, date, weekStart, existing, presetDoctorId, doctors, workBase, onClose }: {
     employee: Employee; date: string; weekStart: string; existing: Schedule | null;
-    presetDoctorId?: number; doctors: Doctor[]; onClose: () => void;
+    presetDoctorId?: number; doctors: Doctor[]; workBase: string; onClose: () => void;
 }) {
     const showAssign = employee.role_group === 'nurse' || employee.role_group === 'assistant';
     const def = shiftDefaults(employee.role_group, 'full');
@@ -801,13 +896,13 @@ function CellEditor({ employee, date, weekStart, existing, presetDoctorId, docto
             assigned_doctor_id: showAssign && docId ? Number(docId) : null,
             room: null,
         };
-        if (applyWeek) router.post('/hr/work-schedules/row-fill', { ...base, week_start: weekStart, weekdays_only: weekdaysOnly }, opts);
-        else router.post('/hr/work-schedules', { ...base, date }, opts);
+        if (applyWeek) router.post(`${workBase}/row-fill`, { ...base, week_start: weekStart, weekdays_only: weekdaysOnly }, opts);
+        else router.post(workBase, { ...base, date }, opts);
     }
     function clearCell() {
         if (!existing) { onClose(); return; }
         if (!confirm('Энэ өдрийн хуваарийг устгах уу?')) return;
-        router.delete(`/hr/work-schedules/${existing.id}`, opts);
+        router.delete(`${workBase}/${existing.id}`, opts);
     }
 
     return (
@@ -881,7 +976,7 @@ function CellEditor({ employee, date, weekStart, existing, presetDoctorId, docto
 
                 <div className="flex gap-2 px-5 py-4 border-t">
                     <button onClick={save} disabled={busy}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-500/30 hover:shadow-lg disabled:opacity-50 transition-shadow">
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg disabled:opacity-50 transition-shadow">
                         {busy ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <CalendarClock className="size-4" />}
                         Хадгалах
                     </button>

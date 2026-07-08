@@ -448,7 +448,7 @@ export default function Inbox({ conversations: initial }: Props) {
                                     <div className="text-[11px] text-muted-foreground">{active.page_name}</div>
                                 </div>
                                 {active.status === 'bot'
-                                    ? <button onClick={() => setStatus('open')} title="Ботыг зогсоож оператор хариулах" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition hover:bg-muted active:scale-95"><UserRound className="h-3.5 w-3.5" /> Оператор авах</button>
+                                    ? <button onClick={() => setStatus('open')} title="Ботыг зогсоож ажилтан хариулах" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition hover:bg-muted active:scale-95"><UserRound className="h-3.5 w-3.5" /> Ажилтан авах</button>
                                     : <button onClick={() => setStatus('bot')} title="Бот руу буцаах" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition hover:bg-muted active:scale-95"><Bot className="h-3.5 w-3.5" /> Бот руу</button>}
                                 {active.status !== 'closed'
                                     ? <button onClick={() => { setStatus('closed'); setActiveId(null); }} title="Дуусгах" className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"><Check className="h-3.5 w-3.5" /> Done</button>
@@ -578,7 +578,7 @@ export default function Inbox({ conversations: initial }: Props) {
                                 {contact?.username && <div className="text-xs text-muted-foreground">@{contact.username}</div>}
                             </div>
                             <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${active.status === 'bot' ? 'bg-emerald-500/15 text-emerald-600' : active.status === 'closed' ? 'bg-muted text-muted-foreground' : 'bg-blue-500/15 text-blue-600'}`}>
-                                {active.status === 'bot' ? '🤖 Бот' : active.status === 'closed' ? '✓ Хаагдсан' : '👤 Оператор'}
+                                {active.status === 'bot' ? '🤖 Бот' : active.status === 'closed' ? '✓ Хаагдсан' : '👤 Ажилтан'}
                             </span>
                             {/* Хүйс — гараар засах (Meta өгдөггүй тул нэрээр таамагласан байж болзошгүй) */}
                             <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">

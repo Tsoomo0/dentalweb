@@ -24,7 +24,17 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'AI туслах', href: '/admin/social/ai' },
 ];
 
-type ChatLine = { role: 'user' | 'ai'; text: string; handoff?: boolean; error?: boolean };
+type SimBtn = { title: string; type: 'postback' | 'web_url' | 'phone_number'; payload?: string; url?: string };
+type SimMsg =
+    | { kind: 'text'; text: string }
+    | { kind: 'image'; url: string }
+    | { kind: 'file'; url: string; ftype: string }
+    | { kind: 'buttons'; text: string; buttons: SimBtn[]; quick: SimBtn[] }
+    | { kind: 'carousel'; cards: { title: string; subtitle?: string | null; image?: string | null; buttons: SimBtn[] }[] };
+type ChatLine =
+    | { role: 'user'; text: string }
+    | { role: 'bot'; msg: SimMsg }
+    | { role: 'note'; text: string; tone: 'operator' | 'error' | 'info' };
 type FaqItem = { id: number | null; question: string; answer: string; is_active: boolean; saving?: boolean; saved?: boolean };
 
 // Зөвхөн FAQ (retrieval) горим харуулна. Gemini авах үед false болгоход "AI зохиох" бүх хэсэг сэргэнэ.
@@ -37,6 +47,77 @@ function Label({ icon: Icon, color, children }: { icon: React.ElementType; color
             <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{children}</span>
         </div>
     );
+}
+
+/** Flow-ийн товч/чипүүд — postback дарж болно, web_url линк, phone_number зөвхөн харагдана. */
+function FlowButtons({ buttons, onClick, disabled }: { buttons: SimBtn[]; onClick: (b: SimBtn) => void; disabled: boolean }) {
+    if (buttons.length === 0) return null;
+    return (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+            {buttons.map((b, i) => {
+                if (b.type === 'web_url')
+                    return (
+                        <a key={i} href={b.url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-2.5 py-1 text-[12px] font-medium text-sky-700 transition hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+                            🔗 {b.title}
+                        </a>
+                    );
+                if (b.type === 'phone_number')
+                    return (
+                        <span key={i} className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted px-2.5 py-1 text-[12px] font-medium text-muted-foreground">
+                            📞 {b.title}
+                        </span>
+                    );
+                return (
+                    <button
+                        key={i}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onClick(b)}
+                        className="inline-flex items-center gap-1 rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-[12px] font-medium text-indigo-700 transition hover:bg-indigo-100 active:scale-95 disabled:opacity-50 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
+                    >
+                        {b.title}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+/** Ботын нэг гарах мессежийг (текст / зураг / товч / карусель) дүрсэлнэ. */
+function BotBubble({ msg, onClick, disabled }: { msg: SimMsg; onClick: (b: SimBtn) => void; disabled: boolean }) {
+    const bubble = 'rounded-2xl rounded-bl-md border border-border/60 bg-background px-3.5 py-2 text-sm shadow-sm';
+
+    if (msg.kind === 'carousel') {
+        return (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+                {msg.cards.map((c, i) => (
+                    <div key={i} className="w-52 shrink-0 overflow-hidden rounded-xl border border-border/60 bg-background shadow-sm">
+                        {c.image && <img src={c.image} alt="" className="h-24 w-full object-cover" />}
+                        <div className="p-2.5">
+                            <div className="text-[13px] font-semibold">{c.title}</div>
+                            {c.subtitle && <div className="mt-0.5 text-[11px] text-muted-foreground">{c.subtitle}</div>}
+                            <FlowButtons buttons={c.buttons} onClick={onClick} disabled={disabled} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    if (msg.kind === 'image')
+        return msg.url.startsWith('http') ? (
+            <img src={msg.url} alt="" className="max-h-40 rounded-xl border border-border/60" />
+        ) : (
+            <div className={bubble}>🖼 [зураг]</div>
+        );
+    if (msg.kind === 'file') return <div className={bubble}>📎 [{msg.ftype}]</div>;
+    if (msg.kind === 'buttons')
+        return (
+            <div className={bubble}>
+                <span className="whitespace-pre-wrap">{msg.text}</span>
+                <FlowButtons buttons={[...msg.buttons, ...msg.quick]} onClick={onClick} disabled={disabled} />
+            </div>
+        );
+    return <div className={`${bubble} whitespace-pre-wrap`}>{msg.text}</div>;
 }
 
 export default function AiAssistant({ setting, defaults, status, faqs, knowledge_preview }: Props) {
@@ -158,21 +239,49 @@ export default function AiAssistant({ setting, defaults, status, faqs, knowledge
         }
     }
 
-    async function runTest() {
-        const msg = testInput.trim();
-        if (!msg || testing) return;
-        const history = chat.filter((m) => !m.error).map((m) => ({ role: m.role, text: m.text }));
-        setChat((c) => [...c, { role: 'user', text: msg }]);
+    /** Бүрэн симуляц — жинхэнэ Flow + AI. text (чөлөөт мессеж) эсвэл payload (товч дарсан). */
+    async function runSim(opts: { text?: string; payload?: string; label: string }) {
+        if (testing) return;
+        setChat((c) => [...c, { role: 'user', text: opts.label }]);
         setTestInput('');
         setTesting(true);
         try {
-            const { data } = await axios.post('/admin/social/ai/test', { message: msg, history });
-            if (data.ok) setChat((c) => [...c, { role: 'ai', text: data.answer, handoff: data.handoff }]);
-            else setChat((c) => [...c, { role: 'ai', text: data.error, error: true }]);
+            const { data } = await axios.post('/admin/social/ai/simulate', { text: opts.text, payload: opts.payload });
+            if (!data.ok) {
+                setChat((c) => [...c, { role: 'note', text: data.error || 'Алдаа гарлаа.', tone: 'error' }]);
+                return;
+            }
+            const msgs: SimMsg[] = data.messages || [];
+            setChat((c) => [...c, ...msgs.map((m) => ({ role: 'bot' as const, msg: m }))]);
+            if (data.operator_mode)
+                setChat((c) => [...c, { role: 'note', text: 'Ажилтан хариулах горимд — бот зогссон. «Шинэ» дарж дахин эхлүүлнэ үү.', tone: 'operator' }]);
+            else if (data.handoff) setChat((c) => [...c, { role: 'note', text: '→ Ажилтанд шилжүүллээ 💬', tone: 'operator' }]);
+            else if (msgs.length === 0)
+                setChat((c) => [...c, { role: 'note', text: 'Хариу алга — тохирох Flow/FAQ олдсонгүй (эсвэл AI унтраалттай).', tone: 'info' }]);
         } catch {
-            setChat((c) => [...c, { role: 'ai', text: 'Сүлжээний алдаа гарлаа.', error: true }]);
+            setChat((c) => [...c, { role: 'note', text: 'Сүлжээний алдаа гарлаа.', tone: 'error' }]);
         } finally {
             setTesting(false);
+        }
+    }
+
+    function sendTest() {
+        const msg = testInput.trim();
+        if (!msg) return;
+        runSim({ text: msg, label: msg });
+    }
+
+    function clickBtn(b: SimBtn) {
+        if (b.type === 'postback' && b.payload) runSim({ payload: b.payload, label: b.title });
+    }
+
+    async function resetSim() {
+        setChat([]);
+        setTestInput('');
+        try {
+            await axios.post('/admin/social/ai/simulate', { reset: true });
+        } catch {
+            /* үл ойшоох */
         }
     }
 
@@ -245,6 +354,36 @@ export default function AiAssistant({ setting, defaults, status, faqs, knowledge
                 <div className="grid flex-1 gap-6 p-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
                     {/* ═══ Зүүн: тохиргоо ═══ */}
                     <div className="space-y-6">
+                        {/* Ажиллах горим — AI on/off */}
+                        <section className={`${card} ${enter}`} style={{ animationDelay: '10ms' }}>
+                            <div className="mb-3 flex items-center justify-between gap-2">
+                                <Label icon={Sparkles} color="text-indigo-500">Ажиллах горим</Label>
+                                <button
+                                    type="button"
+                                    onClick={() => form.setData('enabled', !form.data.enabled)}
+                                    title={form.data.enabled ? 'AI туслахыг унтраах' : 'AI туслахыг асаах'}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.data.enabled ? 'bg-indigo-500' : 'bg-muted-foreground/30'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-300 ${form.data.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 text-[12px] font-medium">
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-violet-100 px-2 py-1 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"><Layers className="h-3.5 w-3.5" /> Flow</span>
+                                <span className="text-muted-foreground">→</span>
+                                <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 transition ${form.data.enabled ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300' : 'bg-muted text-muted-foreground/50 line-through'}`}><Bot className="h-3.5 w-3.5" /> AI туслах</span>
+                                <span className="text-muted-foreground">→</span>
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-2 py-1 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"><User className="h-3.5 w-3.5" /> Ажилтан</span>
+                            </div>
+
+                            <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
+                                {form.data.enabled
+                                    ? 'Түлхүүр үгээр Flow ажиллана → тохирохгүй бол AI туслах FAQ-аас хариулна → AI ч хариулж чадахгүй бол ажилтанд шилжинэ.'
+                                    : 'Зөвхөн Flow ажиллана → тохирох түлхүүр үг байхгүй бол шууд ажилтанд шилжинэ. (AI туслах унтраалттай.)'}
+                            </p>
+                            <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">Өөрчлөлтийг хадгалахын тулд баруун дээд «Хадгалах»-ыг дарна уу.</p>
+                        </section>
+
                         {!RETRIEVAL_ONLY && (
                         <>
                         {/* Провайдер */}
@@ -439,8 +578,11 @@ export default function AiAssistant({ setting, defaults, status, faqs, knowledge
                         <section className={`flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${enter}`} style={{ animationDelay: '120ms' }}>
                             <div className="flex items-center gap-2 border-b border-border/60 bg-gradient-to-r from-indigo-500/5 to-transparent px-5 py-3.5">
                                 <Bot className="h-4 w-4 text-indigo-500" />
-                                <span className="text-sm font-semibold tracking-tight">Тест</span>
-                                <span className="ml-auto text-[11px] text-muted-foreground">Facebook руу явахгүй</span>
+                                <span className="text-sm font-semibold tracking-tight">Тест симулятор</span>
+                                <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">Flow + AI</span>
+                                <button type="button" onClick={resetSim} title="Дахин эхлүүлэх" className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground">
+                                    <RotateCcw className="h-3 w-3" /> Шинэ
+                                </button>
                             </div>
 
                             <div className="h-[420px] space-y-3 overflow-y-auto bg-gradient-to-b from-muted/20 to-transparent px-4 py-4">
@@ -452,27 +594,42 @@ export default function AiAssistant({ setting, defaults, status, faqs, knowledge
                                                 <Sparkles className="h-6 w-6" />
                                             </span>
                                         </span>
-                                        <p className="mt-1 text-sm text-muted-foreground">Үйлчлүүлэгч шиг асууж туршина уу</p>
-                                        <p className="text-[12px] text-muted-foreground/70">"Шүд цайруулга хэд вэ?" · "Хэдэн цагаас ажилладаг вэ?"</p>
+                                        <p className="mt-1 text-sm text-muted-foreground">Үйлчлүүлэгч шиг бичиж, товч дарж туршина уу</p>
+                                        <p className="text-[12px] text-muted-foreground/70">"сайн байна уу" · "үнэ хэд вэ" · товчнууд идэвхтэй</p>
                                     </div>
                                 )}
-                                {chat.map((m, i) => (
-                                    <div key={i} className={`flex animate-in fade-in slide-in-from-bottom-2 duration-300 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`flex max-w-[85%] items-end gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${m.role === 'user' ? 'bg-slate-600' : m.error ? 'bg-red-500' : 'bg-gradient-to-br from-indigo-500 to-violet-600'}`}>
-                                                {m.role === 'user' ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
-                                            </span>
-                                            <div className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm shadow-sm ${m.role === 'user' ? 'rounded-br-md bg-slate-700 text-white' : m.error ? 'rounded-bl-md border border-red-200 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950/40' : 'rounded-bl-md border border-border/60 bg-background'}`}>
-                                                {m.text}
-                                                {m.handoff && (
-                                                    <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                                                        → Операторт шилжүүлнэ
+                                {chat.map((m, i) => {
+                                    if (m.role === 'note') {
+                                        const tone =
+                                            m.tone === 'error'
+                                                ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300'
+                                                : m.tone === 'operator'
+                                                  ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
+                                                  : 'border-border/60 bg-muted/50 text-muted-foreground';
+                                        return (
+                                            <div key={i} className="flex justify-center animate-in fade-in duration-300">
+                                                <span className={`rounded-full border px-3 py-1 text-[11px] font-medium ${tone}`}>{m.text}</span>
+                                            </div>
+                                        );
+                                    }
+                                    const isUser = m.role === 'user';
+                                    return (
+                                        <div key={i} className={`flex animate-in fade-in slide-in-from-bottom-2 duration-300 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`flex max-w-[90%] items-end gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
+                                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${isUser ? 'bg-slate-600' : 'bg-gradient-to-br from-indigo-500 to-violet-600'}`}>
+                                                    {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+                                                </span>
+                                                {isUser ? (
+                                                    <div className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-slate-700 px-3.5 py-2 text-sm text-white shadow-sm">{m.text}</div>
+                                                ) : (
+                                                    <div className="min-w-0">
+                                                        <BotBubble msg={m.msg} onClick={clickBtn} disabled={testing} />
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                                 {testing && (
                                     <div className="flex animate-in fade-in duration-300">
                                         <div className="flex items-center gap-2 pl-8">
@@ -494,7 +651,7 @@ export default function AiAssistant({ setting, defaults, status, faqs, knowledge
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault();
-                                            runTest();
+                                            sendTest();
                                         }
                                     }}
                                     placeholder="Асуултаа бичнэ үү…"
@@ -502,7 +659,7 @@ export default function AiAssistant({ setting, defaults, status, faqs, knowledge
                                 />
                                 <button
                                     type="button"
-                                    onClick={runTest}
+                                    onClick={sendTest}
                                     disabled={testing || !testInput.trim()}
                                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg active:scale-90 disabled:translate-y-0 disabled:opacity-40 disabled:shadow-none"
                                 >

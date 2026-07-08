@@ -3,14 +3,21 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Social\SocialAccount;
 use App\Models\Social\SocialAiFaq;
 use App\Models\Social\SocialAiSetting;
+use App\Models\Social\SocialContact;
+use App\Models\Social\SocialConversation;
 use App\Services\Social\ClinicKnowledgeService;
+use App\Services\Social\PersonalizationResolver;
+use App\Services\Social\SimulatedMetaGraphService;
 use App\Services\Social\SocialAiReplyService;
+use App\Services\Social\SocialFlowRunner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Smalot\PdfParser\Parser as PdfParser;
@@ -86,6 +93,136 @@ class SocialAiController extends Controller
         ClinicKnowledgeService::forget();
 
         return response()->json($ai->preview($data['message'], $data['history'] ?? []));
+    }
+
+    /**
+     * Бүрэн симуляц — жинхэнэ SocialFlowRunner-ийг тест sandbox дээр ажиллуулна.
+     * Flow (түлхүүр үг, товч, welcome, карусель), AI fallback, оператор шилжүүлэлт бүгд
+     * бодит адил ажиллана; гэхдээ Facebook руу ЮУ Ч ИЛГЭЭХГҮЙ, DB-д мөр үлдээхгүй
+     * (transaction rollback). Харилцааны төлөв (awaiting/attributes/tags/status) session-д
+     * хадгалагдаж, олон алхамт flow, товч дарах үргэлжлэлийг дэмжинэ.
+     */
+    public function simulate(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'text' => ['nullable', 'string', 'max:1500'],
+            'payload' => ['nullable', 'string', 'max:255'],
+            'channel' => ['nullable', 'in:messenger,instagram'],
+            'reset' => ['sometimes', 'boolean'],
+        ]);
+
+        $key = 'social_ai_sim';
+
+        // Дахин эхлүүлэх — sandbox төлвийг цэвэрлэнэ.
+        if (! empty($data['reset'])) {
+            $request->session()->forget($key);
+
+            return response()->json(['ok' => true, 'messages' => [], 'reset' => true]);
+        }
+
+        $text = trim((string) ($data['text'] ?? '')) ?: null;
+        $payload = trim((string) ($data['payload'] ?? '')) ?: null;
+        if ($text === null && $payload === null) {
+            return response()->json(['ok' => false, 'error' => 'Мессеж хоосон байна.']);
+        }
+
+        // Байгаа бол жинхэнэ account (flow scoping зөв ажиллана); байхгүй бол доор
+        // transaction дотор sandbox account үүсгэнэ (rollback-д цэвэрлэгдэнэ).
+        $account = SocialAccount::query()->orderBy('id')->first();
+
+        $state = $request->session()->get($key, [
+            'started' => false,
+            'awaiting_node_id' => null,
+            'attributes' => [],
+            'tags' => [],
+            'status' => SocialConversation::STATUS_BOT,
+            'channel' => $data['channel'] ?? 'messenger',
+        ]);
+        $channel = $state['channel'] ?? 'messenger';
+
+        // Хамгийн сүүлийн засвар (үнэ, эмч, FAQ) шууд тусахын тулд knowledge cache цэвэрлэнэ.
+        ClinicKnowledgeService::forget();
+
+        // Симуляц үйлчилгээ — flow runner ба AI хоёул үүгээр «илгээнэ» (барьж авна).
+        $sim = new SimulatedMetaGraphService;
+        $ai = (new SocialAiReplyService($sim, app(ClinicKnowledgeService::class)))->simulate();
+        $runner = (new SocialFlowRunner($sim, app(PersonalizationResolver::class), $ai))->simulate();
+
+        $captured = [];
+        $newState = $state;
+        $error = null;
+
+        DB::beginTransaction();
+        try {
+            // Холбогдсон account байхгүй бол sandbox account (rollback-д устана).
+            if (! $account) {
+                $account = SocialAccount::create([
+                    'page_id' => '__sim__',
+                    'page_name' => 'Sandbox',
+                    'page_access_token' => 'sim',
+                    'is_active' => true,
+                ]);
+            }
+
+            $contact = SocialContact::create([
+                'social_account_id' => $account->id,
+                'channel' => $channel,
+                'external_id' => 'SIM-'.$account->id.'-'.($request->user()?->id ?? 0),
+                'name' => 'Тест хэрэглэгч',
+                'attributes' => $state['attributes'],
+                'tags' => $state['tags'],
+                'last_interacted_at' => now(),
+            ]);
+
+            $conversation = SocialConversation::create([
+                'social_account_id' => $account->id,
+                'social_contact_id' => $contact->id,
+                'channel' => $channel,
+                'status' => $state['status'],
+                'awaiting_node_id' => $state['awaiting_node_id'],
+                'unread_count' => 0,
+                'window_expires_at' => now()->addHours(24),
+            ]);
+
+            $isNew = ! ($state['started'] ?? false);
+
+            // Жинхэнэ ProcessSocialEvent-тэй адил: зөвхөн bot горимд автоматаар хариулна.
+            if ($conversation->status === SocialConversation::STATUS_BOT) {
+                $runner->handleIncoming($account, $conversation, $contact, $text, $payload, $isNew);
+            }
+
+            $captured = $sim->captured();
+            $newState = [
+                'started' => true,
+                'awaiting_node_id' => $conversation->awaiting_node_id,
+                'attributes' => $contact->attributes ?? [],
+                'tags' => $contact->tags ?? [],
+                'status' => $conversation->status,
+                'channel' => $channel,
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+            $error = 'Симуляц гүйцэтгэхэд алдаа гарлаа: '.$e->getMessage();
+        } finally {
+            DB::rollBack(); // sandbox — DB-д юу ч үлдээхгүй
+        }
+
+        if ($error !== null) {
+            return response()->json(['ok' => false, 'error' => $error]);
+        }
+
+        $request->session()->put($key, $newState);
+
+        $startOperator = ($state['status'] ?? 'bot') === SocialConversation::STATUS_OPEN;
+        $endOperator = $newState['status'] === SocialConversation::STATUS_OPEN;
+
+        return response()->json([
+            'ok' => true,
+            'messages' => $captured,
+            'handoff' => ! $startOperator && $endOperator,   // энэ алхамд операторт шилжсэн
+            'operator_mode' => $startOperator,               // өмнөх алхмаас операторт байсан — бот чимээгүй
+            'awaiting' => $newState['awaiting_node_id'] !== null,
+        ]);
     }
 
     /** FAQ хариулт нэмэх (retrieval горим). */

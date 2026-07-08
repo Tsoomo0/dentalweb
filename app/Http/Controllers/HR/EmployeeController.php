@@ -94,6 +94,10 @@ class EmployeeController extends Controller
             $val = $request->input('extra_portals');
             $request->merge(['extra_portals' => $val ? (array) $val : []]);
         }
+        if ($request->has('schedule_permissions') && ! is_array($request->schedule_permissions)) {
+            $val = $request->input('schedule_permissions');
+            $request->merge(['schedule_permissions' => $val ? (array) $val : []]);
+        }
 
         $request->validate([
             'last_name'       => 'required|string|max:100',
@@ -111,6 +115,8 @@ class EmployeeController extends Controller
             'email'           => 'nullable|email|max:191|unique:users,email',
             'extra_portals'   => 'nullable|array',
             'extra_portals.*' => 'in:reception,lab,hr',
+            'schedule_permissions'   => 'nullable|array',
+            'schedule_permissions.*' => 'in:clinic,ortho,xray,sterile,reception,cleaner,technician',
         ], [
             'last_name.required'       => 'Овог заавал бөглөнө үү.',
             'first_name.required'      => 'Нэр заавал бөглөнө үү.',
@@ -201,6 +207,7 @@ class EmployeeController extends Controller
                 'children_count' => $request->children_count ?? 0,
                 'notes' => $request->notes,
                 'extra_portals' => $request->extra_portals ?? [],
+                'schedule_permissions' => $request->schedule_permissions ?? [],
             ]);
 
             // 4. Гэрээ хадгалах
@@ -337,6 +344,10 @@ class EmployeeController extends Controller
             $val = $request->input('extra_portals');
             $request->merge(['extra_portals' => $val ? (array) $val : []]);
         }
+        if ($request->has('schedule_permissions') && ! is_array($request->schedule_permissions)) {
+            $val = $request->input('schedule_permissions');
+            $request->merge(['schedule_permissions' => $val ? (array) $val : []]);
+        }
 
         $request->validate([
             'last_name' => 'required|string|max:100',
@@ -347,6 +358,8 @@ class EmployeeController extends Controller
             'salary' => 'required|numeric|min:0',
             'extra_portals' => 'nullable|array',
             'extra_portals.*' => 'in:reception,lab,hr',
+            'schedule_permissions' => 'nullable|array',
+            'schedule_permissions.*' => 'in:clinic,ortho,xray,sterile,reception,cleaner,technician',
         ]);
 
         DB::transaction(function () use ($request, $employee) {
@@ -393,6 +406,7 @@ class EmployeeController extends Controller
                 'children_count' => (int) $request->children_count,
                 'notes' => $request->notes ?: null,
                 'extra_portals' => $request->input('extra_portals', []),
+                'schedule_permissions' => $request->input('schedule_permissions', []),
             ]);
 
             // Шинэ лицензүүд нэмэх
@@ -538,6 +552,7 @@ class EmployeeController extends Controller
             'position_id' => $e->position_id,
             'position' => $e->position?->name,
             'extra_portals' => $e->extra_portals ?? [],
+            'schedule_permissions' => $e->schedule_permissions ?? [],
             'salary' => $e->salary,
             'hired_date' => $e->hired_date?->format('Y-m-d'),
             'probation_end_date' => $e->probation_end_date?->format('Y-m-d'),

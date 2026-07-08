@@ -23,16 +23,30 @@ use Illuminate\Support\Facades\Log;
  */
 class SocialAiReplyService
 {
-    /** Оператор руу шилжүүлэхийг илэрхийлэх нууц тэмдэг (үйлчлүүлэгчид харагдахгүй). */
+    /** Ажилтан руу шилжүүлэхийг илэрхийлэх нууц тэмдэг (үйлчлүүлэгчид харагдахгүй). */
     private const HANDOFF_TAG = '[[OPERATOR]]';
+
+    /** Ажилтанд шилжүүлэх үед үйлчлүүлэгчид илгээх богино мэдэгдэл. */
+    private const HANDOFF_NOTICE = 'Түр хүлээнэ үү, ажилтан тантай холбогдоно 💬';
 
     /** Сүүлийн дуудлагын алдааны шалтгаан (rate_limit / empty / http_xxx). */
     private ?string $lastError = null;
+
+    /** Симуляц (тест чат) горим: broadcast хийхгүй. */
+    private bool $simulate = false;
 
     public function __construct(
         private readonly MetaGraphService $meta,
         private readonly ClinicKnowledgeService $knowledge,
     ) {}
+
+    /** Тест чатын симуляц горимыг асаана. */
+    public function simulate(bool $on = true): static
+    {
+        $this->simulate = $on;
+
+        return $this;
+    }
 
     /** Идэвхтэй провайдер (gemini | groq). */
     private function provider(): string
@@ -78,8 +92,23 @@ class SocialAiReplyService
         }
 
         $r = $this->respond($text, $this->history($conversation, $text));
+
         if ($r['answer'] === null || trim($r['answer']) === '') {
-            return false;
+            // Хариултгүй ч ажилтанд шилжүүлэх шаардлагатай бол (FAQ/Flow-д тохирохгүй) —
+            // богино мэдэгдэл илгээгээд ажилтанд өгнө. Ингэснээр default flow руу явахгүй,
+            // фэйк хариу ч өгөхгүй.
+            if ($r['handoff']) {
+                $this->deliver($account, $conversation, $contact, self::HANDOFF_NOTICE);
+                $conversation->update([
+                    'status' => SocialConversation::STATUS_OPEN,
+                    'awaiting_node_id' => null,
+                    'unread_count' => ($conversation->unread_count ?? 0) + 1,
+                ]);
+
+                return true;
+            }
+
+            return false; // AI алдаа/унтраалттай — дуудагч default flow руу шилжинэ.
         }
 
         $this->deliver($account, $conversation, $contact, $r['answer']);
@@ -128,6 +157,10 @@ class SocialAiReplyService
 
         $r = $this->respond($message, $contents);
         if ($r['answer'] === null || trim($r['answer']) === '') {
+            if ($r['handoff']) {
+                return ['ok' => true, 'answer' => '(Тохирох FAQ/Flow алга — ажилтанд шилжүүлнэ 💬)', 'handoff' => true];
+            }
+
             return ['ok' => false, 'error' => match ($this->lastError) {
                 'rate_limit' => '⏳ Хэт олон хүсэлт илгээгдлээ (үнэгүй хязгаар). ~1 минут хүлээгээд дахин оролдоно уу.',
                 'too_large' => '📄 «Нэмэлт мэдлэг» хэт том — Groq-ийн үнэгүй хязгаарт багтахгүй. Богиносгох, эсвэл «FAQ» горим руу шилжүүлж файлаа импортлоно уу.',
@@ -168,7 +201,7 @@ class SocialAiReplyService
         $handoff = str_contains($answer, self::HANDOFF_TAG);
         $answer = trim(str_replace(self::HANDOFF_TAG, '', $answer));
         if ($answer === '') {
-            $answer = 'Таны асуултыг манай оператор хариулж туслах болно. Түр хүлээнэ үү 💬';
+            $answer = 'Таны асуултыг манай ажилтан хариулж туслах болно. Түр хүлээнэ үү 💬';
         }
 
         return ['answer' => $answer, 'handoff' => $handoff];
@@ -184,9 +217,8 @@ class SocialAiReplyService
     {
         $candidates = $this->candidates();
         if ($candidates === []) {
-            $this->lastError = 'no_faq';
-
-            return ['answer' => null, 'handoff' => false];
+            // FAQ/Flow-д юу ч алга — шууд операторт (бот хариулахгүй).
+            return ['answer' => null, 'handoff' => true];
         }
 
         $idx = $this->classify($text, $candidates);
@@ -194,14 +226,20 @@ class SocialAiReplyService
             return ['answer' => null, 'handoff' => false]; // провайдер алдаа (lastError тавигдсан)
         }
         if ($idx < 1 || $idx > count($candidates)) {
-            return ['answer' => $this->noMatchMessage(), 'handoff' => false]; // таарсангүй
+            // Тохирох FAQ/Flow олдсонгүй — фэйк хариу өгөхгүй, шууд операторт шилжүүлнэ.
+            return ['answer' => null, 'handoff' => true];
         }
 
         $answer = trim($this->fillSlots($candidates[$idx - 1]['a']));
         $handoff = str_contains($answer, self::HANDOFF_TAG);
         $answer = trim(str_replace(self::HANDOFF_TAG, '', $answer));
 
-        return ['answer' => $answer !== '' ? $answer : $this->noMatchMessage(), 'handoff' => $handoff];
+        // FAQ хариу хоосон бол мөн операторт (утгагүй хариу гаргахгүй).
+        if ($answer === '') {
+            return ['answer' => null, 'handoff' => true];
+        }
+
+        return ['answer' => $answer, 'handoff' => $handoff];
     }
 
     /**
@@ -272,12 +310,6 @@ class SocialAiReplyService
         }
 
         return preg_match('/\d+/', $out, $m) ? (int) $m[0] : 0;
-    }
-
-    /** FAQ таараагүй үеийн эелдэг чиглүүлэх мессеж. */
-    private function noMatchMessage(): string
-    {
-        return 'Уучлаарай, таны асуултыг сайн ойлгосонгүй. 🙏 Та үнэ, ажлын цаг, эмч, байршил, цаг захиалга зэрэг талаар асууж болно. Эсвэл «оператор» гэж бичвэл ажилтантай холбоно.';
     }
 
     /** FAQ хариу дахь {{slot}}-уудыг Тохиргоо/DB-ийн утгаар солино. */
@@ -497,6 +529,10 @@ class SocialAiReplyService
             'last_message_at' => now(),
             'last_message_text' => mb_substr($answer, 0, 1000),
         ]);
+
+        if ($this->simulate) {
+            return; // тест чат — real-time broadcast хийхгүй
+        }
 
         try {
             broadcast(new SocialMessageReceived($message));

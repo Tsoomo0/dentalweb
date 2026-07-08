@@ -21,7 +21,7 @@ class LabOrderController extends Controller
         $search   = trim((string) $request->get('q', ''));
 
         // Лаб портал зөвхөн "Кутикул лаб"-ын ажлуудыг харна (бусад нь гадны лаб)
-        $orders = LabOrder::with(['branch', 'doctor', 'bender', 'polisher', 'creator'])
+        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator'])
             ->where('lab_name', 'Кутикул лаб')
             ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
             ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
@@ -55,10 +55,8 @@ class LabOrderController extends Controller
                 'final_payment_receipt' => $o->final_payment_receipt,
                 'final_payment_method'  => $o->final_payment_method,
                 'final_payment_at'      => $o->final_payment_at?->toDateTimeString(),
-                'bender_employee_id'  => $o->bender_employee_id,
-                'bender_name'         => $o->bender ? trim($o->bender->last_name.' '.$o->bender->first_name) : null,
-                'polisher_employee_id' => $o->polisher_employee_id,
-                'polisher_name'       => $o->polisher ? trim($o->polisher->last_name.' '.$o->polisher->first_name) : null,
+                'benders'             => $o->benders->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->last_name.' '.$e->first_name)])->values(),
+                'polishers'           => $o->polishers->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->last_name.' '.$e->first_name)])->values(),
                 'lab_ready_date'      => $o->lab_ready_date?->toDateString(),
                 'arrived_date'        => $o->arrived_date?->toDateString(),
                 'pickup_date'         => $o->pickup_date?->toDateString(),
@@ -92,16 +90,27 @@ class LabOrderController extends Controller
 
     public function update(Request $request, LabOrder $labOrder): RedirectResponse
     {
-        // Лаб ажилтан зөвхөн нугалсан / өнгөлсөн / лаб бэлэн болсон огноо засна.
+        // Лаб ажилтан зөвхөн нугалсан / өнгөлсөн (олон) / лаб бэлэн болсон огноо засна.
         // Дуусгах, төлбөр, өвчтөн зэрэг бусад мэдээллийг ресепшн засна.
         $validated = $request->validate([
-            'bender_employee_id'   => 'sometimes|nullable|exists:employees,id',
-            'polisher_employee_id' => 'sometimes|nullable|exists:employees,id',
-            'lab_ready_date'       => 'sometimes|nullable|date',
+            'bender_ids'     => 'sometimes|array',
+            'bender_ids.*'   => 'integer|exists:employees,id',
+            'polisher_ids'   => 'sometimes|array',
+            'polisher_ids.*' => 'integer|exists:employees,id',
+            'lab_ready_date' => 'sometimes|nullable|date',
         ]);
 
+        if ($request->has('bender_ids')) {
+            $labOrder->benders()->sync($validated['bender_ids'] ?? []);
+        }
+        if ($request->has('polisher_ids')) {
+            $labOrder->polishers()->sync($validated['polisher_ids'] ?? []);
+        }
+
         $wasReady = $labOrder->lab_ready_date !== null;
-        $labOrder->update($validated);
+        if ($request->has('lab_ready_date')) {
+            $labOrder->update(['lab_ready_date' => $validated['lab_ready_date'] ?? null]);
+        }
 
         // Хэрэв лаб бэлэн огноог анх удаа тэмдэглэсэн бол ресепшнд мэдэгдэнэ
         // (тухайн салбарын ресепшн + бүх admin, branch-гүй admin-уудыг ч мөн оруулна)

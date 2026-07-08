@@ -2,8 +2,8 @@ import LabLayout from '@/layouts/lab-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
-    AlertCircle, Building2, CheckCircle2, ChevronDown, ChevronUp, FlaskConical, Search, Send,
-    User, X,
+    AlertCircle, Building2, Check, CheckCircle2, ChevronDown, ChevronUp, FlaskConical, Search, Send,
+    User, Users, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -24,10 +24,8 @@ interface LabOrder {
     amount_due: number;
     amount_paid: number;
     outstanding: number;
-    bender_employee_id: number | null;
-    bender_name: string | null;
-    polisher_employee_id: number | null;
-    polisher_name: string | null;
+    benders: Employee[];
+    polishers: Employee[];
     lab_ready_date: string | null;
     arrived_date: string | null;
     pickup_date: string | null;
@@ -290,14 +288,10 @@ export default function LabOrdersIndex({ orders, stats, employees, filters }: Pr
                                                     <div className="text-[10.5px] text-muted-foreground truncate">{o.work_description}</div>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-[11px]">
-                                                    {o.bender_name
-                                                        ? <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/40 px-1.5 py-0.5 text-blue-700 dark:text-blue-400 font-medium">{o.bender_name}</span>
-                                                        : <span className="text-muted-foreground/40">—</span>}
+                                                    <EmployeeChips items={o.benders} tone="blue" />
                                                 </td>
                                                 <td className="px-4 py-3.5 text-[11px]">
-                                                    {o.polisher_name
-                                                        ? <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/40 px-1.5 py-0.5 text-indigo-700 dark:text-indigo-400 font-medium">{o.polisher_name}</span>
-                                                        : <span className="text-muted-foreground/40">—</span>}
+                                                    <EmployeeChips items={o.polishers} tone="indigo" />
                                                 </td>
                                                 <td className="px-4 py-3.5 text-[11px] tabular-nums">
                                                     {o.lab_ready_date
@@ -355,22 +349,25 @@ interface DrawerProps {
 }
 
 function LabWorkDrawer({ order, employees, onClose }: DrawerProps) {
-    const [benderId,  setBenderId]  = useState<number | null>(order.bender_employee_id);
-    const [polisherId, setPolisherId] = useState<number | null>(order.polisher_employee_id);
-    const [labReady,   setLabReady]   = useState<string | null>(order.lab_ready_date);
+    const [benderIds,   setBenderIds]   = useState<number[]>(order.benders.map(e => e.id));
+    const [polisherIds, setPolisherIds] = useState<number[]>(order.polishers.map(e => e.id));
+    const [labReady,    setLabReady]    = useState<string | null>(order.lab_ready_date);
     const [saving, setSaving] = useState(false);
 
+    const sameIds = (a: number[], b: number[]) =>
+        a.length === b.length && [...a].sort((x, y) => x - y).every((v, i) => v === [...b].sort((x, y) => x - y)[i]);
+
     const dirty =
-        benderId !== order.bender_employee_id ||
-        polisherId !== order.polisher_employee_id ||
+        !sameIds(benderIds, order.benders.map(e => e.id)) ||
+        !sameIds(polisherIds, order.polishers.map(e => e.id)) ||
         labReady !== order.lab_ready_date;
 
     function save() {
         if (!dirty) return;
         setSaving(true);
         router.patch(`${API_BASE}/${order.id}`, {
-            bender_employee_id: benderId,
-            polisher_employee_id: polisherId,
+            bender_ids: benderIds,
+            polisher_ids: polisherIds,
             lab_ready_date: labReady,
         } as never, {
             preserveScroll: true,
@@ -432,25 +429,23 @@ function LabWorkDrawer({ order, employees, onClose }: DrawerProps) {
                         </h3>
 
                         <div className="space-y-3">
-                            <label className="block">
-                                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Нугалсан ажилтан</span>
-                                <select value={benderId ?? ''} disabled={locked}
-                                    onChange={e => setBenderId(e.target.value ? Number(e.target.value) : null)}
-                                    className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-60 border-gray-200 dark:border-gray-700">
-                                    <option value="">— Сонгох —</option>
-                                    {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                                </select>
-                            </label>
+                            <EmployeeMultiSelect
+                                label="Нугалсан ажилтан"
+                                tone="blue"
+                                employees={employees}
+                                selected={benderIds}
+                                disabled={locked}
+                                onToggle={id => setBenderIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                            />
 
-                            <label className="block">
-                                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Өнгөлсөн ажилтан</span>
-                                <select value={polisherId ?? ''} disabled={locked}
-                                    onChange={e => setPolisherId(e.target.value ? Number(e.target.value) : null)}
-                                    className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-60 border-gray-200 dark:border-gray-700">
-                                    <option value="">— Сонгох —</option>
-                                    {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                                </select>
-                            </label>
+                            <EmployeeMultiSelect
+                                label="Өнгөлсөн ажилтан"
+                                tone="indigo"
+                                employees={employees}
+                                selected={polisherIds}
+                                disabled={locked}
+                                onToggle={id => setPolisherIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                            />
 
                             <label className="block">
                                 <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Лабораторид бэлэн болсон огноо</span>
@@ -505,6 +500,84 @@ function StatChip({ label, value, tone }: { label: string; value: number; tone: 
             <span className={`size-1.5 rounded-full ${styles.dot}`} />
             <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</span>
             <span className={`text-base font-bold tabular-nums ${styles.text}`}>{value}</span>
+        </div>
+    );
+}
+
+/* ── Employee chips (хүснэгтэд харагдах) ─────────────────────────── */
+type EmpTone = 'blue' | 'indigo';
+const TONE_CHIP: Record<EmpTone, string> = {
+    blue:   'bg-blue-50 dark:bg-blue-950/30 border-blue-200/60 dark:border-blue-800/40 text-blue-700 dark:text-blue-400',
+    indigo: 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200/60 dark:border-indigo-800/40 text-indigo-700 dark:text-indigo-400',
+};
+
+function EmployeeChips({ items, tone }: { items: Employee[]; tone: EmpTone }) {
+    if (!items || items.length === 0) return <span className="text-muted-foreground/40">—</span>;
+    return (
+        <div className="flex flex-wrap gap-1">
+            {items.map(e => (
+                <span key={e.id}
+                    className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-medium ${TONE_CHIP[tone]}`}>
+                    {e.name}
+                </span>
+            ))}
+        </div>
+    );
+}
+
+/* ── Олон ажилтан сонгогч (drawer) ──────────────────────────────── */
+function EmployeeMultiSelect({ label, tone, employees, selected, disabled, onToggle }: {
+    label: string;
+    tone: EmpTone;
+    employees: Employee[];
+    selected: number[];
+    disabled?: boolean;
+    onToggle: (id: number) => void;
+}) {
+    const selectedTone: Record<EmpTone, string> = {
+        blue:   'border-transparent bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm shadow-blue-500/30',
+        indigo: 'border-transparent bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm shadow-indigo-500/30',
+    };
+    return (
+        <div className="block">
+            <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {label}
+                {selected.length > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold normal-case tabular-nums text-foreground">
+                        <Users className="size-3" /> {selected.length}
+                    </span>
+                )}
+            </span>
+            {employees.length === 0 ? (
+                <p className="mt-1 rounded-xl border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    Лаб ажилтан бүртгэгдээгүй байна.
+                </p>
+            ) : (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {employees.map(e => {
+                        const active = selected.includes(e.id);
+                        return (
+                            <button
+                                key={e.id}
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => onToggle(e.id)}
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    active
+                                        ? selectedTone[tone]
+                                        : 'border-gray-200 bg-background text-foreground hover:border-violet-300 hover:bg-violet-50 dark:border-gray-700 dark:hover:border-violet-700 dark:hover:bg-violet-950/30'
+                                }`}>
+                                <span className={`flex size-4 items-center justify-center rounded-full border transition-colors ${
+                                    active ? 'border-white/70 bg-white/20' : 'border-gray-300 dark:border-gray-600'
+                                }`}>
+                                    {active && <Check className="size-3" strokeWidth={3.5} />}
+                                </span>
+                                {e.name}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

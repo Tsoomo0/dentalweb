@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\HR\Employee;
 use App\Models\HR\OrthoSchedule;
+use App\Models\HR\SupportSchedule;
 use App\Models\HR\WorkSchedule;
 use App\Models\HR\WorkScheduleDay;
 use Carbon\Carbon;
@@ -105,13 +106,60 @@ class WorkScheduleController extends Controller
                 'state' => $s->state, 'branch_id' => $s->branch_id, 'assigned_doctor_id' => $s->assigned_doctor_id, 'note' => $s->note,
             ])->values();
 
+        // ── Туслах ажилтны хуваарь (рентген техникч / ариутгалын сувилагч / ресепшн) — 7 хоногоор ──
+        $sWeekStart = ($request->date('sdate') ?? now())->copy()->startOfWeek(Carbon::MONDAY);
+        $sWeekEnd = $sWeekStart->copy()->endOfWeek(Carbon::SUNDAY);
+
+        $supportStaff = Employee::with(['position', 'branch'])
+            ->where('status', 'active')
+            ->whereHas('position', fn ($q) => $q
+                ->where('name', 'like', '%рентген%')
+                ->orWhere('name', 'like', '%ариутгал%')
+                ->orWhere('name', 'like', '%ресепшн%')
+                ->orWhere('name', 'like', '%хүлээн%')
+                ->orWhere('name', 'like', '%үйлчлэгч%')
+                ->orWhere('name', 'like', '%техник%')
+                ->orWhere('name', 'like', '%загвар%'))
+            ->orderBy('last_name')->orderBy('first_name')
+            ->get()
+            ->map(function ($e) {
+                $p = mb_strtolower($e->position?->name ?? '');
+                $group = str_contains($p, 'рентген') ? 'xray'
+                    : (str_contains($p, 'ариутгал') ? 'sterile'
+                    : (str_contains($p, 'үйлчлэгч') ? 'cleaner'
+                    : (str_contains($p, 'техник') || str_contains($p, 'загвар') ? 'technician'
+                    : 'reception')));
+
+                return [
+                    'id' => $e->id,
+                    'name' => $e->full_name,
+                    'position' => $e->position?->name,
+                    'photo_url' => $e->photo_url,
+                    'branch_id' => $e->branch_id,
+                    'group' => $group,
+                ];
+            })->values();
+
+        $supportSchedules = SupportSchedule::whereBetween('date', [$sWeekStart, $sWeekEnd])
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'employee_id' => $s->employee_id,
+                'date' => $s->date->format('Y-m-d'),
+                'shift_type' => $s->shift_type,
+                'start_time' => $s->start_time ? substr($s->start_time, 0, 5) : null,
+                'end_time' => $s->end_time ? substr($s->end_time, 0, 5) : null,
+                'note' => $s->note,
+            ])->values();
+
         return Inertia::render('hr/work-schedules/index', [
             'employees' => $employees,
             'doctors' => $doctors,
             'branches' => $branches,
             'schedules' => $schedules,
             'day_plans' => $dayPlans,
-            'task_types' => WorkScheduleDay::TASK_TYPES,
+            'reception_tasks' => WorkScheduleDay::RECEPTION_TASKS,
+            'nurse_tasks' => WorkScheduleDay::NURSE_TASKS,
             'week_start' => $weekStart->format('Y-m-d'),
             // Ortho
             'ortho_assistants' => $orthoAssistants,
@@ -120,6 +168,11 @@ class WorkScheduleController extends Controller
             'ortho_states' => OrthoSchedule::STATES,
             'ortho_year' => $oYear,
             'ortho_month' => $oMonth,
+            // Туслах ажилтан
+            'support_staff' => $supportStaff,
+            'support_schedules' => $supportSchedules,
+            'support_shifts' => SupportSchedule::SHIFTS,
+            'support_week_start' => $sWeekStart->format('Y-m-d'),
         ]);
     }
 

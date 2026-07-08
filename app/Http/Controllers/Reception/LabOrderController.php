@@ -28,7 +28,7 @@ class LabOrderController extends Controller
         $status   = $request->get('status', 'active'); // active | sent_to_lab | lab_ready | completed | all
         $search   = trim((string) $request->get('q', ''));
 
-        $orders = LabOrder::with(['branch', 'doctor', 'bender', 'polisher', 'creator'])
+        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
             ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
@@ -71,10 +71,10 @@ class LabOrderController extends Controller
                 'final_payment_receipt' => $o->final_payment_receipt,
                 'final_payment_method'  => $o->final_payment_method,
                 'final_payment_at'      => $o->final_payment_at?->toDateTimeString(),
-                'bender_employee_id'  => $o->bender_employee_id,
-                'bender_name'         => $o->bender ? trim($o->bender->last_name.' '.$o->bender->first_name) : null,
-                'polisher_employee_id' => $o->polisher_employee_id,
-                'polisher_name'       => $o->polisher ? trim($o->polisher->last_name.' '.$o->polisher->first_name) : null,
+                'bender_employee_id'  => $o->benders->first()?->id,
+                'bender_name'         => $o->benders->isNotEmpty() ? implode(', ', LabOrder::employeeNames($o->benders)) : null,
+                'polisher_employee_id' => $o->polishers->first()?->id,
+                'polisher_name'       => $o->polishers->isNotEmpty() ? implode(', ', LabOrder::employeeNames($o->polishers)) : null,
                 'lab_ready_date'      => $o->lab_ready_date?->toDateString(),
                 'arrived_date'        => $o->arrived_date?->toDateString(),
                 'pickup_date'         => $o->pickup_date?->toDateString(),
@@ -146,8 +146,6 @@ class LabOrderController extends Controller
             'amount_due'           => 'nullable|integer|min:0',
             'discount_percent'     => 'nullable|integer|min:0|max:100',
             'amount_paid'          => 'nullable|integer|min:0',
-            'bender_employee_id'   => 'nullable|exists:employees,id',
-            'polisher_employee_id' => 'nullable|exists:employees,id',
             'lab_ready_date'       => 'nullable|date',
             'arrived_date'         => 'nullable|date',
             'pickup_date'          => 'nullable|date',
@@ -194,8 +192,6 @@ class LabOrderController extends Controller
             'amount_paid'          => 'sometimes|integer|min:0',
             'final_payment_receipt' => 'sometimes|nullable|string|max:100',
             'final_payment_method'  => 'sometimes|nullable|in:cash,card,mobile,storepay',
-            'bender_employee_id'   => 'sometimes|nullable|exists:employees,id',
-            'polisher_employee_id' => 'sometimes|nullable|exists:employees,id',
             'lab_ready_date'       => 'sometimes|nullable|date',
             'arrived_date'         => 'sometimes|nullable|date',
             'pickup_date'          => 'sometimes|nullable|date',

@@ -12,9 +12,6 @@ const RED3 = '#7f1d1d';
 const SC: Record<string, string> = {
     morning: '#0ea5e9', afternoon: '#f97316', full: '#10b981', off: '#94a3b8',
 };
-const SL: Record<string, string> = {
-    morning: '#f0f9ff', afternoon: '#fff7ed', full: '#f0fdf4', off: '#f8fafc',
-};
 const SHIFT_SHORT: Record<string, string> = {
     morning: 'Өгл', afternoon: 'Өдөр', full: 'Бүт', off: 'Амр',
 };
@@ -48,7 +45,7 @@ interface Schedule {
     room: string | null; assigned_doctor_name: string | null; notes: string | null;
 }
 interface PageProps { employee: Employee | null; schedules: Schedule[]; year: number; month: number; [key: string]: unknown; }
-type ViewMode = 'month' | 'week' | 'day';
+type ViewMode = 'month' | 'week' | 'day' | 'list';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function toDS(y: number, m: number, d: number) { return `${y}-${pad(m)}-${pad(d)}`; }
@@ -97,9 +94,9 @@ function DetailRows({ s, compact }: { s: Schedule; compact?: boolean }) {
                 </div>
             )}
             {s.assigned_doctor_name && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', borderRadius: 14, padding: p, border: '1px solid #bfdbfe' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(59,130,246,0.12)', borderRadius: 14, padding: p, border: '1px solid rgba(59,130,246,0.28)' }}>
                     <Stethoscope size={compact ? 14 : 16} color="#3b82f6" />
-                    <span style={{ fontSize: fs, fontWeight: 600, color: '#1e40af' }}>Эмч: {s.assigned_doctor_name}</span>
+                    <span style={{ fontSize: fs, fontWeight: 600, color: '#3b82f6' }}>Эмч: {s.assigned_doctor_name}</span>
                 </div>
             )}
             {s.notes && (
@@ -161,6 +158,8 @@ export default function MyWorkSchedule() {
         acc[s.date] = s; return acc;
     }, {});
 
+    const sortedScheds = [...schedules].sort((a, b) => a.date.localeCompare(b.date));
+
     function loadMonth(y: number, m: number, keepFocus?: string) {
         router.get('/my/work-schedule', { year: y, month: m }, {
             preserveState: true,
@@ -197,7 +196,7 @@ export default function MyWorkSchedule() {
         addDays(getMondayOfWeek(parseDate(focusDate)), i)
     );
 
-    const headerLabel = view === 'month'
+    const headerLabel = (view === 'month' || view === 'list')
         ? `${year} · ${MONTHS_MN[month - 1]}`
         : view === 'week'
             ? (() => {
@@ -211,8 +210,8 @@ export default function MyWorkSchedule() {
                 return `${DAYS_FULL[(d.getDay() + 6) % 7]}, ${d.getDate()} ${MONTHS_MN[d.getMonth()]}`;
               })();
 
-    const navPrev = () => view === 'month' ? navMonth(-1) : view === 'week' ? navWeek(-1) : navDay(-1);
-    const navNext = () => view === 'month' ? navMonth(1)  : view === 'week' ? navWeek(1)  : navDay(1);
+    const navPrev = () => (view === 'month' || view === 'list') ? navMonth(-1) : view === 'week' ? navWeek(-1) : navDay(-1);
+    const navNext = () => (view === 'month' || view === 'list') ? navMonth(1)  : view === 'week' ? navWeek(1)  : navDay(1);
 
     /* ══════════════════════════ RENDER ══════════════════════════ */
     return (
@@ -295,14 +294,14 @@ export default function MyWorkSchedule() {
                             </button>
                         </div>
                         <div style={{ display: 'flex', gap: 6, padding: '0 12px 12px' }}>
-                            {(['month', 'week', 'day'] as ViewMode[]).map(v => (
+                            {(['month', 'week', 'day', 'list'] as ViewMode[]).map(v => (
                                 <button key={v} onClick={() => setView(v)} style={{
                                     flex: 1, padding: '8px 0', borderRadius: 11, border: 'none', cursor: 'pointer',
                                     background: view === v ? RED : 'var(--my-pill-bg)',
                                     color: view === v ? 'white' : 'var(--my-muted)',
                                     fontSize: 12, fontWeight: view === v ? 800 : 600,
                                 }}>
-                                    {v === 'month' ? 'Сар' : v === 'week' ? '7 хон' : 'Өдөр'}
+                                    {v === 'month' ? 'Сар' : v === 'week' ? '7 хон' : v === 'day' ? 'Өдөр' : 'Жагс'}
                                 </button>
                             ))}
                         </div>
@@ -336,7 +335,7 @@ export default function MyWorkSchedule() {
                                                     borderRight: '1px solid var(--my-divider)',
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center',
                                                     paddingTop: 3, paddingBottom: 4,
-                                                    background: today ? '#fff5f5' : weekend && day ? '#fffbf7' : 'var(--my-card-bg)',
+                                                    background: today ? 'rgba(220,38,38,0.10)' : weekend && day ? 'rgba(249,115,22,0.07)' : 'var(--my-card-bg)',
                                                     cursor: day && sched ? 'pointer' : 'default',
                                                 }}
                                             >
@@ -528,73 +527,124 @@ export default function MyWorkSchedule() {
                             </div>
                         );
                     })()}
+
+                    {/* ── LIST VIEW ── */}
+                    {view === 'list' && (
+                        sortedScheds.length === 0 ? (
+                            <div style={{ background: 'var(--my-card-bg)', borderRadius: 22, padding: '44px 20px', textAlign: 'center', boxShadow: 'var(--my-shadow)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}><CalendarDays size={28} color="#d1d5db" /></div>
+                                <p style={{ fontSize: 13, color: 'var(--my-faint)', margin: 0 }}>Энэ сарын хуваарь байхгүй байна</p>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {sortedScheds.map(s => {
+                                    const d = parseDate(s.date);
+                                    const dow = (d.getDay() + 6) % 7;
+                                    const today = isTodayStr(s.date);
+                                    const off = s.shift_type === 'off';
+                                    const sc = SC[s.shift_type] ?? '#9ca3af';
+                                    return (
+                                        <button key={s.id} onClick={() => setSelected(s)} style={{
+                                            display: 'flex', alignItems: 'center', gap: 12, background: 'var(--my-card-bg)', borderRadius: 16,
+                                            border: 'none', cursor: 'pointer', padding: '10px 12px', textAlign: 'left', boxShadow: 'var(--my-shadow)',
+                                            outline: today ? `2px solid ${RED}` : 'none',
+                                        }}>
+                                            <div style={{ width: 46, borderRadius: 12, padding: '6px 0', textAlign: 'center', background: off ? 'var(--my-pill-bg)' : `${sc}1a`, flexShrink: 0 }}>
+                                                <p style={{ fontSize: 18, fontWeight: 900, color: off ? 'var(--my-muted)' : sc, margin: 0, lineHeight: 1 }}>{d.getDate()}</p>
+                                                <p style={{ fontSize: 9, fontWeight: 700, color: 'var(--my-faint)', margin: '2px 0 0' }}>{DAYS_MN[dow]}</p>
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: sc, flexShrink: 0 }} />
+                                                    <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--my-input-text)' }}>{getShiftShort(s.shift_type)}</span>
+                                                    {today && <span style={{ fontSize: 9, fontWeight: 700, color: RED, background: 'rgba(220,38,38,0.14)', padding: '1px 6px', borderRadius: 99 }}>Өнөөдөр</span>}
+                                                </div>
+                                                <p style={{ fontSize: 11, color: 'var(--my-faint)', margin: '3px 0 0', fontWeight: 600 }}>
+                                                    {off ? 'Амралт' : `${s.start_time ?? ''}${s.start_time ? '–' : ''}${s.end_time ?? ''}`}
+                                                    {s.room ? ` · Өрөө ${s.room}` : ''}
+                                                    {s.assigned_doctor_name ? ` · ${s.assigned_doctor_name}` : ''}
+                                                </p>
+                                            </div>
+                                            <ChevronRight size={16} color="var(--my-faint)" />
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )
+                    )}
                 </div>
             </div>
 
             {/* ═══════════════════ DESKTOP ═══════════════════ */}
             <div className="hidden md:block p-4 md:p-6 space-y-4">
 
-                {/* Top bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                        <CalendarDays className="size-5 text-blue-500" />
-                        Миний хуваарь
-                    </h1>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex rounded-xl border bg-card overflow-hidden text-sm">
-                            {(['month', 'week', 'day'] as ViewMode[]).map(v => (
-                                <button key={v} onClick={() => setView(v)}
-                                    className={`px-3 py-1.5 font-medium transition-colors ${view === v ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-muted'}`}>
-                                    {v === 'month' ? 'Сар' : v === 'week' ? '7 хоног' : 'Өдөр'}
-                                </button>
-                            ))}
+                {/* ── Hero header ── */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-500 via-red-600 to-red-700 px-5 py-4 shadow-md">
+                    <div className="absolute -right-10 -top-14 size-48 rounded-full bg-white/10 blur-3xl" />
+                    <div className="absolute right-24 top-2 size-24 rounded-full bg-white/5 blur-2xl" />
+                    <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="flex size-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur ring-1 ring-white/20 text-white shrink-0">
+                                <CalendarDays className="size-5" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-black tracking-tight text-white leading-none">Миний хуваарь</h1>
+                                <p className="text-xs text-white/70 mt-1">
+                                    {employee?.full_name ?? '—'}{employee?.position ? ` · ${employee.position}` : ''}
+                                </p>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1 rounded-xl border bg-card px-1">
-                            <button onClick={navPrev} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-                                <ChevronLeft className="size-4" />
-                            </button>
-                            <span className="text-sm font-semibold px-2 min-w-[130px] text-center">{headerLabel}</span>
-                            <button onClick={navNext} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-                                <ChevronRight className="size-4" />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="flex rounded-xl bg-white/15 p-0.5 text-sm backdrop-blur">
+                                {(['month', 'week', 'day', 'list'] as ViewMode[]).map(v => (
+                                    <button key={v} onClick={() => setView(v)}
+                                        className={`px-3 py-1 rounded-lg font-semibold transition-colors ${view === v ? 'bg-white text-red-600 shadow-sm' : 'text-white/80 hover:bg-white/10'}`}>
+                                        {v === 'month' ? 'Сар' : v === 'week' ? '7 хоног' : v === 'day' ? 'Өдөр' : 'Жагсаалт'}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex items-center rounded-xl bg-white/15 p-0.5 backdrop-blur">
+                                <button onClick={navPrev} className="p-1.5 rounded-lg hover:bg-white/15 transition-colors text-white"><ChevronLeft className="size-4" /></button>
+                                <span className="text-sm font-bold px-2 min-w-[128px] text-center text-white">{headerLabel}</span>
+                                <button onClick={navNext} className="p-1.5 rounded-lg hover:bg-white/15 transition-colors text-white"><ChevronRight className="size-4" /></button>
+                            </div>
+                            <button onClick={() => {
+                                const n = new Date();
+                                const fd = toDS(n.getFullYear(), n.getMonth() + 1, n.getDate());
+                                setFocusDate(fd);
+                                if (n.getFullYear() !== year || (n.getMonth() + 1) !== month)
+                                    loadMonth(n.getFullYear(), n.getMonth() + 1, fd);
+                            }} className="px-3 py-1.5 rounded-xl bg-white/15 text-sm font-semibold text-white hover:bg-white/25 transition-colors backdrop-blur">
+                                Өнөөдөр
                             </button>
                         </div>
-                        <button onClick={() => {
-                            const n = new Date();
-                            const fd = toDS(n.getFullYear(), n.getMonth() + 1, n.getDate());
-                            setFocusDate(fd);
-                            if (n.getFullYear() !== year || (n.getMonth() + 1) !== month)
-                                loadMonth(n.getFullYear(), n.getMonth() + 1, fd);
-                        }} className="px-3 py-1.5 rounded-xl border bg-card text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
-                            Өнөөдөр
-                        </button>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="relative mt-4 flex flex-wrap gap-2">
+                        <div className="rounded-xl bg-white/12 border border-white/10 px-3.5 py-2 backdrop-blur min-w-[92px]">
+                            <p className="text-xl font-black text-white leading-none">{workDays}</p>
+                            <p className="text-[10px] text-white/60 mt-1 font-semibold">Ажлын өдөр</p>
+                        </div>
+                        {(['morning', 'afternoon', 'full', 'off'] as const).filter(k => counts[k]).map(k => (
+                            <div key={k} className="rounded-xl bg-white/8 border border-white/10 px-3.5 py-2 backdrop-blur min-w-[80px]"
+                                style={{ borderLeft: `3px solid ${SC[k]}` }}>
+                                <p className="text-xl font-black text-white leading-none">{counts[k]}</p>
+                                <p className="text-[10px] text-white/60 mt-1 font-semibold">{SHIFT_SHORT[k]}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* Stats */}
-                {view === 'month' && schedules.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <div className="rounded-xl border bg-card p-3 text-center">
-                            <p className="text-2xl font-bold">{workDays}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">Ажлын өдөр</p>
-                        </div>
-                        {counts.morning ? (
-                            <div className="rounded-xl border bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 p-3 text-center">
-                                <p className="text-2xl font-bold text-sky-700 dark:text-sky-300">{counts.morning}</p>
-                                <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">Өглөөний ээлж</p>
-                            </div>
-                        ) : null}
-                        {counts.afternoon ? (
-                            <div className="rounded-xl border bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 p-3 text-center">
-                                <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{counts.afternoon}</p>
-                                <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">Өдрийн ээлж</p>
-                            </div>
-                        ) : null}
-                        {counts.off ? (
-                            <div className="rounded-xl border bg-gray-50 dark:bg-gray-900/20 p-3 text-center">
-                                <p className="text-2xl font-bold text-gray-500">{counts.off}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Амралт</p>
-                            </div>
-                        ) : null}
+                {/* Legend */}
+                {(view === 'month' || view === 'list') && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1">
+                        {(['morning', 'afternoon', 'full', 'off'] as const).map(k => (
+                            <span key={k} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span className="size-2.5 rounded-full" style={{ background: SC[k] }} />
+                                {getShiftShort(k)}
+                            </span>
+                        ))}
                     </div>
                 )}
 
@@ -605,8 +655,8 @@ export default function MyWorkSchedule() {
                         <>
                             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-card shadow-sm">
                                 <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                                    {DAYS_MN.map(d => (
-                                        <div key={d} className="py-2 text-center text-xs font-semibold text-muted-foreground">{d}</div>
+                                    {DAYS_MN.map((d, i) => (
+                                        <div key={d} className={`py-2 text-center text-xs font-bold ${i >= 5 ? 'text-orange-500' : 'text-muted-foreground'}`}>{d}</div>
                                     ))}
                                 </div>
                                 <div className="grid grid-cols-7">
@@ -622,24 +672,24 @@ export default function MyWorkSchedule() {
                                                     if (schedule) setSelected(schedule);
                                                     else { setFocusDate(dateStr); setView('day'); }
                                                 }}
-                                                className={`relative min-h-[90px] border-b border-r border-gray-100 dark:border-gray-800 p-1.5 transition-all
-                                                    ${day ? 'cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/10' : 'bg-gray-50/50 dark:bg-gray-900/30'}
-                                                    ${isWkend && day ? 'bg-orange-50/30 dark:bg-orange-900/5' : ''}
-                                                    ${today ? 'bg-blue-50/20 dark:bg-blue-900/10' : ''}
+                                                className={`group relative min-h-[96px] border-b border-r border-gray-100 dark:border-gray-800 p-1.5 transition-all
+                                                    ${day ? 'cursor-pointer hover:bg-red-50/40 dark:hover:bg-red-950/10' : 'bg-gray-50/40 dark:bg-gray-900/20'}
+                                                    ${isWkend && day && !today ? 'bg-orange-50/20 dark:bg-orange-950/5' : ''}
+                                                    ${today ? 'bg-red-50/30 dark:bg-red-950/10' : ''}
                                                 `}>
                                                 {schedule && (
-                                                    <div className={`absolute inset-x-0 top-0 h-[3px] rounded-t ${SHIFT_BG[schedule.shift_type] ?? 'bg-gray-300'}`} />
+                                                    <div className={`absolute inset-x-0 top-0 h-1 ${SHIFT_BG[schedule.shift_type] ?? 'bg-gray-300'}`} />
                                                 )}
                                                 {day && (
                                                     <>
                                                         <button
                                                             onClick={e => { e.stopPropagation(); setFocusDate(toDS(year, month, day)); setView('day'); }}
-                                                            className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full mb-1 hover:ring-2 hover:ring-blue-400 transition-all
-                                                                ${today ? 'bg-blue-600 text-white' : isWkend ? 'text-orange-500' : 'text-gray-700 dark:text-gray-300'}
+                                                            className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full mb-1 transition-all
+                                                                ${today ? 'bg-red-600 text-white shadow-sm' : isWkend ? 'text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-950/30' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}
                                                             `}>
                                                             {day}
                                                         </button>
-                                                        {schedule ? (
+                                                        {schedule && (
                                                             <div className={`rounded-lg border px-1.5 py-1 ${SHIFT_CARD[schedule.shift_type]}`}>
                                                                 <div className="flex items-center gap-1 mb-0.5">
                                                                     <span className={`size-1.5 rounded-full shrink-0 ${SHIFT_BG[schedule.shift_type]}`} />
@@ -653,8 +703,6 @@ export default function MyWorkSchedule() {
                                                                     </p>
                                                                 )}
                                                             </div>
-                                                        ) : (
-                                                            <div className="text-[9px] text-gray-300 dark:text-gray-700">—</div>
                                                         )}
                                                     </>
                                                 )}
@@ -664,9 +712,12 @@ export default function MyWorkSchedule() {
                                 </div>
                             </div>
                             {schedules.length === 0 && (
-                                <div className="py-10 text-center text-muted-foreground">
-                                    <CalendarDays className="size-10 mx-auto mb-3 opacity-30" />
-                                    <p className="text-sm">Энэ сарын хуваарь одоогоор оруулагдаагүй байна</p>
+                                <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 bg-card py-12 text-center">
+                                    <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-950/30">
+                                        <CalendarDays className="size-7 text-red-400" />
+                                    </div>
+                                    <p className="text-sm font-semibold text-foreground">Энэ сарын хуваарь оруулагдаагүй байна</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Хуваарь гарсны дараа энд харагдана</p>
                                 </div>
                             )}
                         </>
@@ -694,13 +745,13 @@ export default function MyWorkSchedule() {
                                         return (
                                             <button key={i} onClick={() => setFocusDate(ds)}
                                                 className={`relative flex flex-col rounded-2xl border-2 overflow-hidden transition-all text-left
-                                                    ${focus ? 'border-blue-500 shadow-lg shadow-blue-100 dark:shadow-blue-900/30'
-                                                    : today ? 'border-blue-400 dark:border-blue-600'
+                                                    ${focus ? 'border-red-500 shadow-lg shadow-red-100 dark:shadow-red-900/30'
+                                                    : today ? 'border-red-400 dark:border-red-600'
                                                     : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700'}`}>
                                                 <div className={`w-full py-2.5 flex flex-col items-center gap-0.5
-                                                    ${today ? 'bg-blue-600' : wkend ? 'bg-orange-50 dark:bg-orange-950/30' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
+                                                    ${today ? 'bg-red-600' : wkend ? 'bg-orange-50 dark:bg-orange-950/30' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
                                                     <span className={`text-[10px] font-semibold leading-none
-                                                        ${today ? 'text-blue-100' : wkend ? 'text-orange-400' : 'text-muted-foreground'}`}>
+                                                        ${today ? 'text-red-100' : wkend ? 'text-orange-400' : 'text-muted-foreground'}`}>
                                                         {DAYS_MN[dow]}
                                                     </span>
                                                     <span className={`text-xl font-black leading-tight
@@ -709,7 +760,7 @@ export default function MyWorkSchedule() {
                                                     </span>
                                                 </div>
                                                 <div className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 px-1 min-h-[72px]
-                                                    ${today ? 'bg-blue-50/60 dark:bg-blue-900/10' : wkend ? 'bg-orange-50/20 dark:bg-orange-950/10' : 'bg-card'}`}>
+                                                    ${today ? 'bg-red-50/60 dark:bg-red-900/10' : wkend ? 'bg-orange-50/20 dark:bg-orange-950/10' : 'bg-card'}`}>
                                                     {sched ? (
                                                         <>
                                                             <span className={`size-8 rounded-full flex items-center justify-center shrink-0 ${SHIFT_BG[sched.shift_type]}`}>
@@ -727,13 +778,13 @@ export default function MyWorkSchedule() {
                                 </div>
                             </div>
                             <div className={`rounded-2xl border overflow-hidden
-                                ${fdToday ? 'border-blue-200 dark:border-blue-800'
+                                ${fdToday ? 'border-red-200 dark:border-red-800'
                                 : fdWeekend ? 'border-orange-200 dark:border-orange-800'
                                 : 'border-gray-200 dark:border-gray-700'}`}>
                                 <div className={`px-5 py-4 flex items-center gap-4
-                                    ${fdToday ? 'bg-gradient-to-r from-blue-600 to-blue-500'
+                                    ${fdToday ? 'bg-gradient-to-r from-red-600 to-red-500'
                                     : fdWeekend ? 'bg-gradient-to-r from-orange-500 to-orange-400'
-                                    : 'bg-gradient-to-r from-gray-700 to-gray-600'}`}>
+                                    : 'bg-gradient-to-r from-slate-700 to-slate-600'}`}>
                                     <div className="text-white">
                                         <p className="text-4xl font-black leading-none">{fd.getDate()}</p>
                                         <p className="text-xs font-semibold opacity-70 mt-0.5">{MONTHS_MN[fd.getMonth()]}</p>
@@ -772,13 +823,13 @@ export default function MyWorkSchedule() {
                     const wkend  = dow >= 5;
                     return (
                         <div className={`rounded-2xl border overflow-hidden
-                            ${today ? 'border-blue-200 dark:border-blue-800'
+                            ${today ? 'border-red-200 dark:border-red-800'
                             : wkend ? 'border-orange-200 dark:border-orange-800'
                             : 'border-gray-200 dark:border-gray-700'}`}>
                             <div className={`px-4 py-3 flex items-center gap-3
-                                ${today ? 'bg-gradient-to-r from-blue-600 to-blue-500'
+                                ${today ? 'bg-gradient-to-r from-red-600 to-red-500'
                                 : wkend ? 'bg-gradient-to-r from-orange-500 to-orange-400'
-                                : 'bg-gradient-to-r from-gray-700 to-gray-600'}`}>
+                                : 'bg-gradient-to-r from-slate-700 to-slate-600'}`}>
                                 <div className="text-white">
                                     <p className="text-3xl font-black leading-none">{d.getDate()}</p>
                                     <p className="text-[11px] font-semibold opacity-70 mt-0.5">{MONTHS_MN[d.getMonth()]} {d.getFullYear()}</p>
@@ -807,6 +858,50 @@ export default function MyWorkSchedule() {
                         </div>
                     );
                 })()}
+
+                {/* List view */}
+                {view === 'list' && (
+                    sortedScheds.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 bg-card py-12 text-center">
+                            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-950/30">
+                                <CalendarDays className="size-7 text-red-400" />
+                            </div>
+                            <p className="text-sm font-semibold text-foreground">Энэ сарын хуваарь оруулагдаагүй байна</p>
+                            <p className="text-xs text-muted-foreground mt-1">Хуваарь гарсны дараа энд харагдана</p>
+                        </div>
+                    ) : (
+                        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-card shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+                            {sortedScheds.map(s => {
+                                const d = parseDate(s.date);
+                                const dow = (d.getDay() + 6) % 7;
+                                const today = isTodayStr(s.date);
+                                const off = s.shift_type === 'off';
+                                return (
+                                    <button key={s.id} onClick={() => setSelected(s)}
+                                        className={`w-full flex items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-muted/40 ${today ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}>
+                                        <div className={`flex flex-col items-center justify-center rounded-xl w-14 py-1.5 shrink-0 border ${SHIFT_CARD[s.shift_type] ?? 'bg-muted'}`}>
+                                            <span className={`text-lg font-black leading-none ${SHIFT_TEXT[s.shift_type] ?? 'text-foreground'}`}>{d.getDate()}</span>
+                                            <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">{DAYS_MN[dow]}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`size-2 rounded-full ${SHIFT_BG[s.shift_type] ?? 'bg-gray-300'}`} />
+                                                <span className="text-sm font-bold">{getShiftShort(s.shift_type)}</span>
+                                                {today && <span className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded-full">Өнөөдөр</span>}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-0.5 tabular-nums flex flex-wrap items-center gap-x-2">
+                                                <span>{off ? 'Амралт' : `${s.start_time ?? ''}${s.start_time ? '–' : ''}${s.end_time ?? ''}`}</span>
+                                                {s.room && <span>· Өрөө {s.room}</span>}
+                                                {s.assigned_doctor_name && <span className="text-red-600/80 dark:text-red-400/80">· {s.assigned_doctor_name}</span>}
+                                            </p>
+                                        </div>
+                                        <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )
+                )}
             </div>
 
             {/* Month-view detail bottom sheet */}
@@ -815,7 +910,7 @@ export default function MyWorkSchedule() {
                     <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--my-sheet-bg)', borderRadius: '26px 26px 0 0', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 20px)' }}>
                         <div style={{ width: 36, height: 4, background: 'var(--my-divider)', borderRadius: 99, margin: '14px auto 8px' }} />
                         {/* Header */}
-                        <div style={{ margin: '0 14px 14px', padding: '14px 16px', background: SL[selected.shift_type] ?? 'var(--my-pill-bg)', borderRadius: 18 }}>
+                        <div style={{ margin: '0 14px 14px', padding: '14px 16px', background: `${SC[selected.shift_type] ?? '#9ca3af'}1f`, borderRadius: 18 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                 <div style={{ width: 44, height: 44, borderRadius: 14, background: SC[selected.shift_type] ?? '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     <CalendarDays size={18} color="white" />
