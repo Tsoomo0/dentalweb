@@ -126,8 +126,16 @@ export default function PaymentPage({ appointment, already_paid, test_mode }: Pr
                     if (!doneRef.current) {
                         doneRef.current = true;
                         stopPolling();
-                        setPhase('expired');
-                        axios.post(`/payment/${appointment.id}/cancel`).catch(() => {});
+                        axios.post<{ cancelled: boolean; paid?: boolean; meet_link?: string | null }>(
+                            `/payment/${appointment.id}/cancel`
+                        ).then(({ data }) => {
+                            if (data.paid) {
+                                setMeetLink(data.meet_link ?? null);
+                                setPhase('success');
+                            } else {
+                                setPhase('expired');
+                            }
+                        }).catch(() => setPhase('expired'));
                     }
                     return 0;
                 }

@@ -115,6 +115,14 @@ class PaymentController extends Controller
             return response()->json(['cancelled' => false]);
         }
 
+        // Устгахаас (slot чөлөөлөхөөс) өмнө QPay-с сүүлчийн удаа шалгана —
+        // банкны шилжүүлэг 5 минутаас удаан бол мөнгө орсон ч цаг устахаас сэргийлнэ
+        if ($appointment->qpay_invoice_id && $this->qpay->checkPayment($appointment->qpay_invoice_id)) {
+            $this->confirmPayment($appointment);
+
+            return response()->json(['cancelled' => false, 'paid' => true, 'meet_link' => $appointment->meet_link]);
+        }
+
         // Doctor-ийн slot-ийг чөлөөлөх — сонгосон цаг дахин нээгдэнэ
         if ($appointment->online_slot_id && $appointment->doctor_id) {
             $doctor = Doctor::find($appointment->doctor_id);
@@ -132,7 +140,9 @@ class PaymentController extends Controller
             }
         }
 
-        $appointment->delete();
+        // Бичлэгийг устгахгүй, зөвхөн цуцлагдсан гэж тэмдэглэнэ — мөнгөний
+        // маргаан гарвал admin/doctor портал дээр ул мөр харагдаж байх ёстой
+        $appointment->update(['status' => 'cancelled', 'payment_status' => 'expired']);
 
         return response()->json(['cancelled' => true]);
     }
