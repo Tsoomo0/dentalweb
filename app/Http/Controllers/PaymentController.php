@@ -9,6 +9,7 @@ use App\Services\GoogleMeetService;
 use App\Services\QPayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -63,19 +64,28 @@ class PaymentController extends Controller
 
                     return response()->json(['paid' => true, 'meet_link' => $appointment->meet_link]);
                 }
+
+                // Идэвхтэй invoice төлөгдөөгүй ч гэсэн хадгалсан QR-г дахин буцаана —
+                // шинээр үүсгэвэл хуучин (магадгүй яг одоо төлөгдөж байгаа) invoice
+                // орфон үлдэж, түүн рүү орсон мөнгийг систем хэзээ ч илрүүлэхгүй болно
+                $cached = Cache::get("qpay_invoice:{$appointment->id}");
+                if ($cached) {
+                    return response()->json(['paid' => false, 'invoice_id' => $appointment->qpay_invoice_id] + $cached);
+                }
             }
 
             $invoice = $this->qpay->createInvoice($appointment);
 
             $appointment->update(['qpay_invoice_id' => $invoice['invoice_id']]);
 
-            return response()->json([
-                'paid' => false,
-                'invoice_id' => $invoice['invoice_id'],
+            $payload = [
                 'qr_image' => $invoice['qr_image'] ?? null,
                 'qr_text' => $invoice['qr_text'] ?? null,
                 'qpay_deeplink' => $invoice['urls'] ?? $invoice['qpay_deeplink'] ?? [],
-            ]);
+            ];
+            Cache::put("qpay_invoice:{$appointment->id}", $payload, now()->addMinutes(30));
+
+            return response()->json(['paid' => false, 'invoice_id' => $invoice['invoice_id']] + $payload);
         } catch (\Throwable $e) {
             Log::error('QPay createInvoice failed', ['appointment' => $appointment->id, 'error' => $e->getMessage()]);
 
