@@ -80,6 +80,13 @@ class QPayService
             throw new \RuntimeException('QPay invoice creation failed: '.$response->body());
         }
 
+        Log::info('QPay createInvoice success', [
+            'appointment' => $appointment->id,
+            'amount' => $appointment->payment_amount,
+            'invoice_id' => $response->json('invoice_id'),
+            'callback_url' => $callbackUrl,
+        ]);
+
         return $response->json();
     }
 
@@ -134,6 +141,8 @@ class QPayService
             }
 
             $data = $response->json();
+
+            Log::info('QPay checkPayment result', ['invoice' => $invoiceId, 'count' => $data['count'] ?? 0, 'body' => $data]);
 
             return ($data['count'] ?? 0) > 0;
         } catch (\Throwable $e) {
