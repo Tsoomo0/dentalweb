@@ -59,6 +59,10 @@ function bankColor(name: string): string {
     return '#374151';
 }
 
+// Гар утас (Android/iOS) эсэхийг тодорхойлно — банкны апп руу шууд орох deeplink
+// зөвхөн утсан дээр ажилладаг тул PC дээр банкны жагсаалтыг харуулахгүй, зөвхөн QR-ээр төлнө.
+const isMobileDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 // ── Захиалгын мэдээлэл мөр ───────────────────────────────────────────────────
 function InfoRow({ icon, label, value, highlight }: {
     icon: React.ReactNode; label: string; value: string; highlight?: boolean
@@ -77,7 +81,7 @@ function InfoRow({ icon, label, value, highlight }: {
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function PaymentPage({ appointment, already_paid, test_mode }: Props) {
 
-    type Phase = 'loading' | 'qr' | 'success' | 'error';
+    type Phase = 'loading' | 'qr' | 'success' | 'error' | 'expired';
 
     const [phase, setPhase]         = useState<Phase>(already_paid ? 'success' : 'loading');
     const [invoice, setInvoice]     = useState<InvoiceData | null>(null);
@@ -122,8 +126,8 @@ export default function PaymentPage({ appointment, already_paid, test_mode }: Pr
                     if (!doneRef.current) {
                         doneRef.current = true;
                         stopPolling();
-                        setPhase('error');
-                        setErrorMsg('Төлбөрийн хугацаа (5 минут) дууссан. Дахин оролдоно уу.');
+                        setPhase('expired');
+                        axios.post(`/payment/${appointment.id}/cancel`).catch(() => {});
                     }
                     return 0;
                 }
@@ -272,8 +276,8 @@ export default function PaymentPage({ appointment, already_paid, test_mode }: Pr
                                     )}
                                 </div>
 
-                                {/* Банкны апп deeplinks */}
-                                {invoice.qpay_deeplink.length > 0 && (
+                                {/* Банкны апп deeplinks — зөвхөн гар утсан дээр (deeplink нь тухайн апп руу шууд ордог тул PC дээр ажиллахгүй) */}
+                                {isMobileDevice && invoice.qpay_deeplink.length > 0 && (
                                     <div>
                                         <p className="text-xs text-center text-gray-400 font-medium mb-3">
                                             Эсвэл банкны апп сонгоно уу
@@ -283,7 +287,7 @@ export default function PaymentPage({ appointment, already_paid, test_mode }: Pr
                                                 <a key={i} href={d.link} target="_blank" rel="noopener noreferrer"
                                                     className="flex flex-col items-center gap-1.5 rounded-xl border border-gray-100 p-2.5 hover:border-gray-300 transition-colors">
                                                     {d.logo ? (
-                                                        <img src={`data:image/png;base64,${d.logo}`} alt={d.name}
+                                                        <img src={d.logo} alt={d.name}
                                                             className="w-8 h-8 object-contain rounded-lg" />
                                                     ) : (
                                                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-black"
@@ -341,6 +345,23 @@ export default function PaymentPage({ appointment, already_paid, test_mode }: Pr
                                         Дахин захиалах
                                     </a>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ── Хугацаа дууссан: захиалга цуцлагдаж, сонгосон цаг чөлөөлөгдсөн ── */}
+                        {phase === 'expired' && (
+                            <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-8 text-center">
+                                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+                                    <XCircle className="w-9 h-9 text-red-500" />
+                                </div>
+                                <h2 className="text-lg font-bold text-gray-800 mb-2">Төлбөрийн хугацаа дууслаа</h2>
+                                <p className="text-sm text-gray-500 mb-5">
+                                    5 минутын дотор төлбөр төлөгдөөгүй тул захиалга цуцлагдлаа. Таны сонгосон цаг дахин нээгдлээ — дахин захиалж болно.
+                                </p>
+                                <a href="/booking"
+                                    className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors">
+                                    Дахин цаг захиалах
+                                </a>
                             </div>
                         )}
 

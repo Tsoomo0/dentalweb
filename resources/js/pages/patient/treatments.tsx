@@ -95,6 +95,10 @@ function bankColor(name: string) {
     return '#374151';
 }
 
+// Гар утас (Android/iOS) эсэхийг тодорхойлно — банкны апп руу шууд орох deeplink
+// зөвхөн утсан дээр ажилладаг тул PC дээр банкны жагсаалтыг харуулахгүй, зөвхөн QR-ээр төлнө.
+const isMobileDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 /* ── Formatters ── */
 function fmtMnt(n: number | null) {
     if (n == null) return '—';
@@ -170,7 +174,7 @@ function QPayBody({
                 <Clock className="size-3.5" />
                 Хугацаа: <span className="font-mono font-bold ml-0.5">{fmtCD(countdown)}</span>
             </div>
-            {invoice.qpay_deeplink.length > 0 && (
+            {isMobileDevice && invoice.qpay_deeplink.length > 0 && (
                 <div className="w-full">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold mb-2">Банкны апп-аас нэвтрэх</p>
                     <div className="grid grid-cols-3 gap-2">

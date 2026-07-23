@@ -115,15 +115,16 @@ export default function Gallery({ gallery = [], categories = [] }: PageProps) {
                         </div>
                     </div>
                 </div>
-                {/* glassmorphic split preview */}
+                {/* glassmorphic photo preview */}
                 <div className="relative flex min-h-[300px] items-center justify-center">
                     <div className="absolute h-[300px] w-[300px] rounded-full" style={{ background: 'radial-gradient(circle,rgba(246,160,176,.32),transparent 66%)', filter: 'blur(6px)', animation: 'cuticulPulseGlow 6s ease-in-out infinite' }} />
                     <div className="absolute h-[300px] w-[300px] rounded-full border-[1.5px] border-dashed border-[#c81e3a]/20" style={{ animation: 'cuticulSpinSlow 44s linear infinite' }} />
-                    <div className="relative grid h-[280px] w-[280px] grid-cols-2 overflow-hidden rounded-[24px] border-[5px] border-white shadow-[0_22px_50px_rgba(120,30,50,0.18)]" style={{ animation: 'cuticulFloatyA 7s ease-in-out infinite' }}>
-                        <div className="flex items-start justify-start p-3 font-onest text-[11px] font-semibold text-[#9a918d]" style={{ background: 'repeating-linear-gradient(45deg,#f3eceb,#f3eceb 10px,#eee3e2 10px,#eee3e2 20px)' }}>Өмнө</div>
-                        <div className="flex items-start justify-end p-3 font-onest text-[11px] font-semibold text-[#c98a95]" style={{ background: 'repeating-linear-gradient(45deg,#fbeef0,#fbeef0 10px,#f6dfe3 10px,#f6dfe3 20px)' }}>Дараа</div>
-                        <div className="absolute bottom-0 top-0 left-1/2 w-[3px] -translate-x-1/2 bg-white" />
-                        <div className="absolute left-1/2 top-1/2 flex h-[40px] w-[40px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white font-onest text-[15px] font-bold text-[#c81e3a] shadow-[0_4px_12px_rgba(0,0,0,0.2)]">⇆</div>
+                    <div className="relative h-[280px] w-[280px] overflow-hidden rounded-[24px] border-[5px] border-white shadow-[0_22px_50px_rgba(120,30,50,0.18)]" style={{ animation: 'cuticulFloatyA 7s ease-in-out infinite' }}>
+                        <img
+                            src="/img/Оюунбилэг Гажиг засал 1жил 9сар.jpg"
+                            alt="Оюунбилэг — гажиг засал 1жил 9сарын үр дүн"
+                            className="h-full w-full object-cover"
+                        />
                     </div>
                 </div>
             </div>

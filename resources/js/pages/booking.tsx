@@ -4,6 +4,7 @@ import {
     Calendar, CheckCheck, ChevronLeft, ChevronRight, Clock, MessageSquare,
     Phone, Mail, User, Video, CheckCircle2, MapPin, FileText,
     Building2, Stethoscope, X, Sparkles, Sun, Sunset, Sunrise,
+    Info, AlertTriangle, ChevronDown,
 } from 'lucide-react';
 import { type FormEvent, useMemo, useRef, useState } from 'react';
 
@@ -104,6 +105,7 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
     const [selectedBranchId, setSelectedBranchId] = useState<string>('');
     const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
     const [selectedSlotId,   setSelectedSlotId]   = useState<string>('');
+    const [showBookingInfo, setShowBookingInfo]   = useState(false);
 
     // ── In-person calendar picker state ─────────────────────────────
     const _today      = new Date();
@@ -338,14 +340,32 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                         </div>
                         <h1 className="mb-3 font-onest text-[28px] font-extrabold leading-[1.12] tracking-tight text-white sm:text-[36px]">
                             {bookingType === 'online'
-                                ? 'Цагаа онлайнаар захиалаарай'
+                                ? 'Онлайн үзлэг зөвлөгөө'
                                 : 'Биечлэн ирэх хүсэлтээ үлдээгээрэй'}
                         </h1>
                         <p className="max-w-[520px] text-[16px] leading-[1.65] text-white/90">
                             {bookingType === 'online'
-                                ? 'Салбар, эмч, өдөр, цагаа сонгоод мэдээллээ үлдээхэд л болно. Манай ажилтан танд эргэн холбогдож баталгаажуулна.'
+                                ? 'Салбар, эмч, тохирох цагийг сонгоод Google Meet ээр үзлэг зөвлөгөө хамрагдаарай.'
                                 : 'Хүсэлтээ илгээгээрэй — манай ажилтан тантай холбогдож, тохиромжтой цагийг хамт олох болно.'}
                         </p>
+                        {/* booking type segmented control */}
+                        <div className="mt-6 inline-flex rounded-[16px] bg-white/15 p-1 backdrop-blur-md">
+                            <button type="button" onClick={() => switchType('online')}
+                                aria-pressed={bookingType === 'online'}
+                                title="Онлайн үзлэг зөвлөгөө"
+                                className={`flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition-all ${bookingType === 'online' ? 'bg-white text-[#c81e3a] shadow-[0_4px_14px_rgba(0,0,0,0.12)]' : 'text-white/85 hover:bg-white/10'}`}>
+                                <Video className="h-4 w-4" />
+                                Онлайн үзлэг зөвлөгөө
+                            </button>
+                            <button type="button" onClick={() => switchType('in_person')}
+                                aria-pressed={bookingType === 'in_person'}
+                                title="Биечлэн ирэх хүсэлт"
+                                className={`flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition-all ${bookingType === 'in_person' ? 'bg-white text-[#c81e3a] shadow-[0_4px_14px_rgba(0,0,0,0.12)]' : 'text-white/85 hover:bg-white/10'}`}>
+                                <Building2 className="h-4 w-4" />
+                                Биечлэн ирэх хүсэлт
+                            </button>
+                        </div>
+
                         {/* steps */}
                         <div className="mt-7 flex flex-wrap items-center gap-2 text-[12px] font-semibold text-white/85">
                             {(bookingType === 'online' ? onlineSteps : inPersonSteps).map((stp, i, arr) => (
@@ -389,7 +409,6 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                         </div>
                     </div>
                 )}
-
                 {/* ════════════════════════════════════════════
                     ONLINE BOOKING FORM
                 ═════════════════════════════════════════════ */}
@@ -614,57 +633,141 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
                         {/* Summary + Submit */}
                         {selectedSlotId && data.appointment_date && (
                             <>
-                                <div className="overflow-hidden rounded-[26px] bg-[#1c1a1b]/94 p-6 text-white shadow-[0_18px_50px_rgba(120,30,50,0.18)] sm:p-8">
-                                    <p className="mb-4 text-[12px] font-bold uppercase tracking-[0.1em] text-[#f4a9b6]">Захиалгын хураангуй</p>
-                                    <div className="grid gap-3 sm:grid-cols-4">
+                                <div className="rounded-[28px] bg-gradient-to-br from-[#f4a9b6]/40 via-white/10 to-transparent p-[1.5px] shadow-[0_25px_60px_rgba(120,30,50,0.28)]">
+                                <div className="relative overflow-hidden rounded-[27px] bg-gradient-to-b from-[#211d1e] to-[#171415] p-6 text-white sm:p-8">
+                                    {/* Ambient glow */}
+                                    <div className="pointer-events-none absolute -right-20 -top-28 h-[260px] w-[260px] rounded-full bg-[#c81e3a]/25 blur-[80px]"/>
+                                    <div className="pointer-events-none absolute -bottom-24 -left-14 h-[200px] w-[200px] rounded-full bg-amber-400/[0.08] blur-[70px]"/>
+                                    <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f4a9b6]/50 to-transparent"/>
+
+                                    {/* Header */}
+                                    <div className="relative flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#f4a9b6]/30 to-[#c81e3a]/10 ring-1 ring-white/10">
+                                                <CheckCircle2 className="h-3.5 w-3.5 text-[#f4a9b6]"/>
+                                            </span>
+                                            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#f4a9b6]">Захиалгын хураангуй</p>
+                                        </div>
+                                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/50">
+                                            Баталгаажаагүй
+                                        </span>
+                                    </div>
+                                    <div className="relative mt-3 h-px w-full bg-gradient-to-r from-white/15 via-white/5 to-transparent"/>
+
+                                    {/* Info tiles */}
+                                    <div className="relative mt-5 grid gap-2.5 sm:grid-cols-4">
                                         {selectedBranch && (
-                                            <div className="flex items-center gap-3 rounded-[14px] bg-white/[0.06] p-3">
-                                                <Building2 className="h-4 w-4 flex-shrink-0 text-[#f4a9b6]"/>
+                                            <div className="flex items-center gap-3 rounded-[16px] border border-white/[0.07] bg-white/[0.045] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07]">
+                                                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c81e3a]/30 to-[#c81e3a]/5 ring-1 ring-white/[0.06]">
+                                                    <Building2 className="h-4 w-4 text-[#f4a9b6]"/>
+                                                </span>
                                                 <div className="min-w-0">
-                                                    <p className="text-[11px] text-[#9a918d]">Салбар</p>
+                                                    <p className="text-[10.5px] font-medium uppercase tracking-wide text-[#9a918d]">Салбар</p>
                                                     <p className="truncate font-onest text-sm font-bold text-white">{selectedBranch.name}</p>
                                                 </div>
                                             </div>
                                         )}
-                                        <div className="flex items-center gap-3 rounded-[14px] bg-white/[0.06] p-3">
-                                            <Video className="h-4 w-4 flex-shrink-0 text-[#f4a9b6]"/>
+                                        <div className="flex items-center gap-3 rounded-[16px] border border-white/[0.07] bg-white/[0.045] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07]">
+                                            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c81e3a]/30 to-[#c81e3a]/5 ring-1 ring-white/[0.06]">
+                                                <Video className="h-4 w-4 text-[#f4a9b6]"/>
+                                            </span>
                                             <div>
-                                                <p className="text-[11px] text-[#9a918d]">Төрөл</p>
-                                                <p className="font-onest text-sm font-bold text-white">💻 Онлайн</p>
+                                                <p className="text-[10.5px] font-medium uppercase tracking-wide text-[#9a918d]">Төрөл</p>
+                                                <p className="font-onest text-sm font-bold text-white">Онлайн</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3 rounded-[14px] bg-white/[0.06] p-3">
-                                            <Clock className="h-4 w-4 flex-shrink-0 text-[#f4a9b6]"/>
-                                            <div>
-                                                <p className="text-[11px] text-[#9a918d]">Цаг</p>
-                                                <p className="font-onest text-sm font-bold text-white">
+                                        <div className="flex items-center gap-3 rounded-[16px] border border-white/[0.07] bg-white/[0.045] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07]">
+                                            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c81e3a]/30 to-[#c81e3a]/5 ring-1 ring-white/[0.06]">
+                                                <Clock className="h-4 w-4 text-[#f4a9b6]"/>
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="text-[10.5px] font-medium uppercase tracking-wide text-[#9a918d]">Цаг</p>
+                                                <p className="truncate font-onest text-sm font-bold text-white">
                                                     {data.appointment_date} {data.appointment_time}
                                                     {data.appointment_time_end && ` – ${data.appointment_time_end}`}
                                                 </p>
                                             </div>
                                         </div>
                                         {selectedDoctor && (
-                                            <div className="flex items-center gap-3 rounded-[14px] bg-white/[0.06] p-3">
-                                                <User className="h-4 w-4 flex-shrink-0 text-[#f4a9b6]"/>
+                                            <div className="flex items-center gap-3 rounded-[16px] border border-white/[0.07] bg-white/[0.045] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors hover:border-white/[0.14] hover:bg-white/[0.07]">
+                                                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c81e3a]/30 to-[#c81e3a]/5 ring-1 ring-white/[0.06]">
+                                                    <User className="h-4 w-4 text-[#f4a9b6]"/>
+                                                </span>
                                                 <div className="min-w-0">
-                                                    <p className="text-[11px] text-[#9a918d]">Эмч</p>
+                                                    <p className="text-[10.5px] font-medium uppercase tracking-wide text-[#9a918d]">Эмч</p>
                                                     <p className="truncate font-onest text-sm font-bold text-white">{shortName(selectedDoctor.name)}</p>
                                                 </div>
                                             </div>
                                         )}
                                     </div>
 
-                                    <div className="mt-3 flex items-center gap-3 rounded-[14px] border border-amber-300/30 bg-amber-400/10 px-4 py-3">
-                                        <span className="text-lg">💳</span>
-                                        <div className="flex-1">
-                                            <p className="text-xs font-semibold text-amber-200">Захиалгын төлбөр</p>
-                                            <p className="mt-0.5 text-xs text-amber-100/80">
-                                                Цаг захиалсны дараа <strong>{consultation_fee.toLocaleString()} ₮</strong> QPay-аар төлнө үү.
-                                                Төлбөр хийгдсэний дараа Google Meet линк и-мэйлээр ирнэ.
+                                    {/* Perforated ticket divider */}
+                                    <div className="relative my-5 flex items-center">
+                                        <span className="h-4 w-4 flex-shrink-0 -translate-x-1/2 rounded-full bg-[#0f0d0e]"/>
+                                        <div className="h-px w-full border-t-2 border-dashed border-white/10"/>
+                                        <span className="h-4 w-4 flex-shrink-0 translate-x-1/2 rounded-full bg-[#0f0d0e]"/>
+                                    </div>
+
+                                    {/* Payment strip */}
+                                    <div className="relative flex flex-col gap-3.5 rounded-[18px] border border-amber-300/20 bg-gradient-to-br from-amber-400/[0.1] via-amber-400/[0.04] to-transparent p-4 sm:flex-row sm:items-center">
+                                        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400/25 to-amber-400/5 ring-1 ring-amber-300/15">
+                                            <span className="text-lg leading-none">💳</span>
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-bold uppercase tracking-wide text-amber-200">Захиалгын төлбөр</p>
+                                            <p className="mt-1 text-[11.5px] leading-relaxed text-amber-100/70">
+                                                Цаг захиалсны дараа QPay-аар төлнө үү. Төлбөр хийгдсэний дараа Google Meet линк и-мэйлээр ирнэ.
                                             </p>
                                         </div>
-                                        <span className="whitespace-nowrap font-onest text-sm font-extrabold text-amber-200">{consultation_fee.toLocaleString()} ₮</span>
+                                        <div className="flex items-baseline gap-1.5 rounded-[14px] bg-black/20 px-4 py-2.5 sm:flex-col sm:items-end sm:gap-0">
+                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-200/60">Нийт дүн</span>
+                                            <span className="whitespace-nowrap font-onest text-lg font-extrabold text-amber-200">
+                                                {consultation_fee.toLocaleString()} ₮
+                                            </span>
+                                        </div>
                                     </div>
+
+                                    {/* Заавар, анхааруулга — toggle */}
+                                    <button type="button" onClick={() => setShowBookingInfo(v => !v)}
+                                        className="relative mt-4 flex w-full items-center gap-2.5 rounded-[14px] border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/[0.06]">
+                                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+                                            <Info className="h-3.5 w-3.5 text-white/70"/>
+                                        </span>
+                                        <span className="flex-1 text-xs font-semibold text-white/80">Заавар, анхааруулга унших</span>
+                                        <ChevronDown className={`h-4 w-4 flex-shrink-0 text-white/50 transition-transform ${showBookingInfo ? 'rotate-180' : ''}`}/>
+                                    </button>
+
+                                    {showBookingInfo && (
+                                        <div className="relative mt-3 space-y-3">
+                                            {/* Заавар */}
+                                            <div className="rounded-[14px] border border-sky-300/20 bg-sky-400/[0.06] p-4">
+                                                <div className="flex items-center gap-2">
+                                                    <Info className="h-4 w-4 flex-shrink-0 text-sky-300"/>
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-sky-200">Заавар</p>
+                                                </div>
+                                                <ul className="mt-2 space-y-1.5 text-[12px] leading-relaxed text-sky-100/80">
+                                                    <li>1. Доорх &quot;Цаг захиалах&quot; товч дарж хүсэлтээ баталгаажуулна.</li>
+                                                    <li>2. Дараагийн хуудсанд QR код эсвэл банкны апп-аар <strong className="text-sky-100">{consultation_fee.toLocaleString()} ₮</strong> төлнө.</li>
+                                                    <li>3. Төлбөр баталгаажмагц Google Meet линк таны и-мэйл хаяг руу очно.</li>
+                                                    <li>4. Товлосон цагтаа линк дээр дарж эмчтэйгээ холбогдоно.</li>
+                                                </ul>
+                                            </div>
+
+                                            {/* Анхааруулга */}
+                                            <div className="rounded-[14px] border border-amber-300/20 bg-amber-400/[0.06] p-4">
+                                                <div className="flex items-center gap-2">
+                                                    <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-300"/>
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-amber-200">Анхааруулга</p>
+                                                </div>
+                                                <ul className="mt-2 space-y-1.5 text-[12px] leading-relaxed text-amber-100/80">
+                                                    <li>Төлбөрийг <strong className="text-amber-100">5 минутын дотор</strong> хийхгүй бол захиалга автоматаар цуцлагдаж, сонгосон цаг дахин чөлөөлөгдөнө.</li>
+                                                    <li>И-мэйл хаягаа зөв бичнэ үү — Google Meet линк зөвхөн тэр хаяг руу илгээгдэнэ.</li>
+                                                    <li>Төлбөр буцаалт хийгдэхгүй тул цагаа өөрчлөх шаардлагатай бол урьдчилан манай пэйж чатаар ажилтантай холбогдоно цаг өөрчлөөрэй.</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                                 </div>
 
                                 <button type="submit"

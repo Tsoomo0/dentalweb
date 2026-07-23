@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\GenerateMeetLink;
 use App\Models\Appointment;
+use App\Models\Doctor;
 use App\Services\GoogleMeetService;
 use App\Services\QPayService;
 use Illuminate\Http\JsonResponse;
@@ -73,7 +74,7 @@ class PaymentController extends Controller
                 'invoice_id' => $invoice['invoice_id'],
                 'qr_image' => $invoice['qr_image'] ?? null,
                 'qr_text' => $invoice['qr_text'] ?? null,
-                'qpay_deeplink' => $invoice['qpay_deeplink'] ?? [],
+                'qpay_deeplink' => $invoice['urls'] ?? $invoice['qpay_deeplink'] ?? [],
             ]);
         } catch (\Throwable $e) {
             Log::error('QPay createInvoice failed', ['appointment' => $appointment->id, 'error' => $e->getMessage()]);
@@ -103,6 +104,37 @@ class PaymentController extends Controller
         }
 
         return response()->json(['paid' => false]);
+    }
+
+    // ─── Төлбөрийн хугацаа дуусахад frontend-ээс дуудаж захиалгыг цуцлах ────
+
+    public function cancelExpired(Appointment $appointment): JsonResponse
+    {
+        // Аль хэдийн төлсөн эсвэл өөр төлөвт орсон бол хөндөхгүй
+        if ($appointment->payment_status !== 'pending' || $appointment->status !== 'pending') {
+            return response()->json(['cancelled' => false]);
+        }
+
+        // Doctor-ийн slot-ийг чөлөөлөх — сонгосон цаг дахин нээгдэнэ
+        if ($appointment->online_slot_id && $appointment->doctor_id) {
+            $doctor = Doctor::find($appointment->doctor_id);
+            if ($doctor) {
+                $slots = collect($doctor->online_slots ?? [])
+                    ->map(function ($s) use ($appointment) {
+                        if ($s['id'] === $appointment->online_slot_id) {
+                            $s['is_booked'] = false;
+                        }
+
+                        return $s;
+                    })
+                    ->toArray();
+                $doctor->update(['online_slots' => $slots]);
+            }
+        }
+
+        $appointment->delete();
+
+        return response()->json(['cancelled' => true]);
     }
 
     // ─── QPay callback (QPay сервер дуудна) ──────────────────────────────────

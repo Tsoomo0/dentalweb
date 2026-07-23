@@ -129,6 +129,7 @@ Route::get('/payment/{appointment}', [PaymentController::class, 'show'])->name('
 Route::post('/payment/{appointment}/invoice', [PaymentController::class, 'createInvoice'])->name('payment.invoice');
 Route::get('/payment/{appointment}/check', [PaymentController::class, 'checkStatus'])->name('payment.check');
 Route::post('/payment/callback/{appointment}', [PaymentController::class, 'callback'])->name('payment.callback');
+Route::post('/payment/{appointment}/cancel', [PaymentController::class, 'cancelExpired'])->name('payment.cancel');
 
 // ── Meta Social webhook (Facebook Page + Instagram) ──────────────────────────
 Route::get('/webhooks/social', [SocialWebhookController::class, 'verify'])->name('webhooks.social.verify');

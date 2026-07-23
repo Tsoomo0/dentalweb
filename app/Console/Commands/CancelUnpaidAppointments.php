@@ -10,14 +10,14 @@ class CancelUnpaidAppointments extends Command
 {
     protected $signature = 'appointments:cancel-unpaid';
 
-    protected $description = '10 минутын дотор төлбөр төлөгдөөгүй онлайн захиалгуудыг устгах';
+    protected $description = '5 минутын дотор төлбөр төлөгдөөгүй онлайн захиалгуудыг устгах';
 
     public function handle(): void
     {
         $expiredAppointments = Appointment::where('type', 'online')
             ->where('payment_status', 'pending')
             ->where('status', 'pending')
-            ->where('created_at', '<=', now()->subMinutes(10))
+            ->where('created_at', '<=', now()->subMinutes(5))
             ->get();
 
         if ($expiredAppointments->isEmpty()) {

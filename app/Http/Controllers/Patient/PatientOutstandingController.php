@@ -66,7 +66,7 @@ class PatientOutstandingController extends Controller
                 'invoice_id' => $invoice['invoice_id'],
                 'qr_image' => $invoice['qr_image'] ?? null,
                 'qr_text' => $invoice['qr_text'] ?? null,
-                'qpay_deeplink' => $invoice['qpay_deeplink'] ?? [],
+                'qpay_deeplink' => $invoice['urls'] ?? $invoice['qpay_deeplink'] ?? [],
                 'amount' => $remaining,
             ]);
         } catch (\Throwable $e) {

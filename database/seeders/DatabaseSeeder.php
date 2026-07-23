@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -14,8 +13,15 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AdminSeeder::class,
-            SettingSeeder::class,
+            BotFlowSeeder::class,
             ConsentFormTemplateSeeder::class,
+            LabOrderTestSeeder::class,
+            LabPortalTestSeeder::class,
+            SampleDataSeeder::class,
+            SettingSeeder::class,
+            SocialAiFaqSeeder::class,
+            SocialTestFlowSeeder::class,
+            SupportStaffSeeder::class,
         ]);
     }
 }
