@@ -17,11 +17,21 @@ class GoogleMeetService
         $this->client->setClientSecret(config('services.google.client_secret'));
         $this->client->setAccessType('offline');
 
-        $this->client->fetchAccessTokenWithRefreshToken(config('services.google.refresh_token'));
+        $token = $this->client->fetchAccessTokenWithRefreshToken(config('services.google.refresh_token'));
+
+        if (isset($token['error'])) {
+            \Log::error('Google OAuth refresh token-оор access token авахад алдаа гарлаа', $token);
+        }
     }
 
     public function createMeetLink(): ?string
     {
+        if (! $this->client->getAccessToken()) {
+            \Log::error('Google Meet: access token байхгүй тул хүсэлт явуулахгүй — refresh token хүчингүй/дуусах байж магадгүй.');
+
+            return null;
+        }
+
         try {
             $service = new Meet($this->client);
             $space = new Space;
