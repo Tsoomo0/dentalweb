@@ -23,6 +23,7 @@ class BookingController extends Controller
     public function index(): Response
     {
         $today = now()->toDateString();
+        $nowTime = now()->format('H:i');
 
         return Inertia::render('booking', [
             'consultation_fee' => (int) Setting::get('online_consultation_fee', 50000),
@@ -42,7 +43,9 @@ class BookingController extends Controller
                     'branch_id' => $d->branch_id,
                     'photo_url' => $d->photo ? Storage::url($d->photo) : null,
                     'online_slots' => collect($d->online_slots ?? [])
-                        ->filter(fn ($s) => ! ($s['is_booked'] ?? false) && $s['date'] >= $today)
+                        ->filter(fn ($s) => ! ($s['is_booked'] ?? false)
+                            && $s['date'] >= $today
+                            && ($s['date'] > $today || ($s['start_time'] ?? '') > $nowTime))
                         ->values()
                         ->toArray(),
                 ]),

@@ -22,15 +22,18 @@ class PatientOnlineConsultationController extends Controller
     public function index(): Response
     {
         $today = now()->toDateString();
+        $nowTime = now()->format('H:i');
         $fee = (int) Setting::get('online_consultation_fee', 50000);
 
         $doctors = Doctor::where('has_online_booking', true)
             ->where('is_active', true)
             ->orderBy('name')
             ->get()
-            ->map(function ($doctor) use ($today) {
+            ->map(function ($doctor) use ($today, $nowTime) {
                 $slots = collect($doctor->online_slots ?? [])
-                    ->filter(fn ($s) => ! ($s['is_booked'] ?? false) && ($s['date'] ?? '') >= $today)
+                    ->filter(fn ($s) => ! ($s['is_booked'] ?? false)
+                        && ($s['date'] ?? '') >= $today
+                        && (($s['date'] ?? '') > $today || ($s['start_time'] ?? '') > $nowTime))
                     ->sortBy('date')
                     ->values()
                     ->toArray();
