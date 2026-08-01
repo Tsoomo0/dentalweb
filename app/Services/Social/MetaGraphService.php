@@ -40,6 +40,7 @@ class MetaGraphService
         'pages_show_list',
         'pages_manage_metadata',
         'pages_manage_engagement', // комментод public хариу бичих, like/reply удирдах
+        'pages_read_user_content', // pages_manage_engagement-ийг ашиглахын тулд Meta заавал шаарддаг
         'pages_messaging',
         'pages_read_engagement',
         'instagram_basic',
@@ -299,8 +300,12 @@ class MetaGraphService
 
     // ─── Коммент (public reply + хувийн DM) ──────────────────────────────────
 
-    /** Комментод нийтээр хариулах (FB + IG: /{comment-id}/replies). */
-    public function replyToComment(SocialAccount $account, string $commentId, string $text): bool
+    /**
+     * Комментод нийтээр хариулах (FB + IG: /{comment-id}/replies).
+     *
+     * @return array{ok:bool, error:?string}
+     */
+    public function replyToComment(SocialAccount $account, string $commentId, string $text): array
     {
         try {
             $response = Http::timeout(15)->post("{$this->base()}/{$commentId}/replies", [
@@ -309,16 +314,17 @@ class MetaGraphService
             ]);
 
             if (! $response->successful()) {
+                $error = $response->json('error.message') ?? $response->body();
                 Log::warning('Meta replyToComment failed', ['comment' => $commentId, 'body' => $response->body()]);
 
-                return false;
+                return ['ok' => false, 'error' => $error];
             }
 
-            return true;
+            return ['ok' => true, 'error' => null];
         } catch (\Throwable $e) {
             Log::error('Meta replyToComment exception', ['comment' => $commentId, 'error' => $e->getMessage()]);
 
-            return false;
+            return ['ok' => false, 'error' => $e->getMessage()];
         }
     }
 

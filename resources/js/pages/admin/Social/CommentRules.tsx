@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
-    ArrowLeft, CheckCircle2, ChevronDown, Facebook, Heart, Images, Instagram, Loader2, MessageCircle,
+    AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Facebook, Heart, Images, Instagram, Loader2, MessageCircle,
     MoreHorizontal, Plus, Reply, Send, Sparkles, Trash2, X, Zap,
 } from 'lucide-react';
 import axios from 'axios';
@@ -14,7 +14,7 @@ interface Post { id: string; channel: string; text: string; image: string | null
 type MatchType = 'any' | 'contains' | 'exact';
 interface Rule {
     id: number; social_account_id: number | null; name: string; post_id: string | null;
-    match_type: MatchType; keywords: string[]; public_reply: string | null; dm_template: string | null;
+    match_type: MatchType; keywords: string[]; public_reply: string | null; public_reply_error: string | null; dm_template: string | null;
     dm_flow_id: number | null; dm_node_id: number | null; is_active: boolean; matched_count: number;
 }
 interface Account { id: number; page_name: string; }
@@ -330,6 +330,12 @@ export default function CommentRules({ rules, accounts, flows }: Props) {
                                             </div>
                                             <button onClick={() => del(rule)} className="rounded-lg p-1 text-red-500 opacity-0 transition hover:bg-red-500/10 group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
                                         </div>
+                                        {rule.public_reply_error && (
+                                            <div title={rule.public_reply_error} className="mt-2 flex items-center gap-1.5 rounded-lg bg-red-500/10 px-2 py-1.5 text-[11px] text-red-500">
+                                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                                <span className="truncate">Комментод хариу бичихэд алдаа гарсан: {rule.public_reply_error}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

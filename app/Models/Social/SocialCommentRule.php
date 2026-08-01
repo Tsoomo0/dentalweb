@@ -22,6 +22,7 @@ class SocialCommentRule extends Model
         'match_type',
         'keywords',
         'public_reply',
+        'public_reply_error',
         'dm_template',
         'dm_flow_id',
         'dm_node_id',

@@ -5,6 +5,7 @@ namespace App\Services\Social;
 use App\Models\Social\SocialAccount;
 use App\Models\Social\SocialCommentRule;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Постын коммент авто-хариулт — keyword дүрэмд тааруулж нийтийн хариу + хувийн DM явуулна.
@@ -24,9 +25,23 @@ class SocialCommentHandler
             return;
         }
 
-        // 1. Нийтийн хариу (комментод)
+        // 1. Нийтийн хариу (комментод) — амжилтгүй болвол шалтгааныг дүрэм дээр хадгалж,
+        // admin панелд шууд харагдах болгоно (өмнө нь чимээгүй унтардаг байсан).
+        $extra = [];
+
         if (! empty($rule->public_reply)) {
-            $this->meta->replyToComment($account, $commentId, $rule->public_reply);
+            $result = $this->meta->replyToComment($account, $commentId, $rule->public_reply);
+
+            if (! $result['ok']) {
+                Log::warning('Social comment public reply failed', [
+                    'rule_id' => $rule->id,
+                    'rule_name' => $rule->name,
+                    'comment_id' => $commentId,
+                    'error' => $result['error'],
+                ]);
+            }
+
+            $extra['public_reply_error'] = $result['ok'] ? null : ($result['error'] ?? 'Тодорхойгүй алдаа');
         }
 
         // 2. Хувийн DM — flow холбосон бол БҮТЭН flow ажиллуулна, үгүй бол энгийн текст.
@@ -39,7 +54,7 @@ class SocialCommentHandler
             $this->meta->sendPrivateReply($account, $commentId, $rule->dm_template);
         }
 
-        $rule->increment('matched_count');
+        $rule->increment('matched_count', 1, $extra);
     }
 
     private function matchRule(SocialAccount $account, ?string $postId, string $text): ?SocialCommentRule

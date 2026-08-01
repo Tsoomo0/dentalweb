@@ -37,6 +37,7 @@ class SocialCommentRuleController extends Controller
                     'match_type' => $r->match_type,
                     'keywords' => $r->keywords ?? [],
                     'public_reply' => $r->public_reply,
+                    'public_reply_error' => $r->public_reply_error,
                     'dm_template' => $r->dm_template,
                     'dm_flow_id' => $r->dm_flow_id,
                     'dm_node_id' => $r->dm_node_id,
