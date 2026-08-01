@@ -12,7 +12,9 @@ use App\Http\Middleware\ReceptionMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -48,5 +50,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Хэт олон хүсэлт (429) — Inertia форм илгээхэд алдааны дэлгэц гарахын оронд
+        // ойлгомжтой мессежтэй буцаана. GET (poll) хүсэлтүүд default хэвээр.
+        $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
+            if ($request->isMethod('GET') || ! $request->header('X-Inertia')) {
+                return null;
+            }
+
+            $seconds = (int) ($e->getHeaders()['Retry-After'] ?? 60);
+
+            return back()->with('error', "Хэт олон удаа илгээлээ. {$seconds} секундын дараа дахин оролдоно уу.");
+        });
     })->create();

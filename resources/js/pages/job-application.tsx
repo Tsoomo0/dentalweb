@@ -1,10 +1,12 @@
 import PublicLayout from '@/layouts/public-layout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import {
     Plus, Trash2, CheckCheck,
     User, GraduationCap, Briefcase, Languages,
     Award, BookUser, Users, Info,
+    CheckCircle2, AlertTriangle, Clock,
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 interface EducationRow      { school: string; enrolled_year: string; graduated_year: string; major: string; degree: string; gpa: string }
@@ -24,6 +26,7 @@ interface FormData extends Record<string, any> {
     has_insurance: boolean; has_health_insurance: boolean; address: string;
     has_driving_license: boolean; driving_class: string; has_car: boolean;
     phone_home: string; phone_mobile: string; email: string;
+    desired_position: string;
     education: EducationRow[];
     professional_training: TrainingRow[];
     total_work_years: string; unverified_work_years: string; employment_status: string;
@@ -56,6 +59,10 @@ const glassPanel = 'rounded-[30px] border border-white/70 bg-white/50 shadow-[0_
 const inp = 'w-full rounded-xl border border-[#ece2e0] bg-[#fdfbfb] px-4 py-3 text-[14px] text-[#1c1a1b] outline-none transition-all duration-200 placeholder:text-[#bdb2ae] hover:border-[#e0c9cd] focus:border-[#c81e3a] focus:bg-white focus:ring-4 focus:ring-[#c81e3a]/10';
 const sel = `${inp} cuticul-select cursor-pointer`;
 const LEVEL_OPTIONS = ['', 'Анхан', 'Хэрэглээний', 'Бүрэн эзэмшсэн'];
+
+/* Дахин илгээх хүртэлх хүлээх хугацаа (сек) — сервер тал дээрх хязгаартай тааруулсан */
+const RESUBMIT_COOLDOWN = 60;
+const OTHER_POSITION = '__other__';
 
 /* ─── Sub-components ──────────────────────────────────────────────────────── */
 function SectionCard({ step, icon: Icon, title, children }: {
@@ -161,13 +168,18 @@ function CheckField({ label, checked, onChange }: { label: string; checked: bool
 }
 
 /* ─── Page ────────────────────────────────────────────────────────────────── */
-export default function JobApplicationPage() {
-    const { data, setData, post, processing, errors, reset } = useForm<FormData>({
+interface PageProps { positions?: string[] }
+
+export default function JobApplicationPage({ positions = [] }: PageProps) {
+    const { flash } = usePage<{ [key: string]: unknown; flash?: { success?: string; error?: string } }>().props;
+
+    const { data, setData, post, processing, errors, reset, clearErrors } = useForm<FormData>({
         last_name: '', first_name: '', family_name: '', gender: '', birth_city: '',
         birth_date: '', register_no: '',
         has_insurance: false, has_health_insurance: false,
         address: '', has_driving_license: false, driving_class: '', has_car: false,
         phone_home: '', phone_mobile: '', email: '',
+        desired_position: '',
         education: [defEdu()],
         professional_training: [defTraining()],
         total_work_years: '', unverified_work_years: '', employment_status: '',
@@ -184,6 +196,33 @@ export default function JobApplicationPage() {
         additional_info: '', info_source: '',
     });
 
+    /* ── SPAM хамгаалалт: илгээсний дараа тоолуур ажиллаж товч түгждэг ── */
+    const [cooldown, setCooldown] = useState(0);
+    const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const submitting = useRef(false);
+
+    /* Албан тушаалын select — "Бусад" сонговол гараар бичих талбар нээгдэнэ */
+    const [positionMode, setPositionMode] = useState<string>('');
+
+    useEffect(() => {
+        if (cooldown <= 0) return;
+        const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+        return () => clearTimeout(t);
+    }, [cooldown]);
+
+    /* Серверээс ирсэн flash мессежийг баннер болгож харуулна */
+    useEffect(() => {
+        if (flash?.success) {
+            setNotice({ type: 'success', text: flash.success });
+            setCooldown(RESUBMIT_COOLDOWN);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (flash?.error) {
+            setNotice({ type: 'error', text: flash.error });
+            setCooldown(RESUBMIT_COOLDOWN);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [flash?.success, flash?.error]);
+
     function addRow<T>(field: keyof FormData, def: () => T) {
         setData(field, [...(data[field] as T[]), def()]);
     }
@@ -199,10 +238,29 @@ export default function JobApplicationPage() {
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
+
+        // Давхар дарахаас хамгаалах — хүсэлт явж байх үед болон тоолуур дуусаагүй үед татгалзана
+        if (submitting.current || processing) return;
+        if (cooldown > 0) {
+            setNotice({ type: 'error', text: `Дахин илгээхийн тулд ${cooldown} секунд хүлээнэ үү.` });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        submitting.current = true;
+        setNotice(null);
+
         post('/job-application', {
-            onSuccess: () => reset(),
+            preserveScroll: true,
+            onSuccess: () => {
+                reset();
+                setPositionMode('');
+            },
+            onFinish: () => { submitting.current = false; },
         });
     }
+
+    const submitLocked = processing || cooldown > 0;
 
     return (
         <PublicLayout>
@@ -219,11 +277,76 @@ export default function JobApplicationPage() {
                 </div>
             </div>
 
+            {/* ── NOTICE ────────────────────────────────────────────────────── */}
+            {notice && (
+                <div
+                    role="status"
+                    className="mt-5 flex items-start gap-3 rounded-[20px] border p-5"
+                    style={notice.type === 'success'
+                        ? { borderColor: '#bfe5cd', background: '#f2fbf5' }
+                        : { borderColor: '#f3ccd3', background: '#fdf4f5' }}
+                >
+                    {notice.type === 'success'
+                        ? <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-[#1f9254]" />
+                        : <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-[#c81e3a]" />}
+                    <div className="min-w-0">
+                        <p className={`text-[14px] font-bold ${notice.type === 'success' ? 'text-[#1f7a47]' : 'text-[#a4172f]'}`}>
+                            {notice.text}
+                        </p>
+                        {cooldown > 0 && (
+                            <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-[#6b6360]">
+                                <Clock className="h-3.5 w-3.5" />
+                                Дахин илгээх боломжтой болтол <strong className="mx-0.5">{cooldown}</strong> секунд үлдлээ.
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* ── FORM ──────────────────────────────────────────────────────── */}
             <form onSubmit={submit} className="mt-7 flex flex-col gap-6">
 
                 {/* ── 1. Үндсэн мэдээлэл ── */}
                 <SectionCard step={1} icon={User} title="Үндсэн мэдээлэл">
+                    {/* ── Сонирхож буй албан тушаал ── */}
+                    <div className="mb-6 rounded-[18px] border-[1.5px] border-[#f0d3d8] bg-gradient-to-b from-[#fdf6f7] to-[#fbeef0] p-5">
+                        <Field label="Сонирхож буй албан тушаал" required error={errors.desired_position}>
+                            {positions.length > 0 ? (
+                                <>
+                                    <select
+                                        className={sel}
+                                        value={positionMode}
+                                        onChange={e => {
+                                            const v = e.target.value;
+                                            setPositionMode(v);
+                                            setData('desired_position', v === OTHER_POSITION ? '' : v);
+                                            clearErrors('desired_position');
+                                        }}
+                                    >
+                                        <option value="">Сонгох...</option>
+                                        {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                                        <option value={OTHER_POSITION}>Бусад (гараар бичих)</option>
+                                    </select>
+                                    {positionMode === OTHER_POSITION && (
+                                        <input
+                                            className={`${inp} mt-2.5`}
+                                            value={data.desired_position}
+                                            onChange={e => setData('desired_position', e.target.value)}
+                                            placeholder="Сонирхож буй албан тушаалаа бичнэ үү"
+                                        />
+                                    )}
+                                </>
+                            ) : (
+                                <input
+                                    className={inp}
+                                    value={data.desired_position}
+                                    onChange={e => setData('desired_position', e.target.value)}
+                                    placeholder="Жишээ нь: Эмч, Ресепшн, Шүдний техникч..."
+                                />
+                            )}
+                        </Field>
+                    </div>
+
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <Field label="Эцэг/эхийн нэр" required error={errors.last_name}>
                             <input className={inp} value={data.last_name}
@@ -602,12 +725,15 @@ export default function JobApplicationPage() {
                     <p className="max-w-[420px] text-[13px] leading-[1.6] text-[#9a918d]">
                         Анкетыг илгээснээр таны мэдээллийг зөвхөн ажилд авах зорилгоор, нууцлалын журмын дагуу хадгална.
                     </p>
-                    <button type="submit" disabled={processing}
-                        className="flex flex-none items-center gap-2 rounded-[16px] px-10 py-4 text-[15px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60"
+                    <button type="submit" disabled={submitLocked}
+                        title={cooldown > 0 ? `${cooldown} секундын дараа дахин илгээх боломжтой` : undefined}
+                        className="flex flex-none items-center gap-2 rounded-[16px] px-10 py-4 text-[15px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                         style={{ background: 'linear-gradient(135deg,#e8506a,#c81e3a)', boxShadow: '0 12px 28px rgba(200,30,58,0.32)' }}>
                         {processing
                             ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Илгээж байна...</>
-                            : <><CheckCheck className="h-[18px] w-[18px]" /> Анкет илгээх</>
+                            : cooldown > 0
+                                ? <><Clock className="h-[18px] w-[18px]" /> {cooldown} сек хүлээнэ үү</>
+                                : <><CheckCheck className="h-[18px] w-[18px]" /> Анкет илгээх</>
                         }
                     </button>
                 </div>

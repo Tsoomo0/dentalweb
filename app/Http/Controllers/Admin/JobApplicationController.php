@@ -26,6 +26,7 @@ class JobApplicationController extends Controller
                 $q->where('first_name', 'like', "%$s%")
                     ->orWhere('last_name', 'like', "%$s%")
                     ->orWhere('email', 'like', "%$s%")
+                    ->orWhere('desired_position', 'like', "%$s%")
                     ->orWhere('phone_mobile', 'like', "%$s%");
             });
         }
@@ -33,6 +34,7 @@ class JobApplicationController extends Controller
         $applications = $query->get()->map(fn ($a) => [
             'id' => $a->id,
             'full_name' => $a->last_name.' '.$a->first_name,
+            'desired_position' => $a->desired_position,
             'email' => $a->email,
             'phone_mobile' => $a->phone_mobile,
             'status' => $a->status,

@@ -20,6 +20,7 @@ interface Application {
     has_insurance: boolean; has_health_insurance: boolean;
     address: string | null; has_driving_license: boolean; driving_class: string | null;
     has_car: boolean; phone_home: string | null; phone_mobile: string | null; email: string | null;
+    desired_position: string | null;
     education: Array<{ school: string; enrolled_year: string; graduated_year: string; major: string; degree: string; gpa: string }> | null;
     professional_training: Array<{ organization: string; date: string; duration: string; field: string }> | null;
     total_work_years: string | null; unverified_work_years: string | null; employment_status: string | null;
@@ -240,6 +241,11 @@ export default function JobApplicationShow({ application: a }: Props) {
                                                 {currentStatus.label}
                                             </span>
                                         </div>
+                                        {a.desired_position && (
+                                            <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-red-600 dark:text-red-400">
+                                                <Briefcase className="size-3.5" /> {a.desired_position}
+                                            </p>
+                                        )}
                                         <div className="mt-2 flex flex-wrap gap-2">
                                             {a.phone_mobile && (
                                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
@@ -271,6 +277,7 @@ export default function JobApplicationShow({ application: a }: Props) {
                         <div className="rounded-2xl border bg-card p-6 shadow-sm print-card">
                             <SectionHeading icon={Info} label="Үндсэн мэдээлэл" color="bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400" />
                             <GridInfo items={[
+                                { label: 'Сонирхож буй албан тушаал', value: a.desired_position },
                                 { label: 'Хүйс',              value: a.gender },
                                 { label: 'Төрсөн аймаг, хот', value: a.birth_city },
                                 { label: 'Төрсөн огноо',      value: a.birth_date },
@@ -816,6 +823,10 @@ function PrintView({ a }: { a: Application }) {
                     <tr><th colSpan={4} style={S.secHead}>1. ҮНДСЭН МЭДЭЭЛЭЛ</th></tr>
                 </thead>
                 <tbody>
+                    <tr>
+                        <td style={S.lbl}>Сонирхож буй албан тушаал</td>
+                        <td colSpan={3} style={S.val}>{a.desired_position ?? '—'}</td>
+                    </tr>
                     <tr>
                         <td style={S.lbl}>Овог</td><td style={S.val}>{a.last_name}</td>
                         <td style={S.lbl}>Нэр</td><td style={S.val}>{a.first_name}</td>

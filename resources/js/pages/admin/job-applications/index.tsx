@@ -13,6 +13,7 @@ interface Application {
     full_name: string;
     email: string | null;
     phone_mobile: string | null;
+    desired_position: string | null;
     status: 'pending' | 'reviewed' | 'shortlisted' | 'rejected';
     created_at: string;
 }
@@ -249,6 +250,11 @@ export default function JobApplicationsIndex({ applications, stats, filters }: P
                                     <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2.5">
                                             <span className="font-semibold text-sm leading-tight">{app.full_name}</span>
+                                            {app.desired_position && (
+                                                <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                                                    {app.desired_position}
+                                                </span>
+                                            )}
                                             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.cls}`}>
                                                 <span className={`size-1.5 rounded-full ${meta.dot}`} />
                                                 {meta.label}

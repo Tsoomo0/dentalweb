@@ -22,7 +22,8 @@ class JobApplicationExport implements FromCollection, ShouldAutoSize, WithHeadin
     public function headings(): array
     {
         return [
-            'Огноо', 'Эцэг/эхийн нэр', 'Өөрийн нэр', 'Хүйс', 'Төрсөн огноо',
+            'Огноо', 'Эцэг/эхийн нэр', 'Өөрийн нэр', 'Сонирхож буй албан тушаал',
+            'Хүйс', 'Төрсөн огноо',
             'Регистр №', 'Гар утас', 'И-мэйл', 'Хаяг', 'Статус',
         ];
     }
@@ -33,6 +34,7 @@ class JobApplicationExport implements FromCollection, ShouldAutoSize, WithHeadin
             $a->created_at->format('Y.m.d'),
             $a->last_name,
             $a->first_name,
+            $a->desired_position,
             $a->gender,
             $a->birth_date?->format('Y.m.d'),
             $a->register_no,

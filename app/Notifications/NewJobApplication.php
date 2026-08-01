@@ -2,11 +2,21 @@
 
 namespace App\Notifications;
 
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Queue\SerializesModels;
 
-class NewJobApplication extends Notification
+class NewJobApplication extends Notification implements ShouldQueue
 {
+    use Queueable, SerializesModels;
+
+    /** SMTP түр саатсан тохиолдолд дахин оролдоно */
+    public int $tries = 3;
+
+    public array $backoff = [30, 120];
+
     public function __construct(
         public readonly string $applicantName,
         public readonly string $phone,
@@ -17,7 +27,13 @@ class NewJobApplication extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database', 'mail'];
+        $channels = ['database'];
+
+        if (! empty($notifiable->email)) {
+            $channels[] = 'mail';
+        }
+
+        return $channels;
     }
 
     public function toDatabase(object $notifiable): array

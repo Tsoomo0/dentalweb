@@ -10,7 +10,7 @@ class JobApplication extends Model
         'last_name', 'first_name', 'family_name', 'gender', 'birth_city',
         'birth_date', 'register_no', 'has_insurance', 'has_health_insurance',
         'address', 'has_driving_license', 'driving_class', 'has_car',
-        'phone_home', 'phone_mobile', 'email',
+        'phone_home', 'phone_mobile', 'email', 'desired_position',
         'education', 'professional_training',
         'total_work_years', 'unverified_work_years', 'employment_status', 'work_experience',
         'skills_languages', 'skills_computer', 'skills_talents',
