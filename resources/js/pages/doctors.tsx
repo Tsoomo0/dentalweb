@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { useState, useEffect, type CSSProperties } from 'react';
 import PublicLayout from '@/layouts/public-layout';
+import { shortDoctorName } from '@/lib/utils';
 import { MapPin, Award, Calendar, X, Briefcase, GraduationCap, BadgeCheck, Star, Phone, Mail } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -92,7 +93,7 @@ function DoctorModal({ doctor, onClose }: { doctor: Doctor; onClose: () => void 
                     {/* Info */}
                     <div className="pb-1">
                         <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-white/85">{doctor.specialization ?? 'Шүдний эмч'}</p>
-                        <h2 className="mb-2 font-onest text-[24px] font-extrabold text-white">{doctor.name}</h2>
+                        <h2 className="mb-2 font-onest text-[24px] font-extrabold text-white">{shortDoctorName(doctor.name)}</h2>
                         <div className="flex flex-wrap gap-2">
                             {doctor.experience_years != null && (
                                 <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold text-white">
@@ -301,7 +302,7 @@ export default function Doctors({ doctors = [], branches = [] }: PageProps) {
                                     )}
                                 </div>
                                 <div className="p-4">
-                                    <h3 className="mb-0.5 font-onest text-[16px] font-bold tracking-tight">{d.name}</h3>
+                                    <h3 className="mb-0.5 font-onest text-[16px] font-bold tracking-tight">{shortDoctorName(d.name)}</h3>
                                     <div className="mb-2.5 text-[12px] font-semibold text-[#c81e3a]">{d.specialization || 'Шүдний эмч'}</div>
                                     <div className="flex items-center justify-between border-t border-[#f3ebea] pt-3">
                                         <span className="text-[11px] font-medium text-[#9a918d]">{d.experience_years != null ? `${d.experience_years} жил туршлага` : 'Дэлгэрэнгүй'}</span>

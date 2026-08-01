@@ -4,7 +4,7 @@ import PublicLayout from '@/layouts/public-layout';
 /* ═══════════════════════════════════════════════════════════════════════════
    TYPES — backend-ээс ирэх жинхэнэ өгөгдөл (about() нь зөвхөн stats дамжуулна)
    ═══════════════════════════════════════════════════════════════════════════ */
-interface Branch { id: number; name: string; address: string | null; phone: string | null }
+interface Branch { id: number; name: string; address: string | null; phone: string | null; image_url?: string | null }
 interface PageProps {
     stats: { doctors: number; appointments: number; branches: number };
     branches: Branch[];
@@ -39,7 +39,7 @@ const VALUES = [
 ];
 
 /* backend салбар хоосон үед л харагдах нөөц жагсаалт */
-const FALLBACK_BRANCHES = [
+const FALLBACK_BRANCHES: Branch[] = [
     { id: -1, name: 'Сансар салбар', address: 'БЗД, Сансар, Их дэлгүүрийн зүүн талд', phone: '+976 7700 8899' },
     { id: -2, name: 'Хороолол салбар', address: 'СБД, 1-р хороолол, 32-ын тойрон', phone: '+976 7701 8899' },
     { id: -3, name: 'Цамбагарав салбар', address: 'СХД, Цамбагарав зам дагуу', phone: '+976 7702 8899' },
@@ -140,7 +140,9 @@ export default function About({ stats = { doctors: 0, appointments: 0, branches:
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {branchList.map((b) => (
                         <div key={b.id} className="overflow-hidden rounded-[22px] border border-[#f1e8e7] bg-white shadow-[0_1px_2px_rgba(120,30,50,0.04)]">
-                            <div className="flex aspect-[4/3] w-full items-center justify-center text-[11px] font-medium text-[#b3a7a3]" style={{ background: STRIPE }}>салбарын зураг</div>
+                            {b.image_url
+                                ? <img src={b.image_url} alt={b.name} loading="lazy" className="aspect-[4/3] w-full object-cover" />
+                                : <div className="flex aspect-[4/3] w-full items-center justify-center text-[11px] font-medium text-[#b3a7a3]" style={{ background: STRIPE }}>салбарын зураг</div>}
                             <div className="p-[18px]">
                                 <h3 className="mb-1.5 font-onest text-[17px] font-bold text-[#1c1a1b]">{b.name}</h3>
                                 {b.address && <p className="mb-1 text-[13px] leading-[1.55] text-[#6b6360]">{b.address}</p>}

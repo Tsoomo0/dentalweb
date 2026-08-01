@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { ChevronDown, Facebook, X } from 'lucide-react';
 import PublicLayout from '@/layouts/public-layout';
+import { shortDoctorName } from '@/lib/utils';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    TYPES — backend-ээс ирэх жинхэнэ өгөгдөл
@@ -344,7 +345,7 @@ export default function Welcome({ doctors = [], treatments = [], gallery = [], b
                                     <Placeholder label="эмчийн зураг" className="mb-3.5 aspect-[1/1.12] w-full rounded-2xl" />
                                 )}
                                 <div className="px-1.5 pb-2">
-                                    <div className="font-onest text-[17px] font-bold">{d.name}</div>
+                                    <div className="font-onest text-[17px] font-bold">{shortDoctorName(d.name)}</div>
                                     <div className="text-[13px] font-medium text-[#c81e3a]">{d.specialization || 'Шүдний эмч'}</div>
                                 </div>
                             </Link>

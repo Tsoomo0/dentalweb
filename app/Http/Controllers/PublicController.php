@@ -66,7 +66,10 @@ class PublicController extends Controller
         return Inertia::render('about', [
             'stats' => $this->stats(),
             'branches' => $this->publicBranchQuery()->orderBy('order')
-                ->get(['id', 'name', 'address', 'phone']),
+                ->get(['id', 'name', 'address', 'phone', 'image'])
+                ->map(fn ($b) => array_merge($b->only(['id', 'name', 'address', 'phone']), [
+                    'image_url' => $b->image ? Storage::url($b->image) : null,
+                ])),
         ]);
     }
 

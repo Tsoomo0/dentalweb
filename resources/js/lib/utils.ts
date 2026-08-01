@@ -7,7 +7,10 @@ export function cn(...inputs: ClassValue[]) {
 
 export function shortDoctorName(name: string): string {
     const p = name.trim().split(/\s+/);
-    return p.length >= 2 ? `${p[0][0]}.${p.slice(1).join(' ')}` : name;
+    if (p.length < 2) return name.trim();
+    /* овог нь аль хэдийн "Б." хэлбэртэй байвал давхар цэг үүсгэхгүй */
+    const surname = p[0].replace(/\.+$/, '');
+    return `${surname.charAt(0)}.${p.slice(1).join(' ')}`;
 }
 
 export function doctorInitials(name: string): string {
