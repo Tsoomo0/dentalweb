@@ -196,33 +196,61 @@ class DailySheetAdminController extends Controller
         $branchId = $request->get('branchId') ?: null;
         $tab = $request->get('tab', 'all'); // all | pending | used
 
-        $entries = DailySheetEntry::with(['dailySheet.branch', 'doctor', 'user'])
+        // Хэсэгчилсэн ашиглалт overpaid_used_* багануудад бичигддэггүй (зөвхөн бүрэн
+        // дуусахад) тул ресепшнтэй ижилхэн overpaid_usages дэвтрээс бодно.
+        $all = DailySheetEntry::with(['dailySheet.branch', 'doctor', 'user', 'overpaidUsages.user'])
             ->where('overpaid_amount', '>', 0)
             ->when($branchId, fn ($q) => $q->whereHas('dailySheet', fn ($q2) => $q2->where('branch_id', $branchId)))
-            ->when($tab === 'pending', fn ($q) => $q->whereNull('overpaid_used_at'))
-            ->when($tab === 'used', fn ($q) => $q->whereNotNull('overpaid_used_at'))
             ->orderByDesc('id')
             ->get()
-            ->map(fn ($e) => [
-                'id' => $e->id,
-                'date' => $e->dailySheet->date->toDateString(),
-                'branch' => $e->dailySheet->branch?->name,
-                'patient_name' => $e->patient_name,
-                'diagnosis' => $e->diagnosis,
-                'appointment_number' => $e->appointment_number,
-                'overpaid_amount' => (int) $e->overpaid_amount,
-                'overpaid_used_at' => $e->overpaid_used_at?->toDateTimeString(),
-                'overpaid_used_receipt' => $e->overpaid_used_receipt,
-                'overpaid_used_method' => $e->overpaid_used_method,
-                'overpaid_used_amount' => $e->overpaid_used_amount,
-                'doctor_name' => $e->doctor?->name,
-                'receptionist_name' => $e->user?->name,
-            ])->values()->all();
+            ->map(function ($e) {
+                $used = (int) $e->overpaidUsages->sum('amount');
+
+                return [
+                    'id' => $e->id,
+                    'date' => $e->dailySheet->date->toDateString(),
+                    'branch' => $e->dailySheet->branch?->name,
+                    'patient_name' => $e->patient_name,
+                    'diagnosis' => $e->diagnosis,
+                    'appointment_number' => $e->appointment_number,
+                    'overpaid_amount' => (int) $e->overpaid_amount,
+                    'used_amount' => $used,
+                    'remaining_amount' => max(0, (int) $e->overpaid_amount - $used),
+                    'usages' => $e->overpaidUsages
+                        ->sortBy('created_at')
+                        ->map(fn ($u) => [
+                            'receipt' => $u->target_receipt,
+                            'amount' => (int) $u->amount,
+                            'method' => $u->method,
+                            'target_date' => $u->target_date?->toDateString(),
+                            'used_by' => $u->user?->name,
+                        ])->values()->all(),
+                    'doctor_name' => $e->doctor?->name,
+                    'receptionist_name' => $e->user?->name,
+                ];
+            });
+
+        $entries = $all
+            ->when($tab === 'pending', fn ($c) => $c->where('remaining_amount', '>', 0))
+            ->when($tab === 'used', fn ($c) => $c->where('used_amount', '>', 0))
+            ->values()
+            ->all();
 
         return Inertia::render('admin/overpaid/index', [
             'entries' => $entries,
             'branches' => Branch::orderBy('name')->get(['id', 'name']),
             'filters' => compact('branchId', 'tab'),
+            // Таб солиход өөрчлөгдөхгүй байхаар бүх бичлэгээс бодно
+            'counts' => [
+                'all' => $all->count(),
+                'pending' => $all->where('remaining_amount', '>', 0)->count(),
+                'used' => $all->where('used_amount', '>', 0)->count(),
+            ],
+            'summary' => [
+                'total' => (int) $all->sum('overpaid_amount'),
+                'used' => (int) $all->sum('used_amount'),
+                'remaining' => (int) $all->sum('remaining_amount'),
+            ],
         ]);
     }
 

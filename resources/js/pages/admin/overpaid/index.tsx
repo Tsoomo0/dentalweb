@@ -4,6 +4,15 @@ import { Head, router } from '@inertiajs/react';
 import { Building2, CheckCircle2, Clock, Hash, Search, Sparkles, TrendingUp, User, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+interface Usage {
+    receipt: string;
+    amount: number;
+    method: string | null;
+    /** Аль өдрийн тооцоонд баланслагдсан */
+    target_date: string | null;
+    used_by: string | null;
+}
+
 interface OverpaidEntry {
     id: number;
     date: string;
@@ -12,16 +21,23 @@ interface OverpaidEntry {
     diagnosis: string | null;
     appointment_number: string | null;
     overpaid_amount: number;
-    overpaid_used_at: string | null;
-    overpaid_used_receipt: string | null;
-    overpaid_used_method: string | null;
-    overpaid_used_amount: number | null;
+    used_amount: number;
+    remaining_amount: number;
+    usages: Usage[];
     doctor_name: string | null;
     receptionist_name: string | null;
 }
 interface Branch { id: number; name: string }
 interface Filters { branchId: string | null; tab: 'all' | 'pending' | 'used' }
-interface Props { entries: OverpaidEntry[]; branches: Branch[]; filters: Filters }
+interface Counts { all: number; pending: number; used: number }
+interface Summary { total: number; used: number; remaining: number }
+interface Props {
+    entries: OverpaidEntry[];
+    branches: Branch[];
+    filters: Filters;
+    counts: Counts;
+    summary: Summary;
+}
 
 const METHOD_LABELS: Record<string, string> = {
     mobile: 'Мобайл', card: 'Карт', cash: 'Бэлэн', storepay: 'Storepay',
@@ -37,13 +53,8 @@ function go(patch: Partial<Filters>, current: Filters) {
     }, { preserveState: false });
 }
 
-export default function AdminOverpaidIndex({ entries, branches, filters }: Props) {
+export default function AdminOverpaidIndex({ entries, branches, filters, counts, summary }: Props) {
     const [search, setSearch] = useState('');
-    const pending = entries.filter(e => !e.overpaid_used_at);
-    const used    = entries.filter(e => !!e.overpaid_used_at);
-    const totalAmount = entries.reduce((s, e) => s + e.overpaid_amount, 0);
-    const pendingAmt  = pending.reduce((s, e) => s + e.overpaid_amount, 0);
-    const usedAmt     = used.reduce((s, e) => s + (e.overpaid_used_amount ?? e.overpaid_amount), 0);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -82,19 +93,19 @@ export default function AdminOverpaidIndex({ entries, branches, filters }: Props
                         </div>
                         <div className="flex gap-2">
                             <div className="rounded-xl bg-white/70 dark:bg-gray-900/60 backdrop-blur px-4 py-2.5 text-right border border-emerald-100/80 dark:border-emerald-900/50">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Хүлээгдэж буй</p>
-                                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">+{pendingAmt.toLocaleString()}₮</p>
-                                <p className="text-[10px] text-muted-foreground">{pending.length} бичлэг</p>
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Үлдэгдэл</p>
+                                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">+{summary.remaining.toLocaleString()}₮</p>
+                                <p className="text-[10px] text-muted-foreground">{counts.pending} бичлэг</p>
                             </div>
                             <div className="rounded-xl bg-white/70 dark:bg-gray-900/60 backdrop-blur px-4 py-2.5 text-right border border-gray-200/80 dark:border-gray-700/50">
                                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Ашигласан</p>
-                                <p className="text-lg font-bold text-gray-600 dark:text-gray-300 tabular-nums">{usedAmt.toLocaleString()}₮</p>
-                                <p className="text-[10px] text-muted-foreground">{used.length} бичлэг</p>
+                                <p className="text-lg font-bold text-gray-600 dark:text-gray-300 tabular-nums">{summary.used.toLocaleString()}₮</p>
+                                <p className="text-[10px] text-muted-foreground">{counts.used} бичлэг</p>
                             </div>
                             <div className="rounded-xl bg-emerald-600 px-4 py-2.5 text-right shadow-md shadow-emerald-500/30">
                                 <p className="text-[10px] uppercase tracking-wide text-white/80 font-semibold">Нийт</p>
-                                <p className="text-lg font-bold text-white tabular-nums">{totalAmount.toLocaleString()}₮</p>
-                                <p className="text-[10px] text-white/80">{entries.length} бичлэг</p>
+                                <p className="text-lg font-bold text-white tabular-nums">{summary.total.toLocaleString()}₮</p>
+                                <p className="text-[10px] text-white/80">{counts.all} бичлэг</p>
                             </div>
                         </div>
                     </div>
@@ -121,9 +132,9 @@ export default function AdminOverpaidIndex({ entries, branches, filters }: Props
 
                     <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                         {([
-                            { key: 'all',     label: 'Бүгд',           count: entries.length, color: 'bg-emerald-600 text-white' },
-                            { key: 'pending', label: 'Хүлээгдэж буй',  count: pending.length, color: 'bg-amber-500 text-white' },
-                            { key: 'used',    label: 'Ашигласан',      count: used.length,    color: 'bg-gray-700 text-white' },
+                            { key: 'all',     label: 'Бүгд',           count: counts.all,     color: 'bg-emerald-600 text-white' },
+                            { key: 'pending', label: 'Үлдэгдэлтэй',    count: counts.pending, color: 'bg-amber-500 text-white' },
+                            { key: 'used',    label: 'Ашигласан',      count: counts.used,    color: 'bg-gray-700 text-white' },
                         ] as const).map(t => (
                             <button key={t.key} onClick={() => go({ tab: t.key }, filters)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all ${
@@ -161,9 +172,10 @@ export default function AdminOverpaidIndex({ entries, branches, filters }: Props
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Оношилгоо</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Баримт №</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-right font-semibold">Илүү дүн</th>
+                                        <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-right font-semibold">Ашигласан</th>
+                                        <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-right font-semibold">Үлдэгдэл</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Төлөв</th>
-                                        <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Ашигласан баримт</th>
-                                        <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Хэлбэр</th>
+                                        <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Ашиглалт</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Эмч</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Ресепшн</th>
                                     </tr>
@@ -198,10 +210,24 @@ export default function AdminOverpaidIndex({ entries, branches, filters }: Props
                                                     +{e.overpaid_amount.toLocaleString()}₮
                                                 </span>
                                             </td>
+                                            <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3 text-right tabular-nums whitespace-nowrap text-gray-500">
+                                                {e.used_amount > 0 ? `−${e.used_amount.toLocaleString()}₮` : '—'}
+                                            </td>
+                                            <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3 text-right tabular-nums whitespace-nowrap">
+                                                <span className={e.remaining_amount > 0
+                                                    ? 'font-bold text-amber-700 dark:text-amber-400'
+                                                    : 'text-gray-400'}>
+                                                    {e.remaining_amount.toLocaleString()}₮
+                                                </span>
+                                            </td>
                                             <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3">
-                                                {e.overpaid_used_at ? (
+                                                {e.remaining_amount === 0 ? (
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
                                                         <CheckCircle2 className="size-3" /> Ашигласан
+                                                    </span>
+                                                ) : e.used_amount > 0 ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                                                        <Clock className="size-3" /> Хэсэгчилсэн
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
@@ -209,13 +235,30 @@ export default function AdminOverpaidIndex({ entries, branches, filters }: Props
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3 font-mono text-gray-500">{e.overpaid_used_receipt ?? '—'}</td>
                                             <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3">
-                                                {e.overpaid_used_method ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 dark:bg-violet-950/30 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
-                                                        <Wallet className="size-2.5" />{METHOD_LABELS[e.overpaid_used_method] ?? e.overpaid_used_method}
-                                                    </span>
-                                                ) : <span className="text-gray-400">—</span>}
+                                                {e.usages.length === 0 ? <span className="text-gray-400">—</span> : (
+                                                    <div className="flex flex-col gap-1">
+                                                        {e.usages.map((u, ui) => (
+                                                            <div key={ui} className="flex items-center gap-1.5 whitespace-nowrap"
+                                                                title={u.used_by ? `Ашигласан: ${u.used_by}` : undefined}>
+                                                                {u.target_date && (
+                                                                    <span className="rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                                                        {u.target_date}
+                                                                    </span>
+                                                                )}
+                                                                <span className="font-mono text-gray-500">{u.receipt}</span>
+                                                                <span className="font-semibold tabular-nums text-foreground">
+                                                                    {u.amount.toLocaleString()}₮
+                                                                </span>
+                                                                {u.method && (
+                                                                    <span className="inline-flex items-center gap-0.5 rounded-md bg-violet-50 dark:bg-violet-950/30 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+                                                                        <Wallet className="size-2.5" />{METHOD_LABELS[u.method] ?? u.method}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3 text-gray-500">{e.doctor_name ?? '—'}</td>
                                             <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3">
