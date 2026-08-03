@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\OverpaidUsage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -19,6 +20,7 @@ class DailySheetExport implements FromCollection, ShouldAutoSize, WithHeadings, 
     {
         $rows = collect();
         $techNames = $this->technicianNames();
+        $credits = $this->appliedCredits();
 
         foreach ($this->sheets as $sheet) {
             $entries = $sheet->entries;
@@ -28,6 +30,8 @@ class DailySheetExport implements FromCollection, ShouldAutoSize, WithHeadings, 
 
             foreach ($entries as $e) {
                 $tech = $techNames[$e->technician_employee_id] ?? null;
+                $creditKey = $sheet->branch_id.'|'.$sheet->date->format('Y-m-d').'|'.$e->appointment_number;
+                $credit = $credits[$creditKey] ?? 0;
 
                 $rows->push([
                     $sheet->date->format('Y-m-d'),
@@ -41,9 +45,10 @@ class DailySheetExport implements FromCollection, ShouldAutoSize, WithHeadings, 
                     (float) $e->card_amount,
                     (float) $e->cash_amount,
                     (float) $e->storepay_amount,
-                    (float) $e->overpaid_amount,
+                    // Илүү багана: энэ мөрийн илүүдэл + өөр өдрөөс энд ашигласан дүн
+                    (float) ((int) $e->overpaid_amount + $credit),
                     (float) $e->total_amount,
-                    (float) $e->outstanding_amount,
+                    (float) $this->outstandingOf($e, $credit),
                     // Эмч багана — эмч сонгоогүй, зөвхөн рентген техникч сонгосон
                     // мөрүүд хоосон гарахгүйн тулд техникчийн нэрийг нөхнө
                     $this->providerName($e->doctor?->name, $tech),
@@ -62,6 +67,51 @@ class DailySheetExport implements FromCollection, ShouldAutoSize, WithHeadings, 
             'Захиалгын №', 'Хөнгөлөлт', 'Мобайл', 'Карт', 'Бэлэн',
             'Storepay', 'Илүү', 'Нийт дүн', 'Дутуу', 'Эмч', 'Ресепшн',
         ];
+    }
+
+    /**
+     * Салбар|огноо|баримт → тухайн мөрд орсон илүү тооцооны кредитийн нийлбэр.
+     *
+     * @return array<string, int>
+     */
+    private function appliedCredits(): array
+    {
+        $receipts = $this->sheets
+            ->flatMap(fn ($sheet) => $sheet->entries->pluck('appointment_number'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($receipts)) {
+            return [];
+        }
+
+        return OverpaidUsage::whereIn('target_receipt', $receipts)
+            ->whereNotNull('target_date')
+            ->with('sourceEntry.dailySheet')
+            ->get()
+            ->groupBy(fn ($u) => $u->sourceEntry?->dailySheet?->branch_id
+                .'|'.$u->target_date->format('Y-m-d')
+                .'|'.$u->target_receipt)
+            ->map(fn ($group) => (int) $group->sum('amount'))
+            ->all();
+    }
+
+    /**
+     * Мөрийн бодит дутуу дүн — илүү тооцооны кредитийг төлбөрт тооцно.
+     * Дэлгэц дээрх бодолттой ижил (DB-д хүрэхгүй).
+     */
+    private function outstandingOf($e, int $credit): int
+    {
+        if ((int) $e->gross_amount <= 0) {
+            return (int) $e->outstanding_amount;
+        }
+
+        $paid = (int) $e->mobile_amount + (int) $e->card_amount
+            + (int) $e->cash_amount + (int) $e->storepay_amount + $credit;
+
+        return max(0, (int) $e->total_amount - $paid);
     }
 
     /** Эмч / рентген техникч — хоёулаа байвал зэрэг харуулна */

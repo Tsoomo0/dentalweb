@@ -38,6 +38,15 @@ interface Entry {
     supply_removable_app_case: number;
     entry_notes: string | null;
     technician_name: string | null;
+    /** Энэ мөрд өөр өдрийн илүү тооцооноос орсон кредит */
+    applied_credits?: AppliedCredit[];
+}
+
+interface AppliedCredit {
+    amount: number;
+    method: string | null;
+    from_date: string | null;
+    from_name: string | null;
 }
 
 interface SheetTotals {
@@ -126,6 +135,17 @@ interface Props {
 const MONTHS_MN = ['1','2','3','4','5','6','7','8','9','10','11','12'];
 
 function fmt(n: number) { return n > 0 ? n.toLocaleString() : '—' }
+
+/**
+ * Мөрийн бодит дутуу дүн — өөр өдрийн илүү тооцооноос орсон кредитийг
+ * төлбөрт тооцно. Ресепшний өдрийн тооцоотой ижил бодолт (DB-д хүрэхгүй).
+ */
+function outstandingOf(e: Entry) {
+    if (e.gross_amount <= 0) return e.outstanding_amount;
+    const paid = e.mobile_amount + e.card_amount + e.cash_amount + e.storepay_amount
+        + (e.applied_credits ?? []).reduce((s, c) => s + c.amount, 0);
+    return Math.max(0, e.total_amount - paid);
+}
 
 function fmtDate(dateStr: string) {
     const d = new Date(dateStr + 'T00:00:00');
@@ -323,16 +343,36 @@ function EntriesTable({ sheet, onDeleteEntry }: { sheet: Sheet; onDeleteEntry?: 
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.card_amount)}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.cash_amount)}</td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right">{fmt(e.storepay_amount)}</td>
-                            <td className={`border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right bg-green-50/50 dark:bg-green-900/10 ${e.overpaid_amount > 0 ? (e.overpaid_used_at ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-green-700 dark:text-green-400 font-semibold') : ''}`}
-                                title={e.overpaid_amount > 0 ? (e.overpaid_used_at ? `Илүүдсэн ${e.overpaid_amount.toLocaleString()}₮ — ашигласан` : `Илүүдсэн ${e.overpaid_amount.toLocaleString()}₮`) : undefined}>
-                                {e.overpaid_amount > 0 ? `+${e.overpaid_amount.toLocaleString()}` : '—'}
+                            <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right bg-green-50/50 dark:bg-green-900/10">
+                                <div className="flex flex-col items-end gap-0.5">
+                                    {e.overpaid_amount > 0 && (
+                                        <span className={e.overpaid_used_at ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-green-700 dark:text-green-400 font-semibold'}
+                                            title={e.overpaid_used_at ? `Илүүдсэн ${e.overpaid_amount.toLocaleString()}₮ — ашигласан` : `Илүүдсэн ${e.overpaid_amount.toLocaleString()}₮`}>
+                                            +{e.overpaid_amount.toLocaleString()}
+                                        </span>
+                                    )}
+                                    {(e.applied_credits ?? []).map((c, ci) => (
+                                        <span key={ci} className="text-emerald-700 dark:text-emerald-400 font-semibold"
+                                            title={`Илүү тооцоо ${c.from_date ?? ''} ${c.from_name ?? ''}-аас ${c.amount.toLocaleString()}₮`}>
+                                            {c.amount.toLocaleString()}
+                                        </span>
+                                    ))}
+                                    {e.overpaid_amount === 0 && (e.applied_credits ?? []).length === 0 && '—'}
+                                </div>
                             </td>
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right font-semibold text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10">
                                 {fmt(e.total_amount)}
                             </td>
-                            <td className={`border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right bg-yellow-50/60 dark:bg-yellow-900/10 ${e.outstanding_amount > 0 ? 'text-yellow-700 dark:text-yellow-400 font-semibold' : ''}`}>
-                                {fmt(e.outstanding_amount)}
-                            </td>
+                            {(() => {
+                                // Илүү тооцоогоор хаагдсан дүн "дутуу" болж харагдахгүй байх
+                                // (ресепшний дэлгэцтэй ижил бодолт — DB-д хүрэхгүй)
+                                const outstanding = outstandingOf(e);
+                                return (
+                                    <td className={`border-b border-gray-100 dark:border-gray-800 px-2 py-1.5 text-right bg-yellow-50/60 dark:bg-yellow-900/10 ${outstanding > 0 ? 'text-yellow-700 dark:text-yellow-400 font-semibold' : ''}`}>
+                                        {fmt(outstanding)}
+                                    </td>
+                                );
+                            })()}
                             <td className="border-b border-gray-100 dark:border-gray-800 px-2 py-1.5">
                                 {e.doctor_name ? (
                                     <>
@@ -535,9 +575,9 @@ export default function DailySheetsIndex({
                     <td style="text-align:right">${e.card_amount > 0 ? e.card_amount.toLocaleString() : '—'}</td>
                     <td style="text-align:right">${e.cash_amount > 0 ? e.cash_amount.toLocaleString() : '—'}</td>
                     <td style="text-align:right">${e.storepay_amount > 0 ? e.storepay_amount.toLocaleString() : '—'}</td>
-                    <td style="text-align:right">${e.overpaid_amount > 0 ? '+' + e.overpaid_amount.toLocaleString() : '—'}</td>
+                    <td style="text-align:right">${fmt(e.overpaid_amount + (e.applied_credits ?? []).reduce((s, c) => s + c.amount, 0))}</td>
                     <td style="text-align:right;font-weight:bold">${e.total_amount.toLocaleString()}</td>
-                    <td style="text-align:right">${e.outstanding_amount > 0 ? e.outstanding_amount.toLocaleString() : '—'}</td>
+                    <td style="text-align:right">${fmt(outstandingOf(e))}</td>
                     <td>${e.doctor_name ?? '—'}</td>
                     <td>${e.receptionist_name ?? '—'}</td>
                 </tr>

@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\DailySheet;
 use App\Models\DailySheetEntry;
 use App\Models\Doctor;
+use App\Models\OverpaidUsage;
 use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -394,6 +395,37 @@ class DailySheetAdminController extends Controller
             $entries = $entries->filter(fn ($e) => $e->doctor_id == $doctorId)->values();
         }
 
+        // Энэ өдрийн мөрүүдэд орсон илүү тооцооны кредит — тухайн мөр кредитээр
+        // хаагдсаныг админ талд харуулахын тулд (баримтын дугаар давтагддаг тул
+        // зөвхөн энэ өдөр, энэ салбарынхыг авна)
+        $apptNumbers = $entries->pluck('appointment_number')->filter()->unique()->values()->all();
+        $creditsByReceipt = empty($apptNumbers)
+            ? collect()
+            : OverpaidUsage::whereIn('target_receipt', $apptNumbers)
+                ->whereDate('target_date', $sheet->date)
+                ->whereHas('sourceEntry', fn ($sq) => $sq->withTrashed()
+                    ->whereHas('dailySheet', fn ($dq) => $dq->withTrashed()->where('branch_id', $sheet->branch_id)))
+                ->with('sourceEntry.dailySheet')
+                ->get()
+                ->groupBy('target_receipt');
+
+        // Илүү тооцоогоор хаагдсан мөр "дутуу" болж тоологдохгүйн тулд
+        // ресепшний дэлгэцтэй ижилхэн кредитийг оруулж бодно (DB-д бичихгүй)
+        $outstandingOf = function ($e) use ($creditsByReceipt) {
+            if ((int) $e->gross_amount <= 0) {
+                return (int) $e->outstanding_amount;
+            }
+
+            $credit = $e->appointment_number
+                ? (int) collect($creditsByReceipt->get($e->appointment_number, []))->sum('amount')
+                : 0;
+
+            $paid = (int) $e->mobile_amount + (int) $e->card_amount
+                + (int) $e->cash_amount + (int) $e->storepay_amount + $credit;
+
+            return max(0, (int) $e->total_amount - $paid);
+        };
+
         $totals = [
             'total_amount' => $entries->sum('total_amount'),
             'discount' => $entries->sum(fn ($e) => (int) round($e->gross_amount * $e->discount / 100)),
@@ -401,7 +433,7 @@ class DailySheetAdminController extends Controller
             'card_amount' => $entries->sum('card_amount'),
             'cash_amount' => $entries->sum('cash_amount'),
             'storepay_amount' => $entries->sum('storepay_amount'),
-            'outstanding_amount' => $entries->sum('outstanding_amount'),
+            'outstanding_amount' => $entries->sum($outstandingOf),
         ];
 
         return [
@@ -418,6 +450,15 @@ class DailySheetAdminController extends Controller
             'totals' => $totals,
             'entries' => $entries->map(fn ($e) => [
                 'id' => $e->id,
+                'applied_credits' => $e->appointment_number
+                    ? collect($creditsByReceipt->get($e->appointment_number, []))
+                        ->map(fn ($u) => [
+                            'amount' => (int) $u->amount,
+                            'method' => $u->method,
+                            'from_date' => $u->sourceEntry?->dailySheet?->date?->toDateString(),
+                            'from_name' => $u->sourceEntry?->patient_name,
+                        ])->values()->all()
+                    : [],
                 'patient_name' => $e->patient_name,
                 'gender' => $e->gender,
                 'diagnosis' => $e->diagnosis,
