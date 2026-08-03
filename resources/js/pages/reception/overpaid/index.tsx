@@ -1,7 +1,7 @@
 import ReceptionLayout from '@/layouts/reception-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, TrendingUp, X } from 'lucide-react';
+import { AlertCircle, CalendarDays, CheckCircle2, TrendingUp, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 /* ------------------------------------------------------------------ */
@@ -11,6 +11,8 @@ interface Usage {
     receipt: string;
     amount: number;
     method: string | null;
+    /** Аль өдрийн тооцоонд баланслагдсан */
+    target_date: string | null;
     used_at: string | null;
     used_by: string | null;
 }
@@ -33,13 +35,16 @@ interface OverpaidEntry {
 
 type Tab = 'pending' | 'used';
 
-interface TodayReceipt { appointment_number: string; patient_name: string | null }
+interface Receipt { appointment_number: string; patient_name: string | null }
+
+/** Илгээгдээгүй (нээлттэй) өдрийн тооцоо — түүн дээр л илүү тооцоо ашиглаж болно */
+interface AvailableDate { date: string; receipts: Receipt[] }
 
 interface Props {
     entries: OverpaidEntry[];
     tab: Tab;
     pendingCount: number;
-    todayReceipts: TodayReceipt[];
+    availableDates: AvailableDate[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -54,36 +59,67 @@ const METHOD_LABELS: Record<string, string> = {
     mobile: 'Мобайл', card: 'Карт', cash: 'Бэлэн', storepay: 'Storepay',
 };
 
+const WEEKDAYS = ['Ням', 'Даваа', 'Мягмар', 'Лхагва', 'Пүрэв', 'Баасан', 'Бямба'];
+
 function parseNum(s: string) {
     const v = parseInt(s.replace(/[^0-9]/g, ''), 10);
     return isNaN(v) ? 0 : v;
 }
 
+function todayStr() {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** "2026-08-03" → "2026-08-03 · Даваа" (өнөөдөр бол "· Өнөөдөр") */
+function dateLabel(d: string) {
+    const [y, m, day] = d.split('-').map(Number);
+    if (!y || !m || !day) return d;
+    const suffix = d === todayStr() ? 'Өнөөдөр' : WEEKDAYS[new Date(y, m - 1, day).getDay()];
+    return `${d} · ${suffix}`;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Apply Modal                                                         */
 /* ------------------------------------------------------------------ */
-function ApplyModal({ entry, todayReceipts, onClose }: {
+function ApplyModal({ entry, availableDates, onClose }: {
     entry: OverpaidEntry;
-    todayReceipts: TodayReceipt[];
+    availableDates: AvailableDate[];
     onClose: () => void;
 }) {
     const { errors } = usePage<{ errors: Record<string, string> }>().props;
     const remaining = entry.remaining_amount;
+
+    // Илүү тооцоо үүссэн өдрөөс өмнөх өдөрт ашиглах боломжгүй
+    const dateOptions = useMemo(
+        () => availableDates.filter(d => d.date >= entry.date),
+        [availableDates, entry.date],
+    );
+
+    const [date, setDate] = useState(() => {
+        const today = todayStr();
+        return dateOptions.some(d => d.date === today) ? today : (dateOptions[0]?.date ?? '');
+    });
     const [receipt, setReceipt] = useState('');
     const [amountStr, setAmountStr] = useState(String(remaining));
     const [busy, setBusy] = useState(false);
 
     const amount = parseNum(amountStr);
+    const receipts = useMemo(
+        () => dateOptions.find(d => d.date === date)?.receipts ?? [],
+        [dateOptions, date],
+    );
 
     const matched = useMemo(
-        () => todayReceipts.find(r => r.appointment_number === receipt.trim()) || null,
-        [todayReceipts, receipt],
+        () => receipts.find(r => r.appointment_number === receipt.trim()) || null,
+        [receipts, receipt],
     );
     const nameMismatch = matched && entry.patient_name && matched.patient_name
         && matched.patient_name.trim().toLowerCase() !== entry.patient_name.trim().toLowerCase();
 
     const amountTooBig = amount > remaining;
-    const canSubmit = receipt.trim().length > 0 && amount > 0 && !amountTooBig;
+    const canSubmit = date !== '' && receipt.trim().length > 0 && amount > 0 && !amountTooBig;
 
     function submit() {
         if (!canSubmit) return;
@@ -91,6 +127,7 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
         router.post(`/reception/daily-sheet/apply-overpaid/${entry.id}`, {
             paid_receipt: receipt.trim(),
             amount,
+            date,
         }, {
             preserveScroll: true,
             preserveState: true,
@@ -143,6 +180,39 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
                         </div>
                     </div>
 
+                    {/* Ашиглах өдөр — өнгөрсөн, илгээгдээгүй өдрийн тооцоонд ч бичиж болно */}
+                    <div className="space-y-2 mb-4">
+                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Ашиглах өдөр
+                        </label>
+                        {dateOptions.length === 0 ? (
+                            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
+                                <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-800 dark:text-amber-300">
+                                    Ашиглах боломжтой өдөр алга. Өдрийн тооцоо баталгаажсан бол илүү тооцоо
+                                    ашиглах боломжгүй — админд хандаж тайлуулна уу.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                                <select
+                                    value={date}
+                                    onChange={e => { setDate(e.target.value); setReceipt(''); }}
+                                    className="w-full appearance-none rounded-xl border border-gray-300 dark:border-gray-600 bg-background pl-9 pr-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                                    {dateOptions.map(d => (
+                                        <option key={d.date} value={d.date}>
+                                            {dateLabel(d.date)} ({d.receipts.length} баримт)
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {errors?.date && (
+                            <p className="text-xs text-red-600 dark:text-red-400">{errors.date}</p>
+                        )}
+                    </div>
+
                     {/* Amount input */}
                     <div className="space-y-2 mb-4">
                         <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -182,13 +252,13 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
                             type="text"
                             value={receipt}
                             placeholder="Баримтын дугаараа бичнэ үү..."
-                            list="today-receipts"
+                            list="sheet-receipts"
                             onChange={e => setReceipt(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') submit(); }}
                             className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-background px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
                         />
-                        <datalist id="today-receipts">
-                            {todayReceipts.map(r => (
+                        <datalist id="sheet-receipts">
+                            {receipts.map(r => (
                                 <option key={r.appointment_number} value={r.appointment_number}>
                                     {r.patient_name ?? ''}
                                 </option>
@@ -220,6 +290,7 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
                                 <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2">
                                     <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 shrink-0" />
                                     <span className="text-sm text-green-800 dark:text-green-300">
+                                        <strong>{date}</strong>-ний тооцооны{' '}
                                         <strong className="font-mono">{receipt}</strong> баримтад{' '}
                                         <strong>{amount.toLocaleString()}₮</strong> баланслагдана.
                                     </span>
@@ -229,7 +300,8 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
                                     <CheckCircle2 className="size-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                                     <span className="text-sm text-blue-800 dark:text-blue-300">
                                         <strong className="font-mono">{receipt}</strong> баримтаар{' '}
-                                        <strong>{entry.patient_name ?? '—'}</strong>-ийн шинэ мөр өнөөдрийн тооцоонд үүсч,{' '}
+                                        <strong>{entry.patient_name ?? '—'}</strong>-ийн шинэ мөр{' '}
+                                        <strong>{date}</strong>-ний тооцоонд үүсч,{' '}
                                         <strong>{amount.toLocaleString()}₮</strong> баланслагдана.
                                     </span>
                                 </div>
@@ -259,7 +331,7 @@ function ApplyModal({ entry, todayReceipts, onClose }: {
 /* ------------------------------------------------------------------ */
 /*  Main page                                                           */
 /* ------------------------------------------------------------------ */
-export default function OverpaidIndex({ entries, tab, pendingCount, todayReceipts }: Props) {
+export default function OverpaidIndex({ entries, tab, pendingCount, availableDates }: Props) {
     const [applyEntry, setApplyEntry] = useState<OverpaidEntry | null>(null);
 
     const gotoTab = (t: Tab) => router.get('/reception/overpaid', { tab: t }, { preserveState: false });
@@ -368,6 +440,11 @@ export default function OverpaidIndex({ entries, tab, pendingCount, todayReceipt
                                                     <div className="flex flex-col gap-1">
                                                         {e.usages.map((u, i) => (
                                                             <div key={i} className="flex items-center gap-1.5 text-xs">
+                                                                {u.target_date && (
+                                                                    <span className="rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                                                        {u.target_date}
+                                                                    </span>
+                                                                )}
                                                                 <span className="font-mono text-muted-foreground">{u.receipt}</span>
                                                                 <span className="font-semibold tabular-nums text-foreground">
                                                                     {u.amount.toLocaleString()}₮
@@ -402,7 +479,7 @@ export default function OverpaidIndex({ entries, tab, pendingCount, todayReceipt
             </div>
 
             {applyEntry && (
-                <ApplyModal entry={applyEntry} todayReceipts={todayReceipts} onClose={() => setApplyEntry(null)} />
+                <ApplyModal key={applyEntry.id} entry={applyEntry} availableDates={availableDates} onClose={() => setApplyEntry(null)} />
             )}
         </ReceptionLayout>
     );

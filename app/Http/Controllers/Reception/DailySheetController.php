@@ -18,6 +18,7 @@ use App\Notifications\RefundProcessed;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -26,6 +27,9 @@ use Inertia\Response;
 
 class DailySheetController extends Controller
 {
+    /** Илүү тооцоог хэдэн хоногийн өмнөх тооцоонд ашиглаж болох вэ */
+    private const OVERPAID_APPLY_DAYS = 60;
+
     private function branchId(): ?int
     {
         return Auth::user()->branch_id;
@@ -202,7 +206,7 @@ class DailySheetController extends Controller
                 $appliedCredit = 0;
                 if ($aptNumber) {
                     $appliedCredit = (int) OverpaidUsage::where('target_receipt', $aptNumber)
-                        ->whereDate('created_at', $date)
+                        ->whereDate('target_date', $date)
                         ->whereHas('sourceEntry', fn ($sq) => $sq->withTrashed()
                             ->whereHas('dailySheet', fn ($dq) => $dq->withTrashed()->where('branch_id', $branchId)))
                         ->sum('amount');
@@ -552,7 +556,7 @@ class DailySheetController extends Controller
         $creditsByReceipt = empty($apptNumbers)
             ? collect()
             : OverpaidUsage::whereIn('target_receipt', $apptNumbers)
-                ->whereDate('created_at', $sheet->date)
+                ->whereDate('target_date', $sheet->date)
                 ->whereHas('sourceEntry', fn ($sq) => $sq->withTrashed()
                     ->whereHas('dailySheet', fn ($dq) => $dq->withTrashed()->where('branch_id', $sheet->branch_id)))
                 ->with('sourceEntry.dailySheet')
@@ -678,6 +682,7 @@ class DailySheetController extends Controller
                             'receipt' => $u->target_receipt,
                             'amount' => (int) $u->amount,
                             'method' => $u->method,
+                            'target_date' => $u->target_date?->toDateString(),
                             'used_at' => $u->created_at?->toDateTimeString(),
                             'used_by' => $u->user?->name,
                         ])->values()->all(),
@@ -691,32 +696,51 @@ class DailySheetController extends Controller
 
         $pendingCount = $all->filter(fn ($e) => $e['remaining_amount'] > 0)->count();
 
-        // Өнөөдрийн илгээгдээгүй өдрийн тооцооны баримтуудыг dropdown-д ашиглана
-        $todayReceipts = [];
-        $todaySheet = DailySheet::where('branch_id', $branchId)
-            ->whereDate('date', today())
+        // Илүү тооцоог ашиглах боломжтой өдрүүд — илгээгдээгүй (нээлттэй) өдрийн тооцоонууд.
+        // Ресепшн өнгөрсөн өдрийг сонгож, тухайн өдрийн баримт дээр нь баланслуулж чадна.
+        $todayStr = today()->toDateString();
+        $availableDates = DailySheet::where('branch_id', $branchId)
             ->whereNull('submitted_at')
-            ->first();
-        if ($todaySheet) {
-            $todayReceipts = $todaySheet->entries()
+            ->whereDate('date', '<=', $todayStr)
+            ->whereDate('date', '>=', today()->subDays(self::OVERPAID_APPLY_DAYS)->toDateString())
+            ->with(['entries' => fn ($q) => $q
                 ->whereNull('source')
                 ->whereNotNull('appointment_number')
                 ->where('appointment_number', '!=', '')
-                ->orderBy('row_order')
-                ->get(['appointment_number', 'patient_name'])
-                ->map(fn ($e) => [
-                    'appointment_number' => $e->appointment_number,
-                    'patient_name' => $e->patient_name,
-                ])
-                ->values()
-                ->all();
+                ->orderBy('row_order'),
+            ])
+            ->orderByDesc('date')
+            ->get()
+            ->map(fn ($s) => [
+                'date' => $s->date->toDateString(),
+                'receipts' => $s->entries
+                    ->map(fn ($e) => [
+                        'appointment_number' => $e->appointment_number,
+                        'patient_name' => $e->patient_name,
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->values();
+
+        // Өнөөдрийн тооцоо хараахан үүсээгүй бол ч сонгох боломжтой байх ёстой
+        // (ашиглах үед автоматаар үүснэ). Илгээгдсэн бол сонголтод орохгүй.
+        if (! $availableDates->contains(fn ($d) => $d['date'] === $todayStr)) {
+            $todaySubmitted = DailySheet::where('branch_id', $branchId)
+                ->whereDate('date', $todayStr)
+                ->whereNotNull('submitted_at')
+                ->exists();
+
+            if (! $todaySubmitted) {
+                $availableDates->prepend(['date' => $todayStr, 'receipts' => []]);
+            }
         }
 
         return Inertia::render('reception/overpaid/index', [
             'entries' => $entries,
             'tab' => $tab,
             'pendingCount' => $pendingCount,
-            'todayReceipts' => $todayReceipts,
+            'availableDates' => $availableDates->values()->all(),
         ]);
     }
 
@@ -846,6 +870,7 @@ class DailySheetController extends Controller
         $validated = $request->validate([
             'paid_receipt' => 'required|string|max:100',
             'amount' => 'required|integer|min:1',
+            'date' => 'nullable|date',
         ]);
 
         $receipt = trim($validated['paid_receipt']);
@@ -857,25 +882,52 @@ class DailySheetController extends Controller
             ])->withInput();
         }
 
-        // Өнөөдрийн илгээгдээгүй өдрийн тооцоог олж/үүсгэнэ
+        // Ашиглах өдөр — сонгоогүй бол өнөөдөр
         $todayStr = today()->toDateString();
-        $sheet = DailySheet::withTrashed()->where('branch_id', $branchId)->whereDate('date', $todayStr)->first()
-            ?? DailySheet::create(['branch_id' => $branchId, 'date' => $todayStr, 'status' => 'submitted']);
-        if ($sheet->trashed()) {
-            $sheet->restore();
+        $targetDate = isset($validated['date'])
+            ? Carbon::parse($validated['date'])->toDateString()
+            : $todayStr;
+        $sourceDate = $entry->dailySheet->date->toDateString();
+
+        if ($targetDate > $todayStr) {
+            return back()->withErrors(['date' => 'Ирээдүйн өдөрт илүү тооцоо ашиглах боломжгүй.'])->withInput();
+        }
+
+        if ($targetDate < $sourceDate) {
+            return back()->withErrors([
+                'date' => "Илүү тооцоо үүссэн өдрөөс ({$sourceDate}) өмнөх өдөрт ашиглах боломжгүй.",
+            ])->withInput();
+        }
+
+        // Сонгосон өдрийн тооцоог олно. Өнөөдрийнх байхгүй бол үүсгэнэ,
+        // өнгөрсөн өдрийнх байхгүй бол шинээр үүсгэхгүй.
+        if ($targetDate === $todayStr) {
+            $sheet = DailySheet::withTrashed()->where('branch_id', $branchId)->whereDate('date', $todayStr)->first()
+                ?? DailySheet::create(['branch_id' => $branchId, 'date' => $todayStr, 'status' => 'submitted']);
+            if ($sheet->trashed()) {
+                $sheet->restore();
+            }
+        } else {
+            $sheet = DailySheet::where('branch_id', $branchId)->whereDate('date', $targetDate)->first();
+
+            if (! $sheet) {
+                return back()->withErrors([
+                    'date' => "{$targetDate}-ний өдрийн тооцоо бүртгэгдээгүй байна.",
+                ])->withInput();
+            }
         }
 
         if ($sheet->submitted_at !== null) {
-            return back()->with('error', 'Өнөөдрийн тооцоо аль хэдийн илгээгдсэн байна. Илүү тооцоог одоо ашиглах боломжгүй.');
+            return back()->with('error', "{$targetDate}-ний тооцоо аль хэдийн илгээгдсэн байна. Илүү тооцоог ашиглах боломжгүй.");
         }
 
-        // Тухайн баримт дугаар өнөөдрийн тооцоонд байгаа эсэхийг шалгана
+        // Тухайн баримт дугаар сонгосон өдрийн тооцоонд байгаа эсэхийг шалгана
         $target = $sheet->entries()
             ->where('appointment_number', $receipt)
             ->whereNull('source')
             ->first();
 
-        // Байхгүй бол өнөөдрийн тооцоонд шинэ мөр автоматаар үүсгэнэ
+        // Байхгүй бол тухайн өдрийн тооцоонд шинэ мөр автоматаар үүсгэнэ
         // (баримтын дугаар + илүү тооцооны эзний нэрээр; эмчилгээ/дүнг ресепшн дараа нь нөхнө)
         if (! $target) {
             $aptId = Appointment::where('appointment_number', $receipt)->value('id');
@@ -912,6 +964,7 @@ class DailySheetController extends Controller
         OverpaidUsage::create([
             'source_entry_id' => $entry->id,
             'target_receipt' => $receipt,
+            'target_date' => $targetDate,
             'amount' => $amount,
             'method' => $method,
             'used_by' => $userId,
@@ -929,9 +982,9 @@ class DailySheetController extends Controller
 
         // Payment column-г DB-д шууд өөрчлөхгүй — Илүү багана дээр л харагдана.
 
-        // Real-time: эх өдөр (илүү тооцооны жагсаалт) ба өнөөдрийн тооцоо (баланс) хоёуланг шинэчилнэ
-        DailySheetUpdated::mark($branchId, $todayStr);
-        DailySheetUpdated::mark($branchId, $entry->dailySheet->date);
+        // Real-time: эх өдөр (илүү тооцооны жагсаалт) ба ашигласан өдрийн тооцоо (баланс) хоёуланг шинэчилнэ
+        DailySheetUpdated::mark($branchId, $targetDate);
+        DailySheetUpdated::mark($branchId, $sourceDate);
 
         // Admin-д notification
         $entry->load(['dailySheet.branch']);
@@ -941,12 +994,14 @@ class DailySheetController extends Controller
                 patientName: $entry->patient_name ?? '—',
                 amount: (int) $amount,
                 branchName: $entry->dailySheet->branch?->name ?? '—',
-                sourceDate: $entry->dailySheet->date->toDateString(),
+                sourceDate: $sourceDate,
                 usedReceipt: $receipt,
                 receptionistName: Auth::user()->name,
             ));
         }
 
-        return back()->with('success', 'Илүү тооцоо ашиглагдлаа.');
+        return back()->with('success', $targetDate === $todayStr
+            ? 'Илүү тооцоо ашиглагдлаа.'
+            : "Илүү тооцоо {$targetDate}-ний тооцоонд ашиглагдлаа.");
     }
 }

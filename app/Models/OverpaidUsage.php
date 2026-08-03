@@ -10,6 +10,7 @@ class OverpaidUsage extends Model
     protected $fillable = [
         'source_entry_id',
         'target_receipt',
+        'target_date',
         'amount',
         'method',
         'used_by',
@@ -17,6 +18,7 @@ class OverpaidUsage extends Model
 
     protected $casts = [
         'amount' => 'integer',
+        'target_date' => 'date',
     ];
 
     public function sourceEntry(): BelongsTo
