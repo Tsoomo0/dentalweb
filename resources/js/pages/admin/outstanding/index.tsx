@@ -4,7 +4,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
     AlertTriangle, Building2, CheckCircle2, ChevronLeft, ChevronRight,
-    Clock, Download, Hash, MessageSquare, Search, TrendingDown, User, Wallet,
+    Clock, Download, Hash, MessageSquare, Search, Trash2, TrendingDown, User, Wallet, X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -107,6 +107,28 @@ export default function AdminOutstandingIndex({ entries, branches, filters }: Pr
     const [search, setSearch] = useState('');
     const today     = fmtDate(new Date());
     const thisMonth = today.slice(0, 7);
+
+    /* ── Устгах (дутуу дүнг тэглэх) ── */
+    const [target,  setTarget]  = useState<OutstandingEntry | null>(null);
+    const [code,    setCode]    = useState('');
+    const [reason,  setReason]  = useState('');
+    const [error,   setError]   = useState<string | null>(null);
+    const [busy,    setBusy]    = useState(false);
+
+    const openDelete  = (e: OutstandingEntry) => { setTarget(e); setCode(''); setReason(''); setError(null); };
+    const closeDelete = () => { setTarget(null); setCode(''); setReason(''); setError(null); };
+
+    function confirmDelete() {
+        if (!target || !code || busy) return;
+        setBusy(true);
+        router.delete(`/admin/outstanding/${target.id}`, {
+            data: { code, reason },
+            preserveScroll: true,
+            onSuccess: () => closeDelete(),
+            onError: (errors: Record<string, string>) => setError(errors.code ?? 'Алдаа гарлаа.'),
+            onFinish: () => setBusy(false),
+        });
+    }
 
     const unpaid  = entries.filter(e => !e.is_paid);
     const paid    = entries.filter(e => e.is_paid);
@@ -280,6 +302,7 @@ export default function AdminOutstandingIndex({ entries, branches, filters }: Pr
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Эмч</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Ресепшн</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold min-w-48">Статус / Дэлгэрэнгүй</th>
+                                        <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-center font-semibold w-16">Үйлдэл</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -384,6 +407,17 @@ export default function AdminOutstandingIndex({ entries, branches, filters }: Pr
                                                         </span>
                                                     )}
                                                 </td>
+                                                <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3 text-center">
+                                                    {e.is_paid ? (
+                                                        <span className="text-gray-300 dark:text-gray-600">—</span>
+                                                    ) : (
+                                                        <button onClick={() => openDelete(e)}
+                                                            title="Дутуу тооцоог устгах"
+                                                            className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                                                            <Trash2 className="size-3.5" />
+                                                        </button>
+                                                    )}
+                                                </td>
                                             </tr>
                                         );
                                     })}
@@ -397,7 +431,7 @@ export default function AdminOutstandingIndex({ entries, branches, filters }: Pr
                                             <td className="border-t-2 border-amber-300 dark:border-amber-700 px-3 py-2.5 text-right text-xs font-bold text-amber-700 dark:text-amber-400 tabular-nums">
                                                 {totalUnpaid > 0 ? `${totalUnpaid.toLocaleString()}₮` : '—'}
                                             </td>
-                                            <td colSpan={4} className="border-t-2 border-amber-300 dark:border-amber-700 px-3 py-2.5 text-xs">
+                                            <td colSpan={5} className="border-t-2 border-amber-300 dark:border-amber-700 px-3 py-2.5 text-xs">
                                                 {overdue.length > 0 && (
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-red-700 dark:text-red-400 font-semibold">
                                                         <AlertTriangle className="size-3" /> {overdue.length} хэтэрсэн
@@ -428,6 +462,75 @@ export default function AdminOutstandingIndex({ entries, branches, filters }: Pr
                 </div>
 
             </div>
+
+            {/* Устгах баталгаажуулалт */}
+            {target && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={e => { if (e.target === e.currentTarget) closeDelete(); }}>
+                    <div className="w-full max-w-sm overflow-hidden rounded-xl bg-white dark:bg-gray-900 shadow-xl">
+                        <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-5 py-4">
+                            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Дутуу тооцоо устгах</h3>
+                            <button onClick={closeDelete} className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                <X className="size-4 text-gray-500" />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-3 px-5 py-4">
+                            <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 space-y-1">
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Үйлчлүүлэгч</span>
+                                    <span className="font-semibold text-foreground">{target.patient_name ?? '—'}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Огноо / Салбар</span>
+                                    <span className="text-foreground">{target.date} · {target.branch ?? '—'}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Дутуу дүн</span>
+                                    <span className="font-bold tabular-nums text-amber-700 dark:text-amber-400">
+                                        {target.outstanding_amount.toLocaleString()}₮
+                                    </span>
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-gray-500">
+                                Зөвхөн дутуу дүн устана — өдрийн тооцооны орлогын мөр хэвээр үлдэнэ.
+                                Үргэлжлүүлэхийн тулд хамгаалалтын кодыг оруулна уу.
+                            </p>
+
+                            <input
+                                type="password"
+                                value={code}
+                                onChange={e => setCode(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && confirmDelete()}
+                                placeholder="Код оруулах..."
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                                autoFocus
+                            />
+                            <input
+                                type="text"
+                                value={reason}
+                                onChange={e => setReason(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && confirmDelete()}
+                                placeholder="Шалтгаан (заавал биш)"
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                            />
+                            {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+                        </div>
+
+                        <div className="flex justify-end gap-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 px-5 py-3">
+                            <button onClick={closeDelete}
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                Болих
+                            </button>
+                            <button onClick={confirmDelete} disabled={!code || busy}
+                                className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
+                                {busy ? 'Түр хүлээнэ үү...' : 'Устгах'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AppLayout>
     );
 }

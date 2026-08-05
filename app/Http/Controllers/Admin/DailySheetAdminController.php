@@ -11,6 +11,7 @@ use App\Models\DailySheetEntry;
 use App\Models\Doctor;
 use App\Models\OverpaidUsage;
 use App\Models\Setting;
+use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -326,6 +327,52 @@ class DailySheetAdminController extends Controller
         $filename = 'outstanding-'.now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(new OutstandingExport($entries), $filename);
+    }
+
+    /**
+     * Дутуу тооцоог устгах — мөрийг биш, зөвхөн дутуу дүнг тэглэнэ.
+     * Ингэснээр өдрийн тооцооны орлогын мөр хэвээр үлдэж, зөвхөн
+     * дутуу тооцооны жагсаалтаас хасагдана.
+     */
+    public function destroyOutstanding(Request $request, DailySheetEntry $entry): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => 'required|string',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $correct = Setting::where('key', 'daily_sheet_code')->value('value') ?? '1234';
+
+        if ($validated['code'] !== $correct) {
+            return back()->withErrors(['code' => 'Код буруу байна.']);
+        }
+
+        if ($entry->outstanding_paid_at !== null) {
+            return back()->withErrors(['code' => 'Төлөгдсөн дутуу тооцоог устгах боломжгүй.']);
+        }
+
+        $amount = (int) $entry->outstanding_amount;
+
+        if ($amount <= 0) {
+            return back()->with('info', 'Энэ бичлэгт дутуу тооцоо алга байна.');
+        }
+
+        $entry->update(['outstanding_amount' => 0]);
+
+        $entry->loadMissing('dailySheet.branch');
+
+        $reason = trim($validated['reason'] ?? '');
+        AuditService::log(
+            'deleted',
+            $entry,
+            ['outstanding_amount' => $amount],
+            ['outstanding_amount' => 0],
+            'Дутуу тооцоо устгав: '.($entry->patient_name ?? '—').' — '.number_format($amount).'₮ ('
+                .($entry->dailySheet->branch?->name ?? '—').', '.$entry->dailySheet->date->toDateString().')'
+                .($reason !== '' ? ' · Шалтгаан: '.$reason : ''),
+        );
+
+        return back()->with('success', 'Дутуу тооцоо устгагдлаа.');
     }
 
     public function destroy(Request $request, DailySheet $sheet): RedirectResponse

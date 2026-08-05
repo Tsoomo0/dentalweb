@@ -365,6 +365,7 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Дутуу тооцоо (бүх цаг үе, бүх салбар)
     Route::get('outstanding', [DailySheetAdminController::class, 'outstanding'])->name('admin.outstanding');
     Route::get('outstanding/export', [DailySheetAdminController::class, 'exportOutstanding'])->name('admin.outstanding.export');
+    Route::delete('outstanding/{entry}', [DailySheetAdminController::class, 'destroyOutstanding'])->name('admin.outstanding.destroy');
     Route::get('overpaid', [DailySheetAdminController::class, 'overpaid'])->name('admin.overpaid');
     Route::get('refunds', [DailySheetAdminController::class, 'refunds'])->name('admin.refunds');
 
