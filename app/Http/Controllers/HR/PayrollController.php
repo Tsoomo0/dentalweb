@@ -11,6 +11,7 @@ use App\Models\HR\PayrollEntry;
 use App\Models\HR\PayrollRun;
 use App\Notifications\PayrollSlipSent;
 use App\Services\AuditService;
+use App\Support\Payroll\PayrollSchema;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -90,14 +91,17 @@ class PayrollController extends Controller
                 ->get();
 
             foreach ($employees as $emp) {
-                PayrollEntry::create([
-                    'payroll_run_id' => $run->id,
-                    'employee_id' => $emp->id,
+                // Гар оролтыг өгөөд томьёотой баганыг схемээр бодуулна
+                $computed = PayrollSchema::compute([
                     'basic_salary' => $emp->salary ?? 0,
-                    'nd_salary' => $emp->salary ?? 0,
-                    'working_days' => $request->half === 'first' ? 11 : 11,
-                    'worked_days' => $request->half === 'first' ? 11 : 11,
-                ]);
+                    'working_days' => 11,
+                    'worked_days' => 11,
+                ], $run->half);
+
+                PayrollEntry::create(array_merge(
+                    ['payroll_run_id' => $run->id, 'employee_id' => $emp->id],
+                    array_intersect_key($computed, array_flip(PayrollSchema::storedKeys($run->half)))
+                ));
             }
 
             return $run;
@@ -111,7 +115,7 @@ class PayrollController extends Controller
     {
         $payrollRun->load(['entries.employee.position', 'entries.employee.branch']);
 
-        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e));
+        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e, $payrollRun->half));
 
         return Inertia::render('hr/payroll/show', [
             'run' => [
@@ -126,6 +130,10 @@ class PayrollController extends Controller
                 'notes' => $payrollRun->notes,
             ],
             'entries' => $entries,
+            // Хүснэгтийн бүтэц болон томьёог сервер тал дамжуулна —
+            // эхэн/сүүл цалингийн ялгаа бүхэлдээ PayrollSchema дотор байрлана
+            'columns' => PayrollSchema::columns($payrollRun->half),
+            'groups' => PayrollSchema::groups($payrollRun->half),
         ]);
     }
 
@@ -140,59 +148,18 @@ class PayrollController extends Controller
             'entries.*.id' => 'required|exists:payroll_entries,id',
         ]);
 
-        $fields = [
-            'basic_salary', 'nd_salary', 'prev_paid', 'holiday_advance',
-            'ath_bonus', 'overtime_bonus', 'vacation_pay',
-            'working_days', 'worked_days', 'daily_rate',
-            'food', 'transport', 'milk',
-            'total_bonus', 'calc_salary', 'nd_total', 'ndsh',
-            'tardiness', 'no_fingerprint', 'other_deduction',
-            'income_tax', 'net_hand', 'bank_salary',
-        ];
-
-        DB::transaction(function () use ($request, $fields) {
-            foreach ($request->entries as $data) {
-                $update = [];
-                foreach ($fields as $f) {
-                    $update[$f] = isset($data[$f]) && $data[$f] !== '' ? (float) $data[$f] : 0;
-                }
-                PayrollEntry::where('id', $data['id'])->update($update);
-            }
-        });
+        $this->saveEntries($request->entries, $payrollRun);
 
         return back()->with('success', 'Цалингийн мэдээлэл хадгалагдлаа.');
     }
 
     public function finalize(Request $request, PayrollRun $payrollRun): RedirectResponse
     {
-        $saveFields = [
-            'basic_salary', 'nd_salary', 'prev_paid', 'holiday_advance',
-            'ath_bonus', 'overtime_bonus', 'vacation_pay',
-            'working_days', 'worked_days', 'daily_rate',
-            'food', 'transport', 'milk',
-            'total_bonus', 'calc_salary', 'nd_total', 'ndsh',
-            'tardiness', 'no_fingerprint', 'other_deduction',
-            'income_tax', 'net_hand', 'bank_salary',
-        ];
+        if ($request->has('entries') && is_array($request->entries)) {
+            $this->saveEntries($request->entries, $payrollRun);
+        }
 
-        DB::transaction(function () use ($request, $saveFields, $payrollRun) {
-            if ($request->has('entries') && is_array($request->entries)) {
-                foreach ($request->entries as $data) {
-                    if (empty($data['id'])) {
-                        continue;
-                    }
-                    $update = [];
-                    foreach ($saveFields as $f) {
-                        $update[$f] = isset($data[$f]) && $data[$f] !== '' ? (float) $data[$f] : 0;
-                    }
-                    PayrollEntry::where('id', $data['id'])
-                        ->where('payroll_run_id', $payrollRun->id)
-                        ->update($update);
-                }
-            }
-
-            $payrollRun->update(['status' => 'final']);
-        });
+        $payrollRun->update(['status' => 'final']);
 
         // Бүх ажилтанд notification явуулах
         $payrollRun->load('entries.employee.user', 'entries.run');
@@ -259,7 +226,7 @@ class PayrollController extends Controller
         $payrollRun->load('entries.employee');
 
         return Excel::download(
-            new PayrollTemplateExport($payrollRun->entries),
+            new PayrollTemplateExport($payrollRun->entries, $payrollRun->half),
             $payrollRun->title.'_template.xlsx'
         );
     }
@@ -275,85 +242,98 @@ class PayrollController extends Controller
         // Excel (.xlsx/.xls) болон хуучин CSV-г бүгдийг дэмжинэ
         $rows = Excel::toArray(new class {}, $request->file('file'))[0] ?? [];
 
-        // col index → db field
-        $map = [
-            3 => 'basic_salary',    4 => 'nd_salary',
-            5 => 'prev_paid',       6 => 'holiday_advance',
-            7 => 'ath_bonus',       8 => 'overtime_bonus',    9 => 'vacation_pay',
-            10 => 'working_days',    11 => 'worked_days',       12 => 'daily_rate',
-            13 => 'food',            14 => 'transport',         15 => 'milk',
-            16 => 'total_bonus',     17 => 'calc_salary',       18 => 'nd_total',
-            19 => 'ndsh',            20 => 'tardiness',         21 => 'no_fingerprint',
-            22 => 'other_deduction', 23 => 'income_tax',        24 => 'net_hand',
-            25 => 'bank_salary',
-        ];
-
-        DB::transaction(function () use ($rows, $map, $payrollRun) {
-            foreach ($rows as $row) {
-                $id = (int) ($row[0] ?? 0); // header мөр (id='id') энд 0 болж алгасагдана
-                if (! $id) {
-                    continue;
-                }
-
-                $update = [];
-                foreach ($map as $col => $field) {
-                    $raw = isset($row[$col]) ? trim(str_replace(',', '', (string) $row[$col])) : '';
-                    $update[$field] = $raw !== '' ? (float) $raw : 0;
-                }
-
-                PayrollEntry::where('id', $id)
-                    ->where('payroll_run_id', $payrollRun->id)
-                    ->update($update);
+        // Багана байрлал → талбар.  A=id, B=нэр, C=дугаар тул өгөгдөл D (индекс 3)-аас эхэлнэ.
+        // Зөвхөн ГАР ОРОЛТЫГ уншина — томьёотой баганыг сервер дээр дахин бодох тул
+        // Excel дээр томьёог нь эвдсэн ч тооцоо буруу орохгүй.
+        $map = [];
+        foreach (PayrollSchema::columns($payrollRun->half) as $i => $col) {
+            if ($col['formula'] === null) {
+                $map[$i + 3] = $col['key'];
             }
-        });
+        }
 
-        return back()->with('success', 'Import амжилттай боллоо.');
+        $entries = [];
+
+        foreach ($rows as $row) {
+            $id = (int) ($row[0] ?? 0); // header мөр (id='id') энд 0 болж алгасагдана
+            if (! $id) {
+                continue;
+            }
+
+            $data = ['id' => $id];
+            foreach ($map as $col => $field) {
+                $raw = isset($row[$col]) ? trim(str_replace(',', '', (string) $row[$col])) : '';
+                $data[$field] = $raw !== '' ? (float) $raw : 0;
+            }
+
+            $entries[] = $data;
+        }
+
+        if (! $entries) {
+            return back()->with('error', 'Файлаас нэг ч мөр уншигдсангүй. Template-ээ шалгана уу.');
+        }
+
+        $this->saveEntries($entries, $payrollRun);
+
+        return back()->with('success', count($entries).' мөр import хийгдлээ.');
     }
 
-    public function exportExcel(PayrollRun $payrollRun): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function exportExcel(PayrollRun $payrollRun): BinaryFileResponse
     {
         $payrollRun->load(['entries.employee.position', 'entries.employee.branch']);
-        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e));
+        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e, $payrollRun->half));
 
-        return Excel::download(new PayrollExport($entries), $payrollRun->title.'.xlsx');
+        return Excel::download(new PayrollExport($entries, $payrollRun->half), $payrollRun->title.'.xlsx');
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private function formatEntry(PayrollEntry $e): array
+    /**
+     * Мөрүүдийг хадгална.  Гар оролтыг л хүлээж авч, томьёотой баганыг
+     * сервер дээр PayrollSchema-аар дахин бодно — ингэснээр хөтчөөс ирсэн
+     * эсвэл Excel-ээс уншсан дүн томьёотой хэзээ ч зөрөхгүй.
+     *
+     * @param  array<int, array<string, mixed>>  $entries
+     */
+    private function saveEntries(array $entries, PayrollRun $run): void
     {
-        return [
-            'id' => $e->id,
-            'employee_id' => $e->employee_id,
-            'name' => $e->employee->full_name,
-            'employee_number' => $e->employee->employee_number,
-            'register_number' => $e->employee->register_number,
-            'position' => $e->employee->position?->name,
-            'bank_account' => $e->employee->bank_account,
-            'basic_salary' => $e->basic_salary,
-            'nd_salary' => $e->nd_salary,
-            'prev_paid' => $e->prev_paid,
-            'holiday_advance' => $e->holiday_advance,
-            'ath_bonus' => $e->ath_bonus,
-            'overtime_bonus' => $e->overtime_bonus,
-            'vacation_pay' => $e->vacation_pay,
-            'working_days' => $e->working_days,
-            'worked_days' => $e->worked_days,
-            'daily_rate' => $e->daily_rate,
-            'food' => $e->food,
-            'transport' => $e->transport,
-            'milk' => $e->milk,
-            'total_bonus' => $e->total_bonus,
-            'calc_salary' => $e->calc_salary,
-            'nd_total' => $e->nd_total,
-            'ndsh' => $e->ndsh,
-            'tardiness' => $e->tardiness,
-            'no_fingerprint' => $e->no_fingerprint,
-            'other_deduction' => $e->other_deduction,
-            'income_tax' => $e->income_tax ?? 0,
-            'net_hand' => $e->net_hand,
-            'bank_salary' => $e->bank_salary,
-            'is_sent' => (bool) $e->is_sent,
-        ];
+        $inputKeys = PayrollSchema::inputKeys($run->half);
+        $storedKeys = PayrollSchema::storedKeys($run->half);
+
+        DB::transaction(function () use ($entries, $run, $inputKeys, $storedKeys) {
+            foreach ($entries as $data) {
+                if (empty($data['id'])) {
+                    continue;
+                }
+
+                $input = [];
+                foreach ($inputKeys as $key) {
+                    $input[$key] = isset($data[$key]) && $data[$key] !== '' ? (float) $data[$key] : 0;
+                }
+
+                $computed = PayrollSchema::compute($input, $run->half);
+
+                PayrollEntry::where('id', $data['id'])
+                    ->where('payroll_run_id', $run->id)
+                    ->update(array_intersect_key($computed, array_flip($storedKeys)));
+            }
+        });
+    }
+
+    private function formatEntry(PayrollEntry $e, string $half): array
+    {
+        return array_merge(
+            PayrollSchema::compute($e->toArray(), $half),
+            [
+                'id' => $e->id,
+                'employee_id' => $e->employee_id,
+                'name' => $e->employee->full_name,
+                'employee_number' => $e->employee->employee_number,
+                'register_number' => $e->employee->register_number,
+                'position' => $e->employee->position?->name,
+                'bank_account' => $e->employee->bank_account,
+                'is_sent' => (bool) $e->is_sent,
+            ]
+        );
     }
 }

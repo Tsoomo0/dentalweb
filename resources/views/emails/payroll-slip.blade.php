@@ -31,15 +31,22 @@
 
     <div class="section-title">Дэлгэрэнгүй задаргаа</div>
     @php
-        $rows = [
-            ['Үндсэн цалин',  $entry->basic_salary,   false],
-            ['НД цалин',      $entry->nd_salary,       false],
-            ['Урьд олгосон',  $entry->prev_paid,       false],
-            ['Нийт нэмэгдэл', $entry->total_bonus,     false],
-            ['Тооцсон цалин', $entry->calc_salary,     false],
-            ['НДШ 11.5%',     $entry->ndsh,            true],
-            ['ХХОАТ',         $entry->income_tax ?? 0, true],
-        ];
+        // Задаргааг тухайн тооцооны хагасын схемээр угсарна —
+        // эхэн болон сүүл цалин өөр өөр баганатай
+        $columns = \App\Support\Payroll\PayrollSchema::columns($entry->run->half);
+        $values = \App\Support\Payroll\PayrollSchema::compute($entry->toArray(), $entry->run->half);
+
+        $rows = [];
+        foreach ($columns as $column) {
+            if (in_array($column['role'], ['rate', 'day', 'payout'], true)) {
+                continue;
+            }
+            if (empty($values[$column['key']])) {
+                continue;
+            }
+
+            $rows[] = [$column['label'], $values[$column['key']], $column['role'] === 'deduction'];
+        }
     @endphp
     <table class="data-table">
         <thead>

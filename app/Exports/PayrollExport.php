@@ -2,102 +2,78 @@
 
 namespace App\Exports;
 
+use App\Support\Payroll\Formula;
+use App\Support\Payroll\PayrollSchema;
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class PayrollExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping, WithStyles, WithEvents
+/**
+ * Цалингийн эцсийн тайлан — эхэн/сүүл тус тусын баганатай.
+ *
+ * Томьёо нь Excel дотроо амьд үлдэнэ: нягтлан ямар нэг тоог засахад
+ * тооцоо нь дагаж шинэчлэгдэнэ.  Доод талд =SUM() нийлбэр мөр байна.
+ */
+class PayrollExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadings, WithTitle
 {
-    public function __construct(private Collection $entries) {}
+    /** A=Овог нэр, B=Регистр, C=Ажил → өгөгдөл D-ээс эхэлнэ */
+    private const DATA_START = 4;
 
-    public function collection(): Collection
+    private readonly array $columns;
+
+    private readonly array $letters;
+
+    private readonly string $bankColumn;
+
+    public function __construct(private readonly Collection $entries, private readonly string $half)
     {
-        return $this->entries;
+        $this->columns = PayrollSchema::columns($half);
+        $this->letters = PayrollSchema::excelLetters($half, self::DATA_START);
+        $this->bankColumn = Coordinate::stringFromColumnIndex(self::DATA_START + count($this->columns));
+    }
+
+    public function title(): string
+    {
+        return $this->half === 'first' ? 'Эхэн цалин' : 'Сүүл цалин';
     }
 
     public function headings(): array
     {
-        return [
-            'Овог нэр',
-            'Регистр',
-            'Ажил',
-            'Банкаар олгосон (урьд)',
-            'Баярын урьдчилгаа',
-            'Үндсэн цалин',
-            'НД цалин',
-            'А.Т.Х 40%',
-            'Илүү цаг 10%',
-            'Ээлж.амр+хувь',
-            'Ажлын өдөр',
-            'Ажилласан өдөр',
-            '1 өдрийн цалин',
-            'Хоол',
-            'Унаа',
-            'Сүү',
-            'Нийт нэмэгдэл',
-            'Хоцролт',
-            'Хуруу',
-            'Суутгал',
-            'Тооцсон цалин',
-            'НД цалин (нийт)',
-            'НДШ 11.5%',
-            'ХХОАТ',
-            'НДШ+ХХОАТ',
-            'Гарт олгох',
-            'Банкаар олгох',
-            'Данс',
-        ];
+        return array_merge(
+            ['Овог нэр', 'Регистр', 'Ажил'],
+            array_map(fn ($c) => $c['label'], $this->columns),
+            ['Данс']
+        );
     }
 
-    public function map($entry): array
+    public function array(): array
     {
-        return [
-            $entry['name'],
-            $entry['register_number'],
-            $entry['position'],
-            (float) $entry['prev_paid'],
-            (float) $entry['holiday_advance'],
-            (float) $entry['basic_salary'],
-            (float) $entry['nd_salary'],
-            (float) $entry['ath_bonus'],
-            (float) $entry['overtime_bonus'],
-            (float) $entry['vacation_pay'],
-            (int) $entry['working_days'],
-            (int) $entry['worked_days'],
-            (float) $entry['daily_rate'],
-            (float) $entry['food'],
-            (float) $entry['transport'],
-            (float) $entry['milk'],
-            (float) $entry['total_bonus'],
-            (float) $entry['tardiness'],
-            (float) $entry['no_fingerprint'],
-            (float) $entry['other_deduction'],
-            (float) $entry['calc_salary'],
-            (float) $entry['nd_total'],
-            (float) $entry['ndsh'],
-            (float) $entry['income_tax'],
-            (float) ($entry['ndsh'] + $entry['income_tax']),
-            (float) $entry['net_hand'],
-            (float) $entry['bank_salary'],
-            $entry['bank_account'],
-        ];
-    }
+        $rows = [];
+        $rowNumber = 1;
 
-    public function styles(Worksheet $sheet): array
-    {
-        return [
-            1 => [
-                'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
-                'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FF1E293B']],
-                'alignment' => ['horizontal' => 'center'],
-            ],
-        ];
+        foreach ($this->entries as $entry) {
+            $rowNumber++;
+
+            $line = [$entry['name'], $entry['register_number'], $entry['position']];
+
+            foreach ($this->columns as $col) {
+                $line[] = $col['formula'] !== null
+                    ? Formula::toExcel($col['formula'], $this->letters, $rowNumber)
+                    : (float) ($entry[$col['key']] ?? 0);
+            }
+
+            $line[] = $entry['bank_account'];
+            $rows[] = $line;
+        }
+
+        return $rows;
     }
 
     public function registerEvents(): array
@@ -106,48 +82,60 @@ class PayrollExport implements FromCollection, ShouldAutoSize, WithHeadings, Wit
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
 
-                // header (1) + data rows + 1 = totals row
-                $totalRow = $this->entries->count() + 2;
+                $count = $this->entries->count();
+                $lastRow = $count + 1;
+                $totalRow = $lastRow + 1;
 
-                $sum = fn (string $key) => (float) $this->entries->sum($key);
-
-                $row = [
-                    'Нийт',                                                        // A: name
-                    '',                                                            // B: register
-                    '',                                                            // C: position
-                    $sum('prev_paid'),                                             // D
-                    $sum('holiday_advance'),                                       // E
-                    $sum('basic_salary'),                                          // F
-                    null,                                                          // G: nd_salary (not totaled)
-                    $sum('ath_bonus'),                                             // H
-                    $sum('overtime_bonus'),                                        // I
-                    $sum('vacation_pay'),                                          // J
-                    null,                                                          // K: working_days
-                    null,                                                          // L: worked_days
-                    null,                                                          // M: daily_rate
-                    $sum('food'),                                                  // N
-                    $sum('transport'),                                            // O
-                    $sum('milk'),                                                  // P
-                    $sum('total_bonus'),                                           // Q
-                    $sum('tardiness'),                                            // R
-                    $sum('no_fingerprint'),                                       // S
-                    $sum('other_deduction'),                                      // T
-                    $sum('calc_salary'),                                          // U
-                    $sum('nd_total'),                                             // V
-                    $sum('ndsh'),                                                 // W
-                    $sum('income_tax'),                                           // X
-                    (float) $this->entries->sum(fn ($e) => $e['ndsh'] + $e['income_tax']), // Y
-                    $sum('net_hand'),                                             // Z
-                    $sum('bank_salary'),                                          // AA
-                    null,                                                          // AB: bank_account
-                ];
-
-                $sheet->fromArray([$row], null, 'A'.$totalRow, true);
-
-                $sheet->getStyle('A'.$totalRow.':AB'.$totalRow)->applyFromArray([
-                    'font' => ['bold' => true],
-                    'fill' => ['fillType' => 'solid', 'startColor' => ['argb' => 'FFF1F5F9']],
+                $sheet->getStyle("A1:{$this->bankColumn}1")->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1E293B']],
+                    'alignment' => [
+                        'horizontal' => Alignment::HORIZONTAL_CENTER,
+                        'vertical' => Alignment::VERTICAL_CENTER,
+                        'wrapText' => true,
+                    ],
                 ]);
+                $sheet->getRowDimension(1)->setRowHeight(42);
+
+                if ($count === 0) {
+                    return;
+                }
+
+                foreach ($this->columns as $col) {
+                    $letter = $this->letters[$col['key']];
+
+                    $sheet->getStyle("{$letter}2:{$letter}{$lastRow}")
+                        ->getNumberFormat()->setFormatCode($col['int'] ? '#,##0' : '#,##0.##');
+
+                    if ($col['highlight']) {
+                        $sheet->getStyle("{$letter}2:{$letter}{$lastRow}")->applyFromArray([
+                            'font' => ['bold' => true],
+                            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFECFDF5']],
+                        ]);
+                    }
+                }
+
+                // ── Нийлбэр мөр (=SUM томьёотой) ──────────────────────────────
+                $sheet->setCellValue("A{$totalRow}", 'Нийт');
+
+                foreach ($this->columns as $col) {
+                    if (! $col['sum']) {
+                        continue;
+                    }
+
+                    $letter = $this->letters[$col['key']];
+                    $sheet->setCellValue("{$letter}{$totalRow}", "=SUM({$letter}2:{$letter}{$lastRow})");
+                    $sheet->getStyle("{$letter}{$totalRow}")
+                        ->getNumberFormat()->setFormatCode($col['int'] ? '#,##0' : '#,##0.##');
+                }
+
+                $sheet->getStyle("A{$totalRow}:{$this->bankColumn}{$totalRow}")->applyFromArray([
+                    'font' => ['bold' => true],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF1F5F9']],
+                    'borders' => ['top' => ['borderStyle' => 'thin']],
+                ]);
+
+                $sheet->freezePane('D2');
             },
         ];
     }

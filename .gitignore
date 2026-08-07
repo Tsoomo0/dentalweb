@@ -29,3 +29,6 @@ yarn-error.log
 # Generated reports
 *.pdf
 composer.phar
+
+# Цалингийн жинхэнэ өгөгдөл (ажилтны нэр, дүн) — repo-д оруулахгүй
+/docs/*.xlsx

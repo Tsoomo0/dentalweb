@@ -4,6 +4,7 @@ namespace App\Http\Controllers\My;
 
 use App\Http\Controllers\Controller;
 use App\Models\HR\PayrollEntry;
+use App\Support\Payroll\PayrollSchema;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,39 +25,27 @@ class PayrollController extends Controller
             ->get()
             ->filter(fn ($e) => $e->run !== null)  // soft-deleted run-уудыг алгасах
             ->values()
-            ->map(fn ($e) => [
-                'id' => $e->id,
-                'run_id' => $e->payroll_run_id,
-                'run_title' => $e->run->title,
-                'half_label' => $e->run->half_label,
-                'year' => $e->run->year,
-                'month' => $e->run->month,
-                'basic_salary' => $e->basic_salary,
-                'nd_salary' => $e->nd_salary,
-                'prev_paid' => $e->prev_paid,
-                'holiday_advance' => $e->holiday_advance,
-                'ath_bonus' => $e->ath_bonus,
-                'overtime_bonus' => $e->overtime_bonus,
-                'vacation_pay' => $e->vacation_pay,
-                'working_days' => $e->working_days,
-                'worked_days' => $e->worked_days,
-                'daily_rate' => $e->daily_rate,
-                'food' => $e->food,
-                'transport' => $e->transport,
-                'milk' => $e->milk,
-                'total_bonus' => $e->total_bonus,
-                'calc_salary' => $e->calc_salary,
-                'nd_total' => $e->nd_total,
-                'ndsh' => $e->ndsh,
-                'tardiness' => $e->tardiness,
-                'no_fingerprint' => $e->no_fingerprint,
-                'other_deduction' => $e->other_deduction,
-                'income_tax' => $e->income_tax ?? 0,
-                'net_hand' => $e->net_hand,
-                'bank_salary' => $e->bank_salary,
-            ]);
+            ->map(fn ($e) => array_merge(
+                // Задаргааг тухайн тооцооны хагасын схемээр бодно —
+                // эхэн болон сүүл цалин өөр өөр баганатай
+                PayrollSchema::compute($e->toArray(), $e->run->half),
+                [
+                    'id' => $e->id,
+                    'run_id' => $e->payroll_run_id,
+                    'run_title' => $e->run->title,
+                    'half' => $e->run->half,
+                    'half_label' => $e->run->half_label,
+                    'year' => $e->run->year,
+                    'month' => $e->run->month,
+                ]
+            ));
 
         return Inertia::render('my/payroll', [
+            // Хагас тус бүрийн баганын бүтэц — задаргааг үүгээр угсарна
+            'schemas' => [
+                'first' => PayrollSchema::columns('first'),
+                'second' => PayrollSchema::columns('second'),
+            ],
             'employee' => [
                 'full_name' => $employee->full_name,
                 'employee_number' => $employee->employee_number,
