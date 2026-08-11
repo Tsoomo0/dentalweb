@@ -62,9 +62,11 @@ class PayrollExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadin
             $rowNumber++;
 
             $line = [$entry['name'], $entry['register_number'], $entry['position']];
+            $overrides = is_array($entry['overrides'] ?? null) ? $entry['overrides'] : [];
 
             foreach ($this->columns as $col) {
-                $line[] = $col['formula'] !== null
+                // Гараар дарж бичсэн багана томьёогүй, дүнгээрээ орно
+                $line[] = $col['formula'] !== null && ! in_array($col['key'], $overrides, true)
                     ? Formula::toExcel($col['formula'], $this->letters, $rowNumber)
                     : (float) ($entry[$col['key']] ?? 0);
             }
@@ -105,7 +107,7 @@ class PayrollExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadin
                     $letter = $this->letters[$col['key']];
 
                     $sheet->getStyle("{$letter}2:{$letter}{$lastRow}")
-                        ->getNumberFormat()->setFormatCode($col['int'] ? '#,##0' : '#,##0.##');
+                        ->getNumberFormat()->setFormatCode($col['decimal'] ? '#,##0.##' : '#,##0');
 
                     if ($col['highlight']) {
                         $sheet->getStyle("{$letter}2:{$letter}{$lastRow}")->applyFromArray([
@@ -126,7 +128,7 @@ class PayrollExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadin
                     $letter = $this->letters[$col['key']];
                     $sheet->setCellValue("{$letter}{$totalRow}", "=SUM({$letter}2:{$letter}{$lastRow})");
                     $sheet->getStyle("{$letter}{$totalRow}")
-                        ->getNumberFormat()->setFormatCode($col['int'] ? '#,##0' : '#,##0.##');
+                        ->getNumberFormat()->setFormatCode($col['decimal'] ? '#,##0.##' : '#,##0');
                 }
 
                 $sheet->getStyle("A{$totalRow}:{$this->bankColumn}{$totalRow}")->applyFromArray([

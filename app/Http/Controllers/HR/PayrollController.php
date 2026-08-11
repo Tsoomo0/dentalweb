@@ -90,13 +90,23 @@ class PayrollController extends Controller
                 ->orderBy('last_name')
                 ->get();
 
+            // Сүүл цалин үүсгэж байгаа бол эхэн цалингийн дүнг шууд татна
+            $advance = $this->advanceMap($run);
+
             foreach ($employees as $emp) {
                 // Гар оролтыг өгөөд томьёотой баганыг схемээр бодуулна
-                $computed = PayrollSchema::compute([
-                    'basic_salary' => $emp->salary ?? 0,
-                    'working_days' => 11,
-                    'worked_days' => 11,
-                ], $run->half);
+                // (хоол/сүүний нэгжийн үнэлгээ зэрэг өгөгдмөл утга схемээс ирнэ)
+                $input = array_merge(
+                    PayrollSchema::defaults($run->half),
+                    [
+                        'basic_salary' => $emp->salary ?? 0,
+                        'working_days' => 11,
+                        'worked_days' => 11,
+                    ],
+                    $advance[$emp->id] ?? []
+                );
+
+                $computed = PayrollSchema::compute($input, $run->half);
 
                 PayrollEntry::create(array_merge(
                     ['payroll_run_id' => $run->id, 'employee_id' => $emp->id],
@@ -115,7 +125,8 @@ class PayrollController extends Controller
     {
         $payrollRun->load(['entries.employee.position', 'entries.employee.branch']);
 
-        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e, $payrollRun->half));
+        $advance = $this->advanceMap($payrollRun);
+        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e, $payrollRun->half, $advance));
 
         return Inertia::render('hr/payroll/show', [
             'run' => [
@@ -134,6 +145,8 @@ class PayrollController extends Controller
             // эхэн/сүүл цалингийн ялгаа бүхэлдээ PayrollSchema дотор байрлана
             'columns' => PayrollSchema::columns($payrollRun->half),
             'groups' => PayrollSchema::groups($payrollRun->half),
+            // Эхэн цалингийн тооцоо олдож, урьдчилгаа автоматаар татагдаж байгаа эсэх
+            'advanceLinked' => $advance !== [],
         ]);
     }
 
@@ -226,7 +239,7 @@ class PayrollController extends Controller
         $payrollRun->load('entries.employee');
 
         return Excel::download(
-            new PayrollTemplateExport($payrollRun->entries, $payrollRun->half),
+            new PayrollTemplateExport($payrollRun->entries, $payrollRun->half, $this->advanceMap($payrollRun)),
             $payrollRun->title.'_template.xlsx'
         );
     }
@@ -252,6 +265,10 @@ class PayrollController extends Controller
             }
         }
 
+        // Системд гараар дарж бичсэн дүн Excel-д томьёогоор илэрхийлэгдэхгүй тул
+        // import хийхэд алдагдахгүйн тулд хуучин утгыг нь авч үлдэнэ
+        $existing = PayrollEntry::where('payroll_run_id', $payrollRun->id)->get()->keyBy('id');
+
         $entries = [];
 
         foreach ($rows as $row) {
@@ -264,6 +281,14 @@ class PayrollController extends Controller
             foreach ($map as $col => $field) {
                 $raw = isset($row[$col]) ? trim(str_replace(',', '', (string) $row[$col])) : '';
                 $data[$field] = $raw !== '' ? (float) $raw : 0;
+            }
+
+            $entry = $existing[$id] ?? null;
+            if ($entry && is_array($entry->overrides) && $entry->overrides) {
+                $data['overrides'] = $entry->overrides;
+                foreach ($entry->overrides as $key) {
+                    $data[$key] = $entry->{$key};
+                }
             }
 
             $entries[] = $data;
@@ -281,12 +306,55 @@ class PayrollController extends Controller
     public function exportExcel(PayrollRun $payrollRun): BinaryFileResponse
     {
         $payrollRun->load(['entries.employee.position', 'entries.employee.branch']);
-        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e, $payrollRun->half));
+
+        $advance = $this->advanceMap($payrollRun);
+        $entries = $payrollRun->entries->map(fn ($e) => $this->formatEntry($e, $payrollRun->half, $advance));
 
         return Excel::download(new PayrollExport($entries, $payrollRun->half), $payrollRun->title.'.xlsx');
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Сүүл цалингийн холбоотой баганууд — мөн сар, мөн салбарын ЭХЭН цалингийн
+     * тооцооноос шууд татагдана:
+     *   Олгосон урьдчилгаа цалин  ← эхэн цалингийн "Банкаар олгох"
+     *   НДШ 11.5% ХХОАТ (эхэн)    ← эхэн цалингийн "НДШ 11.5% ХХОАТ"
+     *
+     * Эхэн цалингийн тооцоо олдоогүй бол хоосон буцаах ба тэдгээр багана
+     * гараар бөглөх боломжтой хэвээр үлдэнэ.
+     *
+     * @return array<int, array<string, float>> employee_id → [энэ хагасын багана => дүн]
+     */
+    private function advanceMap(PayrollRun $run): array
+    {
+        $sources = PayrollSchema::linkedSources($run->half);
+
+        if (! $sources) {
+            return [];
+        }
+
+        $firstHalf = PayrollRun::where('year', $run->year)
+            ->where('month', $run->month)
+            ->where('branch_id', $run->branch_id)
+            ->where('half', 'first')
+            ->latest('id')
+            ->first();
+
+        if (! $firstHalf) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($firstHalf->entries()->get(['employee_id', ...array_values($sources)]) as $entry) {
+            foreach ($sources as $target => $source) {
+                $out[$entry->employee_id][$target] = (float) $entry->{$source};
+            }
+        }
+
+        return $out;
+    }
 
     /**
      * Мөрүүдийг хадгална.  Гар оролтыг л хүлээж авч, томьёотой баганыг
@@ -299,8 +367,12 @@ class PayrollController extends Controller
     {
         $inputKeys = PayrollSchema::inputKeys($run->half);
         $storedKeys = PayrollSchema::storedKeys($run->half);
+        $overridableKeys = PayrollSchema::overridableKeys($run->half);
 
-        DB::transaction(function () use ($entries, $run, $inputKeys, $storedKeys) {
+        $advance = $this->advanceMap($run);
+        $employeeIds = PayrollEntry::where('payroll_run_id', $run->id)->pluck('employee_id', 'id');
+
+        DB::transaction(function () use ($entries, $run, $inputKeys, $storedKeys, $overridableKeys, $advance, $employeeIds) {
             foreach ($entries as $data) {
                 if (empty($data['id'])) {
                     continue;
@@ -311,20 +383,47 @@ class PayrollController extends Controller
                     $input[$key] = isset($data[$key]) && $data[$key] !== '' ? (float) $data[$key] : 0;
                 }
 
-                $computed = PayrollSchema::compute($input, $run->half);
+                // Гараар дарж бичсэн томьёотой багана — зөвхөн зөвшөөрөгдсөнийг нь хүлээж авна
+                $overrides = array_values(array_intersect(
+                    is_array($data['overrides'] ?? null) ? $data['overrides'] : [],
+                    $overridableKeys
+                ));
+
+                foreach ($overrides as $key) {
+                    $input[$key] = isset($data[$key]) && $data[$key] !== '' ? (float) $data[$key] : 0;
+                }
+
+                // Холбоотой багана эхэн цалингаас татагдана — хөтөч эсвэл
+                // Excel-ээс ирсэн утга хүчингүй
+                $employeeId = $employeeIds[$data['id']] ?? null;
+                if ($employeeId !== null && isset($advance[$employeeId])) {
+                    $input = array_merge($input, $advance[$employeeId]);
+                }
+
+                $computed = PayrollSchema::compute($input, $run->half, $overrides);
 
                 PayrollEntry::where('id', $data['id'])
                     ->where('payroll_run_id', $run->id)
-                    ->update(array_intersect_key($computed, array_flip($storedKeys)));
+                    ->update(array_merge(
+                        array_intersect_key($computed, array_flip($storedKeys)),
+                        ['overrides' => $overrides ?: null]
+                    ));
             }
         });
     }
 
-    private function formatEntry(PayrollEntry $e, string $half): array
+    /**
+     * @param  array<int, array<string, float>>  $advance  employee_id → эхэн цалингаас татагдсан дүнгүүд
+     */
+    private function formatEntry(PayrollEntry $e, string $half, array $advance = []): array
     {
+        $row = array_merge($e->toArray(), $advance[$e->employee_id] ?? []);
+        $overrides = is_array($e->overrides) ? $e->overrides : [];
+
         return array_merge(
-            PayrollSchema::compute($e->toArray(), $half),
+            PayrollSchema::compute($row, $half, $overrides),
             [
+                'overrides' => $overrides,
                 'id' => $e->id,
                 'employee_id' => $e->employee_id,
                 'name' => $e->employee->full_name,

@@ -9,7 +9,7 @@ class PayrollEntry extends Model
 {
     protected $fillable = [
         'payroll_run_id', 'employee_id',
-        'basic_salary', 'nd_salary', 'advance_salary', 'prev_paid', 'holiday_advance',
+        'basic_salary', 'nd_salary', 'advance_salary', 'prev_paid', 'prev_ndsh', 'holiday_advance',
         'ath_bonus', 'percent_salary', 'overtime_bonus', 'reward', 'hazard_bonus', 'vacation_pay',
         'working_days', 'worked_days', 'daily_rate',
         'food_rate', 'food', 'milk_rate', 'milk', 'transport',
@@ -17,12 +17,12 @@ class PayrollEntry extends Model
         'tardy_minutes', 'tardiness', 'fingerprint_misses', 'no_fingerprint',
         'other_deduction', 'total_deduction',
         'income_tax', 'net_hand', 'hand_deduction', 'bank_salary',
-        'is_sent', 'sent_at',
+        'overrides', 'is_sent', 'sent_at',
     ];
 
     protected $casts = [
         'basic_salary' => 'float', 'nd_salary' => 'float', 'advance_salary' => 'float',
-        'prev_paid' => 'float', 'holiday_advance' => 'float',
+        'prev_paid' => 'float', 'prev_ndsh' => 'float', 'holiday_advance' => 'float',
         'ath_bonus' => 'float', 'percent_salary' => 'float', 'overtime_bonus' => 'float',
         'reward' => 'float', 'hazard_bonus' => 'float', 'vacation_pay' => 'float',
         'daily_rate' => 'float',
@@ -35,6 +35,8 @@ class PayrollEntry extends Model
         'other_deduction' => 'float', 'total_deduction' => 'float',
         'income_tax' => 'float', 'net_hand' => 'float',
         'hand_deduction' => 'float', 'bank_salary' => 'float',
+        // Гараар дарж бичигдсэн томьёотой баганы нэрс
+        'overrides' => 'array',
         'is_sent' => 'boolean', 'sent_at' => 'datetime',
     ];
 

@@ -26,9 +26,10 @@ class PayrollController extends Controller
             ->filter(fn ($e) => $e->run !== null)  // soft-deleted run-уудыг алгасах
             ->values()
             ->map(fn ($e) => array_merge(
-                // Задаргааг тухайн тооцооны хагасын схемээр бодно —
-                // эхэн болон сүүл цалин өөр өөр баганатай
-                PayrollSchema::compute($e->toArray(), $e->run->half),
+                // Задаргааг тухайн тооцооны хагасын схемээр бодно — эхэн болон
+                // сүүл цалин өөр өөр баганатай.  Нягтлангийн гараар зассан дүнг
+                // дамжуулснаар ажилтанд бодитоор олгосон дүн харагдана.
+                PayrollSchema::compute($e->toArray(), $e->run->half, is_array($e->overrides) ? $e->overrides : []),
                 [
                     'id' => $e->id,
                     'run_id' => $e->payroll_run_id,

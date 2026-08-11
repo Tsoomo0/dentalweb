@@ -27,8 +27,14 @@ class PayrollTemplateExport implements FromArray, ShouldAutoSize, WithEvents, Wi
 
     private readonly array $letters;
 
-    public function __construct(private readonly Collection $entries, private readonly string $half)
-    {
+    /**
+     * @param  array<int, array<string, float>>  $advance  employee_id → эхэн цалингаас татагдсан дүнгүүд
+     */
+    public function __construct(
+        private readonly Collection $entries,
+        private readonly string $half,
+        private readonly array $advance = [],
+    ) {
         $this->columns = PayrollSchema::columns($half);
         $this->letters = PayrollSchema::excelLetters($half);
     }
@@ -53,10 +59,19 @@ class PayrollTemplateExport implements FromArray, ShouldAutoSize, WithEvents, Wi
 
             $line = [$entry->id, $entry->employee->full_name, $entry->employee->employee_number];
 
+            $overrides = is_array($entry->overrides) ? $entry->overrides : [];
+
             foreach ($this->columns as $col) {
-                $line[] = $col['formula'] !== null
-                    ? Formula::toExcel($col['formula'], $this->letters, $rowNumber)
-                    : (float) ($entry->{$col['key']} ?: 0);
+                // Гараар дарж бичсэн бол Excel дээр ч томьёогүй, дүн нь шууд орно
+                if ($col['formula'] !== null && ! in_array($col['key'], $overrides, true)) {
+                    $line[] = Formula::toExcel($col['formula'], $this->letters, $rowNumber);
+
+                    continue;
+                }
+
+                // Холбоотой багана эхэн цалингийн тооцооноос татагдана
+                $line[] = $this->advance[$entry->employee_id][$col['key']]
+                    ?? (float) ($entry->{$col['key']} ?: 0);
             }
 
             $rows[] = $line;
@@ -86,15 +101,16 @@ class PayrollTemplateExport implements FromArray, ShouldAutoSize, WithEvents, Wi
                 ]);
                 $sheet->getRowDimension(1)->setRowHeight(42);
 
-                // Гар оролтгүй (томьёотой) баганыг саарлаар ялгаж, толгойд нь ƒ тэмдэг
+                // Гар оролтгүй (томьёотой эсвэл татагддаг) баганыг саарлаар ялгана
                 foreach ($this->columns as $col) {
                     $letter = $this->letters[$col['key']];
+                    $auto = $col['formula'] !== null || ($col['linked'] && $this->advance !== []);
 
-                    if ($col['formula'] === null) {
+                    if (! $auto) {
                         continue;
                     }
 
-                    $sheet->setCellValue("{$letter}1", 'ƒ '.$col['label']);
+                    $sheet->setCellValue("{$letter}1", ($col['linked'] ? '⇠ ' : 'ƒ ').$col['label']);
 
                     if ($lastRow >= 2) {
                         $sheet->getStyle("{$letter}2:{$letter}{$lastRow}")->applyFromArray([
@@ -108,7 +124,8 @@ class PayrollTemplateExport implements FromArray, ShouldAutoSize, WithEvents, Wi
                     // Мөнгөн дүнг мянгатаар тусгаарлана
                     foreach ($this->columns as $col) {
                         $letter = $this->letters[$col['key']];
-                        $format = $col['int'] ? '#,##0' : '#,##0.##';
+                        // Зөвхөн ажилласан өдөр, банкаар олгох бутархайгаар харагдана
+                        $format = $col['decimal'] ? '#,##0.##' : '#,##0';
                         $sheet->getStyle("{$letter}2:{$letter}{$lastRow}")
                             ->getNumberFormat()->setFormatCode($format);
                     }

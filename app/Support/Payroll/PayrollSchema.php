@@ -21,7 +21,12 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
  *   label     — дэлгэц/Excel дээр харагдах нэр
  *   group     — баганын бүлэг (толгой мөрөнд нэгтгэж харуулна)
  *   formula   — байвал автоматаар бодогдоно, байхгүй бол гараар оруулна
- *   int       — бүхэл тоо (өдөр, минут, ширхэг)
+ *   linked    — өөр тооцооноос татагдана (эхэн цалингийн банкаар олгох дүн)
+ *   overridable — томьёотой ч нягтлан гараар дарж бичиж болно
+ *   default   — шинэ тооцоо үүсгэхэд бөглөгдөх утга
+ *   int       — бүхэл тоо (минут, ширхэг)
+ *   decimal   — бутархайг харуулна (ажилласан өдөр, банкаар олгох).  Бусад
+ *               багана бүхэлчилж харагдана ч дотроо нарийвчлалаа хадгална.
  *   virtual   — зөвхөн харуулах/экспортлох, DB-д хадгалахгүй
  *   highlight — онцолж харуулах (Гарт олгох / Банкаар олгох)
  */
@@ -40,6 +45,11 @@ class PayrollSchema
     /** ХХОАТ-ын сарын хөнгөлөлт */
     public const TAX_CREDIT = 14000;
 
+    /** Шинэ тооцоо үүсгэхэд өгөгдмөлөөр бөглөгдөх нэгжийн үнэлгээ */
+    public const FOOD_RATE_DEFAULT = 10000;
+
+    public const MILK_RATE_DEFAULT = 2000;
+
     /**
      * ЭХЭН ЦАЛИН — 27 багана (Excel дээр D..AD)
      *
@@ -54,7 +64,7 @@ class PayrollSchema
                 'formula' => '{basic_salary} / 2'],
 
             ['key' => 'working_days', 'label' => 'Ажиллавал зохих өдөр', 'group' => 'Өдөр', 'int' => true, 'sum' => false],
-            ['key' => 'worked_days',  'label' => 'Ажилласан өдөр',       'group' => 'Өдөр', 'int' => true, 'sum' => false],
+            ['key' => 'worked_days',  'label' => 'Ажилласан өдөр', 'decimal' => true,       'group' => 'Өдөр', 'sum' => false],
             ['key' => 'daily_rate',   'label' => '1 өдрийн цалин',       'group' => 'Өдөр',
                 'formula' => 'IFERROR({advance_salary} / {working_days}, 0)'],
 
@@ -65,9 +75,11 @@ class PayrollSchema
             ['key' => 'hazard_bonus',   'label' => 'Хортой нөхцөл 10% болон зэргийн нэмэгдэл', 'group' => 'Нэмэгдэл'],
             ['key' => 'vacation_pay',   'label' => 'Ээлж.амр+хувь', 'group' => 'Нэмэгдэл'],
 
-            ['key' => 'food_rate', 'label' => '1 өдрийн хоол унаа', 'group' => 'Хоол · Сүү'],
+            ['key' => 'food_rate', 'label' => '1 өдрийн хоол унаа', 'group' => 'Хоол · Сүү',
+                'default' => self::FOOD_RATE_DEFAULT],
             ['key' => 'food',      'label' => 'Олгосон хоол унаа',  'group' => 'Хоол · Сүү'],
-            ['key' => 'milk_rate', 'label' => '1 өдрийн сүү',       'group' => 'Хоол · Сүү'],
+            ['key' => 'milk_rate', 'label' => '1 өдрийн сүү',       'group' => 'Хоол · Сүү',
+                'default' => self::MILK_RATE_DEFAULT],
             ['key' => 'milk',      'label' => 'Олгосон сүү',        'group' => 'Хоол · Сүү'],
 
             ['key' => 'total_bonus', 'label' => 'Нийт нэмэгдэл', 'group' => 'Нийт нэмэгдэл',
@@ -75,10 +87,10 @@ class PayrollSchema
                             .'+ {hazard_bonus} + {vacation_pay} + {food} + {milk}'],
 
             ['key' => 'tardy_minutes',      'label' => 'Хоцорсон минутын тоо',   'group' => 'Суутгал', 'int' => true],
-            ['key' => 'tardiness',          'label' => 'Хоцролт',                'group' => 'Суутгал',
+            ['key' => 'tardiness',          'label' => 'Хоцролт', 'counter' => ['key' => 'tardy_minutes', 'unit' => 'минут'],                'group' => 'Суутгал',
                 'formula' => '{tardy_minutes} * '.self::TARDY_PER_MINUTE],
             ['key' => 'fingerprint_misses', 'label' => 'Хийгээгүй хурууны тоо',  'group' => 'Суутгал', 'int' => true],
-            ['key' => 'no_fingerprint',     'label' => 'Хуруу',                  'group' => 'Суутгал',
+            ['key' => 'no_fingerprint',     'label' => 'Хуруу', 'counter' => ['key' => 'fingerprint_misses', 'unit' => 'удаа'],                  'group' => 'Суутгал',
                 'formula' => '{fingerprint_misses} * '.self::FINGERPRINT_PENALTY],
             ['key' => 'other_deduction',    'label' => 'Суутгал',                'group' => 'Суутгал'],
             ['key' => 'total_deduction',    'label' => 'Нийт суутгал',           'group' => 'Суутгал',
@@ -90,9 +102,9 @@ class PayrollSchema
                 'formula' => '{worked_salary} + {total_bonus} - {total_deduction}'],
             ['key' => 'ndsh',          'label' => 'НДШ 11.5% ХХОАТ',        'group' => 'Тооцоо'],
 
-            ['key' => 'net_hand',    'label' => 'Гарт олгох',    'group' => 'Гарт · Банк', 'highlight' => true,
+            ['key' => 'net_hand',    'label' => 'Гарт олгох',    'group' => 'Гарт · Банк', 'highlight' => true, 'overridable' => true, 'decimal' => true,
                 'formula' => '{calc_salary} - {ndsh}'],
-            ['key' => 'bank_salary', 'label' => 'Банкаар олгох', 'group' => 'Гарт · Банк', 'highlight' => true,
+            ['key' => 'bank_salary', 'label' => 'Банкаар олгох', 'group' => 'Гарт · Банк', 'highlight' => true, 'overridable' => true, 'decimal' => true,
                 'formula' => '{net_hand}'],
         ];
     }
@@ -109,14 +121,23 @@ class PayrollSchema
             ['key' => 'basic_salary',    'label' => 'Үндсэн цалин',     'group' => 'Үндсэн'],
             ['key' => 'nd_salary',       'label' => 'НД цалин',         'group' => 'Үндсэн',
                 'formula' => '{basic_salary} / 2'],
-            ['key' => 'prev_paid',       'label' => 'Урьдчилгаа цалин', 'group' => 'Үндсэн',
-                'formula' => '{basic_salary} / 2'],
+            // Мөн сар/салбарын ЭХЭН цалингийн "Банкаар олгох" дүнгээс шууд татагдана.
+            // Өөр тооцооны мөрөөс хамаардаг тул томьёогоор бодох боломжгүй —
+            // PayrollController::firstHalfValues() серверийн талд бөглөнө.
+            ['key' => 'prev_paid',       'label' => 'Олгосон урьдчилгаа цалин', 'group' => 'Үндсэн',
+                'linked' => 'bank_salary'],
             ['key' => 'holiday_advance', 'label' => 'Баярын урьд',      'group' => 'Үндсэн'],
 
             ['key' => 'working_days', 'label' => 'Ажилвал зохих өдөр', 'group' => 'Өдөр', 'int' => true, 'sum' => false],
-            ['key' => 'worked_days',  'label' => 'Ажилласан өдөр',     'group' => 'Өдөр', 'int' => true, 'sum' => false],
+            ['key' => 'worked_days',  'label' => 'Ажилласан өдөр', 'decimal' => true,     'group' => 'Өдөр', 'sum' => false],
             ['key' => 'daily_rate',   'label' => '1 өдрийн цалин',     'group' => 'Өдөр',
                 'formula' => 'IFERROR({nd_salary} / {working_days}, 0)'],
+
+            // Эхэн цалин дээр гараар оруулсан НДШ/ХХОАТ — лавлагаа болгож харуулна.
+            // Тооцоонд ороогүй: эхний хагасын суутгал нь "Олгосон урьдчилгаа цалин"
+            // дүнд аль хэдийн тусгагдсан тул дахин хасвал давхардана.
+            ['key' => 'prev_ndsh',      'label' => 'НДШ 11.5% ХХОАТ (эхэн)', 'group' => 'Эхэн цалингаас',
+                'linked' => 'ndsh', 'role' => 'reference'],
 
             ['key' => 'ath_bonus',      'label' => 'А.Т.Х 40%',      'group' => 'Нэмэгдэл'],
             ['key' => 'percent_salary', 'label' => 'Хувь цалин',     'group' => 'Нэмэгдэл'],
@@ -125,9 +146,11 @@ class PayrollSchema
             ['key' => 'hazard_bonus',   'label' => 'Хортой нөхцөл 10% болон зэргийн нэмэгдэл', 'group' => 'Нэмэгдэл'],
             ['key' => 'vacation_pay',   'label' => 'Ээлжийн амралт', 'group' => 'Нэмэгдэл'],
 
-            ['key' => 'food_rate', 'label' => '1 өдрийн хоол унаа', 'group' => 'Хоол · Сүү'],
+            ['key' => 'food_rate', 'label' => '1 өдрийн хоол унаа', 'group' => 'Хоол · Сүү',
+                'default' => self::FOOD_RATE_DEFAULT],
             ['key' => 'food',      'label' => 'Олгосон хоол унаа',  'group' => 'Хоол · Сүү'],
-            ['key' => 'milk_rate', 'label' => '1 өдрийн сүү',       'group' => 'Хоол · Сүү'],
+            ['key' => 'milk_rate', 'label' => '1 өдрийн сүү',       'group' => 'Хоол · Сүү',
+                'default' => self::MILK_RATE_DEFAULT],
             ['key' => 'milk',      'label' => 'Олгосон сүү',        'group' => 'Хоол · Сүү'],
 
             ['key' => 'total_bonus', 'label' => 'Нийт нэмэгдэл', 'group' => 'Нийт нэмэгдэл',
@@ -136,10 +159,10 @@ class PayrollSchema
 
             ['key' => 'tardy_minutes',      'label' => 'Хоцорсон болон цагаас эрт явсан минутын тоо',
                 'group' => 'Суутгал', 'int' => true],
-            ['key' => 'tardiness',          'label' => 'Хоцролт',               'group' => 'Суутгал',
+            ['key' => 'tardiness',          'label' => 'Хоцролт', 'counter' => ['key' => 'tardy_minutes', 'unit' => 'минут'],               'group' => 'Суутгал',
                 'formula' => '{tardy_minutes} * '.self::TARDY_PER_MINUTE],
             ['key' => 'fingerprint_misses', 'label' => 'Хийгээгүй хурууны тоо', 'group' => 'Суутгал', 'int' => true],
-            ['key' => 'no_fingerprint',     'label' => 'Хуруу',                 'group' => 'Суутгал',
+            ['key' => 'no_fingerprint',     'label' => 'Хуруу', 'counter' => ['key' => 'fingerprint_misses', 'unit' => 'удаа'],                 'group' => 'Суутгал',
                 'formula' => '{fingerprint_misses} * '.self::FINGERPRINT_PENALTY],
             ['key' => 'other_deduction',    'label' => 'Суутгал',               'group' => 'Суутгал'],
             ['key' => 'total_deduction',    'label' => 'Нийт суутгал',          'group' => 'Суутгал',
@@ -147,22 +170,21 @@ class PayrollSchema
 
             ['key' => 'worked_salary', 'label' => 'Ажилласан өдрөөр цалин', 'group' => 'Тооцоо',
                 'formula' => '{daily_rate} * {worked_days}'],
-            // Excel дээрх томьёо: суутгалыг хасахгүй, нэмнэ (нягтлангийн сонголт)
             ['key' => 'calc_salary',   'label' => 'Тооцсон цалин нийт',     'group' => 'Тооцоо',
-                'formula' => '{worked_salary} + {total_bonus} + {total_deduction}'],
+                'formula' => '{worked_salary} + {total_bonus} - {total_deduction}'],
             ['key' => 'nd_total',      'label' => 'Нийт НД цалин',          'group' => 'Тооцоо',
                 'formula' => '{prev_paid} + {holiday_advance} + {calc_salary}'],
 
-            ['key' => 'ndsh',           'label' => 'НДШ 11.5%', 'group' => 'НДШ / ХХОАТ',
+            ['key' => 'ndsh',           'label' => 'НДШ 11.5%', 'group' => 'НДШ / ХХОАТ', 'overridable' => true,
                 'formula' => 'IF({nd_total} > '.self::NDSH_CAP_BASE.', '.self::NDSH_CAP_AMOUNT.', {nd_total} * 0.115)'],
-            ['key' => 'income_tax',     'label' => 'ХХОАТ 10%', 'group' => 'НДШ / ХХОАТ',
+            ['key' => 'income_tax',     'label' => 'ХХОАТ 10%', 'group' => 'НДШ / ХХОАТ', 'overridable' => true,
                 'formula' => '({nd_total} - {ndsh}) * 0.1 - '.self::TAX_CREDIT],
             ['key' => 'ndsh_tax_total', 'label' => 'НДШ+ХХОАТ',  'group' => 'НДШ / ХХОАТ', 'virtual' => true,
                 'formula' => '{ndsh} + {income_tax}'],
 
-            ['key' => 'net_hand',       'label' => 'Нийт гарт олгох',       'group' => 'Гарт · Банк', 'highlight' => true,
+            ['key' => 'net_hand',       'label' => 'Нийт гарт олгох',       'group' => 'Гарт · Банк', 'highlight' => true, 'overridable' => true, 'decimal' => true,
                 'formula' => '{nd_total} - {ndsh_tax_total}'],
-            ['key' => 'bank_salary',    'label' => 'Банкаар олгох',         'group' => 'Гарт · Банк', 'highlight' => true,
+            ['key' => 'bank_salary',    'label' => 'Банкаар олгох',         'group' => 'Гарт · Банк', 'highlight' => true, 'overridable' => true, 'decimal' => true,
                 'formula' => '{net_hand} - {prev_paid} - {holiday_advance} - {hand_deduction}'],
             ['key' => 'hand_deduction', 'label' => 'Гарт олгохоос суутгах', 'group' => 'Гарт · Банк'],
         ];
@@ -180,6 +202,7 @@ class PayrollSchema
     private const GROUP_ROLES = [
         'Үндсэн' => 'earning',
         'Өдөр' => 'day',
+        'Эхэн цалингаас' => 'reference',
         'Нэмэгдэл' => 'earning',
         'Хоол · Сүү' => 'earning',
         'Нийт нэмэгдэл' => 'total',
@@ -200,12 +223,19 @@ class PayrollSchema
         'prev_paid' => 'deduction',
         'holiday_advance' => 'deduction',
         'hand_deduction' => 'deduction',
+        // Эхэн цалин дээр "Тооцоо" бүлэгт байрладаг ч утгаараа суутгал
+        'ndsh' => 'deduction',
+        // Дараах хоёр нь өөрсдийнхөө бүрэлдэхүүн мөрүүдийн шууд нийлбэр —
+        // задаргаанд давхардуулж харуулахгүй
+        'ndsh_tax_total' => 'reference',
+        'total_deduction' => 'reference',
     ];
 
     /** Бүлгийн өнгө (Tailwind class) — дэлгэцэнд ашиглана. */
     private const GROUP_COLORS = [
         'Үндсэн' => 'slate',
         'Өдөр' => 'violet',
+        'Эхэн цалингаас' => 'sky',
         'Нэмэгдэл' => 'blue',
         'Хоол · Сүү' => 'orange',
         'Нийт нэмэгдэл' => 'cyan',
@@ -219,7 +249,8 @@ class PayrollSchema
      * Тухайн хагасын бүх багана — нэмэлт талбарууд нь бөглөгдсөн байдлаар.
      *
      * @return array<int, array{key:string, label:string, group:string, color:string, role:string,
-     *                          formula:?string, int:bool, virtual:bool, highlight:bool, sum:bool}>
+     *                          formula:?string, int:bool, virtual:bool, highlight:bool, sum:bool,
+     *                          linked:bool, overridable:bool, default:float}>
      */
     public static function columns(string $half): array
     {
@@ -230,11 +261,23 @@ class PayrollSchema
             'label' => $c['label'],
             'group' => $c['group'],
             'color' => self::GROUP_COLORS[$c['group']] ?? 'slate',
-            'role' => self::ROLE_OVERRIDES[$c['key']] ?? self::GROUP_ROLES[$c['group']] ?? 'earning',
+            'role' => $c['role'] ?? self::ROLE_OVERRIDES[$c['key']] ?? self::GROUP_ROLES[$c['group']] ?? 'earning',
             'formula' => $c['formula'] ?? null,
             'int' => $c['int'] ?? false,
+            // Бутархайг харуулах эсэх.  Утга нь дотроо үргэлж бүрэн нарийвчлалтай
+            // хадгалагдана — энэ нь зөвхөн ХАРУУЛАХ хэлбэрийг заана.
+            'decimal' => $c['decimal'] ?? false,
             'virtual' => $c['virtual'] ?? false,
             'highlight' => $c['highlight'] ?? false,
+            // Эхэн цалингийн аль баганаас татагдахыг заана (гараар оруулахгүй)
+            'linked' => $c['linked'] ?? null,
+            // Ажилтны задаргаанд дүнгийн хажууд харуулах тоо ширхэг
+            // (Хоцролт 27,500₮ → "Хоцролт (55 минут)")
+            'counter' => $c['counter'] ?? null,
+            // Томьёотой ч гараар дарж бичиж болох эсэх
+            'overridable' => $c['overridable'] ?? false,
+            // Шинэ тооцоо үүсгэхэд бөглөгдөх утга
+            'default' => $c['default'] ?? 0,
             // Ажлын өдрийн тоог ажилтан хооронд нэмэх утгагүй тул нийлбэрээс хасна
             'sum' => $c['sum'] ?? true,
         ], $raw);
@@ -267,6 +310,24 @@ class PayrollSchema
         ));
     }
 
+    /**
+     * Эхэн цалингаас татагддаг баганууд.
+     *
+     * @return array<string, string> энэ хагасын багана → эхэн цалингийн эх багана
+     */
+    public static function linkedSources(string $half): array
+    {
+        $out = [];
+
+        foreach (self::columns($half) as $col) {
+            if ($col['linked'] !== null) {
+                $out[$col['key']] = $col['linked'];
+            }
+        }
+
+        return $out;
+    }
+
     /** DB-д хадгалагдах баганы нэрс (virtual-ыг оруулахгүй). */
     public static function storedKeys(string $half): array
     {
@@ -282,10 +343,14 @@ class PayrollSchema
      * Томьёо нь өөрөөсөө өмнөх багана эсвэл дурын гар оролтыг л ашиглана
      * (bank_salary → hand_deduction гэх мэт "хойшоо" заалт нь гар оролт тул асуудалгүй).
      *
+     * $overrides дотор нэр нь байгаа багана томьёогоор бодогдохгүй —
+     * нягтлангийн гараар бичсэн дүн хэвээр үлдэнэ.
+     *
      * @param  array<string, mixed>  $row
+     * @param  array<int, string>  $overrides
      * @return array<string, float>
      */
-    public static function compute(array $row, string $half): array
+    public static function compute(array $row, string $half, array $overrides = []): array
     {
         $values = [];
 
@@ -294,8 +359,15 @@ class PayrollSchema
             $values[$col['key']] = (float) ($row[$col['key']] ?? 0);
         }
 
+        $overridable = self::overridableKeys($half);
+
         foreach (self::columns($half) as $col) {
             if ($col['formula'] === null) {
+                continue;
+            }
+
+            // Гараар дарж бичсэн бол томьёог алгасана
+            if (in_array($col['key'], $overrides, true) && in_array($col['key'], $overridable, true)) {
                 continue;
             }
 
@@ -303,6 +375,33 @@ class PayrollSchema
         }
 
         return $values;
+    }
+
+    /** Гараар дарж бичиж болох баганы нэрс. */
+    public static function overridableKeys(string $half): array
+    {
+        return array_values(array_map(
+            fn ($c) => $c['key'],
+            array_filter(self::columns($half), fn ($c) => $c['overridable'])
+        ));
+    }
+
+    /**
+     * Шинэ тооцоо үүсгэхэд бөглөгдөх өгөгдмөл утгууд.
+     *
+     * @return array<string, float>
+     */
+    public static function defaults(string $half): array
+    {
+        $out = [];
+
+        foreach (self::columns($half) as $col) {
+            if ($col['default'] != 0) {
+                $out[$col['key']] = (float) $col['default'];
+            }
+        }
+
+        return $out;
     }
 
     /**

@@ -37,23 +37,43 @@ interface Props {
     schemas: Record<'first' | 'second', PayrollColumn[]>;
 }
 
-function fmt(n: number) {
+/**
+ * Админы хүснэгттэй ижил дүрэм: ажилласан өдөр, гарт олгох, банкаар олгох
+ * гурав л бутархайгаар — 2 орон хүртэл — харагдана.
+ */
+function fmt(n: number, decimal = false) {
     if (!n) return '—';
-    return Math.round(n).toLocaleString('en-US') + '₮';
+    const text = decimal ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : Math.round(n).toLocaleString('en-US');
+    return text + '₮';
 }
 
 function num(entry: PayrollEntry, key: string): number {
     return Number(entry[key]) || 0;
 }
 
+/**
+ * Баганын нэр.  Тоо ширхэгтэй бол дүнгийнх нь хажууд хаанаас гарсныг харуулна
+ * — ажилтан суутгалаа өөрөө шалгах боломжтой (Хоцролт (55 минут)).
+ */
+function labelFor(entry: PayrollEntry, col: PayrollColumn): string {
+    if (!col.counter) return col.label;
+
+    const count = num(entry, col.counter.key);
+
+    return count ? `${col.label} (${count} ${col.counter.unit})` : col.label;
+}
+
 /** Тухайн үүрэгтэй, тэгээс ялгаатай утгатай баганууд. */
-function rowsByRole(entry: PayrollEntry, columns: PayrollColumn[], roles: string[]): Array<[string, number]> {
-    return columns.filter((c) => roles.includes(c.role) && num(entry, c.key) !== 0).map((c) => [c.label, num(entry, c.key)] as [string, number]);
+function rowsByRole(entry: PayrollEntry, columns: PayrollColumn[], roles: string[]): Array<[string, number, boolean]> {
+    return columns
+        .filter((c) => roles.includes(c.role) && num(entry, c.key) !== 0)
+        .map((c) => [labelFor(entry, c), num(entry, c.key), c.decimal] as [string, number, boolean]);
 }
 
 const GROUP_TEXT: Record<string, string> = {
     slate: 'text-slate-500',
     violet: 'text-violet-500',
+    sky: 'text-sky-500',
     blue: 'text-blue-500',
     orange: 'text-orange-500',
     cyan: 'text-cyan-500',
@@ -64,12 +84,12 @@ const GROUP_TEXT: Record<string, string> = {
 };
 
 /* ── Desktop row helper ─────────────────────────── */
-function Row({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function Row({ label, value, highlight, decimal }: { label: string; value: number; highlight?: boolean; decimal?: boolean }) {
     if (!value) return null;
     return (
         <div className={`border-border/30 flex items-center justify-between border-b py-1.5 last:border-0`}>
             <span className={`text-xs ${highlight ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>{label}</span>
-            <span className={`text-xs tabular-nums ${highlight ? 'text-foreground font-bold' : 'text-foreground'}`}>{fmt(value)}</span>
+            <span className={`text-xs tabular-nums ${highlight ? 'text-foreground font-bold' : 'text-foreground'}`}>{fmt(value, decimal)}</span>
         </div>
     );
 }
@@ -131,8 +151,29 @@ function MobileSlipCard({ entry, columns }: { entry: PayrollEntry; columns: Payr
                 </div>
                 {/* Labels */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--my-input-text)', margin: 0 }}>{entry.month}-р сарын цалин</p>
-                    <p style={{ fontSize: 11, color: 'var(--my-faint)', margin: '3px 0 0' }}>
+                    <p
+                        style={{
+                            fontSize: 14,
+                            fontWeight: 800,
+                            color: 'var(--my-input-text)',
+                            margin: 0,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}
+                    >
+                        {entry.month}-р сарын цалин
+                    </p>
+                    <p
+                        style={{
+                            fontSize: 11,
+                            color: 'var(--my-faint)',
+                            margin: '3px 0 0',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}
+                    >
                         {entry.half_label}
                         {workingDays > 0 && (
                             <span style={{ marginLeft: 6, color: 'var(--my-faint)' }}>
@@ -144,7 +185,18 @@ function MobileSlipCard({ entry, columns }: { entry: PayrollEntry; columns: Payr
                 {/* Amount + chevron */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontSize: 16, fontWeight: 900, color: GRN, margin: 0, letterSpacing: -0.3 }}>{fmt(num(entry, 'net_hand'))}</p>
+                        <p
+                            style={{
+                                fontSize: 'clamp(13px, 4vw, 16px)',
+                                fontWeight: 900,
+                                color: GRN,
+                                margin: 0,
+                                letterSpacing: -0.3,
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {fmt(num(entry, 'net_hand'), true)}
+                        </p>
                         <p style={{ fontSize: 9, color: 'var(--my-faint)', margin: '2px 0 0', fontWeight: 600 }}>ГАРТ ОЛГОХ</p>
                     </div>
                     <div
@@ -176,22 +228,51 @@ function MobileSlipCard({ entry, columns }: { entry: PayrollEntry; columns: Payr
                             padding: '16px 18px',
                         }}
                     >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: workingDays > 0 ? 14 : 0 }}>
-                            <div>
-                                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', margin: '0 0 3px', fontWeight: 700, letterSpacing: 0.6 }}>
-                                    ГАРТ ОЛГОХ
-                                </p>
-                                <p style={{ fontSize: 26, fontWeight: 900, color: 'white', margin: 0, letterSpacing: -0.5 }}>
-                                    {fmt(num(entry, 'net_hand'))}
-                                </p>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', margin: '0 0 3px', fontWeight: 700, letterSpacing: 0.6 }}>
+                        {/* Бутархайтай дүн урт болдог тул хажуу хажуугаас нь биш,
+                            дээр доор нь байрлуулна — нарийн дэлгэц дээр ч шахагдахгүй */}
+                        <div style={{ marginBottom: workingDays > 0 ? 14 : 0 }}>
+                            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', margin: '0 0 2px', fontWeight: 700, letterSpacing: 0.6 }}>
+                                ГАРТ ОЛГОХ
+                            </p>
+                            <p
+                                style={{
+                                    fontSize: 'clamp(20px, 7.5vw, 28px)',
+                                    fontWeight: 900,
+                                    color: 'white',
+                                    margin: 0,
+                                    letterSpacing: -0.5,
+                                    lineHeight: 1.15,
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {fmt(num(entry, 'net_hand'), true)}
+                            </p>
+
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'baseline',
+                                    justifyContent: 'space-between',
+                                    gap: 10,
+                                    marginTop: 10,
+                                    paddingTop: 10,
+                                    borderTop: '1px solid rgba(255,255,255,0.15)',
+                                }}
+                            >
+                                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: 700, letterSpacing: 0.6, flexShrink: 0 }}>
                                     БАНКААР
-                                </p>
-                                <p style={{ fontSize: 26, fontWeight: 900, color: 'white', margin: 0, letterSpacing: -0.5 }}>
-                                    {fmt(num(entry, 'bank_salary'))}
-                                </p>
+                                </span>
+                                <span
+                                    style={{
+                                        fontSize: 'clamp(15px, 5vw, 19px)',
+                                        fontWeight: 800,
+                                        color: 'white',
+                                        letterSpacing: -0.3,
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {fmt(num(entry, 'bank_salary'), true)}
+                                </span>
                             </div>
                         </div>
                         {workingDays > 0 && (
@@ -236,7 +317,7 @@ function MobileSlipCard({ entry, columns }: { entry: PayrollEntry; columns: Payr
                                 </div>
                                 <p style={{ fontSize: 10, fontWeight: 800, color: '#3b82f6', margin: 0, letterSpacing: 0.8 }}>ОРЛОГО</p>
                             </div>
-                            {earningsRows.map(([label, value], i) => (
+                            {earningsRows.map(([label, value, dec], i) => (
                                 <div
                                     key={label}
                                     style={{
@@ -247,11 +328,18 @@ function MobileSlipCard({ entry, columns }: { entry: PayrollEntry; columns: Payr
                                         borderBottom: i < earningsRows.length - 1 ? '1px solid var(--my-divider)' : 'none',
                                     }}
                                 >
-                                    <span style={{ fontSize: 12, color: 'var(--my-muted)' }}>{label}</span>
+                                    <span style={{ fontSize: 12, color: 'var(--my-muted)', paddingRight: 10, lineHeight: 1.35 }}>{label}</span>
                                     <span
-                                        style={{ fontSize: 13, fontWeight: 700, color: 'var(--my-input-text)', fontVariantNumeric: 'tabular-nums' }}
+                                        style={{
+                                            fontSize: 13,
+                                            fontWeight: 700,
+                                            color: 'var(--my-input-text)',
+                                            fontVariantNumeric: 'tabular-nums',
+                                            whiteSpace: 'nowrap',
+                                            flexShrink: 0,
+                                        }}
                                     >
-                                        {fmt(value)}
+                                        {fmt(value, dec)}
                                     </span>
                                 </div>
                             ))}
@@ -277,7 +365,7 @@ function MobileSlipCard({ entry, columns }: { entry: PayrollEntry; columns: Payr
                                 </div>
                                 <p style={{ fontSize: 10, fontWeight: 800, color: RED, margin: 0, letterSpacing: 0.8 }}>СУУТГАЛ</p>
                             </div>
-                            {deductionRows.map(([label, value], i) => (
+                            {deductionRows.map(([label, value, dec], i) => (
                                 <div
                                     key={label}
                                     style={{
@@ -288,9 +376,18 @@ function MobileSlipCard({ entry, columns }: { entry: PayrollEntry; columns: Payr
                                         borderBottom: i < deductionRows.length - 1 ? '1px solid #fecaca' : 'none',
                                     }}
                                 >
-                                    <span style={{ fontSize: 12, color: 'var(--my-muted)' }}>{label}</span>
-                                    <span style={{ fontSize: 13, fontWeight: 700, color: RED, fontVariantNumeric: 'tabular-nums' }}>
-                                        {fmt(value)}
+                                    <span style={{ fontSize: 12, color: 'var(--my-muted)', paddingRight: 10, lineHeight: 1.35 }}>{label}</span>
+                                    <span
+                                        style={{
+                                            fontSize: 13,
+                                            fontWeight: 700,
+                                            color: RED,
+                                            fontVariantNumeric: 'tabular-nums',
+                                            whiteSpace: 'nowrap',
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {fmt(value, dec)}
                                     </span>
                                 </div>
                             ))}
@@ -342,11 +439,11 @@ function SlipCard({ entry, employee, columns }: { entry: PayrollEntry; employee:
                 <div className="flex items-center gap-6">
                     <div className="text-right">
                         <p className="text-muted-foreground text-xs">Гарт олгох</p>
-                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmt(num(entry, 'net_hand'))}</p>
+                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmt(num(entry, 'net_hand'), true)}</p>
                     </div>
                     <div className="text-right">
                         <p className="text-muted-foreground text-xs">Банкаар</p>
-                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmt(num(entry, 'bank_salary'))}</p>
+                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmt(num(entry, 'bank_salary'), true)}</p>
                     </div>
                     {open ? <ChevronUp className="text-muted-foreground size-4" /> : <ChevronDown className="text-muted-foreground size-4" />}
                 </div>
@@ -395,7 +492,13 @@ function SlipCard({ entry, employee, columns }: { entry: PayrollEntry; employee:
                                     </>
                                 ) : (
                                     section.columns.map((col) => (
-                                        <Row key={col.key} label={col.label} value={num(entry, col.key)} highlight={col.role === 'total'} />
+                                        <Row
+                                            key={col.key}
+                                            label={labelFor(entry, col)}
+                                            value={num(entry, col.key)}
+                                            highlight={col.role === 'total'}
+                                            decimal={col.decimal}
+                                        />
                                     ))
                                 )}
                             </div>
@@ -404,11 +507,13 @@ function SlipCard({ entry, employee, columns }: { entry: PayrollEntry; employee:
                             <p className="mb-2 text-[10px] font-bold tracking-wider text-emerald-600 uppercase">Олгох</p>
                             <div className="flex justify-between border-b border-emerald-200/50 py-2 text-xs">
                                 <span className="text-foreground font-semibold">Гарт олгох</span>
-                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{fmt(num(entry, 'net_hand'))}</span>
+                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{fmt(num(entry, 'net_hand'), true)}</span>
                             </div>
                             <div className="flex justify-between py-2 text-xs">
                                 <span className="text-foreground font-semibold">Банкаар олгох</span>
-                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{fmt(num(entry, 'bank_salary'))}</span>
+                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                                    {fmt(num(entry, 'bank_salary'), true)}
+                                </span>
                             </div>
                             {employee.bank_account && (
                                 <p className="text-muted-foreground mt-1 text-[10px]">
@@ -557,20 +662,36 @@ export default function MyPayroll({ employee, entries, schemas }: Props) {
                             }}
                         >
                             <div
-                                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: latest ? 12 : 0 }}
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    gap: 12,
+                                    marginBottom: latest ? 12 : 0,
+                                }}
                             >
-                                <div>
+                                <div style={{ minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
                                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80' }} />
                                         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700, letterSpacing: 0.6 }}>
                                             СҮҮЛИЙН ЦАЛИН
                                         </span>
                                     </div>
-                                    <p style={{ fontSize: 30, fontWeight: 900, color: 'white', margin: 0, letterSpacing: -0.8, lineHeight: 1 }}>
-                                        {latest ? fmt(num(latest, 'net_hand')) : '—'}
+                                    <p
+                                        style={{
+                                            fontSize: 'clamp(21px, 7vw, 30px)',
+                                            fontWeight: 900,
+                                            color: 'white',
+                                            margin: 0,
+                                            letterSpacing: -0.8,
+                                            lineHeight: 1,
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
+                                        {latest ? fmt(num(latest, 'net_hand'), true) : '—'}
                                     </p>
                                 </div>
-                                <div style={{ textAlign: 'right' }}>
+                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                     <p
                                         style={{
                                             fontSize: 10,
@@ -578,6 +699,7 @@ export default function MyPayroll({ employee, entries, schemas }: Props) {
                                             margin: '0 0 6px',
                                             letterSpacing: 0.5,
                                             fontWeight: 600,
+                                            whiteSpace: 'nowrap',
                                         }}
                                     >
                                         НИЙТ ТООЦОО

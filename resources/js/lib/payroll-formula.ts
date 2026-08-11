@@ -15,6 +15,16 @@ export interface PayrollColumn {
     /** Задаргаанд ямар үүрэгтэй харагдах: earning | deduction | day | rate | total | payout */
     role: 'earning' | 'deduction' | 'day' | 'rate' | 'total' | 'payout';
     formula: string | null;
+    /** Эхэн цалингийн аль баганаас татагдахыг заана; татагддаггүй бол null */
+    linked: string | null;
+    /** Задаргаанд дүнгийн хажууд харуулах тоо ширхэг (Хоцролт → 55 минут) */
+    counter: { key: string; unit: string } | null;
+    /** Томьёотой ч гараар дарж бичиж болно */
+    overridable: boolean;
+    /** Шинэ тооцоо үүсгэхэд бөглөгдөх утга */
+    default: number;
+    /** Бутархайг харуулах эсэх — утга нь дотроо үргэлж нарийвчлалаа хадгална */
+    decimal: boolean;
     int: boolean;
     virtual: boolean;
     highlight: boolean;
@@ -296,8 +306,11 @@ export function evaluateFormula(expr: string, values: Record<string, number>): n
 /**
  * Мөрийн бүх томьёог schema-ийн дарааллаар бодож, шинэ мөр буцаана.
  * PayrollSchema::compute()-тэй ижил логик.
+ *
+ * `overrides` дотор нэр нь байгаа багана томьёогоор бодогдохгүй — нягтлангийн
+ * гараар бичсэн дүн хэвээр үлдэж, доод талын томьёонууд түүнийг дагана.
  */
-export function computeRow<T extends Record<string, unknown>>(row: T, columns: PayrollColumn[]): T {
+export function computeRow<T extends Record<string, unknown>>(row: T, columns: PayrollColumn[], overrides: string[] = []): T {
     const values: Record<string, number> = {};
 
     for (const col of columns) {
@@ -306,6 +319,7 @@ export function computeRow<T extends Record<string, unknown>>(row: T, columns: P
 
     for (const col of columns) {
         if (!col.formula) continue;
+        if (col.overridable && overrides.includes(col.key)) continue;
         values[col.key] = evaluateFormula(col.formula, values);
     }
 

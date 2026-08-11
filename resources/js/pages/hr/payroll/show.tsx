@@ -3,8 +3,8 @@ import AppLayout from '@/layouts/app-layout';
 import { computeRow, describeFormula, type PayrollColumn, type PayrollGroup } from '@/lib/payroll-formula';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
-import { CheckCircle2, ChevronDown, ChevronUp, FileSpreadsheet, Lock, Save, Send, Unlock, Upload, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, ChevronDown, ChevronUp, FileSpreadsheet, Lock, RotateCcw, Save, Send, Unlock, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface PayrollRun {
     id: number;
@@ -26,7 +26,13 @@ interface EntryRow extends Record<string, unknown> {
     register_number: string | null;
     position: string | null;
     bank_account: string | null;
+    /** Гараар дарж бичигдсэн томьёотой баганы нэрс */
+    overrides: string[];
     is_sent: boolean;
+}
+
+function overridesOf(e: EntryRow): string[] {
+    return Array.isArray(e.overrides) ? e.overrides : [];
 }
 
 interface Props {
@@ -34,12 +40,18 @@ interface Props {
     entries: EntryRow[];
     columns: PayrollColumn[];
     groups: PayrollGroup[];
+    /** Мөн сарын эхэн цалингийн тооцоо олдож, урьдчилгаа автоматаар татагдаж байгаа эсэх */
+    advanceLinked: boolean;
 }
+
+const LINKED_HINT = 'Эхэн цалингийн "Банкаар олгох" дүнгээс автоматаар татагдана';
+const OVERRIDE_HINT = '\n\nШаардлагатай бол гараар дарж бичиж болно (бутархай зөвшөөрнө).';
 
 /** Бүлгийн өнгө — Tailwind class-ыг динамикаар угсарч болохгүй тул бүтнээр нь бичив. */
 const GROUP_STYLES: Record<string, string> = {
     slate: 'text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30',
     violet: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20',
+    sky: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20',
     blue: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
     orange: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',
     cyan: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20',
@@ -49,9 +61,21 @@ const GROUP_STYLES: Record<string, string> = {
     emerald: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
 };
 
-function fmt(n: number) {
+/**
+ * Хүснэгтэд харуулах хэлбэр.  Ажилласан өдөр, Гарт олгох, Банкаар олгох гурав
+ * бутархайгаар — бутархайн 2 орон хүртэл — харагдана.  Бусад багана бүхэлчилж
+ * харагдана ч утга нь дотроо нарийвчлалаа хадгална (тооцоо, Excel хоёрт бүтэн
+ * дүн орно).
+ */
+function fmt(n: number, decimal = false) {
     if (!n) return '';
-    return Math.round(n).toLocaleString('en-US');
+    return decimal ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : Math.round(n).toLocaleString('en-US');
+}
+
+/** Оролтын нүдэнд харуулах текст — бодогдсон утгыг баганынхаа дүрмээр таслана. */
+function inputText(value: number, decimal?: boolean) {
+    if (value === 0) return '';
+    return String(decimal ? Math.round(value * 100) / 100 : Math.round(value));
 }
 
 function num(row: EntryRow, key: string): number {
@@ -74,26 +98,30 @@ function InputCell({
     onChange,
     disabled,
     int,
+    decimal,
     className,
 }: {
     value: number;
     onChange: (v: number) => void;
     disabled?: boolean;
     int?: boolean;
+    decimal?: boolean;
     className?: string;
 }) {
-    const [str, setStr] = useState(() => (value === 0 ? '' : String(value)));
+    // Гаднаас ирсэн (бодогдсон) утгыг баганынхаа дүрмээр харуулна.
+    // Нягтлангийн өөрийнх нь бичсэн зүйлийг хэзээ ч таслахгүй.
+    const [str, setStr] = useState(() => inputText(value, decimal));
     const emitted = useRef(value);
 
     useEffect(() => {
         if (value !== emitted.current) {
             emitted.current = value;
-            setStr(value === 0 ? '' : String(value));
+            setStr(inputText(value, decimal));
         }
-    }, [value]);
+    }, [value, decimal]);
 
     if (disabled) {
-        return <div className={`text-muted-foreground px-2 py-2 text-right text-xs tabular-nums ${className ?? ''}`}>{fmt(value)}</div>;
+        return <div className={`text-muted-foreground px-2 py-2 text-right text-xs tabular-nums ${className ?? ''}`}>{fmt(value, decimal)}</div>;
     }
 
     const emit = (raw: string) => {
@@ -122,14 +150,14 @@ function InputCell({
 }
 
 /** Томьёогоор бодогдсон нүд — засах боломжгүй. */
-function ComputedCell({ value, highlight }: { value: number; highlight?: boolean }) {
+function ComputedCell({ value, highlight, decimal }: { value: number; highlight?: boolean; decimal?: boolean }) {
     return (
         <div
             className={`px-2 py-2 text-right text-xs tabular-nums ${
                 highlight ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'text-foreground/70'
             }`}
         >
-            {fmt(value)}
+            {fmt(value, decimal)}
         </div>
     );
 }
@@ -140,24 +168,28 @@ function MobileField({
     onChange,
     disabled,
     hint,
+    auto,
+    overridden,
 }: {
     column: PayrollColumn;
     value: number;
     onChange: (v: number) => void;
     disabled: boolean;
     hint: string;
+    auto: boolean;
+    overridden?: boolean;
 }) {
-    const [str, setStr] = useState(() => (value === 0 ? '' : String(value)));
+    const [str, setStr] = useState(() => inputText(value, column.decimal));
     const emitted = useRef(value);
 
     useEffect(() => {
         if (value !== emitted.current) {
             emitted.current = value;
-            setStr(value === 0 ? '' : String(value));
+            setStr(inputText(value, column.decimal));
         }
-    }, [value]);
+    }, [value, column.decimal]);
 
-    if (column.formula) {
+    if (auto) {
         return (
             <span
                 title={hint}
@@ -165,12 +197,12 @@ function MobileField({
                     column.highlight ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-zinc-400'
                 }`}
             >
-                {fmt(value) || '—'}
+                {fmt(value, column.decimal) || '—'}
             </span>
         );
     }
 
-    if (disabled) return <span className="text-sm text-gray-700 tabular-nums dark:text-gray-300">{fmt(value) || '—'}</span>;
+    if (disabled) return <span className="text-sm text-gray-700 tabular-nums dark:text-gray-300">{fmt(value, column.decimal) || '—'}</span>;
 
     return (
         <input
@@ -189,7 +221,11 @@ function MobileField({
                 setStr(isNaN(n) || n === 0 ? '' : String(n));
             }}
             placeholder="0"
-            className="w-28 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-right text-sm text-gray-900 tabular-nums outline-none focus:ring-2 focus:ring-blue-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-100"
+            className={`w-28 rounded-xl border px-3 py-1.5 text-right text-sm tabular-nums outline-none focus:ring-2 focus:ring-blue-400 ${
+                overridden
+                    ? 'border-amber-300 bg-amber-50 font-bold text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
+                    : 'border-gray-200 bg-gray-50 text-gray-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-100'
+            }`}
         />
     );
 }
@@ -200,14 +236,18 @@ function MobileEntryCard({
     isFinal,
     runId,
     columns,
+    isAuto,
     onSetField,
+    onResetField,
 }: {
     entry: EntryRow;
     idx: number;
     isFinal: boolean;
     runId: number;
     columns: PayrollColumn[];
+    isAuto: (col: PayrollColumn) => boolean;
     onSetField: (idx: number, field: string, v: number) => void;
+    onResetField: (idx: number, field: string) => void;
 }) {
     const [open, setOpen] = useState(false);
 
@@ -260,26 +300,49 @@ function MobileEntryCard({
                             >
                                 {group.label}
                             </div>
-                            {group.columns.map((col, fi) => (
-                                <div
-                                    key={col.key}
-                                    className={`flex items-center justify-between gap-3 px-4 py-2.5 ${
-                                        fi % 2 === 0 ? 'bg-white dark:bg-zinc-900' : 'bg-gray-50/50 dark:bg-zinc-800/50'
-                                    }`}
-                                >
-                                    <span className="text-xs text-gray-600 dark:text-zinc-400">
-                                        {col.formula && <span className="mr-1 text-[10px] text-gray-400">ƒ</span>}
-                                        {col.label}
-                                    </span>
-                                    <MobileField
-                                        column={col}
-                                        value={num(entry, col.key)}
-                                        disabled={isFinal}
-                                        hint={col.formula ? describeFormula(col.formula, columns) : ''}
-                                        onChange={(v) => onSetField(idx, col.key, v)}
-                                    />
-                                </div>
-                            ))}
+                            {group.columns.map((col, fi) => {
+                                const overridden = col.overridable && overridesOf(entry).includes(col.key);
+
+                                return (
+                                    <div
+                                        key={col.key}
+                                        className={`flex items-center justify-between gap-3 px-4 py-2.5 ${
+                                            overridden
+                                                ? 'bg-amber-50/70 dark:bg-amber-950/20'
+                                                : fi % 2 === 0
+                                                  ? 'bg-white dark:bg-zinc-900'
+                                                  : 'bg-gray-50/50 dark:bg-zinc-800/50'
+                                        }`}
+                                    >
+                                        <span className="flex items-center text-xs text-gray-600 dark:text-zinc-400">
+                                            {col.formula ? (
+                                                <span className="mr-1 text-[10px] text-gray-400">ƒ</span>
+                                            ) : (
+                                                isAuto(col) && <span className="mr-1 text-[10px] text-gray-400">⇠</span>
+                                            )}
+                                            {col.label}
+                                            {overridden && !isFinal && (
+                                                <button
+                                                    onClick={() => onResetField(idx, col.key)}
+                                                    title="Томьёо руу буцаах"
+                                                    className="ml-1.5 rounded p-0.5 text-amber-600 active:bg-amber-100 dark:active:bg-amber-900/40"
+                                                >
+                                                    <RotateCcw className="size-3" />
+                                                </button>
+                                            )}
+                                        </span>
+                                        <MobileField
+                                            column={col}
+                                            value={num(entry, col.key)}
+                                            disabled={isFinal}
+                                            auto={isAuto(col) && !col.overridable}
+                                            overridden={overridden}
+                                            hint={col.formula ? describeFormula(col.formula, columns) : LINKED_HINT}
+                                            onChange={(v) => onSetField(idx, col.key, v)}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
                     ))}
 
@@ -297,8 +360,8 @@ function MobileEntryCard({
     );
 }
 
-export default function PayrollShow({ run, entries: initial, columns, groups }: Props) {
-    const [entries, setEntries] = useState<EntryRow[]>(() => initial.map((e) => computeRow(e, columns)));
+export default function PayrollShow({ run, entries: initial, columns, groups, advanceLinked }: Props) {
+    const [entries, setEntries] = useState<EntryRow[]>(() => initial.map((e) => computeRow(e, columns, overridesOf(e))));
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
@@ -309,7 +372,7 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
     const importForm = useForm<{ file: File | null }>({ file: null });
 
     useEffect(() => {
-        setEntries(initial.map((e) => computeRow(e, columns)));
+        setEntries(initial.map((e) => computeRow(e, columns, overridesOf(e))));
     }, [initial, columns]);
 
     useEffect(() => {
@@ -331,7 +394,12 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
 
     const isFinal = run.status === 'final';
     const sentCount = entries.filter((e) => e.is_sent).length;
-    const inputCount = columns.filter((c) => !c.formula).length;
+
+    /** Тухайн багана өөрөө бөглөгддөг үү (томьёо, эсвэл эхэн цалингаас татагдсан)? */
+    const isAuto = useCallback((col: PayrollColumn) => !!col.formula || (!!col.linked && advanceLinked), [advanceLinked]);
+
+    const autoCount = columns.filter(isAuto).length;
+    const inputCount = columns.length - autoCount;
 
     function submitImport(e: React.FormEvent) {
         e.preventDefault();
@@ -351,22 +419,52 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
         { title: run.title, href: `/hr/payroll/${run.id}` },
     ];
 
-    /** Гар оролт өөрчлөгдөхөд тухайн мөрийн бүх томьёог шууд дахин бодно. */
+    /**
+     * Гар оролт өөрчлөгдөхөд тухайн мөрийн бүх томьёог шууд дахин бодно.
+     *
+     * Томьёотой боловч засаж болох багана (Гарт олгох / Банкаар олгох) дээр
+     * бичвэл тухайн нүд "гараар зассан" болж тэмдэглэгдэнэ.
+     */
     function setField(idx: number, field: string, value: number) {
         setSaved(false);
-        setEntries((prev) => prev.map((e, i) => (i === idx ? computeRow({ ...e, [field]: value }, columns) : e)));
+        setEntries((prev) =>
+            prev.map((e, i) => {
+                if (i !== idx) return e;
+
+                const col = columns.find((c) => c.key === field);
+                let overrides = overridesOf(e);
+
+                if (col?.formula && col.overridable && !overrides.includes(field)) {
+                    overrides = [...overrides, field];
+                }
+
+                return computeRow({ ...e, [field]: value, overrides }, columns, overrides);
+            }),
+        );
+    }
+
+    /** Гараар зассан нүдийг томьёо руу нь буцаана. */
+    function resetField(idx: number, field: string) {
+        setSaved(false);
+        setEntries((prev) =>
+            prev.map((e, i) => {
+                if (i !== idx) return e;
+                const overrides = overridesOf(e).filter((k) => k !== field);
+                return computeRow({ ...e, overrides }, columns, overrides);
+            }),
+        );
     }
 
     /**
-     * Сервер рүү зөвхөн гар оролтыг илгээнэ — томьёотой баганыг PayrollSchema
-     * дахин бодох тул хөтчийн бодолт эрх мэдэлгүй.
+     * Сервер рүү гар оролт болон гараар зассан дүнг илгээнэ — үлдсэн томьёог
+     * PayrollSchema дахин бодох тул хөтчийн бодолт эрх мэдэлгүй.
      */
-    function payload(): Array<Record<string, number>> {
-        const inputKeys = columns.filter((c) => !c.formula).map((c) => c.key);
+    function payload(): Array<Record<string, number | string[]>> {
+        const keys = columns.filter((c) => !c.formula || c.overridable).map((c) => c.key);
 
         return entries.map((e) => {
-            const row: Record<string, number> = { id: e.id };
-            for (const key of inputKeys) row[key] = num(e, key);
+            const row: Record<string, number | string[]> = { id: e.id, overrides: overridesOf(e) };
+            for (const key of keys) row[key] = num(e, key);
             return row;
         });
     }
@@ -501,7 +599,17 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
                 <div className="space-y-3 px-4 pt-4 pb-10">
                     <p className="px-1 text-[11px] font-bold tracking-wider text-gray-500 uppercase dark:text-zinc-400">{entries.length} ажилтан</p>
                     {entries.map((e, idx) => (
-                        <MobileEntryCard key={e.id} entry={e} idx={idx} isFinal={isFinal} runId={run.id} columns={columns} onSetField={setField} />
+                        <MobileEntryCard
+                            key={e.id}
+                            entry={e}
+                            idx={idx}
+                            isFinal={isFinal}
+                            runId={run.id}
+                            columns={columns}
+                            isAuto={isAuto}
+                            onSetField={setField}
+                            onResetField={resetField}
+                        />
                     ))}
                     {!isFinal && (
                         <button
@@ -530,7 +638,7 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
                             <StatusBadge />
                         </div>
                         <p className="text-muted-foreground mt-0.5 text-xs">
-                            {entries.length} ажилтан · {inputCount} гар оролт · {columns.length - inputCount} томьёо
+                            {entries.length} ажилтан · {inputCount} гар оролт · {autoCount} автомат
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -619,12 +727,22 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
                                     {columns.map((c) => (
                                         <th
                                             key={c.key}
-                                            title={c.formula ? describeFormula(c.formula, columns) : 'Гараар оруулна'}
+                                            title={
+                                                c.formula
+                                                    ? describeFormula(c.formula, columns) + (c.overridable ? OVERRIDE_HINT : '')
+                                                    : isAuto(c)
+                                                      ? LINKED_HINT
+                                                      : 'Гараар оруулна'
+                                            }
                                             className={`border-r px-2 py-2 text-right whitespace-nowrap ${
-                                                c.highlight ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : c.formula ? 'bg-muted/40' : ''
+                                                c.highlight ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : isAuto(c) ? 'bg-muted/40' : ''
                                             }`}
                                         >
-                                            {c.formula && <span className="mr-0.5 text-[9px] font-normal opacity-60">ƒ</span>}
+                                            {c.formula ? (
+                                                <span className="mr-0.5 text-[9px] font-normal opacity-60">ƒ</span>
+                                            ) : (
+                                                isAuto(c) && <span className="mr-0.5 text-[9px] font-normal opacity-60">⇠</span>
+                                            )}
                                             {c.label}
                                         </th>
                                     ))}
@@ -659,25 +777,54 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
                                             </div>
                                             <p className="text-muted-foreground text-[10px]">{e.position ?? e.employee_number}</p>
                                         </td>
-                                        {columns.map((c) => (
-                                            <td
-                                                key={c.key}
-                                                className={`border-r ${
-                                                    c.highlight ? 'bg-emerald-50/20 dark:bg-emerald-950/5' : c.formula ? 'bg-muted/20' : ''
-                                                }`}
-                                            >
-                                                {c.formula ? (
-                                                    <ComputedCell value={num(e, c.key)} highlight={c.highlight} />
-                                                ) : (
-                                                    <InputCell
-                                                        value={num(e, c.key)}
-                                                        int={c.int}
-                                                        disabled={isFinal}
-                                                        onChange={(v) => setField(idx, c.key, v)}
-                                                    />
-                                                )}
-                                            </td>
-                                        ))}
+                                        {columns.map((c) => {
+                                            const overridden = c.overridable && overridesOf(e).includes(c.key);
+                                            const editable = !isFinal && (!isAuto(c) || c.overridable);
+
+                                            return (
+                                                <td
+                                                    key={c.key}
+                                                    className={`border-r ${
+                                                        overridden
+                                                            ? 'bg-amber-50/60 dark:bg-amber-950/20'
+                                                            : c.highlight
+                                                              ? 'bg-emerald-50/20 dark:bg-emerald-950/5'
+                                                              : isAuto(c)
+                                                                ? 'bg-muted/20'
+                                                                : ''
+                                                    }`}
+                                                >
+                                                    {editable ? (
+                                                        <div className="relative">
+                                                            <InputCell
+                                                                value={num(e, c.key)}
+                                                                int={c.int}
+                                                                decimal={c.decimal}
+                                                                onChange={(v) => setField(idx, c.key, v)}
+                                                                className={
+                                                                    overridden
+                                                                        ? 'font-bold text-amber-700 dark:text-amber-400'
+                                                                        : c.highlight
+                                                                          ? 'font-bold text-emerald-700 dark:text-emerald-400'
+                                                                          : ''
+                                                                }
+                                                            />
+                                                            {overridden && (
+                                                                <button
+                                                                    onClick={() => resetField(idx, c.key)}
+                                                                    title="Томьёо руу буцаах"
+                                                                    className="absolute top-1/2 left-0.5 -translate-y-1/2 rounded p-0.5 text-amber-600 transition-colors hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                                                                >
+                                                                    <RotateCcw className="size-2.5" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <ComputedCell value={num(e, c.key)} highlight={c.highlight} decimal={c.decimal} />
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
                                     </tr>
                                 ))}
                             </tbody>
@@ -695,7 +842,7 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
                                                     c.highlight ? 'bg-emerald-50/40 text-emerald-700 dark:bg-emerald-950/10' : ''
                                                 }`}
                                             >
-                                                {fmt(sum(entries, c.key))}
+                                                {fmt(sum(entries, c.key), c.decimal)}
                                             </td>
                                         );
                                     })}
@@ -705,7 +852,14 @@ export default function PayrollShow({ run, entries: initial, columns, groups }: 
                     </div>
                 </div>
                 <p className="text-muted-foreground text-center text-[11px]">
-                    <span className="font-semibold">ƒ</span> тэмдэгтэй саарал багана томьёогоор өөрөө бодогдоно · Цагаан нүдэнд гараар дүн оруулна
+                    <span className="font-semibold">ƒ</span> томьёогоор бодогдоно
+                    {run.half === 'second' && advanceLinked && (
+                        <>
+                            {' · '}
+                            <span className="font-semibold">⇠</span> эхэн цалингийн “Банкаар олгох”-оос татагдана
+                        </>
+                    )}
+                    {' · '}Цагаан нүдэнд гараар дүн оруулна
                 </p>
             </div>
 

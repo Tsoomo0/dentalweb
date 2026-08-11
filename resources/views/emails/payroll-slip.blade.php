@@ -19,13 +19,17 @@
 
     <div class="section-title">Нийт дүн</div>
     <div class="amount-row">
+        @php
+            // Гарт олгох, банкаар олгох хоёр бутархайтай бол 2 орноор харуулна
+            $money = fn ($v) => number_format($v, fmod((float) $v, 1) == 0.0 ? 0 : 2);
+        @endphp
         <div class="amount-card amount-card-green">
             <div class="amount-label">Гарт олгох</div>
-            <div class="amount-value">{{ number_format($entry->net_hand, 0) }}₮</div>
+            <div class="amount-value">{{ $money($entry->net_hand) }}₮</div>
         </div>
         <div class="amount-card amount-card-green2">
             <div class="amount-label">Банкаар олгох</div>
-            <div class="amount-value">{{ number_format($entry->bank_salary, 0) }}₮</div>
+            <div class="amount-value">{{ $money($entry->bank_salary) }}₮</div>
         </div>
     </div>
 
@@ -33,19 +37,34 @@
     @php
         // Задаргааг тухайн тооцооны хагасын схемээр угсарна —
         // эхэн болон сүүл цалин өөр өөр баганатай
+        // Нягтлангийн гараар зассан дүнг хүндэтгэнэ — бодитоор олгосон дүн харагдана
         $columns = \App\Support\Payroll\PayrollSchema::columns($entry->run->half);
-        $values = \App\Support\Payroll\PayrollSchema::compute($entry->toArray(), $entry->run->half);
+        $values = \App\Support\Payroll\PayrollSchema::compute(
+            $entry->toArray(),
+            $entry->run->half,
+            is_array($entry->overrides) ? $entry->overrides : []
+        );
 
         $rows = [];
         foreach ($columns as $column) {
-            if (in_array($column['role'], ['rate', 'day', 'payout'], true)) {
+            if (in_array($column['role'], ['rate', 'day', 'payout', 'reference'], true)) {
                 continue;
             }
             if (empty($values[$column['key']])) {
                 continue;
             }
 
-            $rows[] = [$column['label'], $values[$column['key']], $column['role'] === 'deduction'];
+            // Хоцролт/хуруу зэрэг дүнгийн хажууд тоо ширхэгийг нь харуулна
+            $label = $column['label'];
+            if ($column['counter'] && ! empty($values[$column['counter']['key']])) {
+                $label .= ' ('.(0 + $values[$column['counter']['key']]).' '.$column['counter']['unit'].')';
+            }
+
+            $rows[] = [
+                $label,
+                $column['decimal'] ? $money($values[$column['key']]) : number_format($values[$column['key']]),
+                $column['role'] === 'deduction',
+            ];
         }
     @endphp
     <table class="data-table">
@@ -56,13 +75,11 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($rows as [$label, $value, $isDeduction])
-                @if($value)
+            @foreach($rows as [$label, $amount, $isDeduction])
                 <tr>
                     <td>{{ $label }}</td>
-                    <td class="{{ $isDeduction ? 'negative' : 'right' }}">{{ number_format($value, 0) }}₮</td>
+                    <td class="{{ $isDeduction ? 'negative' : 'right' }}">{{ $amount }}₮</td>
                 </tr>
-                @endif
             @endforeach
         </tbody>
     </table>
