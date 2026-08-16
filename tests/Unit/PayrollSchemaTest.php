@@ -271,15 +271,33 @@ class PayrollSchemaTest extends TestCase
         // А.Т.Х 40%-ийн яг өмнө байрлана
         $keys = array_column(PayrollSchema::columns('second'), 'key');
         $this->assertSame('ath_bonus', $keys[array_search('prev_ndsh', $keys, true) + 1]);
+    }
 
-        // Зөвхөн лавлагаа — тооцоонд огт нөлөөлөхгүй
-        $base = ['basic_salary' => 1800000, 'prev_paid' => 970000, 'working_days' => 12, 'worked_days' => 12];
+    public function test_first_half_tax_is_added_back_into_total_bonus(): void
+    {
+        // "Олгосон урьдчилгаа цалин" нь татвараа хассан ЦЭВЭР дүн тул эхэн
+        // хагасын НДШ/ХХОАТ-ыг нэмэгдэлд буцааж оруулж байж татварын суурь
+        // НИЙТ дүн болно
+        $base = [
+            'basic_salary' => 1800000,
+            'prev_paid' => 970000,
+            'holiday_advance' => 200000,
+            'working_days' => 12,
+            'worked_days' => 12,
+        ];
+
         $without = PayrollSchema::compute($base, 'second');
-        $with = PayrollSchema::compute(array_merge($base, ['prev_ndsh' => 999999]), 'second');
+        $with = PayrollSchema::compute(array_merge($base, ['prev_ndsh' => 47500]), 'second');
 
-        $this->assertSame($without['net_hand'], $with['net_hand']);
-        $this->assertSame($without['bank_salary'], $with['bank_salary']);
-        $this->assertEqualsWithDelta(999999, $with['prev_ndsh'], 0.01);
+        // Нийт нэмэгдэл, тооцсон цалин, НД цалин нийт гурав яг тэр дүнгээр өснө
+        foreach (['total_bonus', 'calc_salary', 'nd_total'] as $key) {
+            $this->assertEqualsWithDelta($without[$key] + 47500, $with[$key], 0.01, $key);
+        }
+
+        // Татварын суурь өссөн тул НДШ, ХХОАТ ч дагаж өснө
+        $this->assertGreaterThan($without['ndsh'], $with['ndsh']);
+        $this->assertGreaterThan($without['income_tax'], $with['income_tax']);
+        $this->assertGreaterThan($without['net_hand'], $with['net_hand']);
     }
 
     public function test_only_worked_days_and_payouts_show_decimals(): void

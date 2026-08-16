@@ -133,11 +133,11 @@ class PayrollSchema
             ['key' => 'daily_rate',   'label' => '1 өдрийн цалин',     'group' => 'Өдөр',
                 'formula' => 'IFERROR({nd_salary} / {working_days}, 0)'],
 
-            // Эхэн цалин дээр гараар оруулсан НДШ/ХХОАТ — лавлагаа болгож харуулна.
-            // Тооцоонд ороогүй: эхний хагасын суутгал нь "Олгосон урьдчилгаа цалин"
-            // дүнд аль хэдийн тусгагдсан тул дахин хасвал давхардана.
+            // Эхэн цалин дээр суутгасан НДШ/ХХОАТ.  "Олгосон урьдчилгаа цалин" нь
+            // татвараа хассан ЦЭВЭР дүн тул энэ суутгалыг буцааж нэмэгдэлд оруулж
+            // байж сарын татварын суурь НИЙТ дүн болно.
             ['key' => 'prev_ndsh',      'label' => 'НДШ 11.5% ХХОАТ (эхэн)', 'group' => 'Эхэн цалингаас',
-                'linked' => 'ndsh', 'role' => 'reference'],
+                'linked' => 'ndsh', 'role' => 'earning'],
 
             ['key' => 'ath_bonus',      'label' => 'А.Т.Х 40%',      'group' => 'Нэмэгдэл'],
             ['key' => 'percent_salary', 'label' => 'Хувь цалин',     'group' => 'Нэмэгдэл'],
@@ -153,9 +153,10 @@ class PayrollSchema
                 'default' => self::MILK_RATE_DEFAULT],
             ['key' => 'milk',      'label' => 'Олгосон сүү',        'group' => 'Хоол · Сүү'],
 
+            // Эхэн хагаст суутгасан НДШ/ХХОАТ энд буцаж нэмэгдэнэ
             ['key' => 'total_bonus', 'label' => 'Нийт нэмэгдэл', 'group' => 'Нийт нэмэгдэл',
                 'formula' => '{ath_bonus} + {percent_salary} + {overtime_bonus} + {reward} '
-                            .'+ {hazard_bonus} + {vacation_pay} + {food} + {milk}'],
+                            .'+ {hazard_bonus} + {vacation_pay} + {food} + {milk} + {prev_ndsh}'],
 
             ['key' => 'tardy_minutes',      'label' => 'Хоцорсон болон цагаас эрт явсан минутын тоо',
                 'group' => 'Суутгал', 'int' => true],
