@@ -366,7 +366,11 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::get('outstanding', [DailySheetAdminController::class, 'outstanding'])->name('admin.outstanding');
     Route::get('outstanding/export', [DailySheetAdminController::class, 'exportOutstanding'])->name('admin.outstanding.export');
     Route::delete('outstanding/{entry}', [DailySheetAdminController::class, 'destroyOutstanding'])->name('admin.outstanding.destroy');
+    // Илүү тооцоо (бүх цаг үе, бүх салбар)
     Route::get('overpaid', [DailySheetAdminController::class, 'overpaid'])->name('admin.overpaid');
+    Route::patch('overpaid/{entry}', [DailySheetAdminController::class, 'updateOverpaid'])->name('admin.overpaid.update');
+    Route::delete('overpaid/usages/{usage}', [DailySheetAdminController::class, 'destroyOverpaidUsage'])->name('admin.overpaid.usages.destroy');
+    Route::delete('overpaid/{entry}', [DailySheetAdminController::class, 'destroyOverpaid'])->name('admin.overpaid.destroy');
     Route::get('refunds', [DailySheetAdminController::class, 'refunds'])->name('admin.refunds');
 
     // Системийн тохиргоо

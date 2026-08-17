@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\DailySheetUpdated;
 use App\Exports\DailySheetExport;
 use App\Exports\OutstandingExport;
 use App\Http\Controllers\Controller;
@@ -220,6 +221,7 @@ class DailySheetAdminController extends Controller
                     'usages' => $e->overpaidUsages
                         ->sortBy('created_at')
                         ->map(fn ($u) => [
+                            'id' => $u->id,
                             'receipt' => $u->target_receipt,
                             'amount' => (int) $u->amount,
                             'method' => $u->method,
@@ -373,6 +375,200 @@ class DailySheetAdminController extends Controller
         );
 
         return back()->with('success', 'Дутуу тооцоо устгагдлаа.');
+    }
+
+    /**
+     * Илүү тооцооны дүнг засах. Аль хэдийн ашигласан дүнгээс бага болгохыг хориглоно
+     * (эсрэг тохиолдолд ашиглалт нь эх үүсвэрээсээ давчихна).
+     */
+    public function updateOverpaid(Request $request, DailySheetEntry $entry): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => 'required|string',
+            'amount' => 'required|integer|min:1',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        if ($validated['code'] !== $this->dailySheetCode()) {
+            return back()->withErrors(['code' => 'Код буруу байна.']);
+        }
+
+        $old = (int) $entry->overpaid_amount;
+        $new = (int) $validated['amount'];
+
+        if ($old <= 0) {
+            return back()->withErrors(['code' => 'Энэ бичлэгт илүү тооцоо алга байна.']);
+        }
+
+        $used = (int) OverpaidUsage::where('source_entry_id', $entry->id)->sum('amount');
+
+        if ($new < $used) {
+            return back()->withErrors([
+                'amount' => 'Ашигласан дүн ('.number_format($used).'₮)-ээс бага болгох боломжгүй.',
+            ]);
+        }
+
+        if ($new === $old) {
+            return back()->with('info', 'Дүн өөрчлөгдсөнгүй.');
+        }
+
+        $entry->update(['overpaid_amount' => $new]);
+        $this->syncOverpaidUsedFlags($entry);
+
+        $entry->loadMissing('dailySheet.branch');
+
+        $reason = trim($validated['reason'] ?? '');
+        AuditService::log(
+            'updated',
+            $entry,
+            ['overpaid_amount' => $old],
+            ['overpaid_amount' => $new],
+            'Илүү тооцоо зассан: '.($entry->patient_name ?? '—').' — '
+                .number_format($old).'₮ → '.number_format($new).'₮ ('
+                .($entry->dailySheet?->branch?->name ?? '—').', '.($entry->dailySheet?->date?->toDateString() ?? '—').')'
+                .($reason !== '' ? ' · Шалтгаан: '.$reason : ''),
+        );
+
+        return back()->with('success', 'Илүү тооцоо зассан.');
+    }
+
+    /**
+     * Илүү тооцоог устгах — мөрийг биш, зөвхөн илүү дүнг тэглэнэ.
+     * Ашиглалттай бол эхлээд ашиглалтын бичлэгүүдийг устгах шаардлагатай.
+     */
+    public function destroyOverpaid(Request $request, DailySheetEntry $entry): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => 'required|string',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        if ($validated['code'] !== $this->dailySheetCode()) {
+            return back()->withErrors(['code' => 'Код буруу байна.']);
+        }
+
+        $amount = (int) $entry->overpaid_amount;
+
+        if ($amount <= 0) {
+            return back()->with('info', 'Энэ бичлэгт илүү тооцоо алга байна.');
+        }
+
+        $used = (int) OverpaidUsage::where('source_entry_id', $entry->id)->sum('amount');
+
+        if ($used > 0) {
+            return back()->withErrors([
+                'code' => 'Ашиглалттай илүү тооцоог устгах боломжгүй. Эхлээд ашиглалтын бичлэгүүдийг устгана уу.',
+            ]);
+        }
+
+        $entry->update([
+            'overpaid_amount' => 0,
+            'overpaid_used_at' => null,
+            'overpaid_used_receipt' => null,
+            'overpaid_used_method' => null,
+            'overpaid_used_amount' => null,
+        ]);
+
+        $entry->loadMissing('dailySheet.branch');
+
+        $reason = trim($validated['reason'] ?? '');
+        AuditService::log(
+            'deleted',
+            $entry,
+            ['overpaid_amount' => $amount],
+            ['overpaid_amount' => 0],
+            'Илүү тооцоо устгав: '.($entry->patient_name ?? '—').' — '.number_format($amount).'₮ ('
+                .($entry->dailySheet?->branch?->name ?? '—').', '.($entry->dailySheet?->date?->toDateString() ?? '—').')'
+                .($reason !== '' ? ' · Шалтгаан: '.$reason : ''),
+        );
+
+        return back()->with('success', 'Илүү тооцоо устгагдлаа.');
+    }
+
+    /**
+     * Хэсэгчилсэн ашиглалтыг устгах — тухайн дүн эх үүсвэрийн үлдэгдэл рүү буцна.
+     * Ашигласан өдрийн тооцоонд уг мөр кредитээр хаагдсан бол дахин дутуу болно.
+     */
+    public function destroyOverpaidUsage(Request $request, OverpaidUsage $usage): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => 'required|string',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        if ($validated['code'] !== $this->dailySheetCode()) {
+            return back()->withErrors(['code' => 'Код буруу байна.']);
+        }
+
+        $entry = $usage->sourceEntry()->withTrashed()->first();
+        $entry?->loadMissing('dailySheet.branch');
+
+        $amount = (int) $usage->amount;
+        $receipt = $usage->target_receipt;
+        $targetDate = $usage->target_date?->toDateString();
+
+        $usage->delete();
+
+        if ($entry) {
+            $this->syncOverpaidUsedFlags($entry);
+
+            $branchId = $entry->dailySheet?->branch_id;
+            // Эх өдөр (үлдэгдэл нэмэгдэнэ) ба ашигласан өдөр (кредит хасагдана) хоёуланг сэргээнэ
+            DailySheetUpdated::mark($branchId, $entry->dailySheet?->date);
+            DailySheetUpdated::mark($branchId, $targetDate);
+        }
+
+        $reason = trim($validated['reason'] ?? '');
+        AuditService::log(
+            'deleted',
+            $entry,
+            ['usage_receipt' => $receipt, 'amount' => $amount, 'target_date' => $targetDate],
+            null,
+            'Илүү тооцооны ашиглалт устгав: '.($entry?->patient_name ?? '—').' — '.number_format($amount).'₮ · баримт '
+                .($receipt ?: '—').' ('.($targetDate ?? '—').')'
+                .($reason !== '' ? ' · Шалтгаан: '.$reason : ''),
+        );
+
+        return back()->with('success', 'Ашиглалт устгагдлаа. Дүн үлдэгдэл рүү буцлаа.');
+    }
+
+    /**
+     * Ашиглалт/дүн өөрчлөгдсөний дараа эх мөрийн overpaid_used_* хураангуйг
+     * дахин тааруулна (зөвхөн бүрэн ашиглагдсан үед дүүргэнэ).
+     */
+    private function syncOverpaidUsedFlags(DailySheetEntry $entry): void
+    {
+        $usages = OverpaidUsage::where('source_entry_id', $entry->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        $used = (int) $usages->sum('amount');
+        $last = $usages->last();
+
+        if ($last === null || $used < (int) $entry->overpaid_amount) {
+            $entry->update([
+                'overpaid_used_at' => null,
+                'overpaid_used_receipt' => null,
+                'overpaid_used_method' => null,
+                'overpaid_used_amount' => null,
+            ]);
+
+            return;
+        }
+
+        $entry->update([
+            'overpaid_used_at' => $last->created_at,
+            'overpaid_used_receipt' => $last->target_receipt,
+            'overpaid_used_method' => $last->method,
+            'overpaid_used_amount' => $used,
+        ]);
+    }
+
+    /** Өдрийн тооцооны хамгаалалтын код */
+    private function dailySheetCode(): string
+    {
+        return (string) (Setting::where('key', 'daily_sheet_code')->value('value') ?? '1234');
     }
 
     public function destroy(Request $request, DailySheet $sheet): RedirectResponse

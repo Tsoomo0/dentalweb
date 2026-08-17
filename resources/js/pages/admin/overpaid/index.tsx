@@ -1,10 +1,11 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Building2, CheckCircle2, Clock, Hash, Search, Sparkles, TrendingUp, User, Wallet } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, Hash, Pencil, Search, Sparkles, Trash2, TrendingUp, User, Wallet, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 interface Usage {
+    id: number;
     receipt: string;
     amount: number;
     method: string | null;
@@ -53,8 +54,50 @@ function go(patch: Partial<Filters>, current: Filters) {
     }, { preserveState: false });
 }
 
+type Modal =
+    | { kind: 'edit'; entry: OverpaidEntry }
+    | { kind: 'delete'; entry: OverpaidEntry }
+    | { kind: 'usage'; entry: OverpaidEntry; usage: Usage };
+
 export default function AdminOverpaidIndex({ entries, branches, filters, counts, summary }: Props) {
     const [search, setSearch] = useState('');
+
+    /* ── Засах / устгах ── */
+    const [modal,  setModal]  = useState<Modal | null>(null);
+    const [amount, setAmount] = useState('');
+    const [code,   setCode]   = useState('');
+    const [reason, setReason] = useState('');
+    const [error,  setError]  = useState<string | null>(null);
+    const [busy,   setBusy]   = useState(false);
+
+    const openModal = (m: Modal) => {
+        setModal(m);
+        setAmount(m.kind === 'edit' ? String(m.entry.overpaid_amount) : '');
+        setCode(''); setReason(''); setError(null);
+    };
+    const closeModal = () => { setModal(null); setError(null); };
+
+    function submit() {
+        if (!modal || !code || busy) return;
+
+        const opts = {
+            preserveScroll: true,
+            onSuccess: () => closeModal(),
+            onError: (errors: Record<string, string>) =>
+                setError(errors.code ?? errors.amount ?? 'Алдаа гарлаа.'),
+            onFinish: () => setBusy(false),
+        };
+
+        setBusy(true);
+
+        if (modal.kind === 'edit') {
+            router.patch(`/admin/overpaid/${modal.entry.id}`, { code, reason, amount: Number(amount) }, opts);
+        } else if (modal.kind === 'delete') {
+            router.delete(`/admin/overpaid/${modal.entry.id}`, { data: { code, reason }, ...opts });
+        } else {
+            router.delete(`/admin/overpaid/usages/${modal.usage.id}`, { data: { code, reason }, ...opts });
+        }
+    }
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -163,7 +206,7 @@ export default function AdminOverpaidIndex({ entries, branches, filters, counts,
                 ) : (
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-card shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-xs border-collapse" style={{ minWidth: 1100 }}>
+                            <table className="w-full text-xs border-collapse" style={{ minWidth: 1200 }}>
                                 <thead>
                                     <tr className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 text-[10.5px] uppercase tracking-wide">
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Огноо</th>
@@ -178,6 +221,7 @@ export default function AdminOverpaidIndex({ entries, branches, filters, counts,
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Ашиглалт</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Эмч</th>
                                         <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-left font-semibold">Ресепшн</th>
+                                        <th className="border-b border-gray-200 dark:border-gray-700 px-3 py-3 text-center font-semibold w-20">Үйлдэл</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -238,8 +282,8 @@ export default function AdminOverpaidIndex({ entries, branches, filters, counts,
                                             <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3">
                                                 {e.usages.length === 0 ? <span className="text-gray-400">—</span> : (
                                                     <div className="flex flex-col gap-1">
-                                                        {e.usages.map((u, ui) => (
-                                                            <div key={ui} className="flex items-center gap-1.5 whitespace-nowrap"
+                                                        {e.usages.map(u => (
+                                                            <div key={u.id} className="flex items-center gap-1.5 whitespace-nowrap"
                                                                 title={u.used_by ? `Ашигласан: ${u.used_by}` : undefined}>
                                                                 {u.target_date && (
                                                                     <span className="rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -255,6 +299,11 @@ export default function AdminOverpaidIndex({ entries, branches, filters, counts,
                                                                         <Wallet className="size-2.5" />{METHOD_LABELS[u.method] ?? u.method}
                                                                     </span>
                                                                 )}
+                                                                <button onClick={() => openModal({ kind: 'usage', entry: e, usage: u })}
+                                                                    title="Энэ ашиглалтыг устгах"
+                                                                    className="ml-0.5 inline-flex items-center justify-center rounded p-0.5 text-gray-300 dark:text-gray-600 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                                                                    <X className="size-3" />
+                                                                </button>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -268,6 +317,23 @@ export default function AdminOverpaidIndex({ entries, branches, filters, counts,
                                                     </span>
                                                 ) : <span className="text-gray-400">—</span>}
                                             </td>
+                                            <td className="border-b border-gray-100 dark:border-gray-800 px-3 py-3">
+                                                <div className="flex items-center justify-center gap-0.5">
+                                                    <button onClick={() => openModal({ kind: 'edit', entry: e })}
+                                                        title="Илүү дүнг засах"
+                                                        className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                                                        <Pencil className="size-3.5" />
+                                                    </button>
+                                                    <button onClick={() => openModal({ kind: 'delete', entry: e })}
+                                                        disabled={e.used_amount > 0}
+                                                        title={e.used_amount > 0
+                                                            ? 'Эхлээд ашиглалтын бичлэгүүдийг устгана уу'
+                                                            : 'Илүү тооцоог устгах'}
+                                                        className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:cursor-not-allowed disabled:text-gray-200 dark:disabled:text-gray-700 disabled:hover:bg-transparent">
+                                                        <Trash2 className="size-3.5" />
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -276,6 +342,117 @@ export default function AdminOverpaidIndex({ entries, branches, filters, counts,
                     </div>
                 )}
             </div>
+
+            {/* Засах / устгах баталгаажуулалт */}
+            {modal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={ev => { if (ev.target === ev.currentTarget) closeModal(); }}>
+                    <div className="w-full max-w-sm overflow-hidden rounded-xl bg-white dark:bg-gray-900 shadow-xl">
+                        <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-5 py-4">
+                            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                {modal.kind === 'edit' ? 'Илүү тооцоо засах'
+                                    : modal.kind === 'delete' ? 'Илүү тооцоо устгах'
+                                    : 'Ашиглалт устгах'}
+                            </h3>
+                            <button onClick={closeModal} className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                <X className="size-4 text-gray-500" />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-3 px-5 py-4">
+                            <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2.5 space-y-1">
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Үйлчлүүлэгч</span>
+                                    <span className="font-semibold text-foreground">{modal.entry.patient_name ?? '—'}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Огноо / Салбар</span>
+                                    <span className="text-foreground">{modal.entry.date} · {modal.entry.branch ?? '—'}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Илүү дүн</span>
+                                    <span className="font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                                        {modal.entry.overpaid_amount.toLocaleString()}₮
+                                    </span>
+                                </div>
+                                {modal.entry.used_amount > 0 && (
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-muted-foreground">Ашигласан / Үлдэгдэл</span>
+                                        <span className="tabular-nums text-foreground">
+                                            {modal.entry.used_amount.toLocaleString()}₮ / {modal.entry.remaining_amount.toLocaleString()}₮
+                                        </span>
+                                    </div>
+                                )}
+                                {modal.kind === 'usage' && (
+                                    <div className="flex justify-between text-xs border-t border-emerald-200/70 dark:border-emerald-800/70 pt-1 mt-1">
+                                        <span className="text-muted-foreground">Устгах ашиглалт</span>
+                                        <span className="font-semibold tabular-nums text-foreground">
+                                            {modal.usage.receipt} · {modal.usage.amount.toLocaleString()}₮
+                                            {modal.usage.target_date ? ` · ${modal.usage.target_date}` : ''}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {modal.kind === 'edit' && (
+                                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                    Шинэ илүү дүн (₮)
+                                    <input
+                                        type="number"
+                                        min={Math.max(1, modal.entry.used_amount)}
+                                        value={amount}
+                                        onChange={ev => setAmount(ev.target.value)}
+                                        className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-foreground tabular-nums outline-none focus:ring-2 focus:ring-emerald-500"
+                                        autoFocus
+                                    />
+                                </label>
+                            )}
+
+                            <p className="text-xs text-gray-500">
+                                {modal.kind === 'edit'
+                                    ? 'Ашигласан дүнгээс бага болгох боломжгүй. Өдрийн тооцооны орлогын мөр хэвээр үлдэнэ.'
+                                    : modal.kind === 'delete'
+                                    ? 'Зөвхөн илүү дүн устана — өдрийн тооцооны орлогын мөр хэвээр үлдэнэ.'
+                                    : 'Энэ хэсэгчилсэн ашиглалт устаж, дүн нь үлдэгдэл рүү буцна. Ашигласан өдрийн тооцоонд уг баримт дахин дутуу болж болзошгүй.'}
+                                {' '}Үргэлжлүүлэхийн тулд хамгаалалтын кодыг оруулна уу.
+                            </p>
+
+                            <input
+                                type="password"
+                                value={code}
+                                onChange={ev => setCode(ev.target.value)}
+                                onKeyDown={ev => ev.key === 'Enter' && submit()}
+                                placeholder="Код оруулах..."
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                                autoFocus={modal.kind !== 'edit'}
+                            />
+                            <input
+                                type="text"
+                                value={reason}
+                                onChange={ev => setReason(ev.target.value)}
+                                onKeyDown={ev => ev.key === 'Enter' && submit()}
+                                placeholder="Шалтгаан (заавал биш)"
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                            />
+                            {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+                        </div>
+
+                        <div className="flex justify-end gap-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 px-5 py-3">
+                            <button onClick={closeModal}
+                                className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                Болих
+                            </button>
+                            <button onClick={submit}
+                                disabled={!code || busy || (modal.kind === 'edit' && (!amount || Number(amount) < 1))}
+                                className={`rounded-lg px-4 py-1.5 text-xs font-medium text-white disabled:opacity-50 transition-colors ${
+                                    modal.kind === 'edit' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+                                }`}>
+                                {busy ? 'Түр хүлээнэ үү...' : modal.kind === 'edit' ? 'Хадгалах' : 'Устгах'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AppLayout>
     );
 }
