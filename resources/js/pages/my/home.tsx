@@ -6,7 +6,7 @@ import { Link, router } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
 import {
     AlertTriangle, BookOpen, CalendarCheck, CalendarDays,
-    ChevronRight, Clock, DollarSign, FileText, LayoutGrid,
+    ChevronRight, Clock, DollarSign, FileSignature, FileText, LayoutGrid,
     MessageSquare, Package, Umbrella, User, UserCircle2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -34,6 +34,7 @@ interface WeekDay {
 interface Stats {
     pending_leave: number; pending_vacation: number;
     documents: number; warnings: number; vacation_days: number;
+    pending_contracts: number;
 }
 interface Attendance {
     checked_in_at: string | null;
@@ -361,6 +362,26 @@ function MobileHome({ employee, today_schedule, week_days, stats, today, attenda
                     </div>
                 )}
 
+                {/* ── Гарын үсэг хүлээж буй гэрээ ── */}
+                {stats.pending_contracts > 0 && (
+                    <Link href="/my/contracts" style={{ textDecoration: 'none' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', borderRadius: 20, padding: '14px 16px', marginBottom: 12, boxShadow: 'var(--my-shadow)' }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 14, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <FileSignature size={19} color="white" />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'white' }}>
+                                    {stats.pending_contracts} гэрээ гарын үсэг хүлээж байна
+                                </p>
+                                <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(255,255,255,0.75)' }}>
+                                    Уншиж танилцаад гарын үсгээ зурна уу
+                                </p>
+                            </div>
+                            <ChevronRight size={18} color="rgba(255,255,255,0.8)" />
+                        </div>
+                    </Link>
+                )}
+
                 {/* ── 4 Stat cards ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                     {statCards.map(({ label, val, Icon: I, color, bg, href, sub }) => (
@@ -590,6 +611,21 @@ function DesktopHome({ employee, today_schedule, week_days, stats, attendance, c
                     )}
                 </div>
             </div>
+
+            {stats.pending_contracts > 0 && (
+                <Link href="/my/contracts" className="block no-underline">
+                    <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-5 py-4">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                            <FileSignature className="size-5 text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-white">{stats.pending_contracts} гэрээ гарын үсэг хүлээж байна</p>
+                            <p className="text-xs text-white/75">Уншиж танилцаад гарын үсгээ зурна уу</p>
+                        </div>
+                        <ChevronRight className="size-4 text-white/80" />
+                    </div>
+                </Link>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

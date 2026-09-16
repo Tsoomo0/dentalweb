@@ -3,19 +3,20 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { NotificationBell } from '@/components/notification-bell';
 import { ReceptionSidebar } from '@/components/reception-sidebar';
+import { MissedCallAlert } from '@/components/missed-call-alert';
 import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Link, useForm, usePage } from '@inertiajs/react';
 
 type PageProps = { site_settings?: { site_logo?: string; site_name?: string }; notifications?: unknown; auth?: { employee?: { full_name: string } | null }; url: string; [key: string]: unknown };
-import { CalendarClock, ClipboardList, Eye, EyeOff, KeyRound, LayoutGrid, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
+import { CalendarClock, ClipboardList, Eye, EyeOff, KeyRound, LayoutGrid, PhoneCall, UserCircle2, UserRound, Users, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 
 const BOTTOM_NAV = [
     { icon: LayoutGrid,    label: 'Самбар',       href: '/reception/dashboard' },
     { icon: CalendarClock, label: 'Цаг захиалга', href: '/reception/appointments' },
+    { icon: PhoneCall,     label: 'Дуудлага',     href: '/reception/calls' },
     { icon: Users,         label: 'Өвчтөн',       href: '/reception/patients' },
-    { icon: UserCheck,     label: 'Хэрэглэгч',    href: '/reception/patient-users' },
     { icon: UserCircle2,   label: 'Профайл',      href: '/reception/profile' },
 ];
 
@@ -114,6 +115,7 @@ export default function ReceptionLayout({ children, breadcrumbs = [] }: Props) {
                 </nav>
 
                 <ToastContainer />
+                <MissedCallAlert />
             </div>
 
             {/* HR switch password modal */}
@@ -179,6 +181,7 @@ export default function ReceptionLayout({ children, breadcrumbs = [] }: Props) {
                 {children}
             </AppContent>
             <ToastContainer />
+            <MissedCallAlert />
         </AppShell>
     );
 }

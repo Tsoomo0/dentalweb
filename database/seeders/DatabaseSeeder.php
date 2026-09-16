@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             BotFlowSeeder::class,
             ConsentFormTemplateSeeder::class,
+            HrDocumentTemplateSeeder::class,
             LabOrderTestSeeder::class,
             LabPortalTestSeeder::class,
             SampleDataSeeder::class,

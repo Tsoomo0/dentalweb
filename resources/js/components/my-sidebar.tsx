@@ -13,7 +13,7 @@ import { useAppearance } from '@/hooks/use-appearance';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import {
-    AlertTriangle, BookOpen, Briefcase, CalendarCheck, CalendarClock, CalendarDays, ChevronsUpDown, DollarSign, Eye, EyeOff, FileText, KeyRound,
+    AlertTriangle, BookOpen, Briefcase, CalendarCheck, CalendarClock, CalendarDays, ChevronsUpDown, DollarSign, Eye, EyeOff, FileSignature, FileStack, FileText, GraduationCap, KeyRound,
     LayoutGrid, LogOut, MessageCircle, MessageSquare, Monitor, Moon, Package, Smile, Stethoscope, Sun, Umbrella, UserCircle2, X,
 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
@@ -55,12 +55,25 @@ export function MySidebar() {
         { title: 'Цалингийн задаргаа',    url: '/my/payroll',           icon: DollarSign },
         ...(isReception ? [{ title: 'Ресепшний урамшуулал', url: '/my/reception-bonus', icon: Smile }] : []),
         ...(isNurse     ? [{ title: 'Сувилагчийн урамшуулал', url: '/my/nurse-bonus', icon: Stethoscope }] : []),
+        { title: 'Видео сургалт',         url: '/my/training',          icon: GraduationCap },
+        { title: 'Файл сургалт',          url: '/my/training/documents', icon: FileStack },
         { title: 'Номын сан',             url: '/my/book-rentals',      icon: BookOpen },
         { title: 'Тоног төхөөрөмж',       url: '/my/equipment',         icon: Package },
         { title: 'Санал хүсэлт',          url: '/my/feedback',          icon: MessageSquare },
         { title: 'Сануулга / Зөрчил',     url: '/my/warnings',          icon: AlertTriangle },
+        { title: 'Миний гэрээ',           url: '/my/contracts',         icon: FileSignature },
         { title: 'Баримт бичиг',          url: '/my/documents',         icon: FileText },
     ];
+    /**
+     * Идэвхтэй цэс — хамгийн урт тохирсон хаяг ялна. Сургалт зэрэг дэд
+     * хуудастай хэсэгт (/my/training/lessons/5) эцэг цэс нь тодорхой хэвээр
+     * байна.
+     */
+    const activeUrl = navItems
+        .map(i => i.url)
+        .filter(u => url === u || url.startsWith(u + '?') || url.startsWith(u + '/'))
+        .sort((a, b) => b.length - a.length)[0];
+
     const { appearance, updateAppearance } = useAppearance();
     const { state } = useSidebar();
     const isMobile = useIsMobile();
@@ -108,7 +121,7 @@ export function MySidebar() {
                         <SidebarGroupContent>
                             <SidebarMenu>
                                 {navItems.map(item => {
-                                    const isActive = url === item.url || url.startsWith(item.url + '?');
+                                    const isActive = activeUrl === item.url;
                                     return (
                                         <SidebarMenuItem key={item.url}>
                                             <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>

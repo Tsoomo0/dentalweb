@@ -80,4 +80,29 @@ return [
         'media_url' => env('META_MEDIA_URL'),
     ],
 
+    // LibreOffice — PPT/DOCX хичээлийг PDF болгож хөрвүүлэхэд ашиглана.
+    //
+    // Замыг .env-ээс өгнө. Windows дээр ихэвчлэн:
+    //   LIBREOFFICE_PATH="C:\Program Files\LibreOffice\program\soffice.exe"
+    // Linux сервер дээр ихэвчлэн /usr/bin/soffice.
+    //
+    // Хоосон эсвэл олдохгүй бол хөрвүүлэлт "failed" болж, админд PDF-ээр
+    // байршуулахыг зөвлөнө — систем унахгүй, зүгээр л тэр боломж идэвхгүй байна.
+    'libreoffice' => [
+        'path' => env('LIBREOFFICE_PATH'),
+        // Нэг файл хөрвүүлэхэд зөвшөөрөх дээд хугацаа (секунд)
+        'timeout' => (int) env('LIBREOFFICE_TIMEOUT', 180),
+    ],
+
+    // CallPro — дуудлагын webhook хүлээн авах тохиргоо.
+    // CallPro талд signature механизм байхгүй тул нууц түлхүүр + IP whitelist
+    // хоёроор хамгаална. Түлхүүрийг бид үүсгээд CallPro-д өгнө.
+    'callpro' => [
+        'webhook_token' => env('CALLPRO_WEBHOOK_TOKEN'),
+        'allowed_ips' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('CALLPRO_ALLOWED_IPS', '')),
+        ))),
+    ],
+
 ];

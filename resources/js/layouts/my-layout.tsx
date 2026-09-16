@@ -11,7 +11,7 @@ import { Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, ArrowLeftRight, BookOpen, Briefcase,
     CalendarCheck, CalendarDays, ChevronRight, DollarSign,
-    Eye, EyeOff, FileText, Home, KeyRound,
+    Eye, EyeOff, FileSignature, FileStack, FileText, GraduationCap, Home, KeyRound,
     LayoutGrid, LogOut, MessageCircle, MessageSquare, Monitor, Moon,
     Package, Smile, Stethoscope, Sun, Umbrella, UserCircle2, X,
 } from 'lucide-react';
@@ -34,10 +34,13 @@ const MORE_ITEMS = [
     { label: 'Чөлөөний хүсэлт', Icon: CalendarDays,  href: '/my/leave-requests',   color: RED,       bg: '#fef2f2' },
     { label: 'Ээлжийн амралтын хүсэлт', Icon: Umbrella, href: '/my/vacation-requests', color: '#059669', bg: '#f0fdf4' },
     { label: 'Цалингийн задаргаа', Icon: DollarSign, href: '/my/payroll',           color: '#059669', bg: '#f0fdf4' },
+    { label: 'Видео сургалт',   Icon: GraduationCap, href: '/my/training',         color: '#7c3aed', bg: '#faf5ff' },
+    { label: 'Файл сургалт',    Icon: FileStack,     href: '/my/training/documents', color: '#0284c7', bg: '#f0f9ff' },
     { label: 'Номын сан',        Icon: BookOpen,      href: '/my/book-rentals',     color: '#7c3aed', bg: '#faf5ff' },
     { label: 'Тоног төхөөрөмж', Icon: Package,       href: '/my/equipment',        color: '#0891b2', bg: '#ecfeff' },
     { label: 'Санал хүсэлт',    Icon: MessageSquare, href: '/my/feedback',         color: '#ea580c', bg: '#fff7ed' },
     { label: 'Сануулга / Зөрчил', Icon: AlertTriangle, href: '/my/warnings',       color: '#d97706', bg: '#fffbeb' },
+    { label: 'Миний гэрээ',     Icon: FileSignature, href: '/my/contracts',        color: '#059669', bg: '#f0fdf4' },
     { label: 'Баримт бичиг',    Icon: FileText,      href: '/my/documents',        color: '#475569', bg: '#f8fafc' },
 ];
 
@@ -58,7 +61,7 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
         ...MORE_ITEMS.slice(1, 4), // чөлөө, амралт, цалин
         ...(isReception ? [{ label: 'Ресепшний урамшуулал', Icon: Smile,        href: '/my/reception-bonus', color: '#ec4899', bg: '#fdf2f8' }] : []),
         ...(isNurse     ? [{ label: 'Сувилагчийн урамшуулал', Icon: Stethoscope, href: '/my/nurse-bonus',    color: '#0d9488', bg: '#f0fdfa' }] : []),
-        ...MORE_ITEMS.slice(4), // номын сан, тоног, санал, сануулга, баримт
+        ...MORE_ITEMS.slice(4), // дотоод сургалт, номын сан, тоног, санал, сануулга, баримт
     ];
     const { appearance, updateAppearance } = useAppearance();
 
@@ -101,11 +104,18 @@ export default function MyLayout({ children, breadcrumbs = [] }: Props) {
         || url === '/my/equipment'         || url.startsWith('/my/equipment?')
         || url === '/my/feedback'          || url.startsWith('/my/feedback?')
         || url === '/my/warnings'          || url.startsWith('/my/warnings?')
+        || url === '/my/contracts'         || url.startsWith('/my/contracts?')
         || url === '/my/documents'         || url.startsWith('/my/documents?')
         || url === '/my/profile'           || url.startsWith('/my/profile?')
         || url === '/my/nurse-bonus'       || url.startsWith('/my/nurse-bonus?')
         || url === '/my/reception-bonus'   || url.startsWith('/my/reception-bonus?')
-        || url === '/my/change-password'   || url.startsWith('/my/change-password?');
+        || url === '/my/change-password'   || url.startsWith('/my/change-password?')
+        // Сургалтын каталог ба сургалтын хуудас өөрсдөө улаан hero + дээд
+        // мөртэй тул давхар толгой гаргахгүй. Хичээл, шалгалт энд ОРОХГҮЙ —
+        // тэдгээр нь layout-ын энгийн дээд мөрөө хэвээр авна.
+        || url === '/my/training'             || url.startsWith('/my/training?')
+        || url === '/my/training/documents'   || url.startsWith('/my/training/documents?')
+        || url.startsWith('/my/training/courses/');
     // Чат хуудсан дээр top bar + bottom nav-ыг нуугаад full-screen чат болгоно.
     const isChat = url === '/my/chat' || url.startsWith('/my/chat?');
     const pageTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].title : 'HR хэсэг';

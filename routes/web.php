@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AppointmentController;
 use App\Http\Controllers\Admin\AppointmentExportController;
 use App\Http\Controllers\Admin\ArticleController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\BankReconciliationController;
 use App\Http\Controllers\Admin\BotBuilderController;
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\ChatInboxController;
@@ -15,22 +16,27 @@ use App\Http\Controllers\Admin\FaqController;
 use App\Http\Controllers\Admin\GalleryController;
 use App\Http\Controllers\Admin\GoogleOAuthController;
 use App\Http\Controllers\Admin\JobApplicationController as AdminJobApplicationController;
+use App\Http\Controllers\Admin\LabCategoryController;
+use App\Http\Controllers\Admin\LabCourseController;
+use App\Http\Controllers\Admin\LabEmployeeController;
+use App\Http\Controllers\Admin\LabExamController;
+use App\Http\Controllers\Admin\LabLessonController;
+use App\Http\Controllers\Admin\LabOrderController;
+use App\Http\Controllers\Admin\LabReportController;
+use App\Http\Controllers\Admin\LabTrainingReportController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\PatientController as AdminPatientController;
 use App\Http\Controllers\Admin\PaymentAdminController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\SocialAccountController;
+use App\Http\Controllers\Admin\SocialAiController;
 use App\Http\Controllers\Admin\SocialBroadcastController;
 use App\Http\Controllers\Admin\SocialCommentRuleController;
-use App\Http\Controllers\Admin\SocialAiController;
 use App\Http\Controllers\Admin\SocialDashboardController;
 use App\Http\Controllers\Admin\SocialFlowController;
 use App\Http\Controllers\Admin\SocialFormController;
 use App\Http\Controllers\Admin\SocialInboxController;
 use App\Http\Controllers\Admin\SocialOAuthController;
-use App\Http\Controllers\Social\DataDeletionController;
-use App\Http\Controllers\Social\PublicFormController;
-use App\Http\Controllers\Social\SocialWebhookController;
 use App\Http\Controllers\Admin\SubTreatmentController;
 use App\Http\Controllers\Admin\TreatmentCategoryController;
 use App\Http\Controllers\Admin\TreatmentController;
@@ -42,11 +48,14 @@ use App\Http\Controllers\Doctor\DoctorPortalController;
 use App\Http\Controllers\Doctor\DoctorProfileController;
 use App\Http\Controllers\Doctor\PatientController as DoctorPatientController;
 use App\Http\Controllers\JobApplicationController;
+use App\Http\Controllers\Lab\LabDashboardController;
 use App\Http\Controllers\My\AttendanceController;
 use App\Http\Controllers\My\BookRentalController;
 use App\Http\Controllers\My\ChatController;
 use App\Http\Controllers\My\DocumentController;
+use App\Http\Controllers\My\EmployeeDocumentController as MyEmployeeDocumentController;
 use App\Http\Controllers\My\EquipmentController;
+use App\Http\Controllers\My\ExamAttemptController;
 use App\Http\Controllers\My\FamilyMemberController;
 use App\Http\Controllers\My\FeedbackController;
 use App\Http\Controllers\My\HomeController;
@@ -57,6 +66,7 @@ use App\Http\Controllers\My\PayrollController;
 use App\Http\Controllers\My\ProfileController as MyProfileController;
 use App\Http\Controllers\My\ReceptionBonusController;
 use App\Http\Controllers\My\ScheduleManageController;
+use App\Http\Controllers\My\TrainingController;
 use App\Http\Controllers\My\VacationRequestController;
 use App\Http\Controllers\My\WarningController;
 use App\Http\Controllers\My\WorkScheduleController;
@@ -68,6 +78,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\PublicController;
 use App\Http\Controllers\PushSubscriptionController;
+use App\Http\Controllers\Reception\CallController as ReceptionCallController;
 use App\Http\Controllers\Reception\DailySheetController;
 use App\Http\Controllers\Reception\OrthoApplianceController;
 use App\Http\Controllers\Reception\PatientController as ReceptionPatientController;
@@ -75,6 +86,17 @@ use App\Http\Controllers\Reception\PatientUserController;
 use App\Http\Controllers\Reception\ReceptionAppointmentController;
 use App\Http\Controllers\Reception\ReceptionDashboardController;
 use App\Http\Controllers\Reception\TreatmentPaymentController;
+use App\Http\Controllers\SignatureController;
+use App\Http\Controllers\Social\DataDeletionController;
+use App\Http\Controllers\Social\PublicFormController;
+use App\Http\Controllers\Admin\CallController;
+use App\Http\Controllers\Admin\CallBlockedNumberController;
+use App\Http\Controllers\Admin\CallDashboardController;
+use App\Http\Controllers\Admin\CallReportController;
+use App\Http\Controllers\Admin\CallSettingsController;
+use App\Http\Controllers\CallPro\CallRecordingController;
+use App\Http\Controllers\CallPro\CallWebhookController;
+use App\Http\Controllers\Social\SocialWebhookController;
 use App\Models\Doctor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -134,6 +156,15 @@ Route::post('/payment/{appointment}/cancel', [PaymentController::class, 'cancelE
 // ── Meta Social webhook (Facebook Page + Instagram) ──────────────────────────
 Route::get('/webhooks/social', [SocialWebhookController::class, 'verify'])->name('webhooks.social.verify');
 Route::post('/webhooks/social', [SocialWebhookController::class, 'receive'])->name('webhooks.social.receive');
+
+// ── CallPro дуудлагын webhook ────────────────────────────────────────────────
+// CallPro payload дотроо event нэрээ илгээдэггүй тул URL-аар ялгана.
+// Тэдний баримтад GET, POST аль нь ч байж болно гэсэн тул хоёуланг зөвшөөрөв.
+// Түүхэн дата илгээхэд ?source=history нэмнэ.
+Route::match(['get', 'post'], '/webhooks/callpro/{event?}', [CallWebhookController::class, 'handle'])
+    ->whereIn('event', ['start', 'answered', 'end', 'abandoned'])
+    ->middleware(\App\Http\Middleware\VerifyCallProWebhook::class)
+    ->name('webhooks.callpro');
 
 // ── Нууцлалын бодлого (Meta App-д шаардлагатай) ──────────────────────────────
 Route::get('/privacy', function () {
@@ -206,6 +237,13 @@ Route::middleware(['either.auth'])->group(function () {
     Route::post('push/unsubscribe', [PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe');
 
     // Notification routes — either.auth (web болон doctor guard аль алинд нь)
+    // ── Хадгалсан гарын үсэг (гэрээ болон бусад баримтад дахин ашиглана) ──
+    Route::get('signatures', [SignatureController::class, 'index'])->middleware('throttle:60,1')->name('signatures.index');
+    Route::post('signatures', [SignatureController::class, 'store'])->middleware('throttle:20,1')->name('signatures.store');
+    Route::patch('signatures/{signature}/default', [SignatureController::class, 'setDefault'])->name('signatures.default');
+    Route::post('signatures/{signature}/touch', [SignatureController::class, 'touch'])->middleware('throttle:60,1')->name('signatures.touch');
+    Route::delete('signatures/{signature}', [SignatureController::class, 'destroy'])->name('signatures.destroy');
+
     Route::get('notifications', [NotificationController::class, 'index'])->middleware('throttle:30,1')->name('notif.index');
     Route::patch('notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notif.read');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notif.read-all');
@@ -243,6 +281,11 @@ Route::middleware(['either.auth'])->group(function () {
         // Санал хүсэлт гомдол
         Route::get('/feedback', [FeedbackController::class, 'index'])->name('feedback.index');
         Route::post('/feedback', [FeedbackController::class, 'store'])->name('feedback.store');
+        // Гэрээ / Ажлын байрны тодорхойлолт
+        Route::get('/contracts', [MyEmployeeDocumentController::class, 'index'])->name('contracts.index');
+        Route::post('/contracts/{employeeDocument}/sign', [MyEmployeeDocumentController::class, 'sign'])->name('contracts.sign');
+        Route::post('/contracts/{employeeDocument}/decline', [MyEmployeeDocumentController::class, 'decline'])->name('contracts.decline');
+        Route::get('/contracts/{employeeDocument}/pdf', [MyEmployeeDocumentController::class, 'pdf'])->name('contracts.pdf');
         // Сануулга / Зөрчил
         Route::get('/warnings', [WarningController::class, 'index'])->name('warnings.index');
         Route::patch('/warnings/{warning}/acknowledge', [WarningController::class, 'acknowledge'])->name('warnings.acknowledge');
@@ -271,6 +314,37 @@ Route::middleware(['either.auth'])->group(function () {
         // Ирцийн бүртгэл
         Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check-in');
         Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.check-out');
+
+        // ── Дотоод сургалт: видео ба файл сургалт ───────────────────────────
+        // "documents" нь {course}-оос өмнө биш, тусдаа сегмент тул мөргөлдөхгүй
+        Route::get('/training', [TrainingController::class, 'index'])->name('training.index');
+        Route::get('/training/documents', [TrainingController::class, 'documents'])->name('training.documents');
+        Route::get('/training/courses/{course}', [TrainingController::class, 'course'])->name('training.courses.show');
+        Route::get('/training/lessons/{lesson}', [TrainingController::class, 'show'])->name('training.lessons.show');
+        Route::get('/training/lessons/{lesson}/stream', [TrainingController::class, 'stream'])->name('training.stream');
+        Route::post('/training/lessons/{lesson}/progress', [TrainingController::class, 'progress'])->name('training.progress');
+
+        // Баримт хичээл — PDF үзэх, эх файлыг татах, уншсан хуудсыг бүртгэх
+        Route::get('/training/lessons/{lesson}/document', [TrainingController::class, 'document'])->name('training.document');
+        Route::get('/training/lessons/{lesson}/document/source', [TrainingController::class, 'documentSource'])->name('training.document.source');
+        Route::post('/training/lessons/{lesson}/pages', [TrainingController::class, 'pages'])->name('training.pages');
+        Route::post('/training/lessons/{lesson}/complete', [TrainingController::class, 'complete'])->name('training.complete');
+        Route::post('/training/lessons/{lesson}/comments', [TrainingController::class, 'storeComment'])->name('training.comments.store');
+        Route::delete('/training/comments/{comment}', [TrainingController::class, 'destroyComment'])->name('training.comments.destroy');
+        Route::post('/training/react', [TrainingController::class, 'react'])->name('training.react');
+        Route::post('/training/lessons/{lesson}/notes', [TrainingController::class, 'storeNote'])->name('training.notes.store');
+        Route::patch('/training/notes/{note}', [TrainingController::class, 'updateNote'])->name('training.notes.update');
+        Route::delete('/training/notes/{note}', [TrainingController::class, 'destroyNote'])->name('training.notes.destroy');
+
+        // ── Дотоод сургалт: шалгалт ─────────────────────────────────────────
+        // Жагсаалт нь {exam}-аас өмнө байх ёстой — эс тэгвээс "exams" гэдгийг id гэж уншина
+        Route::get('/training/exams', [ExamAttemptController::class, 'index'])->name('training.exams.index');
+        Route::get('/training/exams/{exam}', [ExamAttemptController::class, 'show'])->name('training.exams.show');
+        Route::post('/training/exams/{exam}/start', [ExamAttemptController::class, 'start'])->name('training.exams.start');
+        Route::get('/training/exams/{exam}/attempt/{attempt}', [ExamAttemptController::class, 'take'])->name('training.exams.take');
+        Route::post('/training/exams/{exam}/attempt/{attempt}/submit', [ExamAttemptController::class, 'submit'])->name('training.exams.submit');
+        Route::get('/training/exams/{exam}/result/{attempt}', [ExamAttemptController::class, 'result'])->name('training.exams.result');
+        Route::post('/training/attempts/{attempt}/answer', [ExamAttemptController::class, 'saveAnswer'])->name('training.attempts.answer');
 
         // ── Chat ──────────────────────────────────────────────────────────────
         Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
@@ -359,8 +433,8 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::post('daily-sheets/{sheet}/unlock', [DailySheetAdminController::class, 'unlock'])->name('daily-sheets.unlock');
 
     // Банкны мобайл тулгалт (Хаан банкны хуулга × системийн мобайл орлогууд)
-    Route::get('bank-reconciliation', [\App\Http\Controllers\Admin\BankReconciliationController::class, 'index'])->name('bank-reconciliation.index');
-    Route::post('bank-reconciliation/check', [\App\Http\Controllers\Admin\BankReconciliationController::class, 'check'])->name('bank-reconciliation.check');
+    Route::get('bank-reconciliation', [BankReconciliationController::class, 'index'])->name('bank-reconciliation.index');
+    Route::post('bank-reconciliation/check', [BankReconciliationController::class, 'check'])->name('bank-reconciliation.check');
 
     // Дутуу тооцоо (бүх цаг үе, бүх салбар)
     Route::get('outstanding', [DailySheetAdminController::class, 'outstanding'])->name('admin.outstanding');
@@ -389,6 +463,32 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     // Аудит лог
     Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
 
+    // ── CallPro дуудлага ────────────────────────────────────────────────────
+    Route::get('calls/dashboard', [CallDashboardController::class, 'index'])->name('calls.dashboard');
+    Route::get('calls', [CallController::class, 'index'])->name('calls.index');
+    Route::patch('calls/{call}/resolve', [CallController::class, 'resolve'])->name('calls.resolve');
+    Route::patch('calls/{call}/unresolve', [CallController::class, 'unresolve'])->name('calls.unresolve');
+    Route::post('calls/{call}/block', [CallBlockedNumberController::class, 'blockFromCall'])->name('calls.block');
+
+    // Тайлан + Excel экспорт
+    Route::get('calls/reports', [CallReportController::class, 'index'])->name('calls.reports');
+    Route::get('calls/reports/export', [CallReportController::class, 'export'])->name('calls.reports.export');
+
+    // Спам дугаар
+    Route::get('calls/blocked', [CallBlockedNumberController::class, 'index'])->name('calls.blocked');
+    Route::post('calls/blocked', [CallBlockedNumberController::class, 'store'])->name('calls.blocked.store');
+    Route::delete('calls/blocked/{blocked}', [CallBlockedNumberController::class, 'destroy'])->name('calls.blocked.destroy');
+
+    // Тохиргоо: дотуур дугаар ↔ салбар, queue ↔ салбар
+    Route::get('call-settings', [CallSettingsController::class, 'index'])->name('call-settings.index');
+    Route::post('call-settings/extensions', [CallSettingsController::class, 'storeExtension'])->name('call-settings.extensions.store');
+    Route::patch('call-settings/extensions/{extension}', [CallSettingsController::class, 'updateExtension'])->name('call-settings.extensions.update');
+    Route::delete('call-settings/extensions/{extension}', [CallSettingsController::class, 'destroyExtension'])->name('call-settings.extensions.destroy');
+    Route::patch('call-settings/operations', [CallSettingsController::class, 'updateOperations'])->name('call-settings.operations.update');
+    Route::post('call-settings/queues', [CallSettingsController::class, 'storeQueue'])->name('call-settings.queues.store');
+    Route::patch('call-settings/queues/{queue}', [CallSettingsController::class, 'updateQueue'])->name('call-settings.queues.update');
+    Route::delete('call-settings/queues/{queue}', [CallSettingsController::class, 'destroyQueue'])->name('call-settings.queues.destroy');
+
     // Notification
     Route::patch('notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
@@ -397,9 +497,74 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::get('ortho-appliances', [OrthoApplianceController::class, 'adminIndex'])->name('ortho-appliances.index');
 
     // Лаб бүртгэл (read-only admin view + цалин бодсон тэмдэглэгээ)
-    Route::get('lab-orders', [\App\Http\Controllers\Admin\LabOrderController::class, 'index'])->name('lab-orders.index');
-    Route::get('lab-orders/export', [\App\Http\Controllers\Admin\LabOrderController::class, 'exportExcel'])->name('lab-orders.export');
-    Route::post('lab-orders/{labOrder}/payroll', [\App\Http\Controllers\Admin\LabOrderController::class, 'togglePayroll'])->name('lab-orders.payroll');
+    Route::get('lab-orders', [LabOrderController::class, 'index'])->name('lab-orders.index');
+    Route::get('lab-orders/export', [LabOrderController::class, 'exportExcel'])->name('lab-orders.export');
+    Route::post('lab-orders/{labOrder}/payroll', [LabOrderController::class, 'togglePayroll'])->name('lab-orders.payroll');
+
+    // Лабын нэгдсэн тайлан
+    Route::get('lab-report', [LabReportController::class, 'index'])->name('lab-report.index');
+
+    // Лаб ажилтны гүйцэтгэл — сар / улирал / жилээр
+    Route::get('lab-employees', [LabEmployeeController::class, 'index'])->name('lab-employees.index');
+    Route::get('lab-employees/{employee}/export', [LabEmployeeController::class, 'export'])->name('lab-employees.export');
+    Route::get('lab-employees/{employee}', [LabEmployeeController::class, 'show'])->name('lab-employees.show');
+
+    // ── Лабын сургалт: видео ба файл хичээл ─────────────────────────────────
+    // Хоёр хуудас ижил courses/lessons үйлдлүүдийг хуваалцана — зөвхөн
+    // жагсаалт нь сургалтын төрлөөр тусгаарлагдана.
+    Route::get('lab-training', [LabCourseController::class, 'index'])->name('lab-training.index');
+    Route::get('lab-training/documents', [LabCourseController::class, 'documents'])->name('lab-training.documents');
+    Route::post('lab-training/courses/reorder', [LabCourseController::class, 'reorder'])->name('lab-training.courses.reorder');
+    Route::post('lab-training/courses', [LabCourseController::class, 'store'])->name('lab-training.courses.store');
+    Route::post('lab-training/courses/{labCourse}', [LabCourseController::class, 'update'])->name('lab-training.courses.update');
+    Route::delete('lab-training/courses/{labCourse}', [LabCourseController::class, 'destroy'])->name('lab-training.courses.destroy');
+
+    // Админ өөрөө бичлэгээ шалгах — нийтлээгүй хичээл, хадгалаагүй байршуулалт ч тоглоно
+    Route::get('lab-training/lessons/{labLesson}/stream', [LabLessonController::class, 'stream'])->name('lab-training.lessons.stream');
+    Route::get('lab-training/lessons/{labLesson}/document', [LabLessonController::class, 'document'])->name('lab-training.lessons.document');
+    Route::post('lab-training/lessons/{labLesson}/reconvert', [LabLessonController::class, 'reconvert'])->name('lab-training.lessons.reconvert');
+    Route::get('lab-training/preview', [LabLessonController::class, 'preview'])->name('lab-training.preview');
+
+    Route::post('lab-training/lessons/reorder', [LabLessonController::class, 'reorder'])->name('lab-training.lessons.reorder');
+    Route::post('lab-training/lessons', [LabLessonController::class, 'store'])->name('lab-training.lessons.store');
+    Route::post('lab-training/lessons/{labLesson}', [LabLessonController::class, 'update'])->name('lab-training.lessons.update');
+    Route::post('lab-training/lessons/{labLesson}/attachment/delete', [LabLessonController::class, 'destroyAttachment'])->name('lab-training.lessons.attachment.destroy');
+    Route::delete('lab-training/lessons/{labLesson}', [LabLessonController::class, 'destroy'])->name('lab-training.lessons.destroy');
+
+    // ── Лабын сургалт: ангилал ба бүлэг ─────────────────────────────────────
+    Route::post('lab-training/categories/reorder', [LabCategoryController::class, 'reorder'])->name('lab-training.categories.reorder');
+    Route::post('lab-training/categories', [LabCategoryController::class, 'store'])->name('lab-training.categories.store');
+    Route::post('lab-training/categories/{labCategory}', [LabCategoryController::class, 'update'])->name('lab-training.categories.update');
+    Route::delete('lab-training/categories/{labCategory}', [LabCategoryController::class, 'destroy'])->name('lab-training.categories.destroy');
+
+    Route::post('lab-training/sections/reorder', [LabCourseController::class, 'reorderSections'])->name('lab-training.sections.reorder');
+    Route::post('lab-training/courses/{labCourse}/sections', [LabCourseController::class, 'storeSection'])->name('lab-training.sections.store');
+    Route::post('lab-training/sections/{section}', [LabCourseController::class, 'updateSection'])->name('lab-training.sections.update');
+    Route::delete('lab-training/sections/{section}', [LabCourseController::class, 'destroySection'])->name('lab-training.sections.destroy');
+
+    // ── Лабын сургалт: шалгалт ──────────────────────────────────────────────
+    Route::get('lab-training/exams', [LabExamController::class, 'index'])->name('lab-training.exams.index');
+    // "create" нь {labExam}-аас өмнө байх ёстой — эс тэгвээс id гэж уншина
+    Route::get('lab-training/exams/create', [LabExamController::class, 'create'])->name('lab-training.exams.create');
+    Route::post('lab-training/exams', [LabExamController::class, 'store'])->name('lab-training.exams.store');
+    Route::get('lab-training/exams/{labExam}/edit', [LabExamController::class, 'edit'])->name('lab-training.exams.edit');
+    Route::get('lab-training/exams/{labExam}/results', [LabExamController::class, 'results'])->name('lab-training.exams.results');
+    Route::post('lab-training/exams/{labExam}', [LabExamController::class, 'update'])->name('lab-training.exams.update');
+    Route::delete('lab-training/exams/{labExam}', [LabExamController::class, 'destroy'])->name('lab-training.exams.destroy');
+    Route::post('lab-training/answers/{answer}/grade', [LabExamController::class, 'gradeAnswer'])->name('lab-training.answers.grade');
+
+    // ── Лабын сургалт: тайлан, сэтгэгдлийн модерац ──────────────────────────
+    Route::get('lab-training/report', [LabTrainingReportController::class, 'index'])->name('lab-training.report');
+    Route::get('lab-training/report/lessons/{labLesson}', [LabTrainingReportController::class, 'lesson'])->name('lab-training.report.lesson');
+
+    // Ажилтны сургалтын хувийн хэрэг — дэлгэц дээр ба хэвлэхэд бэлэн PDF.
+    // "pdf" нь {user}-аас өмнө биш, дараа нь ирж байгаа тул мөргөлдөхгүй.
+    Route::get('lab-training/report/employees/{user}', [LabTrainingReportController::class, 'employee'])->name('lab-training.report.employee');
+    Route::get('lab-training/report/employees/{user}/pdf', [LabTrainingReportController::class, 'employeePdf'])->name('lab-training.report.employee.pdf');
+
+    Route::post('lab-training/comments/{comment}/pin', [LabTrainingReportController::class, 'pinComment'])->name('lab-training.comments.pin');
+    Route::post('lab-training/comments/{comment}/hide', [LabTrainingReportController::class, 'hideComment'])->name('lab-training.comments.hide');
+    Route::delete('lab-training/comments/{comment}', [LabTrainingReportController::class, 'destroyComment'])->name('lab-training.comments.destroy');
 
     // ── Bot Builder ─────────────────────────────────────────────────────────
     Route::get('chatbot-flows', [BotBuilderController::class, 'index'])->name('chatbot-flows.index');
@@ -503,9 +668,19 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
 });
 
 // ── Reception portal ─────────────────────────────────────────────────────────
+// Ярианы бичлэг — админ ба ресепшн хоёуланд нээлттэй, эрхийг controller шалгана.
+Route::middleware('auth')->get('/calls/{call}/recording', CallRecordingController::class)
+    ->name('calls.recording');
+
 Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.')->group(function () {
     Route::get('/dashboard', [ReceptionDashboardController::class, 'dashboard'])->name('dashboard');
     Route::get('/profile', [ReceptionDashboardController::class, 'profile'])->name('profile');
+
+    // ── Дуудлага — зөвхөн өөрийн салбарынх ───────────────────────────────
+    Route::get('/calls', [ReceptionCallController::class, 'index'])->name('calls.index');
+    Route::get('/calls/poll', [ReceptionCallController::class, 'poll'])->middleware('throttle:60,1')->name('calls.poll');
+    Route::patch('/calls/{call}/resolve', [ReceptionCallController::class, 'resolve'])->name('calls.resolve');
+    Route::patch('/calls/{call}/unresolve', [ReceptionCallController::class, 'unresolve'])->name('calls.unresolve');
     Route::post('/profile', [ReceptionDashboardController::class, 'updateProfile'])->name('profile.update');
 
     // Эмчилгээний төлбөр (эмч → ресепшн)
@@ -565,20 +740,35 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     Route::delete('/appointments/{appointment}', [ReceptionAppointmentController::class, 'destroy'])->name('appointments.destroy');
 
     // ── Лаб бүртгэл ──────────────────────────────────────────────────────────
-    Route::get('/lab-orders', [\App\Http\Controllers\Reception\LabOrderController::class, 'index'])->name('lab-orders.index');
-    Route::post('/lab-orders', [\App\Http\Controllers\Reception\LabOrderController::class, 'store'])->name('lab-orders.store');
-    Route::patch('/lab-orders/{labOrder}', [\App\Http\Controllers\Reception\LabOrderController::class, 'update'])->name('lab-orders.update');
-    Route::delete('/lab-orders/{labOrder}', [\App\Http\Controllers\Reception\LabOrderController::class, 'destroy'])->name('lab-orders.destroy');
+    Route::get('/lab-orders', [App\Http\Controllers\Reception\LabOrderController::class, 'index'])->name('lab-orders.index');
+    Route::post('/lab-orders', [App\Http\Controllers\Reception\LabOrderController::class, 'store'])->name('lab-orders.store');
+    Route::patch('/lab-orders/{labOrder}', [App\Http\Controllers\Reception\LabOrderController::class, 'update'])->name('lab-orders.update');
+    Route::delete('/lab-orders/{labOrder}', [App\Http\Controllers\Reception\LabOrderController::class, 'destroy'])->name('lab-orders.destroy');
+
+    // Буцаалт — төлбөр тооцоогүй, тусдаа мөчлөг
+    Route::post('/lab-orders/{labOrder}/return', [App\Http\Controllers\Reception\LabOrderController::class, 'sendReturn'])->name('lab-orders.return.send');
+    Route::post('/lab-orders/{labOrder}/return/close', [App\Http\Controllers\Reception\LabOrderController::class, 'closeReturn'])->name('lab-orders.return.close');
+    Route::post('/lab-orders/{labOrder}/return/cancel', [App\Http\Controllers\Reception\LabOrderController::class, 'cancelReturn'])->name('lab-orders.return.cancel');
+});
+
+// ── Лабын сургалтын видео байршуулалт ────────────────────────────────────────
+// Chunked upload нь нэг видеонд олон арван хүсэлт үүсгэдэг (500MB → ~125 chunk)
+// тул админы ердийн throttle:120,1 хязгаарт багтахгүй. Тиймээс тусад нь,
+// илүү өндөр хязгаартай бүлэгт байрлуулав.
+Route::middleware(['auth', 'admin', 'throttle:1000,1'])->prefix('admin')->name('admin.')->group(function () {
+    Route::post('lab-training/upload/chunk', [LabLessonController::class, 'uploadChunk'])->name('lab-training.upload.chunk');
+    Route::post('lab-training/upload/finish', [LabLessonController::class, 'uploadFinish'])->name('lab-training.upload.finish');
+    Route::post('lab-training/upload/cancel', [LabLessonController::class, 'uploadCancel'])->name('lab-training.upload.cancel');
 });
 
 // ── Lab portal ───────────────────────────────────────────────────────────────
 // Лаб ажилтан зөвхөн ресепшн үүсгэсэн захиалга дээр ажиллана (нугалсан, өнгөлсөн, бэлэн огноо тэмдэглэх).
 // Шинэ захиалга үүсгэх, устгах, төлбөр зэргийг ресепшн л хийнэ.
 Route::middleware(['auth', 'lab'])->prefix('lab')->name('lab.')->group(function () {
-    Route::get('/dashboard', [\App\Http\Controllers\Lab\LabDashboardController::class, 'dashboard'])->name('dashboard');
+    Route::get('/dashboard', [LabDashboardController::class, 'dashboard'])->name('dashboard');
 
-    Route::get('/lab-orders', [\App\Http\Controllers\Lab\LabOrderController::class, 'index'])->name('lab-orders.index');
-    Route::patch('/lab-orders/{labOrder}', [\App\Http\Controllers\Lab\LabOrderController::class, 'update'])->name('lab-orders.update');
+    Route::get('/lab-orders', [App\Http\Controllers\Lab\LabOrderController::class, 'index'])->name('lab-orders.index');
+    Route::patch('/lab-orders/{labOrder}', [App\Http\Controllers\Lab\LabOrderController::class, 'update'])->name('lab-orders.update');
 });
 
 // ── Doctor portal ────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\My;
 
 use App\Http\Controllers\Controller;
 use App\Models\HR\AttendanceLog;
+use App\Models\HR\EmployeeDocument;
 use App\Models\HR\EmployeeWarning;
 use App\Models\HR\HrDocument;
 use App\Models\HR\LeaveRequest;
@@ -91,6 +92,9 @@ class HomeController extends Controller
         $pendingVacation = VacationRequest::where('employee_id', $employee->id)->where('status', 'pending')->count();
         $warningCount = EmployeeWarning::where('employee_id', $employee->id)->whereNull('acknowledged_at')->count();
         $docCount = HrDocument::whereNull('expires_at')->orWhereDate('expires_at', '>=', now())->count();
+        $pendingContracts = EmployeeDocument::where('employee_id', $employee->id)
+            ->where('status', 'pending_employee')
+            ->count();
 
         $attendance = AttendanceLog::where('employee_id', $employee->id)
             ->where('date', $today->toDateString())
@@ -125,6 +129,7 @@ class HomeController extends Controller
                 'pending_vacation' => $pendingVacation,
                 'documents' => $docCount,
                 'warnings' => $warningCount,
+                'pending_contracts' => $pendingContracts,
                 'vacation_days' => $employee->vacation_days,
             ],
             'today' => [

@@ -157,6 +157,19 @@ class Employee extends Model
         return $this->last_name.' '.$this->first_name;
     }
 
+    /** Овгийн эхний үсэг + бүтэн нэр — "А.Цолмон" (эмчийн нэртэй ижил хэлбэр) */
+    public function getShortNameAttribute(): string
+    {
+        $last  = trim((string) $this->last_name);
+        $first = trim((string) $this->first_name);
+
+        if ($last === '') {
+            return $first;
+        }
+
+        return mb_substr($last, 0, 1).'.'.$first;
+    }
+
     public function getPhotoUrlAttribute(): ?string
     {
         return $this->photo ? asset('storage/'.$this->photo) : null;

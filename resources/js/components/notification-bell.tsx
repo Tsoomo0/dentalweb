@@ -2,10 +2,10 @@ import { shortDoctorName } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    AlertTriangle, Bell, BookOpen, BriefcaseBusiness, CalendarClock,
-    CalendarDays, CheckCheck, CheckCircle2, DollarSign, FlaskConical, MessageSquare,
-    Package, RotateCcw, ShieldAlert, Smile, Stethoscope, Trash2,
-    Umbrella, X, XCircle,
+    AlertTriangle, Award, BarChart3, Bell, BookOpen, BriefcaseBusiness, CalendarClock,
+    CalendarDays, CheckCheck, CheckCircle2, DollarSign, FileSignature, FlaskConical, MessageSquare,
+    GraduationCap, Package, PhoneMissed, RotateCcw, ShieldAlert, Smile, Stethoscope, Trash2,
+    Umbrella, Video, X, XCircle,
 } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
@@ -45,13 +45,31 @@ interface NotifData {
     // Lab order
     lab_order_id?: number; lab_name?: string; work_description?: string;
     order_date?: string; lab_ready_date?: string;
+    return_reason?: string; return_count?: number; return_ready_date?: string;
+    // Илүү тооцоо / буцаалт (өмнө нь тодорхойлогдоогүй байсан)
+    used_receipt?: string; method?: string; reason?: string;
+    // Лабын сургалт
+    lab_lesson_id?: number; lesson_title?: string; course_title?: string; duration?: string;
+    lab_exam_id?: number; exam_title?: string; duration_minutes?: number;
+    pass_percent?: number; closes_at?: string;
+    lab_exam_attempt_id?: number; score?: number; max_score?: number;
+    percent?: number; is_passed?: boolean;
+    // Ажилтны гэрээ / ажлын байрны тодорхойлолт
+    document_id?: number; document_type?: string;
+    employer_name?: string; signed_at?: string; decline_reason?: string;
+    // CallPro дуудлага
+    call_id?: number; number?: string; queue_name?: string; called_at?: string;
+    repeat_count?: number; waited_minutes?: number;
+    range_label?: string; period?: string; total?: number; answered?: number;
+    missed?: number; unhandled?: number; after_hours?: number;
+    appointments?: number; answer_rate?: number | null;
 }
 interface NotifItem {
     id: string; notif_type: string;
     data: NotifData; read_at: string | null; created_at: string;
 }
 interface NotificationsShared { unread_count: number; items: NotifItem[] }
-type Tab = 'all' | 'apt' | 'billing' | 'job' | 'leave' | 'payroll' | 'library' | 'equipment' | 'feedback' | 'warning' | 'consent' | 'treatment' | 'lab';
+type Tab = 'all' | 'apt' | 'billing' | 'job' | 'leave' | 'payroll' | 'library' | 'equipment' | 'feedback' | 'warning' | 'contract' | 'consent' | 'treatment' | 'lab' | 'call';
 
 /* ── Filters ──────────────────────────────────────────────────────────── */
 const isApt        = (n: NotifItem) => ['NewAppointment','AppointmentBookedPatient','AppointmentConfirmedPatient','PatientAppointmentRequested'].includes(n.notif_type);
@@ -65,9 +83,14 @@ const isLibrary    = (n: NotifItem) => n.notif_type === 'BookRentalSubmitted' ||
 const isEquipment  = (n: NotifItem) => ['EquipmentAssigned','EquipmentAssignmentResponse','EquipmentReturnedByAdmin'].includes(n.notif_type);
 const isFeedback   = (n: NotifItem) => n.notif_type === 'FeedbackSubmitted' || n.notif_type === 'FeedbackResponded';
 const isWarning    = (n: NotifItem) => n.notif_type === 'WarningIssued' || n.notif_type === 'WarningAcknowledged';
+const isContract   = (n: NotifItem) => ['EmployeeDocumentSent','EmployeeDocumentSigned','EmployeeDocumentDeclined'].includes(n.notif_type);
 const isConsent    = (n: NotifItem) => n.notif_type === 'ConsentRequestSent' || n.notif_type === 'ConsentFormSigned' || n.notif_type === 'OrthoSignatureRequested';
 const isTreatment  = (n: NotifItem) => n.notif_type === 'TreatmentSentToReception';
-const isLab        = (n: NotifItem) => n.notif_type === 'LabOrderCreated' || n.notif_type === 'LabOrderReady';
+const isCall       = (n: NotifItem) => ['MissedCall','MissedCallEscalated','CallSummaryReport'].includes(n.notif_type);
+const isLab        = (n: NotifItem) => n.notif_type === 'LabOrderCreated' || n.notif_type === 'LabOrderReady'
+                                     || n.notif_type === 'LabOrderReturned' || n.notif_type === 'LabOrderReturnFixed'
+                                     || n.notif_type === 'LabLessonPublished' || n.notif_type === 'LabExamPublished'
+                                     || n.notif_type === 'LabExamGraded';
 const portalOf = () => {
     const p = window.location.pathname;
     if (p.startsWith('/patient/'))   return 'patient';
@@ -91,9 +114,11 @@ const TAB_META: Record<Tab, { label: string; icon: React.ElementType; color: str
     equipment: { label: 'Тоног төхөөрөмж', icon: Package,           color: '#0ea5e9' },
     feedback:  { label: 'Санал хүсэлт',   icon: MessageSquare,     color: '#7c3aed' },
     warning:   { label: 'Сануулга',        icon: AlertTriangle,     color: '#ef4444' },
+    contract:  { label: 'Гэрээ',           icon: FileSignature,     color: '#059669' },
     consent:   { label: 'Зөвшөөрөл',      icon: CheckCircle2,      color: '#10b981' },
     treatment: { label: 'Эмчилгээ',        icon: Stethoscope,       color: '#06b6d4' },
     lab:       { label: 'Лаб',              icon: FlaskConical,      color: '#7c3aed' },
+    call:      { label: 'Дуудлага',         icon: PhoneMissed,       color: '#d03b3b' },
 };
 
 /* ── Notif icon + color helper ────────────────────────────────────────── */
@@ -127,6 +152,9 @@ function getNotifMeta(n: NotifItem): { icon: React.ElementType; bg: string; fg: 
                 : { icon: XCircle,     bg: 'bg-red-100 dark:bg-red-900/30',     fg: 'text-red-600 dark:text-red-400' };
         case 'FeedbackSubmitted':
         case 'FeedbackResponded':         return { icon: MessageSquare, bg: 'bg-violet-100 dark:bg-violet-900/30', fg: 'text-violet-600 dark:text-violet-400' };
+        case 'EmployeeDocumentSent':      return { icon: FileSignature, bg: 'bg-emerald-100 dark:bg-emerald-900/30', fg: 'text-emerald-600 dark:text-emerald-400' };
+        case 'EmployeeDocumentSigned':    return { icon: CheckCircle2,  bg: 'bg-emerald-100 dark:bg-emerald-900/30', fg: 'text-emerald-600 dark:text-emerald-400' };
+        case 'EmployeeDocumentDeclined':  return { icon: XCircle,       bg: 'bg-red-100 dark:bg-red-900/30',         fg: 'text-red-600 dark:text-red-400' };
         case 'WarningIssued':
             return n.data.warning_type === 'violation'
                 ? { icon: ShieldAlert,   bg: 'bg-red-100 dark:bg-red-900/30',     fg: 'text-red-600 dark:text-red-400' }
@@ -141,9 +169,17 @@ function getNotifMeta(n: NotifItem): { icon: React.ElementType; bg: string; fg: 
         case 'TreatmentSentToReception':       return { icon: Stethoscope,      bg: 'bg-cyan-100 dark:bg-cyan-900/30',      fg: 'text-cyan-600 dark:text-cyan-400' };
         case 'LabOrderCreated':                return { icon: FlaskConical,     bg: 'bg-violet-100 dark:bg-violet-900/30',  fg: 'text-violet-600 dark:text-violet-400' };
         case 'LabOrderReady':                  return { icon: CheckCircle2,     bg: 'bg-emerald-100 dark:bg-emerald-900/30', fg: 'text-emerald-600 dark:text-emerald-400' };
+        case 'LabOrderReturned':               return { icon: RotateCcw,        bg: 'bg-red-100 dark:bg-red-900/30',        fg: 'text-red-600 dark:text-red-400' };
+        case 'LabOrderReturnFixed':            return { icon: RotateCcw,        bg: 'bg-amber-100 dark:bg-amber-900/30',    fg: 'text-amber-600 dark:text-amber-400' };
+        case 'LabLessonPublished':             return { icon: Video,            bg: 'bg-violet-100 dark:bg-violet-900/30',  fg: 'text-violet-600 dark:text-violet-400' };
+        case 'LabExamPublished':               return { icon: GraduationCap,    bg: 'bg-indigo-100 dark:bg-indigo-900/30',  fg: 'text-indigo-600 dark:text-indigo-400' };
+        case 'LabExamGraded':                  return { icon: Award,            bg: 'bg-emerald-100 dark:bg-emerald-900/30', fg: 'text-emerald-600 dark:text-emerald-400' };
         case 'AppointmentBookedPatient':       return { icon: CalendarClock,    bg: 'bg-blue-100 dark:bg-blue-900/30',      fg: 'text-blue-600 dark:text-blue-400' };
         case 'AppointmentConfirmedPatient':    return { icon: CheckCircle2,     bg: 'bg-green-100 dark:bg-green-900/30',    fg: 'text-green-600 dark:text-green-400' };
         case 'PatientAppointmentRequested':    return { icon: CalendarClock,    bg: 'bg-indigo-100 dark:bg-indigo-900/30',  fg: 'text-indigo-600 dark:text-indigo-400' };
+        case 'MissedCall':                     return { icon: PhoneMissed,      bg: 'bg-red-100 dark:bg-red-900/30',        fg: 'text-red-600 dark:text-red-400' };
+        case 'MissedCallEscalated':            return { icon: AlertTriangle,    bg: 'bg-red-100 dark:bg-red-900/30',        fg: 'text-red-600 dark:text-red-400' };
+        case 'CallSummaryReport':              return { icon: BarChart3,        bg: 'bg-blue-100 dark:bg-blue-900/30',      fg: 'text-blue-600 dark:text-blue-400' };
         default:                               return { icon: CalendarClock,    bg: 'bg-blue-100 dark:bg-blue-900/30',      fg: 'text-blue-600 dark:text-blue-400' };
     }
 }
@@ -194,6 +230,12 @@ function NotifContent({ n }: { n: NotifItem }) {
             return <a href="/my/warnings" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.type_label} — {d.title}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.severity_label} ноцтой · {d.action_label}</p>{d.incident_date ? <p className="text-[11px] text-muted-foreground mt-0.5">Огноо: {d.incident_date}</p> : null}</a>;
         case 'WarningAcknowledged':
             return <a href="/hr/warnings" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.employee_name} — {d.type_label} хүлээн зөвшөөрлөө</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.title}</p>{d.employee_response ? <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 line-clamp-1">{d.employee_response}</p> : null}</a>;
+        case 'EmployeeDocumentSent':
+            return <a href="/my/contracts" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.title} — гарын үсэг хүлээгдэж байна</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.type_label}</p><p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">Уншиж гарын үсгээ зурна уу →</p></a>;
+        case 'EmployeeDocumentSigned':
+            return <a href="/hr/employee-documents" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.employee_name} — {d.title} баталгаажлаа</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.type_label}{d.signed_at ? ` · ${d.signed_at}` : ''}</p></a>;
+        case 'EmployeeDocumentDeclined':
+            return <a href="/hr/employee-documents" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.employee_name} — {d.title}-с татгалзлаа</p>{d.decline_reason ? <p className="text-[11px] text-red-500 mt-0.5 line-clamp-2">{d.decline_reason}</p> : null}</a>;
         case 'OrthoSignatureRequested':
             return <a href="/patient/ortho-signatures" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Гажиг заслын үзлэг — гарын үсэг хүлээгдэж байна</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.doctor_name ? shortDoctorName(d.doctor_name) : ''}{d.visit_date ? ` · ${d.visit_date}` : ''}</p><p className="text-[11px] text-violet-600 dark:text-violet-400 mt-0.5">Портал руу орж гарын үсэг зурна уу →</p></a>;
         case 'GeneralVisitSignatureRequested':
@@ -212,12 +254,28 @@ function NotifContent({ n }: { n: NotifItem }) {
             return <a href="/lab/lab-orders" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Шинэ лаб захиалга — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.lab_name, d.branch_name, d.doctor_name ? shortDoctorName(d.doctor_name) : undefined].filter(Boolean).join(' · ')}</p>{d.work_description ? <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{d.work_description}</p> : null}</a>;
         case 'LabOrderReady':
             return <a href="/reception/lab-orders" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Лаб ажил бэлэн боллоо — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.lab_name, d.branch_name].filter(Boolean).join(' · ')}</p>{d.work_description ? <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{d.work_description}</p> : null}</a>;
+        case 'LabOrderReturned':
+            return <a href="/lab/lab-orders?status=returned" className="block"><p className="text-xs font-semibold text-red-700 dark:text-red-400 leading-snug">Буцаалт ирлээ — {d.patient_name}{d.return_count && d.return_count > 1 ? ` (${d.return_count} дэх удаа)` : ''}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.work_description, d.branch_name].filter(Boolean).join(' · ')}</p>{d.return_reason ? <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{d.return_reason}</p> : null}</a>;
+        case 'LabOrderReturnFixed':
+            return <a href="/reception/lab-orders?status=returned" className="block"><p className="text-xs font-semibold text-amber-700 dark:text-amber-400 leading-snug">Буцаалт янзлагдлаа — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.work_description, d.branch_name, d.return_ready_date].filter(Boolean).join(' · ')}</p></a>;
+        case 'LabLessonPublished':
+            return <a href={d.url ?? '/my/training'} className="block"><p className="text-xs font-semibold text-violet-700 dark:text-violet-400 leading-snug">Шинэ видео хичээл — {d.lesson_title}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.course_title, d.duration].filter(Boolean).join(' · ')}</p></a>;
+        case 'LabExamPublished':
+            return <a href={d.url ?? '/my/training'} className="block"><p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 leading-snug">Шалгалт нээгдлээ — {d.exam_title}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.course_title, d.duration_minutes ? `${d.duration_minutes} мин` : undefined, d.pass_percent ? `Тэнцэх: ${d.pass_percent}%` : undefined].filter(Boolean).join(' · ')}</p>{d.closes_at ? <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">Хаагдах: {d.closes_at}</p> : null}</a>;
+        case 'LabExamGraded':
+            return <a href={d.url ?? '/my/training'} className="block"><p className={`text-xs font-semibold leading-snug ${d.is_passed ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>{d.is_passed ? 'Шалгалтад тэнцлээ' : 'Шалгалтын дүн гарлаа'} — {d.exam_title}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.score} / {d.max_score} оноо · {d.percent}%</p></a>;
         case 'AppointmentBookedPatient':
             return <a href="/patient/appointments" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Цаг захиалга бүртгэгдлээ — {d.appointment_number}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.appointment_date, d.appointment_time, d.doctor_name ? shortDoctorName(d.doctor_name) : undefined, d.branch_name].filter(Boolean).join(' · ')}</p></a>;
         case 'AppointmentConfirmedPatient':
             return <a href="/patient/appointments" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Цаг захиалга баталгаажлаа ✓ — {d.appointment_number}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.appointment_date, d.appointment_time, d.doctor_name ? shortDoctorName(d.doctor_name) : undefined, d.branch_name].filter(Boolean).join(' · ')}</p></a>;
         case 'PatientAppointmentRequested':
             return <a href="/reception/appointments" className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Өвчтөний цагийн хүсэлт — {d.patient_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.patient_phone}{d.preferred_date ? ` · ${d.preferred_date}` : ''}{d.preferred_time ? ` ${d.preferred_time}` : ''}</p>{d.notes ? <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{d.notes}</p> : null}</a>;
+        case 'MissedCall':
+            return <a href={d.url ?? '/admin/calls'} className="block"><p className="text-xs font-semibold text-red-700 dark:text-red-400 leading-snug">Алдсан дуудлага — {d.number}{(d.repeat_count ?? 1) > 1 ? ` (${d.repeat_count} дахь удаа)` : ''}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.number, d.branch_name ?? d.queue_name, d.called_at].filter(Boolean).join(' · ')}</p></a>;
+        case 'MissedCallEscalated':
+            return <a href={d.url ?? '/admin/calls'} className="block"><p className="text-xs font-semibold text-red-700 dark:text-red-400 leading-snug">Хугацаа хэтэрлээ — {d.number}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.waited_minutes} минут болсон ч эргэж холбогдоогүй{d.branch_name ? ` · ${d.branch_name}` : ''}</p></a>;
+        case 'CallSummaryReport':
+            return <a href={d.url ?? '/admin/calls/reports'} className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.period === 'weekly' ? 'Долоо хоногийн' : 'Өдрийн'} дуудлагын тайлан — {d.range_label}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.total} дуудлага · {d.missed} алдсан{d.answer_rate !== null && d.answer_rate !== undefined ? ` · хариулалт ${d.answer_rate}%` : ''}{(d.unhandled ?? 0) > 0 ? ` · ${d.unhandled} шийдэгдээгүй` : ''}</p></a>;
         default:
             return <><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">Шинэ цаг захиалга — {d.patient_name}{d.appointment_type === 'online' ? ' (онлайн)' : ' (биечлэн)'}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.appointment_number, d.doctor_name ? shortDoctorName(d.doctor_name) : undefined, d.branch_name, d.appointment_date, d.appointment_time].filter(Boolean).join(' · ')}</p></>;
     }
@@ -266,9 +324,11 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
     }, []);
 
     /* ── Portal-specific filters ─────────────────────────────────────────── */
-    const RECEPTION_TYPES = ['NewAppointment','DailySheetConfirmed','OutstandingPaid','TreatmentSentToReception','ConsentFormSigned','PatientAppointmentRequested','LabOrderReady'];
-    const LAB_TYPES       = ['LabOrderCreated'];
-    const ADMIN_TYPES     = [...RECEPTION_TYPES,'NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged','LabOrderCreated'];
+    const RECEPTION_TYPES = ['NewAppointment','DailySheetConfirmed','OutstandingPaid','TreatmentSentToReception','ConsentFormSigned','PatientAppointmentRequested','LabOrderReady','LabOrderReturnFixed','MissedCall'];
+    const LAB_TYPES       = ['LabOrderCreated','LabOrderReturned','LabLessonPublished','LabExamPublished','LabExamGraded'];
+    // Админ нэмэлтээр SLA сэрэмжлүүлэг ба өдрийн тайланг хардаг — эдгээр нь
+    // зөвхөн удирдлагад очдог тул ресепшний жагсаалтад ороогүй.
+    const ADMIN_TYPES     = [...RECEPTION_TYPES,'MissedCallEscalated','CallSummaryReport','NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged','LabOrderCreated','LabOrderReturned'];
     const HR_TYPES        = ['NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged'];
     const DOCTOR_TYPES    = ['PayrollSlipSent','ReceptionBonusSent','NurseBonusSent','LeaveRequestDecision','VacationRequestDecision','BookRentalDecision','EquipmentAssigned','FeedbackResponded','WarningIssued','OrthoVisitSigned','GeneralVisitSigned'];
     const PATIENT_TYPES   = ['ConsentRequestSent','AppointmentBookedPatient','AppointmentConfirmedPatient','OrthoSignatureRequested','GeneralVisitSignatureRequested'];
@@ -366,11 +426,11 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
 
     const visibleTabs: Tab[] =
         portal === 'patient'   ? ['all', 'apt'] :
-        portal === 'my'        ? ['all', 'leave', 'payroll', 'library', 'equipment', 'feedback', 'warning'] :
+        portal === 'my'        ? ['all', 'leave', 'payroll', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
         portal === 'reception' ? ['all', 'apt', 'billing', 'treatment', 'lab', 'consent'] :
-        portal === 'admin'     ? ['all', 'apt', 'billing', 'job', 'treatment', 'lab', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning'] :
-        portal === 'hr'        ? ['all', 'job', 'leave', 'library', 'equipment', 'feedback', 'warning'] :
-        portal === 'doctor'    ? ['all', 'leave', 'payroll', 'library', 'equipment', 'feedback', 'warning'] :
+        portal === 'admin'     ? ['all', 'apt', 'billing', 'job', 'treatment', 'lab', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
+        portal === 'hr'        ? ['all', 'job', 'leave', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
+        portal === 'doctor'    ? ['all', 'leave', 'payroll', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
         portal === 'lab'       ? ['all', 'lab'] :
         ['all', 'apt', 'billing', 'job', 'treatment', 'lab', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning'];
 
@@ -385,9 +445,11 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
             case 'equipment': return items.filter(isEquipment);
             case 'feedback':  return items.filter(isFeedback);
             case 'warning':   return items.filter(isWarning);
+            case 'contract':  return items.filter(isContract);
             case 'consent':   return items.filter(isConsent);
             case 'treatment': return items.filter(isTreatment);
             case 'lab':       return items.filter(isLab);
+            case 'call':      return items.filter(isCall);
             default:          return items;
         }
     }, [items, tab]);
@@ -403,9 +465,11 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
         equipment: items.filter(n => isEquipment(n)  && !n.read_at).length,
         feedback:  items.filter(n => isFeedback(n)   && !n.read_at).length,
         warning:   items.filter(n => isWarning(n)    && !n.read_at).length,
+        contract:  items.filter(n => isContract(n)   && !n.read_at).length,
         consent:   items.filter(n => isConsent(n)    && !n.read_at).length,
         treatment: items.filter(n => isTreatment(n)  && !n.read_at).length,
         lab:       items.filter(n => isLab(n)         && !n.read_at).length,
+        call:      items.filter(n => isCall(n)        && !n.read_at).length,
     };
 
     const markRead = async (id: string) => {

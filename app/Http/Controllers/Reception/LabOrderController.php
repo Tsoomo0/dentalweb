@@ -9,6 +9,7 @@ use App\Models\HR\Employee;
 use App\Models\LabOrder;
 use App\Models\User;
 use App\Notifications\LabOrderCreated;
+use App\Notifications\LabOrderReturned;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,28 +26,11 @@ class LabOrderController extends Controller
     public function index(Request $request): Response
     {
         $branchId = $this->branchId();
-        $status   = $request->get('status', 'active'); // active | sent_to_lab | lab_ready | completed | all
-        $search   = trim((string) $request->get('q', ''));
 
-        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator'])
+        // Салбарын бүх бүртгэлийг нэг удаа өгнө — таб, ажил, лаб, хайлт,
+        // хуудаслалт бүгд клиент талд болно (таб солиход сервер рүү явахгүй).
+        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'returns.benders', 'returns.polishers', 'creator'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
-            ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
-            ->when($status === 'sent_to_lab', fn ($q) => $q
-                ->where('is_completed', false)
-                ->whereNotNull('sent_to_lab_date')
-                ->whereNull('lab_ready_date'))
-            ->when($status === 'lab_ready',   fn ($q) => $q
-                ->where('is_completed', false)
-                ->whereNotNull('lab_ready_date')
-                ->whereNull('arrived_date'))
-            ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
-                ->where('patient_first_name', 'like', "%{$search}%")
-                ->orWhere('patient_last_name', 'like', "%{$search}%")
-                ->orWhere('patient_phone', 'like', "%{$search}%")
-                ->orWhere('lab_name', 'like', "%{$search}%")
-                ->orWhere('work_description', 'like', "%{$search}%")
-            ))
             ->orderByDesc('order_date')
             ->orderByDesc('id')
             ->get()
@@ -80,32 +64,18 @@ class LabOrderController extends Controller
                 'pickup_date'         => $o->pickup_date?->toDateString(),
                 'is_completed'        => $o->is_completed,
                 'completed_at'        => $o->completed_at?->toDateTimeString(),
+                // ── Буцаалт ─────────────────────────────────────────────────
+                'return_status'       => $o->return_status,
+                'return_count'        => (int) $o->return_count,
+                'return_reason'       => $o->return_reason,
+                'returned_at'         => $o->returned_at?->toDateTimeString(),
+                'return_ready_date'   => $o->return_ready_date?->toDateString(),
+                'return_closed_at'    => $o->return_closed_at?->toDateTimeString(),
+                'return_history'      => $o->returnHistory(),
                 'notes'               => $o->notes,
                 'created_by_name'     => $o->creator?->name,
             ])
             ->all();
-
-        $branchScope = fn () => LabOrder::when($branchId, fn ($q) => $q->where('branch_id', $branchId));
-
-        $stats = [
-            'active'         => $branchScope()->where('is_completed', false)->count(),
-            'completed'      => $branchScope()->where('is_completed', true)->count(),
-            // Лаб руу явсан — sent_to_lab_date бөглөгдсөн, lab_ready_date хоосон
-            'sent_to_lab'    => $branchScope()
-                ->where('is_completed', false)
-                ->whereNotNull('sent_to_lab_date')
-                ->whereNull('lab_ready_date')
-                ->count(),
-            // Лабаас ирсэн — lab_ready_date бөглөгдсөн, arrived_date хоосон
-            'lab_ready'      => $branchScope()
-                ->where('is_completed', false)
-                ->whereNotNull('lab_ready_date')
-                ->whereNull('arrived_date')
-                ->count(),
-            'total_due'      => (int) $branchScope()->where('is_completed', false)->sum('amount_due'),
-            'total_paid'     => (int) $branchScope()->where('is_completed', false)->sum('amount_paid'),
-        ];
-        $stats['total_outstanding'] = max(0, $stats['total_due'] - $stats['total_paid']);
 
         $branches = Branch::orderBy('name')->get(['id', 'name']);
         $doctors  = Doctor::where('is_active', true)
@@ -118,16 +88,14 @@ class LabOrderController extends Controller
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name'])
-            ->map(fn ($e) => ['id' => $e->id, 'name' => trim($e->last_name.' '.$e->first_name)])
+            ->map(fn ($e) => ['id' => $e->id, 'name' => $e->short_name])
             ->values();
 
         return Inertia::render('reception/lab-orders/index', [
             'orders'    => $orders,
-            'stats'     => $stats,
             'branches'  => $branches,
             'doctors'   => $doctors,
             'employees' => $employees,
-            'filters'   => compact('status', 'search'),
         ]);
     }
 
@@ -200,7 +168,24 @@ class LabOrderController extends Controller
         ]);
 
         if (array_key_exists('is_completed', $validated)) {
+            // Идэвхтэй буцаалттай бүртгэлийг дахин нээвэл төлөвүүд зөрчилдөнө
+            if (! $validated['is_completed'] && $labOrder->has_open_return) {
+                return back()->with('error', 'Идэвхтэй буцаалттай бүртгэлийг дахин нээх боломжгүй. Эхлээд буцаалтыг хаана уу.');
+            }
             $validated['completed_at'] = $validated['is_completed'] ? now() : null;
+
+            // Дуусгахад урсгалын алхмууд дутуу үлдвэл нөхөж бөглөнө.
+            // Ажлыг ресепшн хүлээж авалгүйгээр үйлчлүүлэгчид өгөх боломжгүй тул
+            // эдгээр огноо хоосон үлдвэл явцын түүх тасалдана.
+            if ($validated['is_completed']) {
+                $today = now()->toDateString();
+                if (empty($validated['arrived_date']) && ! $labOrder->arrived_date) {
+                    $validated['arrived_date'] = $labOrder->lab_ready_date?->toDateString() ?? $today;
+                }
+                if (empty($validated['pickup_date']) && ! $labOrder->pickup_date) {
+                    $validated['pickup_date'] = $today;
+                }
+            }
         }
 
         // Дуусгах үед дутуу тооцоо төлбөртэй бол final_payment_at-ыг тэмдэглэнэ
@@ -222,5 +207,120 @@ class LabOrderController extends Controller
         $labOrder->delete();
 
         return back()->with('success', 'Лаб бүртгэл устгагдлаа.');
+    }
+
+    // ── Буцаалт ──────────────────────────────────────────────────────────────
+    // Ажил үйлчлүүлэгчийн шүдэнд таарахгүй бол буцаалт болгон лаб руу явуулна.
+    // Буцаалтын мөчлөгт төлбөр тооцоо хийгдэхгүй тул amount_*, final_payment_*,
+    // is_completed талбаруудад огт хүрэхгүй.
+
+    /** Буцаалт болгож лаб руу явуулах */
+    public function sendReturn(Request $request, LabOrder $labOrder): RedirectResponse
+    {
+        $this->authorizeBranch($labOrder);
+        $labOrder->refresh();
+
+        if (! $labOrder->is_completed) {
+            return back()->with('error', 'Зөвхөн дууссан бүртгэлийг буцаалт болгоно.');
+        }
+        if ($labOrder->has_open_return) {
+            return back()->with('error', 'Энэ бүртгэл дээр аль хэдийн идэвхтэй буцаалт байна.');
+        }
+
+        $validated = $request->validate([
+            'return_reason' => 'required|string|max:1000',
+        ], [
+            'return_reason.required' => 'Буцаалтын шалтгааныг бичнэ үү.',
+        ]);
+
+        $attempt  = (int) $labOrder->returns()->max('attempt') + 1;
+        $returnAt = now();
+
+        // Түүхэнд шинэ мөчлөг — өмнөх буцаалтууд хэвээр үлдэнэ
+        $labOrder->returns()->create([
+            'attempt'     => $attempt,
+            'reason'      => $validated['return_reason'],
+            'returned_at' => $returnAt,
+            'returned_by' => Auth::id(),
+        ]);
+
+        // lab_orders дээрх багана нь "сүүлийн буцаалтын" хурдан төлөв
+        $labOrder->update([
+            'return_status'     => LabOrder::RETURN_SENT,
+            'return_count'      => $labOrder->countedReturns()->count(),
+            'return_reason'     => $validated['return_reason'],
+            'returned_at'       => $returnAt,
+            'returned_by'       => Auth::id(),
+            'return_ready_date' => null,
+            'return_closed_at'  => null,
+        ]);
+
+        // Зөвхөн "Кутикул лаб" лаб порталаар явна
+        if ($labOrder->lab_name === 'Кутикул лаб') {
+            $labUsers = User::whereHas('employee.position', fn ($q) => $q->where('portal', 'lab'))
+                ->where('is_active', true)
+                ->get();
+            foreach ($labUsers as $u) {
+                $u->notify(new LabOrderReturned($labOrder->fresh()->load(['branch', 'doctor'])));
+            }
+        }
+
+        return back()->with('success', 'Буцаалт лаб руу явууллаа.');
+    }
+
+    /** Лабаас янзлагдаж ирсэн буцаалтыг хүлээж авч хаах */
+    public function closeReturn(LabOrder $labOrder): RedirectResponse
+    {
+        $this->authorizeBranch($labOrder);
+        $labOrder->refresh();
+
+        if ($labOrder->return_status !== LabOrder::RETURN_READY) {
+            return back()->with('error', 'Лаб энэ буцаалтыг хараахан янзалж дуусгаагүй байна.');
+        }
+
+        $closedAt = now();
+        $labOrder->currentReturn()->first()?->update(['closed_at' => $closedAt]);
+
+        // Хаагдсан ч буцаалтын бүртгэл түүхэнд бүрэн хэвээр үлдэнэ
+        $labOrder->update([
+            'return_status'    => LabOrder::RETURN_DONE,
+            'return_closed_at' => $closedAt,
+        ]);
+
+        return back()->with('success', 'Буцаалт хаагдлаа. Бүртгэл түүхэнд хадгалагдсан.');
+    }
+
+    /** Андуурч буцаалт үүсгэсэн бол — зөвхөн лаб гарт авахаас өмнө */
+    public function cancelReturn(LabOrder $labOrder): RedirectResponse
+    {
+        $this->authorizeBranch($labOrder);
+        $labOrder->refresh();
+
+        if ($labOrder->return_status !== LabOrder::RETURN_SENT) {
+            return back()->with('error', 'Зөвхөн лаб руу явуулсан, хараахан янзлагдаагүй буцаалтыг цуцална.');
+        }
+
+        // Мөрийг устгахгүй — "цуцлагдсан" гэж тэмдэглэнэ (тоололд орохгүй)
+        $labOrder->currentReturn()->first()?->update(['cancelled_at' => now()]);
+
+        $previous = $labOrder->countedReturns()->first();   // сүүлийн хүчинтэй буцаалт
+        $labOrder->update([
+            'return_status'     => $previous?->status,
+            'return_count'      => $labOrder->countedReturns()->count(),
+            'return_reason'     => $previous?->reason,
+            'returned_at'       => $previous?->returned_at,
+            'returned_by'       => $previous?->returned_by,
+            'return_ready_date' => $previous?->ready_date,
+            'return_closed_at'  => $previous?->closed_at,
+        ]);
+
+        return back()->with('success', 'Буцаалт цуцлагдлаа.');
+    }
+
+    private function authorizeBranch(LabOrder $labOrder): void
+    {
+        if ($this->branchId() && $labOrder->branch_id && $labOrder->branch_id !== $this->branchId()) {
+            abort(403);
+        }
     }
 }

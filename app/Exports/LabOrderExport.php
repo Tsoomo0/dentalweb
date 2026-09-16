@@ -42,6 +42,8 @@ class LabOrderExport implements FromCollection, ShouldAutoSize, WithEvents, With
             'Үйлчлүүлэгч авсан',
             'Баримт №',
             'Статус',
+            'Буцаалт',
+            'Буцаалтын шалтгаан',
             'Цалин бодсон',
             'Тэмдэглэл',
         ];
@@ -68,6 +70,8 @@ class LabOrderExport implements FromCollection, ShouldAutoSize, WithEvents, With
             $order['pickup_date'] ?? '—',
             $order['final_payment_receipt'] ?? '—',
             $order['is_completed'] ?? '—',
+            $order['return_summary'] ?? '—',
+            $order['return_reasons'] ?? '—',
             $order['payroll_counted'] ?? '—',
             $order['notes'] ?? '—',
         ];

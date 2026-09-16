@@ -19,11 +19,13 @@ class LabOrderController extends Controller
         $status   = $request->get('status', 'all');
         $search   = trim((string) $request->get('q', ''));
 
-        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator'])
+        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator', 'returns'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
             ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
             ->when($status === 'payroll',   fn ($q) => $q->where('payroll_counted', true))
+            // Буцаалт — нэг ч удаа буцаагдсан бүх ажил (хаагдсаныг оруулаад)
+            ->when($status === 'returned',  fn ($q) => $q->where('return_count', '>', 0))
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->where('patient_first_name', 'like', "%{$search}%")
                 ->orWhere('patient_last_name', 'like', "%{$search}%")
@@ -60,6 +62,18 @@ class LabOrderController extends Controller
                 'final_payment_at'      => $o->final_payment_at?->toDateString(),
                 'is_completed'          => $o->is_completed ? 'Дууссан' : 'Идэвхтэй',
                 'completed_at'          => $o->completed_at?->toDateString(),
+                'return_summary'        => $o->return_count > 0
+                    ? $o->return_count.' удаа'.match ($o->return_status) {
+                        LabOrder::RETURN_SENT  => ' (лаб дээр)',
+                        LabOrder::RETURN_READY => ' (янзлагдсан)',
+                        default                => '',
+                    }
+                    : '—',
+                'return_reasons'        => $o->returns->isNotEmpty()
+                    ? $o->returns->sortBy('attempt')
+                        ->map(fn ($r) => "#{$r->attempt}: {$r->reason}")
+                        ->implode(' | ')
+                    : '—',
                 'payroll_counted'       => $o->payroll_counted ? 'Тийм' : 'Үгүй',
                 'payroll_counted_at'    => $o->payroll_counted_at?->toDateString(),
                 'notes'                 => $o->notes,
@@ -75,11 +89,13 @@ class LabOrderController extends Controller
         $status   = $request->get('status', 'all'); // active | completed | all
         $search   = trim((string) $request->get('q', ''));
 
-        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator'])
+        $orders = LabOrder::with(['branch', 'doctor', 'benders', 'polishers', 'creator', 'returns.benders', 'returns.polishers'])
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($status === 'active',    fn ($q) => $q->where('is_completed', false))
             ->when($status === 'completed', fn ($q) => $q->where('is_completed', true))
             ->when($status === 'payroll',   fn ($q) => $q->where('payroll_counted', true))
+            // Буцаалт — нэг ч удаа буцаагдсан бүх ажил (хаагдсаныг оруулаад)
+            ->when($status === 'returned',  fn ($q) => $q->where('return_count', '>', 0))
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->where('patient_first_name', 'like', "%{$search}%")
                 ->orWhere('patient_last_name', 'like', "%{$search}%")
@@ -119,6 +135,14 @@ class LabOrderController extends Controller
                 'pickup_date'           => $o->pickup_date?->toDateString(),
                 'is_completed'          => $o->is_completed,
                 'completed_at'          => $o->completed_at?->toDateTimeString(),
+                // ── Буцаалт ─────────────────────────────────────────────────
+                'return_status'         => $o->return_status,
+                'return_count'          => (int) $o->return_count,
+                'return_reason'         => $o->return_reason,
+                'returned_at'           => $o->returned_at?->toDateTimeString(),
+                'return_ready_date'     => $o->return_ready_date?->toDateString(),
+                'return_closed_at'      => $o->return_closed_at?->toDateTimeString(),
+                'return_history'        => $o->returnHistory(),
                 'payroll_counted'       => $o->payroll_counted,
                 'payroll_counted_at'    => $o->payroll_counted_at?->toDateTimeString(),
                 'notes'                 => $o->notes,
@@ -135,6 +159,10 @@ class LabOrderController extends Controller
             'total_outstanding' => (int) LabOrder::where('is_completed', false)->whereColumn('amount_paid', '<', 'amount_due')->selectRaw('SUM(amount_due - amount_paid) as t')->value('t') ?? 0,
             'final_paid_count'  => LabOrder::whereNotNull('final_payment_at')->count(),
             'payroll_counted'   => LabOrder::where('payroll_counted', true)->count(),
+            // Буцаалт — нэг ч удаа буцаагдсан ажил, түүнээс хэд нь одоо явагдаж байна
+            'returned'          => LabOrder::where('return_count', '>', 0)->count(),
+            'return_open'       => LabOrder::whereIn('return_status', [LabOrder::RETURN_SENT, LabOrder::RETURN_READY])->count(),
+            'return_total'      => (int) LabOrder::sum('return_count'),
         ];
 
         $branches = Branch::orderBy('name')->get(['id', 'name']);

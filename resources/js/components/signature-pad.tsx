@@ -4,6 +4,8 @@ interface SignaturePadProps {
     height?: number;
     penColor?: string;
     onBegin?: () => void;
+    /** Нэг зурлага дуусах бүрд дуудагдана — утгыг эцэг рүү дамжуулахад ашиглана. */
+    onEnd?: () => void;
 }
 
 export interface SignaturePadRef {
@@ -13,7 +15,7 @@ export interface SignaturePadRef {
 }
 
 const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function SignaturePad(
-    { height = 160, penColor = '#1e3a5f', onBegin },
+    { height = 160, penColor = '#1e3a5f', onBegin, onEnd },
     ref
 ) {
     const canvasRef    = useRef<HTMLCanvasElement>(null);
@@ -23,6 +25,8 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function Sig
     const lastY        = useRef(0);
     const onBeginRef   = useRef(onBegin);
     onBeginRef.current = onBegin;
+    const onEndRef     = useRef(onEnd);
+    onEndRef.current   = onEnd;
     const colorRef     = useRef(penColor);
     colorRef.current   = penColor;
 
@@ -100,7 +104,11 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function Sig
             const { x, y } = pos(e.clientX, e.clientY);
             line(x, y);
         }
-        function mu() { isDrawing.current = false; }
+        function mu() {
+            if (!isDrawing.current) return;
+            isDrawing.current = false;
+            onEndRef.current?.();
+        }
 
         function ts(e: TouchEvent) {
             if (e.touches.length !== 1) return;
@@ -116,7 +124,11 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function Sig
             const { x, y } = pos(t.clientX, t.clientY);
             line(x, y);
         }
-        function te() { isDrawing.current = false; }
+        function te() {
+            if (!isDrawing.current) return;
+            isDrawing.current = false;
+            onEndRef.current?.();
+        }
 
         canvas.addEventListener('mousedown',   md, { passive: false });
         window.addEventListener('mousemove',   mm);

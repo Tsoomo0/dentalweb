@@ -447,22 +447,50 @@ class EmployeeController extends Controller
             // Холбоотой User-ийн branch_id шинэчлэх
             $employee->user?->update(['branch_id' => $request->branch_id]);
 
-            // Холбоотой Doctor record шинэчлэх
+            // Холбоотой Doctor record-ыг албан тушаалтай тааруулах
             $employee->refresh();
-            if ($employee->doctor) {
+            $isDoctorPosition = $employee->position?->portal === 'doctor';
+            $doctor = $employee->doctor()->withTrashed()->first();
+
+            if (! $isDoctorPosition) {
+                // Эмчийн тушаалаас өөр тушаал руу шилжсэн — эмчийн нэвтрэлтийг хаана.
+                // Үлдсэн Doctor бүртгэл нь ижил мэйл/нууц үгтэй тул нэвтрэх үед
+                // doctor guard-д эхэлж баригдаад, ажилтныг өөрийн порталд
+                // (lab, reception гэх мэт) оруулахгүй болгодог.
+                $doctor?->delete();
+            } elseif ($doctor) {
                 $syncData = [
                     'branch_id' => $employee->branch_id,
                     'name' => $employee->full_name,
-                    'specialization' => $employee->position?->name ?? $employee->doctor->specialization,
+                    'specialization' => $employee->position?->name ?? $doctor->specialization,
                     'phone' => $employee->phone,
                     'email' => $employee->email,
                 ];
                 if ($request->hasFile('photo')) {
                     $syncData['photo'] = $employee->photo;
                 }
-                $employee->doctor->update($syncData);
+                if ($doctor->trashed()) {
+                    $doctor->restore();
+                }
+                $doctor->update($syncData);
                 if ($employee->branch_id) {
-                    $employee->doctor->branches()->sync([$employee->branch_id]);
+                    $doctor->branches()->sync([$employee->branch_id]);
+                }
+            } else {
+                // Эмчийн тушаал руу шинээр шилжсэн — Doctor бүртгэл үүсгэнэ.
+                $doctor = Doctor::create([
+                    'employee_id' => $employee->id,
+                    'branch_id' => $employee->branch_id,
+                    'name' => $employee->full_name,
+                    'specialization' => $employee->position?->name,
+                    'phone' => $employee->phone,
+                    'email' => $employee->user?->email ?? $employee->email,
+                    'photo' => $employee->photo,
+                    'is_active' => true,
+                    'password' => $employee->user?->password,
+                ]);
+                if ($employee->branch_id) {
+                    $doctor->branches()->sync([$employee->branch_id]);
                 }
             }
         });

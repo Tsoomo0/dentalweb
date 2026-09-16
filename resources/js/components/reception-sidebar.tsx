@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAppearance } from '@/hooks/use-appearance';
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, Braces, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, FlaskConical, KeyRound, LayoutGrid, Monitor, Moon, Sun, TrendingUp, Undo2, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
+import { AlertCircle, Braces, CalendarClock, ClipboardList, CreditCard, Eye, EyeOff, FlaskConical, KeyRound, LayoutGrid, Monitor, Moon, PhoneCall, Sun, TrendingUp, Undo2, UserCheck, UserCircle2, UserRound, Users, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import AppLogo from './app-logo';
 
@@ -18,6 +18,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
         items: [
             { title: 'Хяналтын самбар',    url: '/reception/dashboard',     icon: LayoutGrid,    badge: null },
             { title: 'Цаг захиалга',       url: '/reception/appointments',  icon: CalendarClock, badge: null },
+            { title: 'Дуудлага',           url: '/reception/calls',         icon: PhoneCall,     badge: 'pending_missed_calls' },
         ],
     },
     {

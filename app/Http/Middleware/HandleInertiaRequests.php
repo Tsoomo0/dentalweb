@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CallPro\Call;
 use App\Models\HR\Employee;
 use App\Models\JobApplication;
 use App\Models\Setting;
@@ -39,7 +40,7 @@ class HandleInertiaRequests extends Middleware
             return ['NewJobApplication', 'LeaveRequestSubmitted', 'VacationRequestSubmitted', 'BookRentalSubmitted', 'EquipmentAssignmentResponse', 'FeedbackSubmitted', 'WarningAcknowledged'];
         }
         if (str_starts_with($path, 'reception/')) {
-            return ['NewAppointment', 'DailySheetConfirmed', 'OutstandingPaid', 'TreatmentSentToReception', 'ConsentFormSigned', 'PatientAppointmentRequested', 'LabOrderReady'];
+            return ['NewAppointment', 'DailySheetConfirmed', 'OutstandingPaid', 'TreatmentSentToReception', 'ConsentFormSigned', 'PatientAppointmentRequested', 'LabOrderReady', 'MissedCall'];
         }
         if (str_starts_with($path, 'lab/')) {
             return ['LabOrderCreated'];
@@ -113,6 +114,13 @@ class HandleInertiaRequests extends Middleware
                 ? TreatmentRecord::where('payment_status', 'sent')
                     ->when($request->user()->branch_id, fn ($q) => $q->whereHas('doctor', fn ($d) => $d->where('branch_id', $request->user()->branch_id))
                     )->count()
+                : 0,
+
+            // ─── Ресепшн: эргэж холбогдоогүй алдсан дуудлага ────────────────
+            // Салбаргүй ажилтанд тоо гарахгүй — тэр нь бүх салбарын дуудлагыг
+            // тоолж, хэнд ч хамааралгүй тоо харуулна.
+            'pending_missed_calls' => fn () => $request->user()?->branch_id
+                ? Call::where('branch_id', $request->user()->branch_id)->unhandledMissed()->count()
                 : 0,
 
             'notifications' => function () use ($request) {

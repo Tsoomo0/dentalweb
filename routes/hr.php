@@ -4,10 +4,13 @@ use App\Http\Controllers\HR\AttendanceController;
 use App\Http\Controllers\HR\BookCategoryController;
 use App\Http\Controllers\HR\BookController;
 use App\Http\Controllers\HR\BookRentalController;
+use App\Http\Controllers\HR\CompanyStampController;
 use App\Http\Controllers\HR\DashboardController;
 use App\Http\Controllers\HR\DocumentCategoryController;
 use App\Http\Controllers\HR\DocumentController;
+use App\Http\Controllers\HR\DocumentTemplateController;
 use App\Http\Controllers\HR\EmployeeController;
+use App\Http\Controllers\HR\EmployeeDocumentController;
 use App\Http\Controllers\HR\EquipmentController;
 use App\Http\Controllers\HR\ExitChecklistController;
 use App\Http\Controllers\HR\FeedbackController;
@@ -149,6 +152,31 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     Route::post('document-categories', [DocumentCategoryController::class, 'store'])->name('document-categories.store');
     Route::put('document-categories/{documentCategory}', [DocumentCategoryController::class, 'update'])->name('document-categories.update');
     Route::delete('document-categories/{documentCategory}', [DocumentCategoryController::class, 'destroy'])->name('document-categories.destroy');
+
+    // ── Гэрээ / АБТ-ийн загвар ───────────────────────────────────────────────
+    Route::get('document-templates', [DocumentTemplateController::class, 'index'])->name('document-templates.index');
+    Route::post('document-templates', [DocumentTemplateController::class, 'store'])->name('document-templates.store');
+    Route::put('document-templates/{documentTemplate}', [DocumentTemplateController::class, 'update'])->name('document-templates.update');
+    Route::post('document-templates/{documentTemplate}/duplicate', [DocumentTemplateController::class, 'duplicate'])->name('document-templates.duplicate');
+    Route::delete('document-templates/{documentTemplate}', [DocumentTemplateController::class, 'destroy'])->name('document-templates.destroy');
+
+    // ── Байгууллагын тамга ───────────────────────────────────────────────────
+    Route::get('company-stamp', [CompanyStampController::class, 'show'])->name('company-stamp.show');
+    Route::post('company-stamp', [CompanyStampController::class, 'store'])->name('company-stamp.store');
+    Route::delete('company-stamp', [CompanyStampController::class, 'destroy'])->name('company-stamp.destroy');
+    Route::get('company-stamp/preview', [CompanyStampController::class, 'preview'])->name('company-stamp.preview');
+
+    // ── Ажилтны гэрээ / ажлын байрны тодорхойлолт ────────────────────────────
+    Route::get('employee-documents', [EmployeeDocumentController::class, 'index'])->name('employee-documents.index');
+    Route::post('employee-documents', [EmployeeDocumentController::class, 'store'])->name('employee-documents.store');
+    Route::get('employee-documents/{employeeDocument}/content', [EmployeeDocumentController::class, 'show'])->name('employee-documents.content');
+    Route::put('employee-documents/{employeeDocument}', [EmployeeDocumentController::class, 'update'])->name('employee-documents.update');
+    Route::post('employee-documents/{employeeDocument}/sign', [EmployeeDocumentController::class, 'signEmployer'])->name('employee-documents.sign');
+    Route::post('employee-documents/{employeeDocument}/remind', [EmployeeDocumentController::class, 'remind'])->name('employee-documents.remind');
+    Route::post('employee-documents/{employeeDocument}/redeliver', [EmployeeDocumentController::class, 'redeliver'])->name('employee-documents.redeliver');
+    Route::patch('employee-documents/{employeeDocument}/cancel', [EmployeeDocumentController::class, 'cancel'])->name('employee-documents.cancel');
+    Route::get('employee-documents/{employeeDocument}/pdf', [EmployeeDocumentController::class, 'pdf'])->name('employee-documents.pdf');
+    Route::delete('employee-documents/{employeeDocument}', [EmployeeDocumentController::class, 'destroy'])->name('employee-documents.destroy');
 
     // ── Сануулга / Зөрчил ────────────────────────────────────────────────────
     Route::get('warnings', [WarningController::class, 'index'])->name('warnings.index');

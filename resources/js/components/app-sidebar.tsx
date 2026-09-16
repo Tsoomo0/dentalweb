@@ -10,16 +10,20 @@ import {
     AlertTriangle,
     BookOpen,
     Bot,
+    BarChart3,
     Braces,
     Briefcase,
     Building2,
     CalendarClock,
+    ClipboardCheck,
     ClipboardList,
     CreditCard,
     DollarSign,
+    FileSignature,
     FileText,
     FlaskConical,
     Globe,
+    GraduationCap,
     HelpCircle,
     Images,
     Landmark,
@@ -34,6 +38,9 @@ import {
     Package,
     ScrollText,
     Settings,
+    Settings2,
+    ShieldOff,
+    PhoneCall,
     Share2,
     Smile,
     Sparkles,
@@ -44,6 +51,7 @@ import {
     Undo2,
     UserRound,
     Users,
+    Video,
     Wallet,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -106,7 +114,51 @@ const categories: Category[] = [
                     { title: 'Цаг захиалга', url: '/admin/appointments', icon: CalendarClock },
                     { title: 'Өвчтнүүд', url: '/admin/patients', icon: Users },
                     { title: 'Ортодонт бүртгэл', url: '/admin/ortho-appliances', icon: Braces },
+                ],
+            },
+        ],
+    },
+    {
+        id: 'calls',
+        label: 'Дуудлага',
+        icon: PhoneCall,
+        groups: [
+            {
+                items: [
+                    { title: 'Хянах самбар', url: '/admin/calls/dashboard', icon: BarChart3 },
+                    { title: 'Дуудлагын бүртгэл', url: '/admin/calls', icon: PhoneCall },
+                    { title: 'Тайлан', url: '/admin/calls/reports', icon: FileText },
+                    { title: 'Спам дугаар', url: '/admin/calls/blocked', icon: ShieldOff },
+                    { title: 'Тохиргоо', url: '/admin/call-settings', icon: Settings2 },
+                ],
+            },
+        ],
+    },
+    {
+        id: 'lab',
+        label: 'Лаборатори',
+        icon: FlaskConical,
+        groups: [
+            {
+                items: [
+                    { title: 'Лабын тайлан', url: '/admin/lab-report', icon: LayoutGrid },
                     { title: 'Лаб бүртгэл', url: '/admin/lab-orders', icon: FlaskConical },
+                    { title: 'Лаб ажилтан', url: '/admin/lab-employees', icon: Users },
+                ],
+            },
+        ],
+    },
+    {
+        id: 'training',
+        label: 'Дотоод сургалт',
+        icon: GraduationCap,
+        groups: [
+            {
+                items: [
+                    { title: 'Видео сургалт', url: '/admin/lab-training', icon: Video },
+                    { title: 'Файл сургалт', url: '/admin/lab-training/documents', icon: FileText },
+                    { title: 'Шалгалт', url: '/admin/lab-training/exams', icon: ClipboardCheck },
+                    { title: 'Сургалтын тайлан', url: '/admin/lab-training/report', icon: BarChart3 },
                 ],
             },
         ],
@@ -194,6 +246,15 @@ const categories: Category[] = [
                     { title: 'Тоног төхөөрөмж', url: '/hr/equipment', icon: Package },
                     { title: 'Санал хүсэлт', url: '/hr/feedback', icon: MessageSquare },
                     { title: 'Сануулга / Зөрчил', url: '/hr/warnings', icon: AlertTriangle },
+                    {
+                        title: 'Гэрээ / АБТ',
+                        url: '/hr/employee-documents',
+                        icon: FileSignature,
+                        children: [
+                            { title: 'Ажилтны гэрээ', url: '/hr/employee-documents', icon: FileSignature },
+                            { title: 'Гэрээний загвар', url: '/hr/document-templates', icon: ScrollText },
+                        ],
+                    },
                     { title: 'Баримт бичиг', url: '/hr/documents', icon: FileText },
                     { title: 'Гарах бүртгэл', url: '/hr/exit-checklists', icon: LogOut },
                 ],

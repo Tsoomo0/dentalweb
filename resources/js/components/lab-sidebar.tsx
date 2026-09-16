@@ -49,6 +49,17 @@ export function LabSidebar() {
         });
     }
 
+    /**
+     * Идэвхтэй цэс — хамгийн урт тохирсон хаяг ялна.
+     * Эс тэгвээс дэд хаяг дээр эцэг цэс нь ч тодорч, хоёр мөр зэрэг
+     * идэвхтэй харагдана.
+     */
+    const activeUrl = navGroups
+        .flatMap((g) => g.items)
+        .map((i) => i.url)
+        .filter((u) => url === u || url.startsWith(u + '?') || (u !== '/lab/dashboard' && url.startsWith(u + '/')))
+        .sort((a, b) => b.length - a.length)[0];
+
     const AppearanceIcon = appearance === 'dark' ? Moon : appearance === 'light' ? Sun : Monitor;
     const appearanceLabel = appearance === 'dark' ? 'Харанхуй горим' : appearance === 'light' ? 'Гэрэл горим' : 'Системийн горим';
 
@@ -74,7 +85,7 @@ export function LabSidebar() {
                         <SidebarGroupContent>
                             <SidebarMenu>
                                 {group.items.map((item) => {
-                                    const isActive = url === item.url || url.startsWith(item.url + '?') || (item.url !== '/lab/dashboard' && url.startsWith(item.url + '/'));
+                                    const isActive = activeUrl === item.url;
                                     return (
                                         <SidebarMenuItem key={item.url}>
                                             <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>

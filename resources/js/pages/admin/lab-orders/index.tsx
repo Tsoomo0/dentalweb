@@ -2,9 +2,9 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
-    Building2, CalendarClock, Check, CheckCircle2, ChevronLeft, ChevronRight,
-    CreditCard, FileSpreadsheet, FlaskConical, Package, Receipt, Search, Send, Sparkles,
-    Stethoscope, User, Wallet, X,
+    Building2, CalendarClock, Check, ChevronLeft, ChevronRight,
+    CreditCard, FileSpreadsheet, FlaskConical, Package, Receipt, RotateCcw, Search,
+    Sparkles, User, Wallet, X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -37,10 +37,32 @@ interface LabOrder {
     pickup_date: string | null;
     is_completed: boolean;
     completed_at: string | null;
+    /* Буцаалт */
+    return_status: 'sent' | 'ready' | 'done' | null;
+    return_count: number;
+    return_reason: string | null;
+    returned_at: string | null;
+    return_ready_date: string | null;
+    return_closed_at: string | null;
+    return_history: ReturnEntry[];
     payroll_counted: boolean;
     payroll_counted_at: string | null;
     notes: string | null;
     created_by_name: string | null;
+}
+
+/** Нэг буцаалтын мөчлөг */
+interface ReturnEntry {
+    id: number;
+    attempt: number;
+    status: 'sent' | 'ready' | 'done' | 'cancelled';
+    reason: string;
+    returned_at: string | null;
+    ready_date: string | null;
+    closed_at: string | null;
+    cancelled_at: string | null;
+    benders: string[];
+    polishers: string[];
 }
 
 interface Stats {
@@ -51,9 +73,12 @@ interface Stats {
     total_outstanding: number;
     final_paid_count: number;
     payroll_counted: number;
+    returned: number;
+    return_open: number;
+    return_total: number;
 }
 interface Branch { id: number; name: string }
-interface Filters { status: 'active' | 'completed' | 'all' | 'payroll'; search: string; branch: number | null }
+interface Filters { status: 'active' | 'completed' | 'all' | 'payroll' | 'returned'; search: string; branch: number | null }
 interface Props { orders: LabOrder[]; stats: Stats; branches: Branch[]; filters: Filters }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -72,7 +97,30 @@ function combinePatient(lastName: string | null, firstName: string, phone: strin
     return [lastName, firstName, phone].filter(Boolean).join(' ').trim();
 }
 
+/** Буцаалтын мөчлөгийг янзалсан ажилтнууд — тод, бүтнээр нь */
+function ReturnWorkers({ label, names }: { label: string; names: string[] }) {
+    return (
+        <div className="rounded-md bg-card/70 dark:bg-black/20 px-2 py-1">
+            <div className="text-[9.5px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</div>
+            <div className="text-[12.5px] font-semibold text-foreground">
+                {names.length > 0 ? names.join(', ') : <span className="font-normal text-muted-foreground/60">—</span>}
+            </div>
+        </div>
+    );
+}
+
+const RETURN_STATUS_LABEL: Record<ReturnEntry['status'], { text: string; cls: string }> = {
+    sent:      { text: 'Лаб дээр',   cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+    ready:     { text: 'Зассан',   cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+    done:      { text: 'Хаагдсан',   cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+    cancelled: { text: 'Цуцлагдсан', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+};
+
 function stage(o: LabOrder): { label: string; color: string } {
+    // Дуусаагүй буцаалт л статусыг дарна. Буцаалт хаагдсан бол ажил
+    // "Дууссан" төлөвтөө буцаж очно — түүх нь return_count-д үлдэнэ.
+    if (o.return_status === 'sent')  return { label: 'Буцаагдсан',        color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
+    if (o.return_status === 'ready') return { label: 'Буцаалт янзлагдсан', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
     if (o.is_completed)     return { label: 'Дууссан',            color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' };
     if (o.pickup_date)      return { label: 'Үйлчлүүлэгч авсан',  color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' };
     if (o.arrived_date)     return { label: 'Ресепшнд ирсэн',     color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' };
@@ -196,9 +244,12 @@ export default function AdminLabOrdersIndex({ orders, stats, filters }: Props) {
                     </div>
 
                     {/* Compact inline stats */}
-                    <div className="grid grid-cols-3 md:grid-cols-7 divide-x divide-violet-100/60 dark:divide-violet-900/30">
+                    <div className="grid grid-cols-4 md:grid-cols-8 divide-x divide-violet-100/60 dark:divide-violet-900/30">
                         <InlineStat label="Идэвхтэй" value={stats.active.toLocaleString()} accent="violet" />
                         <InlineStat label="Дууссан" value={stats.completed.toLocaleString()} accent="emerald" />
+                        <InlineStat label="Буцаагдсан" value={stats.returned.toLocaleString()}
+                            title={`${stats.returned} ажил · нийт ${stats.return_total} удаа буцсан${stats.return_open > 0 ? ` · ${stats.return_open} нь одоо явагдаж байна` : ''}`}
+                            accent="red" />
                         <InlineStat label="Нийт төлөх" value={`${(stats.total_due / 1000).toFixed(0)}K₮`} title={`${stats.total_due.toLocaleString()}₮`} accent="gray" />
                         <InlineStat label="Төлсөн" value={`${(stats.total_paid / 1000).toFixed(0)}K₮`} title={`${stats.total_paid.toLocaleString()}₮`} accent="emerald" />
                         <InlineStat label="Дутуу" value={`${(stats.total_outstanding / 1000).toFixed(0)}K₮`} title={`${stats.total_outstanding.toLocaleString()}₮`} accent="red" />
@@ -221,6 +272,7 @@ export default function AdminLabOrdersIndex({ orders, stats, filters }: Props) {
                             { key: 'all',       label: 'Бүгд',     color: 'bg-gray-700' },
                             { key: 'active',    label: 'Идэвхтэй', color: 'bg-violet-600' },
                             { key: 'completed', label: 'Дууссан',  color: 'bg-emerald-600' },
+                            { key: 'returned',  label: 'Буцаалт',  color: 'bg-red-600' },
                             { key: 'payroll',   label: 'Цалин бодсон', color: 'bg-blue-600' },
                         ] as const).map(t => (
                             <button key={t.key} onClick={() => go({ status: t.key }, filters)}
@@ -303,6 +355,8 @@ export default function AdminLabOrdersIndex({ orders, stats, filters }: Props) {
                                             <tr key={o.id}
                                                 onClick={() => setOpenId(o.id)}
                                                 className={`cursor-pointer border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-violet-50/40 dark:hover:bg-violet-950/15 ${
+                                                    o.return_status === 'sent' ? 'bg-red-50/30 dark:bg-red-950/10' :
+                                                    o.return_status === 'ready' ? 'bg-amber-50/30 dark:bg-amber-950/10' :
                                                     o.is_completed ? 'bg-emerald-50/15 dark:bg-emerald-950/5' :
                                                     idx % 2 === 0 ? '' : 'bg-gray-50/30 dark:bg-gray-800/10'
                                                 }`}>
@@ -313,7 +367,15 @@ export default function AdminLabOrdersIndex({ orders, stats, filters }: Props) {
                                                 </td>
                                                 <td className="px-2 py-2 max-w-[260px]">
                                                     <div className="font-medium text-foreground truncate text-[12px]">{o.lab_name}</div>
-                                                    <div className="text-[10px] text-muted-foreground truncate">{o.work_description}</div>
+                                                    {o.return_count > 0 && o.return_reason
+                                                        ? <div className={`text-[10px] truncate ${
+                                                            o.return_status === 'sent' || o.return_status === 'ready'
+                                                                ? 'text-red-600 dark:text-red-400'
+                                                                : 'text-muted-foreground'
+                                                          }`} title={o.return_reason}>
+                                                            {o.work_description} · {o.return_reason}
+                                                          </div>
+                                                        : <div className="text-[10px] text-muted-foreground truncate">{o.work_description}</div>}
                                                 </td>
                                                 <td className="px-2 py-2 text-[11px] text-gray-700 dark:text-gray-300 truncate hidden md:table-cell">{o.doctor_name ?? '—'}</td>
                                                 <td className="px-2 py-2 text-right tabular-nums text-[11px] whitespace-nowrap">
@@ -333,6 +395,16 @@ export default function AdminLabOrdersIndex({ orders, stats, filters }: Props) {
                                                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold whitespace-nowrap ${s.color}`}>
                                                         {s.label}
                                                     </span>
+                                                    {/* Түүхийн тэмдэглэгээ — статус биш, зөвхөн лавлагаа */}
+                                                    {o.return_count > 0 && (
+                                                        <div className={`mt-0.5 text-[9px] font-semibold ${
+                                                            o.return_status === 'sent' || o.return_status === 'ready'
+                                                                ? 'text-red-600 dark:text-red-400'
+                                                                : 'text-muted-foreground'
+                                                        }`}>
+                                                            {o.return_count} удаа буцсан
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-2 py-2 text-center">
                                                     <PayrollCheck
@@ -516,136 +588,126 @@ function AdminDetailDrawer({ order, onClose }: { order: LabOrder; onClose: () =>
     return (
         <div className="fixed inset-0 z-50 flex">
             <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="w-full max-w-2xl h-full bg-card shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
+            <div className="w-full max-w-3xl h-full bg-card shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
                 {/* Header */}
-                <div className="relative overflow-hidden border-b border-border bg-gradient-to-r from-violet-50 via-fuchsia-50 to-violet-50 dark:from-violet-950/30 dark:via-fuchsia-950/20 dark:to-violet-950/30 px-6 py-5">
-                    <div className="absolute -right-6 -top-6 size-24 rounded-full bg-violet-300/30 blur-2xl" />
-                    <div className="relative flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                            <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg">
-                                <FlaskConical className="size-6" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-foreground">{order.lab_name}</h2>
-                                <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5 mt-0.5">
-                                    <span>#{order.id}</span>
-                                    <span>•</span>
-                                    <span>{order.branch_name ?? 'Салбаргүй'}</span>
-                                    {order.created_by_name && (<><span>•</span><span>{order.created_by_name}</span></>)}
-                                </p>
-                                <div className="mt-1.5">
-                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${s.color}`}>
-                                        {s.label}
-                                    </span>
-                                </div>
-                            </div>
+                <div className="flex items-center justify-between gap-3 border-b border-border bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/30 dark:to-fuchsia-950/20 px-5 py-3.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-md">
+                            <FlaskConical className="size-5" />
                         </div>
+                        <div className="min-w-0">
+                            <h2 className="text-[15px] font-bold text-foreground truncate">{patient || '—'}</h2>
+                            <p className="text-[11.5px] text-muted-foreground truncate">
+                                {[`#${order.id}`, order.lab_name, order.work_description, order.branch_name].filter(Boolean).join(' · ')}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 shrink-0">
+                        <span className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold ${s.color}`}>{s.label}</span>
                         <button onClick={onClose} className="rounded-lg p-2 text-muted-foreground hover:bg-muted transition-colors">
                             <X className="size-5" />
                         </button>
                     </div>
                 </div>
 
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                    {/* Захиалга */}
-                    <Section icon={<User className="size-4" />} title="Үндсэн мэдээлэл" color="violet">
-                        <Grid2>
-                            <Field label="Захиалсан огноо" value={order.order_date} />
+                {/* Body — нэг дэлгэцэнд багтахаар нягтруулсан */}
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                    {/* Үндсэн мэдээлэл */}
+                    <Section icon={<User className="size-3.5" />} title="Үндсэн мэдээлэл" color="violet">
+                        <div className="grid grid-cols-2 gap-2.5">
+                            <Field label="Өвчтөн" value={patient} highlight />
+                            <Field label="Хийгдсэн ажил" value={order.work_description} highlight />
+                            <Field label="Захиалсан" value={order.order_date} />
                             <Field label="Лаб руу явуулсан" value={order.sent_to_lab_date} />
-                        </Grid2>
-                        <Field label="Өвчтөн" value={patient} highlight />
-                        <Grid2>
-                            <Field label="Салбар" value={order.branch_name} icon={<Building2 className="size-3.5" />} />
-                            <Field label="Эмч" value={order.doctor_name} icon={<Stethoscope className="size-3.5" />} />
-                        </Grid2>
-                        <Field label="Хийгдсэн ажил" value={order.work_description} multiline />
+                            <Field label="Салбар" value={order.branch_name} />
+                            <Field label="Эмч" value={order.doctor_name} />
+                        </div>
                     </Section>
 
+                    {/* Буцаалт — мөчлөг бүр тусдаа хадгалагдана */}
+                    {order.return_history.length > 0 && (
+                        <Section icon={<RotateCcw className="size-3.5" />} title={`Буцаалт · ${order.return_count} удаа`} color="red"
+                            right={<span className="text-[10.5px] text-muted-foreground">төлбөр тооцоо хийгдээгүй</span>}>
+                            <div className="space-y-2">
+                                {order.return_history.map(r => {
+                                    const st = RETURN_STATUS_LABEL[r.status];
+                                    return (
+                                        <div key={r.id} className={`rounded-lg border px-3 py-2 ${
+                                            r.status === 'cancelled'
+                                                ? 'border-border bg-muted/20 opacity-70'
+                                                : 'border-red-200/60 dark:border-red-900/40 bg-red-50/40 dark:bg-red-950/15'
+                                        }`}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="shrink-0 text-[11px] font-bold text-muted-foreground tabular-nums">#{r.attempt}</span>
+                                                <span className="flex-1 truncate text-[13px] text-foreground" title={r.reason}>{r.reason}</span>
+                                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-bold ${st.cls}`}>{st.text}</span>
+                                            </div>
+
+                                            {/* Буцаалтыг янзалсан ажилтан — тод, тасрахгүй */}
+                                            {(r.benders.length > 0 || r.polishers.length > 0) && (
+                                                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                                                    <ReturnWorkers label="Нугалсан" names={r.benders} />
+                                                    <ReturnWorkers label="Өнгөлсөн" names={r.polishers} />
+                                                </div>
+                                            )}
+
+                                            <div className="mt-1.5 text-[11px] text-muted-foreground">
+                                                {[
+                                                    r.returned_at && `буцаасан ${r.returned_at.slice(0, 10)}`,
+                                                    r.ready_date && `янзалсан ${r.ready_date}`,
+                                                    r.closed_at && `хүлээж авсан ${r.closed_at.slice(0, 10)}`,
+                                                ].filter(Boolean).join(' · ')}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Section>
+                    )}
+
                     {/* Тооцоо */}
-                    <Section icon={<CreditCard className="size-4" />} title="Тооцоо" color="emerald">
-                        <div className="grid grid-cols-3 gap-3">
+                    <Section icon={<CreditCard className="size-3.5" />} title="Тооцоо" color="emerald">
+                        <div className="flex items-stretch divide-x divide-border rounded-lg border border-border bg-muted/30">
                             <Metric label="Төлөх дүн" value={`${order.amount_due.toLocaleString()}₮`} />
                             {order.discount_percent > 0 && (
-                                <Metric label={`Хөнгөлөлт (${order.discount_percent}%)`} value={`−${(order.amount_due - order.effective_due).toLocaleString()}₮`} accent="orange" />
+                                <Metric label={`Хөнгөлөлт ${order.discount_percent}%`} value={`−${(order.amount_due - order.effective_due).toLocaleString()}₮`} accent="orange" />
                             )}
                             <Metric label="Цэвэр төлөх" value={`${order.effective_due.toLocaleString()}₮`} accent="blue" />
-                            <Metric label="Төлсөн дүн" value={`${order.amount_paid.toLocaleString()}₮`} accent="emerald" />
+                            <Metric label="Төлсөн" value={`${order.amount_paid.toLocaleString()}₮`} accent="emerald" />
                             <Metric label="Дутуу үлдэгдэл" value={`${order.outstanding.toLocaleString()}₮`} accent={order.outstanding > 0 ? 'red' : 'emerald'} />
                         </div>
 
                         {/* Баримтаар хаагдсан мэдээлэл */}
                         {order.final_payment_receipt && (
-                            <div className="rounded-xl border-2 border-emerald-300 dark:border-emerald-700/50 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 p-4 space-y-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-500 text-white">
-                                        <Receipt className="size-4" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">Дутуу тооцоо төлөгдөж хаагдсан</p>
-                                        <p className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70">Энэ ажлын тооцоо дараах баримтаар бүрэн төлөгдсөн</p>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-emerald-200 dark:border-emerald-800/40">
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Баримтын дугаар</p>
-                                        <p className="font-mono font-bold text-emerald-700 dark:text-emerald-300 text-base mt-0.5">
-                                            {order.final_payment_receipt}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Төлбөрийн хэрэгсэл</p>
-                                        {method ? (
-                                            <span className={`inline-flex mt-1 items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${method.color}`}>
-                                                {method.label}
-                                            </span>
-                                        ) : <span className="text-sm text-muted-foreground">—</span>}
-                                    </div>
-                                    {order.final_payment_at && (
-                                        <div className="col-span-2">
-                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Төлсөн огноо</p>
-                                            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mt-0.5 inline-flex items-center gap-1.5">
-                                                <CalendarClock className="size-3.5" />
-                                                {order.final_payment_at}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2 text-[12px] text-emerald-700 dark:text-emerald-300">
+                                <span className="inline-flex items-center gap-1.5 font-bold"><Receipt className="size-3.5" /> Баримтаар хаагдсан</span>
+                                <span className="font-mono font-semibold">{order.final_payment_receipt}</span>
+                                {method && <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${method.color}`}>{method.label}</span>}
+                                {order.final_payment_at && <span className="text-muted-foreground">{order.final_payment_at}</span>}
                             </div>
                         )}
                     </Section>
 
-                    {/* Лабораторид */}
-                    <Section icon={<Send className="size-4" />} title="Лаборатори дахь ажил" color="indigo">
-                        <Grid2>
-                            <Field label="Нугалсан ажилтан" value={order.bender_name} />
-                            <Field label="Өнгөлсөн ажилтан" value={order.polisher_name} />
-                        </Grid2>
-                        <Field label="Лабораторид бэлэн болсон" value={order.lab_ready_date} />
-                    </Section>
-
-                    {/* Хүлээн авах */}
-                    <Section icon={<Package className="size-4" />} title="Хүлээн авах" color="blue">
-                        <Grid2>
+                    {/* Лаб · Хүлээн авах · Цалин */}
+                    <Section icon={<Package className="size-3.5" />} title="Лаб · Хүлээн авах" color="blue">
+                        <div className="grid grid-cols-2 gap-2.5">
+                            {/* Буцаалттай бол анхны мөчлөгийнх гэдгийг тодруулна */}
+                            <Field label={order.return_count > 0 ? 'Нугалсан (анхны ажил)' : 'Нугалсан'} value={order.bender_name} />
+                            <Field label={order.return_count > 0 ? 'Өнгөлсөн (анхны ажил)' : 'Өнгөлсөн'} value={order.polisher_name} />
+                            <Field label="Лаб бэлэн болсон" value={order.lab_ready_date} />
                             <Field label="Ресепшнд ирсэн" value={order.arrived_date} />
                             <Field label="Үйлчлүүлэгч авсан" value={order.pickup_date} />
-                        </Grid2>
-                        {order.is_completed && order.completed_at && (
-                            <Field label="Бүртгэл дуусгасан" value={order.completed_at} icon={<CheckCircle2 className="size-3.5 text-emerald-600" />} />
-                        )}
-                        <Field
-                            label="Цалин бодогдсон"
-                            value={order.payroll_counted ? (order.payroll_counted_at ?? 'Тийм') : 'Үгүй'}
-                            icon={order.payroll_counted
-                                ? <CheckCircle2 className="size-3.5 text-blue-600" />
-                                : <CreditCard className="size-3.5 text-muted-foreground" />}
-                        />
+                            <Field label="Бүртгэл дуусгасан" value={order.completed_at} />
+                            <Field label="Цалин бодогдсон"
+                                value={order.payroll_counted ? (order.payroll_counted_at ?? 'Тийм') : 'Үгүй'} />
+                            <Field label="Бүртгэсэн" value={order.created_by_name} />
+                        </div>
                     </Section>
 
                     {/* Тэмдэглэл */}
                     {order.notes && (
-                        <Section icon={<CalendarClock className="size-4" />} title="Тэмдэглэл" color="gray">
-                            <p className="rounded-xl bg-muted/30 px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
+                        <Section icon={<CalendarClock className="size-3.5" />} title="Тэмдэглэл" color="gray">
+                            <p className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-[13px] text-foreground whitespace-pre-wrap">
                                 {order.notes}
                             </p>
                         </Section>
@@ -653,10 +715,10 @@ function AdminDetailDrawer({ order, onClose }: { order: LabOrder; onClose: () =>
                 </div>
 
                 {/* Footer */}
-                <div className="border-t border-border bg-card px-6 py-3 flex items-center justify-between">
+                <div className="border-t border-border bg-card px-5 py-2.5 flex items-center justify-between">
                     <p className="text-[11px] text-muted-foreground italic">👁 Удирдлагын зөвхөн харах горим</p>
                     <button onClick={onClose}
-                        className="rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+                        className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-[13px] font-medium text-muted-foreground hover:bg-muted transition-colors">
                         Хаах
                     </button>
                 </div>
@@ -666,64 +728,64 @@ function AdminDetailDrawer({ order, onClose }: { order: LabOrder; onClose: () =>
 }
 
 /* ── Helpers ───────────────────────────────────────────── */
-type SectionColor = 'violet' | 'emerald' | 'indigo' | 'blue' | 'gray';
+type SectionColor = 'violet' | 'emerald' | 'indigo' | 'blue' | 'gray' | 'red';
 
-function Section({ icon, title, color, children }: { icon: React.ReactNode; title: string; color: SectionColor; children: React.ReactNode }) {
+/** Хөнгөн гарчиг — картны хүрээ, том icon-гүй тул босоо зай хэмнэнэ */
+function Section({ icon, title, color, right, children }: {
+    icon: React.ReactNode; title: string; color: SectionColor;
+    right?: React.ReactNode; children: React.ReactNode;
+}) {
     const palette: Record<SectionColor, string> = {
         violet:  'from-violet-500 to-fuchsia-600',
         emerald: 'from-emerald-500 to-teal-600',
         indigo:  'from-indigo-500 to-violet-600',
         blue:    'from-blue-500 to-indigo-600',
         gray:    'from-gray-500 to-slate-600',
+        red:     'from-red-500 to-orange-600',
     };
     return (
-        <div className="rounded-2xl border border-border bg-card/60 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2.5">
-                <div className={`flex size-7 items-center justify-center rounded-lg bg-gradient-to-br ${palette[color]} text-white shadow-sm`}>
+        <section className="space-y-2">
+            <div className="flex items-center gap-2">
+                <span className={`flex size-5 shrink-0 items-center justify-center rounded-md bg-gradient-to-br ${palette[color]} text-white shadow-sm`}>
                     {icon}
-                </div>
-                <h3 className="text-sm font-bold text-foreground">{title}</h3>
+                </span>
+                <h3 className="text-[11.5px] font-bold uppercase tracking-wide text-foreground">{title}</h3>
+                <span className="h-px flex-1 bg-border" />
+                {right}
             </div>
-            <div className="p-4 space-y-3">{children}</div>
-        </div>
+            <div className="space-y-2.5">{children}</div>
+        </section>
     );
 }
 
-function Grid2({ children }: { children: React.ReactNode }) {
-    return <div className="grid grid-cols-2 gap-3">{children}</div>;
-}
-
-function Field({ label, value, icon, highlight, multiline }: {
+/** Зөвхөн харах нүд */
+function Field({ label, value, highlight }: {
     label: string;
     value: string | null | undefined;
-    icon?: React.ReactNode;
     highlight?: boolean;
-    multiline?: boolean;
 }) {
     return (
-        <div>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</p>
-            <div className={`mt-1 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 bg-muted/20 px-3 py-2 text-sm ${highlight ? 'font-bold text-foreground' : 'text-foreground/90'} ${multiline ? 'whitespace-pre-wrap min-h-[2.5rem]' : ''}`}>
-                <span className="inline-flex items-center gap-1.5">
-                    {icon}
-                    {value || <span className="text-muted-foreground italic">—</span>}
-                </span>
-            </div>
+        <div className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold truncate">{label}</p>
+            <p className={`truncate text-[13px] ${highlight ? 'font-bold text-foreground' : 'font-medium text-foreground/90'}`}
+                title={value ?? undefined}>
+                {value || <span className="text-muted-foreground/60">—</span>}
+            </p>
         </div>
     );
 }
 
 function Metric({ label, value, accent }: { label: string; value: string; accent?: 'emerald' | 'red' | 'orange' | 'blue' }) {
     const color =
-        accent === 'emerald' ? 'text-emerald-700 dark:text-emerald-400' :
-        accent === 'red'     ? 'text-red-700 dark:text-red-400' :
-        accent === 'orange'  ? 'text-orange-700 dark:text-orange-400' :
-        accent === 'blue'    ? 'text-blue-700 dark:text-blue-400' :
+        accent === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' :
+        accent === 'red'     ? 'text-red-600 dark:text-red-400' :
+        accent === 'orange'  ? 'text-orange-600 dark:text-orange-400' :
+        accent === 'blue'    ? 'text-blue-600 dark:text-blue-400' :
         'text-foreground';
     return (
-        <div className="rounded-xl border border-border bg-muted/20 px-3 py-2.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</p>
-            <p className={`text-base font-bold tabular-nums mt-0.5 ${color}`}>{value}</p>
+        <div className="flex-1 min-w-0 px-3 py-2.5">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground truncate">{label}</div>
+            <div className={`mt-0.5 text-[15px] font-bold tabular-nums truncate ${color}`}>{value}</div>
         </div>
     );
 }
