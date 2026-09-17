@@ -129,6 +129,27 @@ function renderBody(body: string, vars: Record<string, string>): string {
     });
 }
 
+/**
+ * Сонгосон «Хүчинтэй болох» огноогоор баримтын огнооны талбаруудыг тооцно —
+ * сервер тал (DocumentRenderer) яг ижил утга бэлддэг тул урьдчилан харахад
+ * харагдсан огноо гэрээ дээр буусан огноотой таарна. Огноо сонгоогүй бол
+ * серверээс ирсэн өнөөдрийн утга хэвээр үлдэнэ.
+ */
+function dateVars(effectiveDate: string): Record<string, string> {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(effectiveDate);
+    if (!m) return {};
+
+    const [, year, month, day] = m;
+
+    return {
+        doc_date: `${year} оны ${month} сарын ${day}`,
+        doc_year: year,
+        doc_month: month,
+        doc_day: day,
+        effective_date: `${year}-${month}-${day}`,
+    };
+}
+
 /** Гэрээний агуулгыг шаардлагатай үед нь татна. */
 function useDocumentBody(id: number | null) {
     const [body, setBody] = useState<string | null>(null);
@@ -770,13 +791,13 @@ function CreateModal({ employees, templates, catalog, onClose }: {
 
     const mergedVars = useMemo(() => {
         if (!employee) return {};
-        const vars: Record<string, string> = { ...employee.variables };
+        const vars: Record<string, string> = { ...employee.variables, ...dateVars(effectiveDate) };
         if (docNumber) vars.doc_number = docNumber;
         for (const [k, v] of Object.entries(overrides)) {
             if (v.trim() !== '') vars[k] = v.trim();
         }
         return vars;
-    }, [employee, overrides, docNumber]);
+    }, [employee, overrides, docNumber, effectiveDate]);
 
     const previewHtml = useMemo(
         () => (template && employee ? renderBody(template.body, mergedVars) : ''),

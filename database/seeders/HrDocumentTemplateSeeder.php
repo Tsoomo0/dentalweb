@@ -79,7 +79,7 @@ class HrDocumentTemplateSeeder extends Seeder
         return <<<'HTML'
 <table class="plain">
 <tr>
-<td style="width:34%">{{doc_year}} оны ____ дугаар<br />сарын _____-ны өдөр</td>
+<td style="width:34%">{{doc_year}} оны {{doc_month}} дугаар<br />сарын {{doc_day}}-ны өдөр</td>
 <td style="width:33%;text-align:center">Дугаар {{doc_number}}</td>
 <td style="width:33%;text-align:right">{{city}}</td>
 </tr>
@@ -209,7 +209,7 @@ HTML;
 
 <table class="plain">
 <tr>
-<td style="width:34%">{{doc_year}} оны __ сарын __ өдөр</td>
+<td style="width:34%">{{doc_year}} оны {{doc_month}} сарын {{doc_day}} өдөр</td>
 <td style="width:33%;text-align:center">Дугаар {{doc_number}}</td>
 <td style="width:33%;text-align:right">{{city}}</td>
 </tr>
@@ -260,7 +260,7 @@ HTML;
 
 <table class="plain">
 <tr>
-<td style="width:34%">{{doc_year}} оны ......-р сарын<br />......-ны өдөр</td>
+<td style="width:34%">{{doc_year}} оны {{doc_month}}-р сарын<br />{{doc_day}}-ны өдөр</td>
 <td style="width:33%;text-align:center">Дугаар {{doc_number}}</td>
 <td style="width:33%;text-align:right">{{city}}</td>
 </tr>
@@ -406,17 +406,17 @@ HTML;
 <tr>
 <td style="width:50%"><strong>Ажлын байрны тодорхойлолт боловсруулсан:</strong><br /><br />
 {{company_name}}-ийн Хуулийн зөвлөх {{lawyer_name}}<br /><br />
-{{doc_year}} оны ....-р сарын ....-ны өдөр</td>
+{{doc_year}} оны {{doc_month}}-р сарын {{doc_day}}-ны өдөр</td>
 <td style="width:50%"><strong>Ажлын байрны тодорхойлолтыг баталсан:</strong><br /><br />
 {{company_name}}-ийн {{director_position}} {{director_name}}<br /><br />
 Тамга, тэмдэг<br />
-{{doc_year}} оны ....-р сарын ....-ны өдөр</td>
+{{doc_year}} оны {{doc_month}}-р сарын {{doc_day}}-ны өдөр</td>
 </tr>
 </table>
 
 <p>Ажлын байрны тодорхойлолттой танилцсан:</p>
 <p>{{position}}: __________________ /{{employee_name}}/</p>
-<p>{{doc_year}} оны ....-р сарын ....-ны өдөр</p>
+<p>{{doc_year}} оны {{doc_month}}-р сарын {{doc_day}}-ны өдөр</p>
 <p class="ctr">---оОо---</p>
 HTML;
     }
