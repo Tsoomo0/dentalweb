@@ -198,4 +198,42 @@ class CallProWebhookTest extends TestCase
 
         $this->assertSame(1, CallEvent::count());
     }
+
+    /**
+     * IP шүүлтүүр нь proxy-гийн ард жинхэнэ үйлчлүүлэгчийн IP-г уншина.
+     *
+     * Cloudflare / load balancer орвол REMOTE_ADDR нь proxy-гийнх болж,
+     * CallPro-гийн жинхэнэ хаяг X-Forwarded-For дотор ирнэ. TRUSTED_PROXIES
+     * (config/trustedproxy.php) тохируулаагүй бол БҮХ webhook 403 болно —
+     * энэ тест тэр алдааг эргэж орохоос сэргийлнэ.
+     */
+    public function test_ip_whitelist_reads_the_real_client_ip_behind_a_proxy(): void
+    {
+        config([
+            'services.callpro.webhook_token' => '',
+            'services.callpro.allowed_ips' => ['202.37.235.42'],
+        ]);
+
+        $payload = ['unique_id' => 'proxy.1', 'number' => 99112233];
+
+        // Proxy-д итгээгүй үед — proxy-ийн IP тулгалдаж хаагдана
+        config(['trustedproxy.proxies' => null]);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.5'])
+            ->withHeader('X-Forwarded-For', '202.37.235.42')
+            ->hook('start', $payload)
+            ->assertStatus(403);
+
+        $this->assertSame(0, CallEvent::count());
+
+        // TRUSTED_PROXIES=* үед — X-Forwarded-For-оос жинхэнэ IP уншина
+        config(['trustedproxy.proxies' => '*']);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.5'])
+            ->withHeader('X-Forwarded-For', '202.37.235.42')
+            ->hook('start', $payload)
+            ->assertOk();
+
+        $this->assertSame(1, CallEvent::count());
+    }
 }

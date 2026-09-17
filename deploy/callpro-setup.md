@@ -43,9 +43,22 @@ php -r "echo bin2hex(random_bytes(24));"
 php artisan config:clear
 ```
 
-> **Анхаар:** IP жагсаалт нь nginx шууд PHP-FPM рүү дамжуулж байгаа үед л
-> ажиллана. Cloudflare, load balancer урд нь орвол `TrustProxies`
-> тохируулахгүй бол бүх хүсэлт хаагдана.
+> **Анхаар — proxy-гийн ард байвал ЗААВАЛ:** IP жагсаалт нь `$request->ip()`-д
+> тулгуурладаг. Cloudflare, load balancer эсвэл урд талын nginx орвол бүх
+> хүсэлт proxy-ийн IP-тэй ирж, **бүх webhook 403 болж хаагдана**. Тохируулах:
+>
+> ```env
+> TRUSTED_PROXIES=*
+> ```
+>
+> Шууд PHP-FPM рүү ордог бол хоосон үлдээнэ. Дэлгэрэнгүйг
+> `config/trustedproxy.php`-с үзнэ үү.
+>
+> Шалгах — CallPro-гийн жинхэнэ IP харагдаж байна уу:
+>
+> ```bash
+> tail -f storage/logs/laravel.log | grep -i callpro
+> ```
 
 ## 4. Queue worker — ЗААВАЛ
 
