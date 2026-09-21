@@ -6,6 +6,8 @@ import {
     AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
     MessageSquare, Send, Trash2, X,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrEmpty, HrListCard, HrPager, HrPanel, HrSelect, usePaged } from '@/components/hr/page-panel';
 import { useEffect, useState } from 'react';
 
 interface Feedback {
@@ -94,6 +96,8 @@ export default function HrFeedback() {
         return matchType && matchStatus;
     });
 
+    const paged = usePaged(filtered);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="p-4 md:p-6 space-y-4">
@@ -109,52 +113,38 @@ export default function HrFeedback() {
                     </div>
                 )}
 
-                {/* Header */}
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                            <MessageSquare className="size-5 text-violet-600" />
-                            Санал хүсэлт
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                            Нийт {feedbacks.length}
-                            {pending > 0 && (
-                                <span className="ml-2 inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
-                                    <span className="size-1.5 rounded-full bg-yellow-500 animate-pulse inline-block" />
-                                    {pending} хүлээгдэж байна
-                                </span>
-                            )}
-                        </p>
-                    </div>
-                </div>
+                <HrPanel
+                    tone="violet"
+                    icon={MessageSquare}
+                    title="Санал хүсэлт"
+                    badge={`${feedbacks.length} бичлэг`}
+                    subtitle={pending > 0 ? `${pending} хүсэлт хүлээгдэж байна` : 'Ажилтнуудаас ирсэн санал, хүсэлт, гомдол'}
+                    filters={
+                        <>
+                            <HrSelect tone="violet" title="Төрөл" value={typeFilter} onChange={setTypeFilter}>
+                                <option value="all">Бүх төрөл</option>
+                                <option value="suggestion">Санал</option>
+                                <option value="request">Хүсэлт</option>
+                                <option value="complaint">Гомдол</option>
+                            </HrSelect>
 
-                {/* Filters */}
-                <div className="flex gap-2 flex-wrap">
-                    <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-violet-500">
-                        <option value="all">Бүх төрөл</option>
-                        <option value="suggestion">Санал</option>
-                        <option value="request">Хүсэлт</option>
-                        <option value="complaint">Гомдол</option>
-                    </select>
-                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-violet-500">
-                        <option value="all">Бүх статус</option>
-                        {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
-                        ))}
-                    </select>
-                </div>
+                            <HrSelect tone="violet" title="Статус" value={statusFilter} onChange={setStatusFilter}>
+                                <option value="all">Бүх статус</option>
+                                {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                                    <option key={k} value={k}>{v}</option>
+                                ))}
+                            </HrSelect>
+                        </>
+                    }
+                />
 
                 {/* List */}
                 {filtered.length === 0 ? (
-                    <div className="text-center py-16 text-muted-foreground">
-                        <MessageSquare className="size-12 mx-auto mb-3 opacity-20" />
-                        <p className="text-sm">Санал хүсэлт байхгүй байна</p>
-                    </div>
+                    <HrEmpty tone="violet" icon={MessageSquare} title="Санал хүсэлт байхгүй байна"
+                        hint="Ажилтан порталаасаа санал, хүсэлт илгээмэгц энд харагдана." />
                 ) : (
                     <div className="space-y-3">
-                        {filtered.map(f => (
+                        {paged.data.map(f => (
                             <div key={f.id}
                                 className={`rounded-2xl border transition-colors ${
                                     f.status === 'pending'
@@ -228,6 +218,13 @@ export default function HrFeedback() {
                             </div>
                         ))}
                     </div>
+                )}
+
+                {paged.total > 0 && (
+                    <HrListCard>
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="бичлэг" onPage={paged.setPage} />
+                    </HrListCard>
                 )}
             </div>
 
@@ -308,6 +305,7 @@ export default function HrFeedback() {
                 </div>
             )}
             <ToastContainer />
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

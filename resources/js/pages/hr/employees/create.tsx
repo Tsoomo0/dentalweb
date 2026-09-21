@@ -3,9 +3,11 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
     AlertCircle, Briefcase, ChevronLeft, ChevronRight, CreditCard,
-    FileText, Heart, Plus, Save, Trash2, User, Users,
+    Eye, EyeOff, FileText, Heart, Plus, Save, Trash2, User, UserPlus, Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrGhostButton, HrPanel } from '@/components/hr/page-panel';
 
 interface Branch   { id: number; name: string }
 interface Position { id: number; name: string; portal: string; department: string | null }
@@ -36,8 +38,8 @@ type TabKey = typeof TABS[number]['key'];
 function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {label}{required && <span className="ml-0.5 text-red-500">*</span>}
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+                {label}{required && <span className="ml-0.5 text-rose-500">*</span>}
             </label>
             {children}
             {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
@@ -72,12 +74,41 @@ const TAB_FIELDS: Record<string, string[]> = {
     family:   [],
 };
 
+const INPUT_CLASS = 'w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-all placeholder:text-muted-foreground/50 focus:border-rose-500/60 focus:ring-4 focus:ring-rose-500/10 disabled:bg-muted';
+
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     return (
         <input
             {...props}
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-muted"
+            className={INPUT_CLASS}
         />
+    );
+}
+
+/** Нууц үгийн талбар — нүдний товчоор бичсэнээ шалгаж болно. */
+function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+    const [visible, setVisible] = useState(false);
+    const label = visible ? 'Нууц үгийг нуух' : 'Нууц үгийг харах';
+
+    return (
+        <div className="relative">
+            <input
+                {...props}
+                type={visible ? 'text' : 'password'}
+                className={`${INPUT_CLASS} pr-10`}
+            />
+            <button
+                type="button"
+                onClick={() => setVisible(v => !v)}
+                // Tab дарахад нууц үгнээс шууд дараагийн талбар руу үсэрнэ
+                tabIndex={-1}
+                aria-label={label}
+                title={label}
+                className="absolute inset-y-0 right-0 flex items-center rounded-r-xl px-3 text-muted-foreground/70 transition hover:text-foreground"
+            >
+                {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+        </div>
     );
 }
 
@@ -85,7 +116,7 @@ function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectEle
     return (
         <select
             {...props}
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
+            className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-all focus:border-rose-500/60 focus:ring-4 focus:ring-rose-500/10"
         >
             {children}
         </select>
@@ -97,14 +128,15 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
         <textarea
             rows={3}
             {...props}
-            className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
+            className="w-full resize-none rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-all placeholder:text-muted-foreground/50 focus:border-rose-500/60 focus:ring-4 focus:ring-rose-500/10"
         />
     );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
     return (
-        <h3 className="mb-4 border-b pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <h3 className="mb-4 flex items-center gap-2 border-b border-border/60 pb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="h-3 w-0.5 rounded-full bg-gradient-to-b from-rose-400 to-red-600" />
             {children}
         </h3>
     );
@@ -144,6 +176,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
         { title: 'Шинэ ажилтан', href: '/hr/employees/create' },
     ];
 
+    const formRef = useRef<HTMLFormElement>(null);
     const tabIdx = TABS.findIndex(t => t.key === tab);
 
     function handleSubmit(e: React.FormEvent) {
@@ -185,24 +218,29 @@ export default function CreateEmployee({ branches, positions }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Шинэ ажилтан бүртгэх" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6">
+            <div className="flex h-full flex-1 flex-col gap-3 p-4 md:p-5">
 
-                {/* Header */}
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => router.visit('/hr/employees')}
-                        className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted transition-colors"
-                    >
-                        <ChevronLeft className="size-4" /> Буцах
-                    </button>
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">Шинэ ажилтан бүртгэх</h1>
-                        <p className="text-sm text-muted-foreground">Бүх хэсгийг бөглөөд хадгална уу</p>
-                    </div>
-                </div>
+                <HrPanel
+                    tone="rose"
+                    icon={UserPlus}
+                    title="Шинэ ажилтан бүртгэх"
+                    badge={`${tabIdx + 1} / ${TABS.length} алхам`}
+                    subtitle="Хэсэг бүрийг бөглөөд эцэст нь хадгална уу"
+                    actions={
+                        <>
+                            <HrGhostButton icon={ChevronLeft} onClick={() => router.visit('/hr/employees')} title="Буцах">
+                                Буцах
+                            </HrGhostButton>
+
+                            <HrButton tone="rose" icon={Save} onClick={() => formRef.current?.requestSubmit()}>
+                                {processing ? 'Хадгалж байна…' : 'Ажилтан бүртгэх'}
+                            </HrButton>
+                        </>
+                    }
+                />
 
                 {Object.keys(formErrors).length > 0 && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 px-4 py-3">
+                    <div className="rounded-2xl border border-red-300/70 bg-gradient-to-br from-red-50/80 via-card to-rose-50/50 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(239,68,68,0.4)] dark:border-red-900/60 dark:from-red-950/30 dark:via-card dark:to-rose-950/20">
                         <div className="flex items-start gap-2">
                             <AlertCircle className="size-4 text-red-500 mt-0.5 shrink-0" />
                             <div>
@@ -221,26 +259,26 @@ export default function CreateEmployee({ branches, positions }: Props) {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="flex flex-1 flex-col">
-                    <div className="flex flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+                <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 flex-col">
+                    <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
 
                         {/* Tabs */}
-                        <div className="flex overflow-x-auto border-b bg-muted/30">
+                        <div className="flex gap-1 overflow-x-auto border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-2 py-2 backdrop-blur">
                             {TABS.map((t, i) => {
                                 const Icon = t.icon;
                                 const active = tab === t.key;
                                 return (
                                     <button
                                         key={t.key} type="button" onClick={() => setTab(t.key)}
-                                        className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
+                                        className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.97] ${
                                             active
-                                                ? 'border-red-600 bg-card text-red-600'
-                                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                                                ? 'bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-md shadow-rose-600/40 ring-1 ring-inset ring-white/25'
+                                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                         }`}
                                     >
                                         <Icon className="size-3.5" />
                                         <span className="hidden sm:block">{t.label}</span>
-                                        <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground sm:hidden">
+                                        <span className="flex size-4 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold sm:hidden">
                                             {i + 1}
                                         </span>
                                     </button>
@@ -355,8 +393,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                                 className={`w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-muted ${formErrors.username ? 'border-red-400' : ''}`} />
                                         </Field>
                                         <Field label="Нууц үг" required error={formErrors.password ? translateError('password', formErrors.password) : undefined}>
-                                            <Input type="password" value={data.password} onChange={e => setData('password', e.target.value)} placeholder="••••••••"
-                                                className={`w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-muted ${formErrors.password ? 'border-red-400' : ''}`} />
+                                            <PasswordInput value={data.password} onChange={e => setData('password', e.target.value)} placeholder="••••••••" autoComplete="new-password" />
                                         </Field>
                                     </div>
 
@@ -720,11 +757,11 @@ export default function CreateEmployee({ branches, positions }: Props) {
                         </div>
 
                         {/* Footer */}
-                        <div className="flex items-center justify-between border-t bg-muted/30 px-6 py-4">
+                        <div className="flex items-center justify-between gap-3 border-t border-border/60 bg-gradient-to-b from-muted/10 to-muted/30 px-6 py-4">
                             <button type="button"
                                 onClick={() => setTab(TABS[Math.max(0, tabIdx - 1)].key)}
                                 disabled={tabIdx === 0}
-                                className="flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors">
+                                className="flex items-center gap-1.5 rounded-xl border border-border/70 bg-background/70 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm transition-all hover:-translate-y-px hover:bg-muted disabled:opacity-40 disabled:hover:translate-y-0">
                                 <ChevronLeft className="size-4" /> Өмнөх
                             </button>
 
@@ -733,12 +770,12 @@ export default function CreateEmployee({ branches, positions }: Props) {
                             {tabIdx < TABS.length - 1 ? (
                                 <button type="button"
                                     onClick={() => setTab(TABS[tabIdx + 1].key)}
-                                    className="flex items-center gap-1.5 rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-80 transition-opacity">
+                                    className="flex items-center gap-1.5 rounded-xl border border-border/70 bg-background/70 px-4 py-2 text-sm font-semibold text-foreground shadow-sm transition-all hover:-translate-y-px hover:bg-muted">
                                     Дараах <ChevronRight className="size-4" />
                                 </button>
                             ) : (
                                 <button type="submit" disabled={processing}
-                                    className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-60 transition-colors">
+                                    className="flex items-center gap-2 rounded-xl bg-gradient-to-b from-rose-500 to-rose-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-rose-600/35 ring-1 ring-inset ring-white/25 transition-all hover:-translate-y-px hover:brightness-110 disabled:opacity-60 disabled:shadow-none">
                                     <Save className="size-4" />
                                     {processing ? 'Хадгалж байна...' : 'Ажилтан бүртгэх'}
                                 </button>
@@ -747,6 +784,7 @@ export default function CreateEmployee({ branches, positions }: Props) {
                     </div>
                 </form>
             </div>
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

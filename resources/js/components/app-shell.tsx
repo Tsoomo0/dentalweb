@@ -29,6 +29,7 @@ export function AppShell({ children, variant = 'header', sidebarWidth }: AppShel
             open={isOpen}
             onOpenChange={handleSidebarChange}
             style={sidebarWidth ? ({ '--sidebar-width': sidebarWidth } as React.CSSProperties) : undefined}
+            className="app-shell-canvas"
         >
             {children}
         </SidebarProvider>

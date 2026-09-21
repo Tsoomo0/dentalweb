@@ -1,6 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrEmpty, HrListCard, HrPager, HrPanel, usePaged } from '@/components/hr/page-panel';
 import { Briefcase, Edit2, Plus, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -55,6 +57,8 @@ export default function PositionsIndex({ positions }: Props) {
         }
     }, [editing]);
 
+    const paged = usePaged(positions);
+
     function openCreate() { setEditing(null); setForm(BLANK); setShowForm(true); }
     function closeForm()  { setShowForm(false); setEditing(null); setForm(BLANK); }
     function set(k: string, v: string) { setForm(prev => ({ ...prev, [k]: v })); }
@@ -99,35 +103,14 @@ export default function PositionsIndex({ positions }: Props) {
                     </div>
                 )}
 
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">Албан тушаал</h1>
-                        <p className="text-sm text-muted-foreground">Нийт {positions.length} тушаал</p>
-                    </div>
-                    <button
-                        onClick={openCreate}
-                        className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 transition-colors"
-                    >
-                        <Plus className="size-4" /> Тушаал нэмэх
-                    </button>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="rounded-xl border bg-card p-4 shadow-sm">
-                        <div className="text-2xl font-bold text-foreground">{positions.length}</div>
-                        <div className="text-sm text-muted-foreground">Нийт тушаал</div>
-                    </div>
-                    <div className="rounded-xl border bg-card p-4 shadow-sm">
-                        <div className="text-2xl font-bold text-green-600">{activeCount}</div>
-                        <div className="text-sm text-muted-foreground">Идэвхтэй</div>
-                    </div>
-                    <div className="rounded-xl border bg-card p-4 shadow-sm">
-                        <div className="text-2xl font-bold text-muted-foreground">{inactiveCount}</div>
-                        <div className="text-sm text-muted-foreground">Идэвхгүй</div>
-                    </div>
-                </div>
+                <HrPanel
+                    tone="amber"
+                    icon={Briefcase}
+                    title="Албан тушаал"
+                    badge={`${positions.length} тушаал`}
+                    subtitle={`${activeCount} идэвхтэй · ${inactiveCount} идэвхгүй · портал бүрийн эрх энд тодорхойлогдоно`}
+                    actions={<HrButton tone="amber" icon={Plus} onClick={openCreate}>Тушаал нэмэх</HrButton>}
+                />
 
                 {/* Add / Edit form */}
                 {showForm && (
@@ -188,18 +171,14 @@ export default function PositionsIndex({ positions }: Props) {
                 )}
 
                 {/* Table */}
-                <div className="flex-1 overflow-hidden rounded-xl border bg-card shadow-sm">
-                    {positions.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                            <Briefcase className="mb-3 size-10" />
-                            <p className="text-sm">Албан тушаал бүртгэгдээгүй байна</p>
-                            <button onClick={openCreate} className="mt-3 text-sm text-red-600 hover:underline">
-                                + Тушаал нэмэх
-                            </button>
-                        </div>
-                    ) : (
+                {positions.length === 0 ? (
+                    <HrEmpty tone="amber" icon={Briefcase} title="Албан тушаал бүртгэгдээгүй байна"
+                        hint="Тушаал нэмснээр ажилтныг ямар портал руу нэвтрүүлэхийг тодорхойлно."
+                        action={<HrButton tone="amber" icon={Plus} onClick={openCreate}>Тушаал нэмэх</HrButton>} />
+                ) : (
+                    <HrListCard className="overflow-hidden">
                         <table className="w-full text-sm">
-                            <thead className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <thead className="border-b border-border/60 bg-gradient-to-b from-muted/70 to-muted/25 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
                                 <tr>
                                     <th className="px-4 py-3 text-left">Тушаалын нэр</th>
                                     <th className="px-4 py-3 text-left">Нэвтрэх портал</th>
@@ -209,7 +188,7 @@ export default function PositionsIndex({ positions }: Props) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {positions.map(p => (
+                                {paged.data.map(p => (
                                     <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                                         <td className="px-4 py-3 font-semibold text-foreground">{p.name}</td>
                                         <td className="px-4 py-3">{portalBadge(p.portal)}</td>
@@ -245,10 +224,14 @@ export default function PositionsIndex({ positions }: Props) {
                                 ))}
                             </tbody>
                         </table>
-                    )}
-                </div>
+
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="тушаал" onPage={paged.setPage} />
+                    </HrListCard>
+                )}
 
             </div>
+            <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

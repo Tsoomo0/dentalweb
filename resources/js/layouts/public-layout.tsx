@@ -38,7 +38,14 @@ const NAV_LINKS = [
 
 const BOOKING_LINK = { label: 'Цаг авах', href: '/booking' };
 
-export default function PublicLayout({ children }: { children: ReactNode }) {
+/**
+ * heroOverlay — navbar нь дэлгэц дүүрэн hero section-ы ДЭЭР давхарлана
+ *               (hero-г навбарын эзэлсэн өндрөөр дээш татна).
+ * editorial   — ягаан aurora дэвсгэрийг унтрааж, цагаан editorial дэвсгэр болгоно.
+ * Хоёулаа сонголтот тул бусад public хуудас огт хөндөгдөхгүй.
+ */
+export default function PublicLayout({ children, heroOverlay = false, editorial = false }:
+    { children: ReactNode; heroOverlay?: boolean; editorial?: boolean }) {
     const { site_settings: s = {} } = usePage<SharedData>().props;
 
     const siteName    = s.site_name     || 'Кутикул';
@@ -52,6 +59,19 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
 
     const [menuOpen, setMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+
+    /* heroOverlay үед main-г навбарын эзлэх өндрөөр дээш татна (mt-4 + header) */
+    const headerRef = useRef<HTMLElement>(null);
+    const [headerPull, setHeaderPull] = useState(86);
+    useEffect(() => {
+        const el = headerRef.current;
+        if (!heroOverlay || !el) return;
+        const measure = () => setHeaderPull(el.offsetHeight + 16);
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [heroOverlay]);
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
 
     /* Лого 2 удаа дармагц admin login руу (нууц товчлол) */
@@ -74,15 +94,17 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     /* Scroll-reactive aurora дэвсгэр */
     useEffect(() => {
         const onScroll = () => {
-            const el = document.getElementById('cuticul-bgflow');
-            if (!el) return;
             const doc = document.scrollingElement || document.documentElement;
             const y = window.scrollY || window.pageYOffset || doc.scrollTop || 0;
+            setScrolled(y > 24);
+
+            /* aurora зөвхөн editorial бус горимд байдаг тул тусад нь шалгана */
+            const el = document.getElementById('cuticul-bgflow');
+            if (!el) return;
             const max = (doc.scrollHeight - window.innerHeight) || 1;
             const p = Math.min(1, Math.max(0, y / max));
             el.style.filter = `hue-rotate(${p * 70}deg) saturate(${1 + p * 0.5}) brightness(${1.04 - p * 0.1})`;
             el.style.transform = `translateY(${p * -70}px) scale(${1 + p * 0.12}) rotate(${p * 4}deg)`;
-            setScrolled(y > 24);
         };
         window.addEventListener('scroll', onScroll, { passive: true, capture: true });
         window.addEventListener('resize', onScroll, { passive: true });
@@ -132,26 +154,36 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     };
 
     return (
-        <div className="cuticul relative min-h-screen overflow-x-clip">
+        <div className={`cuticul relative min-h-screen overflow-x-clip${editorial ? ' cw' : ''}`}
+             style={editorial ? { background: '#fff' } : undefined}>
 
-            {/* ── ANIMATED AURORA BACKDROP ────────────────────────────────── */}
-            <div id="cuticul-bgflow" className="cuticul-bgflow">
-                <div className="hue">
-                    <div className="blob b1" />
-                    <div className="blob b2" />
-                    <div className="blob b3" />
-                    <div className="blob b4" />
+            {/* ── ГҮЙЛТИЙН ЯВЦЫН ЗААГЧ (editorial) ───────────────────────── */}
+            {editorial && <div className="cw-progress" aria-hidden="true" />}
+
+            {/* ── ANIMATED AURORA BACKDROP (editorial горимд хэрэггүй) ────── */}
+            {!editorial && (
+                <div id="cuticul-bgflow" className="cuticul-bgflow">
+                    <div className="hue">
+                        <div className="blob b1" />
+                        <div className="blob b2" />
+                        <div className="blob b3" />
+                        <div className="blob b4" />
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* ── CONTENT WRAPPER (1240 max) ──────────────────────────────── */}
-            <div className="relative z-[1] mx-auto w-full max-w-[1240px] px-4 pb-28 sm:px-7 xl:pb-16">
+            <div className={`relative z-[1] mx-auto w-full max-w-[1240px] px-4 sm:px-7 ${editorial ? "" : "pb-28 xl:pb-16"}`}>
 
                 {/* ── GLASS NAVBAR ──────────────────────────────────────────── */}
-                <header className={`sticky top-3 z-40 mt-4 flex items-center justify-between gap-3 rounded-[20px] border px-3 py-3 pl-5 backdrop-blur-lg transition-all duration-300 ${
+                <header ref={headerRef} className={`sticky top-3 z-40 mt-4 flex items-center justify-between gap-3 rounded-[20px] border px-3 py-3 pl-5 backdrop-blur-lg transition-all duration-300 ${
                     scrolled
-                        ? 'border-[#ded6d2] bg-[#ebe6e3]/90 shadow-[0_10px_34px_rgba(60,40,45,0.14)]'
-                        : 'border-white/75 bg-white/55 shadow-[0_8px_30px_rgba(120,30,50,0.08)]'
+                        ? (editorial
+                            ? 'border-[#e5e7ea] bg-white/95 shadow-[0_10px_34px_rgba(8,9,10,0.08)]'
+                            : 'border-[#ded6d2] bg-[#ebe6e3]/90 shadow-[0_10px_34px_rgba(60,40,45,0.14)]')
+                        : (editorial
+                            ? 'border-[#eceef0] bg-white/70 shadow-[0_8px_30px_rgba(8,9,10,0.05)]'
+                            : 'border-white/75 bg-white/55 shadow-[0_8px_30px_rgba(120,30,50,0.08)]')
                 }`}>
                     {/* Brand */}
                     <div onClick={handleLogoClick} className="flex cursor-pointer select-none items-center gap-3">
@@ -192,10 +224,13 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                 </header>
 
                 {/* ── PAGE CONTENT ──────────────────────────────────────────── */}
-                <main>{children}</main>
+                <main style={heroOverlay ? { marginTop: -headerPull } : undefined}>{children}</main>
 
                 {/* ── FOOTER ────────────────────────────────────────────────── */}
-                <footer className="mt-8 rounded-[26px] bg-[#1c1a1b]/95 px-6 py-10 text-[#e8e2e0] sm:px-10">
+                <footer className={editorial
+                    ? 'cw-footer bg-[#08090a] px-0 pb-[calc(env(safe-area-inset-bottom)+104px)] pt-14 text-[#e8e2e0] xl:pb-14'
+                    : 'mt-8 rounded-[26px] bg-[#1c1a1b]/95 px-6 py-10 text-[#e8e2e0] sm:px-10'}>
+                  <div className={editorial ? 'mx-auto w-full max-w-[1240px] px-4 sm:px-7' : ''}>
                     <div className="flex flex-col justify-between gap-10 md:flex-row md:items-start">
                         <div className="max-w-[280px]">
                             <div className="mb-3.5 flex items-center gap-2.5">
@@ -230,6 +265,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                     <div className="mt-8 border-t border-white/10 pt-5 text-[12px] text-[#7d7572]">
                         © {new Date().getFullYear()} {siteName}. Бүх эрх хуулиар хамгаалагдсан.
                     </div>
+                  </div>
                 </footer>
             </div>
 

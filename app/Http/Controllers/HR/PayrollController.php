@@ -23,14 +23,49 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class PayrollController extends Controller
 {
-    public function index(): Response
+    /** Нэг хуудсанд харуулах тооцооны тоо. */
+    private const PER_PAGE = 10;
+
+    public function index(Request $request): Response
     {
-        $runs = PayrollRun::withCount('entries')
+        $filters = [
+            // '' | draft | sending | final
+            'state' => $request->string('state')->toString(),
+            'year' => $request->string('year')->toString(),
+            'branch' => $request->string('branch')->toString(),
+            'half' => $request->string('half')->toString(),
+            'search' => $request->string('search')->toString(),
+        ];
+
+        $query = PayrollRun::query()
+            ->when($filters['state'] === 'final', fn ($q) => $q->where('status', 'final'))
+            // Ноорог — мөрүүд нь ажилтанд хараахан илгээгдээгүй
+            ->when($filters['state'] === 'draft', fn ($q) => $q
+                ->where('status', 'draft')
+                ->whereDoesntHave('entries', fn ($e) => $e->where('is_sent', true)))
+            // Илгээсэн — хэсэгчлэн ч бай илгээгдсэн ноорог
+            ->when($filters['state'] === 'sending', fn ($q) => $q
+                ->where('status', 'draft')
+                ->whereHas('entries', fn ($e) => $e->where('is_sent', true)))
+            ->when($filters['year'], fn ($q, $v) => $q->where('year', (int) $v))
+            ->when($filters['branch'], fn ($q, $v) => $q->where('branch_id', (int) $v))
+            ->when($filters['half'], fn ($q, $v) => $q->where('half', $v))
+            ->when($filters['search'], fn ($q, $v) => $q->where(fn ($q) => $q
+                ->where('label', 'like', "%{$v}%")
+                ->orWhere('notes', 'like', "%{$v}%")
+                ->orWhere('year', 'like', "%{$v}%")
+                ->orWhereHas('creator', fn ($c) => $c->where('name', 'like', "%{$v}%"))))
+            ->latest();
+
+        $runs = (clone $query)
+            ->withCount('entries')
             ->withCount(['entries as sent_entries_count' => fn ($q) => $q->where('is_sent', true)])
+            // Жагсаалт дээр тухайн тооцооны нийт олгох дүнг харуулна
+            ->withSum('entries as total_bank', 'bank_salary')
             ->with('creator')
-            ->latest()
-            ->get()
-            ->map(fn ($r) => [
+            ->paginate(self::PER_PAGE)
+            ->withQueryString()
+            ->through(fn (PayrollRun $r) => [
                 'id' => $r->id,
                 'title' => $r->title,
                 'year' => $r->year,
@@ -41,14 +76,43 @@ class PayrollController extends Controller
                 'status' => $r->status,
                 'entries_count' => $r->entries_count,
                 'sent_entries_count' => $r->sent_entries_count,
+                'total_bank' => (float) ($r->total_bank ?? 0),
                 'created_at' => $r->created_at->format('Y.m.d'),
                 'created_by' => $r->creator?->name,
             ]);
 
         return Inertia::render('hr/payroll/index', [
             'runs' => $runs,
-            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'filters' => $filters,
+            'stats' => $this->stats(),
+            // Шүүсэн БҮХ тооцооны (зөвхөн энэ хуудсынх биш) банкаар олгох дүн
+            'totalBank' => (float) PayrollEntry::whereIn('payroll_run_id', (clone $query)->reorder()->select('payroll_runs.id'))
+                ->sum('bank_salary'),
+            // Хуудас/шүүлтүүр солиход дахин татагдахгүй — partial reload-д ордоггүй
+            'branches' => fn () => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
+    }
+
+    /**
+     * Түргэн шүүлтүүрийн хажууд харагдах төлөв бүрийн тоо — шүүлтүүрээс
+     * хамаарахгүй, нийт дүр зургийг харуулна.
+     *
+     * @return array<string, int>
+     */
+    private function stats(): array
+    {
+        $final = PayrollRun::where('status', 'final')->count();
+        $sending = PayrollRun::where('status', 'draft')
+            ->whereHas('entries', fn ($e) => $e->where('is_sent', true))
+            ->count();
+        $total = PayrollRun::count();
+
+        return [
+            'total' => $total,
+            'final' => $final,
+            'sending' => $sending,
+            'draft' => $total - $final - $sending,
+        ];
     }
 
     public function create(): Response

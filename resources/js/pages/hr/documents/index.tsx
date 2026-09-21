@@ -3,8 +3,10 @@ import { ToastContainer } from '@/components/toast';
 import { useForm, usePage, router } from '@inertiajs/react';
 import {
     File, FileText, FileSpreadsheet, FileImage, FileArchive,
-    Upload, Trash2, Download, Eye, Search, X, Plus, Pencil, Tag,
+    Upload, Trash2, Download, Eye, X, Plus, Pencil, Tag,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrEmpty, HrGhostButton, HrListCard, HrPager, HrPanel, HrSearch, usePaged } from '@/components/hr/page-panel';
 import { FormEvent, useRef, useState } from 'react';
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
@@ -267,73 +269,64 @@ export default function HrDocumentsIndex() {
         router.delete(`/hr/documents/${id}`, { preserveScroll: true });
     }
 
+    const paged = usePaged(documents);
+
     return (
         <AppLayout breadcrumbs={[{ title: 'HR', href: '/hr/employees' }, { title: 'Баримт бичиг', href: '/hr/documents' }]}>
-            <div className="p-4 md:p-6 space-y-4">
+            <div className="space-y-3 p-4 md:p-5">
 
-                {/* ── Top bar ── */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                        <FileText className="size-5 text-blue-500" />
-                        Баримт бичиг
-                        <span className="text-sm font-normal text-muted-foreground">({documents.length})</span>
-                    </h1>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <form onSubmit={e => { e.preventDefault(); applyFilter(catFilter, search); }} className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                            <input value={search} onChange={e => setSearch(e.target.value)}
-                                placeholder="Хайх..."
-                                className="w-48 rounded-xl border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                            {search && (
-                                <button type="button" onClick={() => { setSearch(''); applyFilter(catFilter, ''); }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2">
-                                    <X className="size-3.5 text-muted-foreground" />
-                                </button>
-                            )}
-                        </form>
-                        <button onClick={() => setShowCatModal(true)}
-                            className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
-                            <Tag className="size-4" /> Ангилал
-                        </button>
-                        <button onClick={() => setShowUpload(true)}
-                            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-                            <Plus className="size-4" /> Файл нэмэх
-                        </button>
-                    </div>
-                </div>
+                <HrPanel
+                    tone="blue"
+                    icon={FileText}
+                    title="Баримт бичиг"
+                    badge={`${documents.length} файл`}
+                    subtitle="Байгууллагын дотоод журам, заавар, маягтын сан"
+                    actions={
+                        <>
+                            <HrSearch tone="blue" value={search}
+                                onChange={v => { setSearch(v); applyFilter(catFilter, v); }}
+                                placeholder="Файлын нэрээр хайх…" />
 
-                {/* ── Category filter pills ── */}
-                <div className="flex flex-wrap gap-1.5">
-                    <button onClick={() => { setCatFilter(0); applyFilter(0); }}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${!catFilter ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
-                        Бүгд
-                    </button>
-                    {categories.map(c => {
-                        const col = catStyle(c.color);
-                        return (
-                            <button key={c.id} onClick={() => { setCatFilter(c.id); applyFilter(c.id); }}
-                                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors flex items-center gap-1.5
-                                    ${catFilter === c.id ? col.bg + ' ring-2 ring-offset-1 ring-current' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
-                                <span className={`size-1.5 rounded-full ${col.dot}`} />
-                                {c.name}
+                            <HrGhostButton icon={Tag} onClick={() => setShowCatModal(true)} title="Ангилал удирдах">Ангилал</HrGhostButton>
+
+                            <HrButton tone="blue" icon={Plus} onClick={() => setShowUpload(true)}>Файл нэмэх</HrButton>
+                        </>
+                    }
+                    tabs={
+                        <>
+                            <button onClick={() => { setCatFilter(0); applyFilter(0); }}
+                                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all active:scale-[0.97] ${
+                                    !catFilter
+                                        ? 'bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-md shadow-blue-600/40 ring-1 ring-inset ring-white/25'
+                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                                Бүгд
                             </button>
-                        );
-                    })}
-                </div>
+                            {categories.map(c => {
+                                const col = catStyle(c.color);
+
+                                return (
+                                    <button key={c.id} onClick={() => { setCatFilter(c.id); applyFilter(c.id); }}
+                                        className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all active:scale-[0.97] ${
+                                            catFilter === c.id
+                                                ? col.bg + ' shadow-md ring-1 ring-inset ring-black/5'
+                                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                                        <span className={`size-1.5 rounded-full ${col.dot}`} />
+                                        {c.name}
+                                    </button>
+                                );
+                            })}
+                        </>
+                    }
+                />
 
                 {/* ── Document grid ── */}
                 {documents.length === 0 ? (
-                    <div className="py-20 text-center rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-                        <FileText className="size-12 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-                        <p className="text-sm text-muted-foreground">Файл байхгүй байна</p>
-                        <button onClick={() => setShowUpload(true)}
-                            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-                            <Plus className="size-4" /> Файл нэмэх
-                        </button>
-                    </div>
+                    <HrEmpty tone="blue" icon={FileText} title="Файл байхгүй байна"
+                        hint="Дотоод журам, заавар, маягтаа энд байршуулснаар ажилтнууд порталаасаа үзнэ."
+                        action={<HrButton tone="blue" icon={Plus} onClick={() => setShowUpload(true)}>Файл нэмэх</HrButton>} />
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {documents.map(doc => {
+                        {paged.data.map(doc => {
                             const { Icon, cls } = fileIcon(doc.file_type);
                             const col = catStyle(doc.category_color);
                             return (
@@ -401,6 +394,13 @@ export default function HrDocumentsIndex() {
                             );
                         })}
                     </div>
+                )}
+
+                {paged.total > 0 && (
+                    <HrListCard>
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="файл" onPage={paged.setPage} />
+                    </HrListCard>
                 )}
             </div>
 
@@ -528,6 +528,7 @@ export default function HrDocumentsIndex() {
             )}
 
             <ToastContainer />
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

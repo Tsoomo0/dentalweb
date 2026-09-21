@@ -3,17 +3,23 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import {
     Briefcase, ChevronLeft, ChevronRight, CreditCard,
-    FileText, Heart, Plus, Save, Trash2, User, Users,
+    FileText, Heart, Plus, Save, ShieldCheck, Trash2, User, UserCog, Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrGhostButton, HrPanel } from '@/components/hr/page-panel';
 
 interface Branch   { id: number; name: string }
 interface Position { id: number; name: string; portal: string; department: string | null }
 
 interface Contract {
-    id: number; contract_type: string;
+    id: number; contract_type: string; title: string | null;
     start_date: string | null; end_date: string | null;
     notes: string | null; days_until_expiry: number | null;
+    document_id: number | null; document_type_label: string | null;
+    document_number: string | null; employer_name: string | null;
+    employer_signed_at: string | null; employee_signed_at: string | null;
+    file_url: string | null;
 }
 interface License {
     id: number; name: string; issuer: string | null;
@@ -68,8 +74,8 @@ type TabKey = typeof TABS[number]['key'];
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
     return (
         <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-                {label}{required && <span className="ml-0.5 text-red-500">*</span>}
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+                {label}{required && <span className="ml-0.5 text-rose-500">*</span>}
             </label>
             {children}
         </div>
@@ -80,7 +86,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     return (
         <input
             {...props}
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-muted"
+            className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-all placeholder:text-muted-foreground/50 focus:border-rose-500/60 focus:ring-4 focus:ring-rose-500/10 disabled:bg-muted"
         />
     );
 }
@@ -89,7 +95,7 @@ function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectEle
     return (
         <select
             {...props}
-            className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
+            className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-all focus:border-rose-500/60 focus:ring-4 focus:ring-rose-500/10"
         >
             {children}
         </select>
@@ -101,14 +107,15 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
         <textarea
             rows={3}
             {...props}
-            className="w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100"
+            className="w-full resize-none rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-all placeholder:text-muted-foreground/50 focus:border-rose-500/60 focus:ring-4 focus:ring-rose-500/10"
         />
     );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
     return (
-        <h3 className="mb-4 border-b pb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <h3 className="mb-4 flex items-center gap-2 border-b border-border/60 pb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="h-3 w-0.5 rounded-full bg-gradient-to-b from-rose-400 to-red-600" />
             {children}
         </h3>
     );
@@ -178,6 +185,7 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
         { title: 'Засах', href: `/hr/employees/${employee.id}/edit` },
     ];
 
+    const formRef = useRef<HTMLFormElement>(null);
     const tabIdx = TABS.findIndex(t => t.key === tab);
 
     function set(k: string, v: any) { setForm(prev => ({ ...prev, [k]: v })); }
@@ -213,44 +221,47 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${employee.last_name} ${employee.first_name} — Засах`} />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6">
+            <div className="flex h-full flex-1 flex-col gap-3 p-4 md:p-5">
 
-                {/* Header */}
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => router.visit(`/hr/employees/${employee.id}`)}
-                        className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted transition-colors"
-                    >
-                        <ChevronLeft className="size-4" /> Буцах
-                    </button>
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">
-                            {employee.last_name} {employee.first_name} — Засах
-                        </h1>
-                        <p className="text-sm text-muted-foreground">{employee.employee_number}</p>
-                    </div>
-                </div>
+                <HrPanel
+                    tone="rose"
+                    icon={UserCog}
+                    title={`${employee.last_name} ${employee.first_name}`}
+                    badge={`${tabIdx + 1} / ${TABS.length} алхам`}
+                    subtitle={`${employee.employee_number} — мэдээллийг шинэчлээд хадгална уу`}
+                    actions={
+                        <>
+                            <HrGhostButton icon={ChevronLeft} onClick={() => router.visit(`/hr/employees/${employee.id}`)} title="Буцах">
+                                Буцах
+                            </HrGhostButton>
 
-                <form onSubmit={handleSubmit} className="flex flex-1 flex-col">
-                    <div className="flex flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+                            <HrButton tone="rose" icon={Save} onClick={() => formRef.current?.requestSubmit()}>
+                                {processing ? 'Хадгалж байна…' : 'Өөрчлөлт хадгалах'}
+                            </HrButton>
+                        </>
+                    }
+                />
+
+                <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 flex-col">
+                    <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
 
                         {/* Tabs */}
-                        <div className="flex overflow-x-auto border-b bg-muted/30">
+                        <div className="flex gap-1 overflow-x-auto border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-2 py-2 backdrop-blur">
                             {TABS.map((t, i) => {
                                 const Icon = t.icon;
                                 const active = tab === t.key;
                                 return (
                                     <button
                                         key={t.key} type="button" onClick={() => setTab(t.key)}
-                                        className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
+                                        className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.97] ${
                                             active
-                                                ? 'border-red-600 bg-card text-red-600'
-                                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                                                ? 'bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-md shadow-rose-600/40 ring-1 ring-inset ring-white/25'
+                                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                         }`}
                                     >
                                         <Icon className="size-3.5" />
                                         <span className="hidden sm:block">{t.label}</span>
-                                        <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground sm:hidden">
+                                        <span className="flex size-4 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold sm:hidden">
                                             {i + 1}
                                         </span>
                                     </button>
@@ -484,14 +495,17 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
                                 <div className="space-y-8">
                                     <div>
                                         <SectionTitle>Хөдөлмөрийн гэрээ</SectionTitle>
+                                        <p className="mb-3 text-xs text-muted-foreground">
+                                            «Гэрээ / АБТ» хэсэгт захирал болон ажилтан 2 гарын үсэг зурж баталгаажсан гэрээ энд автоматаар нэмэгдэнэ.
+                                        </p>
                                         {employee.contracts.length === 0
                                             ? <p className="text-sm italic text-muted-foreground">Гэрээ бүртгэгдээгүй байна.</p>
                                             : <div className="space-y-3">
                                                 {employee.contracts.map(c => (
                                                     <div key={c.id} className="rounded-xl border bg-muted/30 p-4 text-sm">
-                                                        <div className="flex items-center justify-between">
+                                                        <div className="flex items-center justify-between gap-2">
                                                             <span className="font-semibold text-foreground">
-                                                                {c.contract_type === 'fixed' ? 'Тодорхой хугацаатай' : 'Тодорхойгүй хугацаатай'}
+                                                                {c.title || c.document_type_label || (c.contract_type === 'fixed' ? 'Тодорхой хугацаатай' : 'Тодорхойгүй хугацаатай')}
                                                             </span>
                                                             {c.days_until_expiry !== null && (
                                                                 <span className={`text-xs ${expiryColor(c.days_until_expiry)}`}>
@@ -499,8 +513,29 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
                                                                 </span>
                                                             )}
                                                         </div>
+                                                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                            <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900/60">
+                                                                {c.contract_type === 'fixed' ? 'Тодорхой хугацаатай' : 'Тодорхойгүй хугацаатай'}
+                                                            </span>
+                                                            {c.document_id && (
+                                                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900/60">
+                                                                    <ShieldCheck className="size-3" />2 тал гарын үсэг зурсан
+                                                                </span>
+                                                            )}
+                                                            {c.document_number && (
+                                                                <span className="text-[10px] font-semibold text-muted-foreground">№{c.document_number}</span>
+                                                            )}
+                                                        </div>
                                                         <div className="mt-1 text-muted-foreground">{c.start_date} → {c.end_date ?? 'Тодорхойгүй'}</div>
                                                         {c.notes && <div className="mt-1 text-muted-foreground">{c.notes}</div>}
+                                                        {(c.document_id || c.file_url) && (
+                                                            <a href={c.document_id ? `/hr/employee-documents/${c.document_id}/pdf?inline=1` : c.file_url!}
+                                                                target="_blank" rel="noopener"
+                                                                className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+                                                                <FileText className="size-3.5" />
+                                                                {c.document_id ? 'Гэрээг харах (PDF)' : 'Хавсаргасан файл'}
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 ))}
                                               </div>
@@ -652,23 +687,23 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
                         </div>
 
                         {/* Footer */}
-                        <div className="flex items-center justify-between border-t bg-muted/30 px-6 py-4">
+                        <div className="flex items-center justify-between gap-3 border-t border-border/60 bg-gradient-to-b from-muted/10 to-muted/30 px-6 py-4">
                             <button type="button"
                                 onClick={() => setTab(TABS[Math.max(0, tabIdx - 1)].key)}
                                 disabled={tabIdx === 0}
-                                className="flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors">
+                                className="flex items-center gap-1.5 rounded-xl border border-border/70 bg-background/70 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm transition-all hover:-translate-y-px hover:bg-muted disabled:opacity-40 disabled:hover:translate-y-0">
                                 <ChevronLeft className="size-4" /> Өмнөх
                             </button>
                             <span className="text-xs text-muted-foreground">{tabIdx + 1} / {TABS.length}</span>
                             {tabIdx < TABS.length - 1 ? (
                                 <button type="button"
                                     onClick={() => setTab(TABS[tabIdx + 1].key)}
-                                    className="flex items-center gap-1.5 rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-80 transition-opacity">
+                                    className="flex items-center gap-1.5 rounded-xl border border-border/70 bg-background/70 px-4 py-2 text-sm font-semibold text-foreground shadow-sm transition-all hover:-translate-y-px hover:bg-muted">
                                     Дараах <ChevronRight className="size-4" />
                                 </button>
                             ) : (
                                 <button type="submit" disabled={processing}
-                                    className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-60 transition-colors">
+                                    className="flex items-center gap-2 rounded-xl bg-gradient-to-b from-rose-500 to-rose-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-rose-600/35 ring-1 ring-inset ring-white/25 transition-all hover:-translate-y-px hover:brightness-110 disabled:opacity-60 disabled:shadow-none">
                                     <Save className="size-4" />
                                     {processing ? 'Хадгалж байна...' : 'Өөрчлөлт хадгалах'}
                                 </button>
@@ -677,6 +712,7 @@ export default function EditEmployee({ employee, branches, positions }: Props) {
                     </div>
                 </form>
             </div>
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

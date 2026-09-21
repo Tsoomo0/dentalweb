@@ -5,6 +5,8 @@ import {
     AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2, X,
     ShieldAlert, Shield, User, CalendarDays,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrEmpty, HrListCard, HrPager, HrPanel, HrSelect, usePaged } from '@/components/hr/page-panel';
 import { useState, FormEvent } from 'react';
 
 interface Employee { id: number; name: string; position: string | null; }
@@ -63,6 +65,8 @@ export default function WarningsIndex() {
         (!filterStatus || w.status === filterStatus)
     );
 
+    const paged = usePaged(filtered);
+
     const { data, setData, post, processing, errors, reset } = useForm({
         employee_id:   '',
         type:          'warning',
@@ -95,49 +99,42 @@ export default function WarningsIndex() {
 
     return (
         <AppLayout breadcrumbs={[{ title: 'HR', href: '/hr/employees' }, { title: 'Сануулга / Зөрчил', href: '/hr/warnings' }]}>
-            <div className="p-4 md:p-6 space-y-4">
+            <div className="space-y-3 p-4 md:p-5">
 
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                        <AlertTriangle className="size-5 text-yellow-500" />
-                        Сануулга / Зөрчил
-                    </h1>
-                    <button
-                        onClick={() => setShowModal(true)}
-                        className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors">
-                        <Plus className="size-4" /> Шинэ сануулга
-                    </button>
-                </div>
+                <HrPanel
+                    tone="amber"
+                    icon={AlertTriangle}
+                    title="Сануулга / Зөрчил"
+                    badge={`${filtered.length} бичлэг`}
+                    subtitle="Ажилтанд өгсөн сануулга, зөрчлийн бүртгэл"
+                    actions={<HrButton tone="amber" icon={Plus} onClick={() => setShowModal(true)}>Шинэ сануулга</HrButton>}
+                    filters={
+                        <>
+                            <HrSelect tone="amber" title="Төрөл" value={filterType} onChange={setFilterType}>
+                                <option value="">Бүх төрөл</option>
+                                <option value="warning">Сануулга</option>
+                                <option value="violation">Зөрчил</option>
+                            </HrSelect>
 
-                {/* Filters */}
-                <div className="flex flex-wrap gap-2">
-                    <select value={filterType} onChange={e => setFilterType(e.target.value)}
-                        className="rounded-lg border bg-background text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400">
-                        <option value="">Бүх төрөл</option>
-                        <option value="warning">Сануулга</option>
-                        <option value="violation">Зөрчил</option>
-                    </select>
-                    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                        className="rounded-lg border bg-background text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400">
-                        <option value="">Бүх статус</option>
-                        <option value="sent">Илгээгдсэн</option>
-                        <option value="acknowledged">Хүлээн зөвшөөрсөн</option>
-                    </select>
-                    <span className="ml-auto text-sm text-muted-foreground self-center">{filtered.length} бичлэг</span>
-                </div>
+                            <HrSelect tone="amber" title="Статус" value={filterStatus} onChange={setFilterStatus}>
+                                <option value="">Бүх статус</option>
+                                <option value="sent">Илгээгдсэн</option>
+                                <option value="acknowledged">Хүлээн зөвшөөрсөн</option>
+                            </HrSelect>
+                        </>
+                    }
+                />
 
                 {/* List */}
                 <div className="space-y-3">
                     {filtered.length === 0 ? (
-                        <div className="py-16 text-center text-muted-foreground">
-                            <Shield className="size-10 mx-auto mb-3 opacity-30" />
-                            <p>Сануулга байхгүй байна</p>
-                        </div>
-                    ) : filtered.map(w => (
+                        <HrEmpty tone="amber" icon={Shield} title="Сануулга байхгүй байна"
+                            hint="Ажилтанд өгсөн сануулга, зөрчил энд бүртгэгдэж, ажилтан руу мэдэгдэл очно."
+                            action={<HrButton tone="amber" icon={Plus} onClick={() => setShowModal(true)}>Шинэ сануулга</HrButton>} />
+                    ) : paged.data.map(w => (
                         <div key={w.id}
-                            className={`rounded-xl border bg-card shadow-sm overflow-hidden transition-all ${
-                                w.status === 'sent' ? 'border-yellow-300 dark:border-yellow-700' : 'border-border'
+                            className={`overflow-hidden rounded-2xl border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)] transition-all ${
+                                w.status === 'sent' ? 'border-amber-300/70 dark:border-amber-800/70' : 'border-border/70'
                             }`}>
                             <button
                                 onClick={() => setExpanded(expanded === w.id ? null : w.id)}
@@ -218,6 +215,13 @@ export default function WarningsIndex() {
                         </div>
                     ))}
                 </div>
+
+                {paged.total > 0 && (
+                    <HrListCard>
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="бичлэг" onPage={paged.setPage} />
+                    </HrListCard>
+                )}
             </div>
 
             {/* Create modal */}
@@ -347,6 +351,7 @@ export default function WarningsIndex() {
             )}
 
             <ToastContainer />
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

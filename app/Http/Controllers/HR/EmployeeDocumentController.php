@@ -32,7 +32,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 class EmployeeDocumentController extends Controller
 {
     /** Нэг хуудсанд харуулах гэрээний тоо. */
-    private const PER_PAGE = 15;
+    private const PER_PAGE = 10;
 
     public function index(Request $request): Response
     {

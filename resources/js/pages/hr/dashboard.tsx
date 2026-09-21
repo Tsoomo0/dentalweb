@@ -1,8 +1,10 @@
 import AppLayout from '@/layouts/app-layout';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrPanel } from '@/components/hr/page-panel';
 import { Link, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, BookOpen, CalendarCheck, CalendarDays,
-    ChevronRight, Clock, MessageSquare, Package,
+    ChevronRight, Clock, LayoutDashboard, MessageSquare, Package,
     Users, Wallet,
 } from 'lucide-react';
 import {
@@ -107,30 +109,37 @@ function daysBetween(a: string, b: string) {
 
 /* ─── Shared card wrapper ────────────────────────────────────────────────── */
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-    return <div className={`rounded-2xl border bg-card p-4 ${className}`}>{children}</div>;
+    return (
+        <div className={`rounded-2xl border border-border/70 bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)] ${className}`}>
+            {children}
+        </div>
+    );
 }
 
 function StatCard({ icon: Icon, label, value, href, color, sub }:
     { icon: React.ElementType; label: string; value: number; href: string; color: string; sub?: string }) {
     return (
-        <Link href={href} className="rounded-2xl border bg-card hover:shadow-md transition-all p-5 flex items-center gap-4 group">
-            <div className={`size-12 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-                <Icon className="size-6" />
+        <Link href={href}
+            className="group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/70 bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-lg">
+            <span aria-hidden className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${color} opacity-70`} />
+            <span className={`relative flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg ring-1 ring-inset ring-white/30 ${color}`}>
+                <span aria-hidden className="absolute inset-x-1.5 top-1 h-1/3 rounded-full bg-white/25 blur-[2px]" />
+                <Icon className="relative size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+                <p className="text-2xl font-black leading-none tabular-nums text-foreground">{value.toLocaleString()}</p>
+                <p className="mt-1 truncate text-[11px] text-muted-foreground">{label}</p>
+                {sub && <p className="text-[10px] text-muted-foreground/70">{sub}</p>}
             </div>
-            <div className="flex-1 min-w-0">
-                <p className="text-2xl font-black text-gray-900 dark:text-gray-100 leading-none">{value.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{label}</p>
-                {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
-            </div>
-            <ChevronRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </Link>
     );
 }
 
 function SectionHeader({ title, href, count }: { title: string; href?: string; count?: number }) {
     return (
-        <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+        <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-[13px] font-bold text-foreground">
                 {title}
                 {!!count && count > 0 && (
                     <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] px-1">
@@ -139,7 +148,8 @@ function SectionHeader({ title, href, count }: { title: string; href?: string; c
                 )}
             </h2>
             {href && (
-                <Link href={href} className="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
+                <Link href={href}
+                    className="flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                     Бүгдийг харах <ChevronRight className="size-3" />
                 </Link>
             )}
@@ -182,29 +192,46 @@ export default function HrDashboard() {
 
     return (
         <AppLayout breadcrumbs={[{ title: 'HR', href: '/hr/employees' }, { title: 'Хянах самбар', href: '/hr/dashboard' }]}>
-            <div className="p-4 md:p-6 space-y-6">
+            <div className="space-y-3 p-4 md:p-5">
 
-                {/* ── Header ── */}
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div>
-                        <h1 className="text-xl font-black text-gray-900 dark:text-gray-100">HR Хянах самбар</h1>
-                        <p className="text-xs text-muted-foreground mt-0.5">{dateLabel}</p>
-                    </div>
-                    {totalPendingApprovals > 0 && (
-                        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400">
-                            {totalPendingApprovals} хүлээгдэж буй хүсэлт
-                        </div>
-                    )}
-                </div>
+                <HrPanel
+                    tone="blue"
+                    icon={LayoutDashboard}
+                    title="HR Хянах самбар"
+                    badge={dateLabel}
+                    subtitle={
+                        <>
+                            <span>{stats.total_employees} ажилтан</span>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span>Өнөөдөр {totalScheduled} хүн хуваарьтай</span>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span>{today_attendance.checked_in} ирсэн{today_attendance.late > 0 ? ` · ${today_attendance.late} хоцорсон` : ''}</span>
+                        </>
+                    }
+                    actions={
+                        totalPendingApprovals > 0 ? (
+                            <Link href="/hr/leave-requests"
+                                className="flex h-9 items-center gap-2 rounded-xl border border-red-300/70 bg-red-50/80 px-3 text-xs font-semibold text-red-600 shadow-sm backdrop-blur transition-all hover:-translate-y-px hover:bg-red-100 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-400">
+                                <span className="size-1.5 animate-pulse rounded-full bg-red-500" />
+                                {totalPendingApprovals} хүлээгдэж буй хүсэлт
+                            </Link>
+                        ) : (
+                            <span className="flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-3 text-xs font-medium text-emerald-600 shadow-sm backdrop-blur dark:text-emerald-400">
+                                <span className="size-1.5 rounded-full bg-emerald-500" />
+                                Хүлээгдэж буй хүсэлт алга
+                            </span>
+                        )
+                    }
+                />
 
                 {/* ── Stat cards ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <StatCard icon={Users}        label="Нийт ажилтан"      value={stats.total_employees}     href="/hr/employees"         color="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" />
-                    <StatCard icon={CalendarDays}  label="Чөлөоний хүсэлт"  value={stats.pending_leave}       href="/hr/leave-requests"    color="bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400" sub={stats.pending_leave > 0 ? 'Хүлээгдэж буй' : undefined} />
-                    <StatCard icon={CalendarCheck} label="Ээлжийн амралт"   value={stats.pending_vacation}    href="/hr/vacation-requests"  color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400" sub={stats.pending_vacation > 0 ? 'Хүлээгдэж буй' : undefined} />
-                    <StatCard icon={MessageSquare} label="Санал хүсэлт"     value={stats.pending_feedback}    href="/hr/feedback"           color="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" />
-                    <StatCard icon={BookOpen}      label="Номын хүсэлт"     value={stats.pending_book_rental} href="/hr/book-rentals"       color="bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400" />
-                    <StatCard icon={Package}       label="Гаргасан тоног"   value={stats.equipment_out}       href="/hr/equipment"          color="bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400" />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <StatCard icon={Users}        label="Нийт ажилтан"      value={stats.total_employees}     href="/hr/employees"         color="from-blue-400 via-blue-500 to-indigo-600 shadow-blue-600/35" />
+                    <StatCard icon={CalendarDays}  label="Чөлөоний хүсэлт"  value={stats.pending_leave}       href="/hr/leave-requests"    color="from-violet-400 via-violet-500 to-purple-600 shadow-violet-600/35" sub={stats.pending_leave > 0 ? 'Хүлээгдэж буй' : undefined} />
+                    <StatCard icon={CalendarCheck} label="Ээлжийн амралт"   value={stats.pending_vacation}    href="/hr/vacation-requests"  color="from-emerald-400 via-emerald-500 to-teal-600 shadow-emerald-600/35" sub={stats.pending_vacation > 0 ? 'Хүлээгдэж буй' : undefined} />
+                    <StatCard icon={MessageSquare} label="Санал хүсэлт"     value={stats.pending_feedback}    href="/hr/feedback"           color="from-orange-400 via-orange-500 to-amber-600 shadow-orange-600/35" />
+                    <StatCard icon={BookOpen}      label="Номын хүсэлт"     value={stats.pending_book_rental} href="/hr/book-rentals"       color="from-sky-400 via-sky-500 to-cyan-600 shadow-sky-600/35" />
+                    <StatCard icon={Package}       label="Гаргасан тоног"   value={stats.equipment_out}       href="/hr/equipment"          color="from-pink-400 via-pink-500 to-rose-600 shadow-rose-600/35" />
                 </div>
 
                 {/* ── Charts row 1 ── */}
@@ -628,6 +655,7 @@ export default function HrDashboard() {
                 )}
 
             </div>
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

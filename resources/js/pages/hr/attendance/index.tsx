@@ -1,8 +1,10 @@
 import AppLayout from '@/layouts/app-layout';
 import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
-import { router, usePage, Link } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, Clock, Download, Timer, TrendingUp, User } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrEmpty, HrGhostButton, HrListCard, HrPager, HrPanel, HrSelect, usePaged } from '@/components/hr/page-panel';
+import { AlertTriangle, CheckCircle2, Clock, Download, Timer, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 
 const MONTHS_MN = ['1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар',
@@ -36,19 +38,18 @@ function fmtMins(mins: number | null) {
     return h > 0 ? `${h}ц ${m}мин` : `${m}мин`;
 }
 
-function StatTile({ icon: Icon, label, value, sub, color, bg }: {
-    icon: React.ElementType; label: string; value: string | number;
-    sub?: string; color: string; bg: string;
+/** Толгой самбарын доор харагдах товч үзүүлэлт. */
+function StatChip({ icon: Icon, label, value, tone }: {
+    icon: React.ElementType; label: string; value: string | number; tone: string;
 }) {
     return (
-        <div className={`rounded-2xl ${bg} p-4 flex items-center gap-3`}>
-            <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 bg-white/20`}>
-                <Icon className={`size-5 ${color}`} />
-            </div>
-            <div>
-                <p className="text-2xl font-black text-gray-900 dark:text-gray-100 leading-none">{value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 font-medium">{label}</p>
-                {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
+        <div className="flex items-center gap-2.5 rounded-xl border border-border/70 bg-background/70 px-3 py-2 shadow-sm backdrop-blur">
+            <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm ring-1 ring-inset ring-white/25 ${tone}`}>
+                <Icon className="size-4" />
+            </span>
+            <div className="min-w-0">
+                <p className="truncate text-[13px] font-bold leading-tight tabular-nums text-foreground">{value}</p>
+                <p className="truncate text-[10px] leading-tight text-muted-foreground">{label}</p>
             </div>
         </div>
     );
@@ -62,12 +63,18 @@ export default function HrAttendanceIndex() {
     const [selYear,  setSelYear]  = useState(year);
     const [selMonth, setSelMonth] = useState(month);
 
-    function applyFilter() {
+    /** Шүүлтүүр солигдонгуут шууд сервер рүү явуулна. */
+    function applyFilter(next: Partial<{ year: number; month: number; employee: number | ''; branch: number | '' }> = {}) {
+        const y = next.year ?? selYear;
+        const m = next.month ?? selMonth;
+        const emp = next.employee !== undefined ? next.employee : selEmployee;
+        const br = next.branch !== undefined ? next.branch : selBranch;
+
         router.get('/hr/attendance', {
-            year: selYear, month: selMonth,
-            employee_id: selEmployee || undefined,
-            branch_id: selBranch || undefined,
-        }, { preserveScroll: true });
+            year: y, month: m,
+            employee_id: emp || undefined,
+            branch_id: br || undefined,
+        }, { preserveScroll: true, preserveState: true, replace: true });
     }
 
     function exportExcel() {
@@ -79,6 +86,8 @@ export default function HrAttendanceIndex() {
         window.location.href = `/hr/attendance/export-excel?${params.toString()}`;
     }
 
+    const paged = usePaged(logs);
+
     const totalWorked       = logs.reduce((s, l) => s + l.worked_minutes, 0);
     const lateCount         = logs.filter(l => l.late_minutes).length;
     const totalOvertimeMins = logs.reduce((s, l) => s + (l.overtime_minutes ?? 0), 0);
@@ -86,100 +95,73 @@ export default function HrAttendanceIndex() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <div className="p-4 md:p-6 space-y-5">
+            <div className="space-y-3 p-4 md:p-5">
 
-                {/* ── Header ── */}
-                <div className="flex items-start justify-between flex-wrap gap-3">
-                    <div>
-                        <h1 className="text-xl font-black text-gray-900 dark:text-gray-100">Ирцийн бүртгэл</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                            {MONTHS_MN[month - 1]} {year} · {logs.length} бүртгэл
-                        </p>
-                    </div>
-                    <button
-                        onClick={exportExcel}
-                        className="flex items-center gap-2 rounded-xl border border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors"
-                    >
-                        <Download className="size-4" /> Excel татах
-                    </button>
-                </div>
+                <HrPanel
+                    tone="sky"
+                    icon={Clock}
+                    title="Ирцийн бүртгэл"
+                    badge={`${MONTHS_MN[month - 1]} ${year}`}
+                    subtitle={`${logs.length} бүртгэл · хуруу дарсан цагийн түүх`}
+                    actions={
+                        <HrGhostButton icon={Download} onClick={exportExcel} title="Excel татах">Excel татах</HrGhostButton>
+                    }
+                    filters={
+                        <>
+                            {branches.length > 1 && (
+                                <HrSelect tone="sky" title="Салбар" value={String(selBranch)}
+                                    onChange={v => {
+                                        const br = v ? Number(v) : '';
+                                        setSelBranch(br); setSelEmployee('');
+                                        applyFilter({ branch: br, employee: '' });
+                                    }}>
+                                    <option value="">Бүх салбар</option>
+                                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </HrSelect>
+                            )}
 
-                {/* ── Stat tiles ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <StatTile icon={Clock}        label="Нийт ажилласан"  value={fmtMins(totalWorked) ?? '—'}  color="text-blue-600"    bg="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900" />
-                    <StatTile icon={CheckCircle2} label="Цагтаа ирсэн"    value={onTimeCount}                  color="text-emerald-600" bg="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900" sub="удаа" />
-                    <StatTile icon={AlertTriangle} label="Хоцорсон"       value={lateCount}                    color="text-red-600"     bg="bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900" sub="удаа" />
-                    <StatTile icon={TrendingUp}   label="Нийт илүү цаг"   value={fmtMins(totalOvertimeMins) ?? '—'} color="text-violet-600" bg="bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-900" />
-                </div>
+                            <HrSelect tone="sky" title="Ажилтан" value={String(selEmployee)}
+                                onChange={v => {
+                                    const emp = v ? Number(v) : '';
+                                    setSelEmployee(emp); applyFilter({ employee: emp });
+                                }}>
+                                <option value="">Бүх ажилтан</option>
+                                {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                            </HrSelect>
 
-                {/* ── Filters ── */}
-                <div className="bg-card rounded-2xl border border-border p-4 flex flex-wrap gap-3 items-end">
-                    {branches.length > 1 && (
-                        <div>
-                            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Салбар</label>
-                            <select
-                                value={selBranch}
-                                onChange={e => { setSelBranch(e.target.value ? Number(e.target.value) : ''); setSelEmployee(''); }}
-                                className="rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                            >
-                                <option value="">Бүгд</option>
-                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                            </select>
-                        </div>
-                    )}
-                    <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Ажилтан</label>
-                        <select
-                            value={selEmployee}
-                            onChange={e => setSelEmployee(e.target.value ? Number(e.target.value) : '')}
-                            className="rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                            <option value="">Бүгд</option>
-                            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                        </select>
+                            <HrSelect tone="sky" title="Сар" value={String(selMonth)}
+                                onChange={v => { setSelMonth(Number(v)); applyFilter({ month: Number(v) }); }}>
+                                {MONTHS_MN.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+                            </HrSelect>
+
+                            <HrSelect tone="sky" title="Он" value={String(selYear)}
+                                onChange={v => { setSelYear(Number(v)); applyFilter({ year: Number(v) }); }}>
+                                {[2025, 2026, 2027].map(y => <option key={y} value={y}>{y} он</option>)}
+                            </HrSelect>
+                        </>
+                    }
+                >
+                    <div className="relative grid grid-cols-2 gap-2 px-4 pb-3.5 sm:grid-cols-4">
+                        <StatChip icon={Clock} label="Нийт ажилласан" value={fmtMins(totalWorked) ?? '—'}
+                            tone="from-sky-400 to-blue-600 shadow-blue-600/30" />
+                        <StatChip icon={CheckCircle2} label="Цагтаа ирсэн" value={`${onTimeCount} удаа`}
+                            tone="from-emerald-400 to-emerald-600 shadow-emerald-600/30" />
+                        <StatChip icon={AlertTriangle} label="Хоцорсон" value={`${lateCount} удаа`}
+                            tone="from-rose-400 to-red-600 shadow-red-600/30" />
+                        <StatChip icon={TrendingUp} label="Нийт илүү цаг" value={fmtMins(totalOvertimeMins) ?? '—'}
+                            tone="from-violet-400 to-violet-600 shadow-violet-600/30" />
                     </div>
-                    <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Сар</label>
-                        <select
-                            value={selMonth}
-                            onChange={e => setSelMonth(Number(e.target.value))}
-                            className="rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                            {MONTHS_MN.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Жил</label>
-                        <select
-                            value={selYear}
-                            onChange={e => setSelYear(Number(e.target.value))}
-                            className="rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                            {[2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
-                    </div>
-                    <button
-                        onClick={applyFilter}
-                        className="rounded-xl bg-red-600 px-5 py-2 text-sm font-bold text-white hover:bg-red-700 transition-colors"
-                    >
-                        Шүүх
-                    </button>
-                </div>
+                </HrPanel>
 
                 {/* ── Table ── */}
                 {logs.length === 0 ? (
-                    <div className="bg-card rounded-2xl border border-border p-16 flex flex-col items-center gap-3">
-                        <div className="size-14 rounded-2xl bg-muted flex items-center justify-center">
-                            <Clock className="size-7 text-muted-foreground/40" />
-                        </div>
-                        <p className="text-sm font-semibold text-muted-foreground">Бүртгэл олдсонгүй</p>
-                        <p className="text-xs text-muted-foreground">{MONTHS_MN[selMonth-1]} {selYear}-д бүртгэл байхгүй байна</p>
-                    </div>
+                    <HrEmpty tone="sky" icon={Clock} title="Бүртгэл олдсонгүй"
+                        hint={`${MONTHS_MN[selMonth - 1]} ${selYear}-д хуруу дарсан бүртгэл алга байна.`} />
                 ) : (
-                    <div className="bg-card rounded-2xl border border-border overflow-hidden">
+                    <HrListCard className="overflow-hidden">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-b border-border bg-muted/50">
+                                <tr className="border-b border-border/60 bg-gradient-to-b from-muted/70 to-muted/25 text-[10px] uppercase tracking-wider backdrop-blur">
                                     <th className="px-4 py-3.5 text-left text-xs font-bold text-muted-foreground tracking-wide">Огноо</th>
                                     <th className="px-4 py-3.5 text-left text-xs font-bold text-muted-foreground tracking-wide">Ажилтан</th>
                                     <th className="px-4 py-3.5 text-center text-xs font-bold text-muted-foreground tracking-wide">Хуваарь</th>
@@ -191,7 +173,7 @@ export default function HrAttendanceIndex() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {logs.map(log => (
+                                {paged.data.map(log => (
                                     <tr key={log.id} className="hover:bg-muted/30 transition-colors group">
                                         <td className="px-4 py-3.5">
                                             <span className="font-semibold text-xs text-foreground">{log.date}</span>
@@ -282,9 +264,13 @@ export default function HrAttendanceIndex() {
                                 </tr>
                             </tfoot>
                         </table>
-                    </div>
+
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="бүртгэл" onPage={paged.setPage} />
+                    </HrListCard>
                 )}
             </div>
+            <style>{HR_PANEL_FX}</style>
             <ToastContainer />
         </AppLayout>
     );

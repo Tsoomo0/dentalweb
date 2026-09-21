@@ -5,6 +5,8 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
     Copy, Eye, FileSignature, FileText, Pencil, Plus, ScrollText, Trash2, X, Braces, CheckCircle2, AlertCircle,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrEmpty, HrListCard, HrPager, HrPanel, HrSearch, HrSelect, usePaged } from '@/components/hr/page-panel';
 import { useRef, useState, FormEvent, useEffect } from 'react';
 
 interface CatalogItem { key: string; label: string; }
@@ -146,6 +148,8 @@ export default function DocumentTemplatesIndex() {
         router.delete(`/hr/document-templates/${t.id}`, { preserveScroll: true });
     }
 
+    const paged = usePaged(filtered);
+
     return (
         <AppLayout breadcrumbs={[{ title: 'HR', href: '/hr/employees' }, { title: 'Гэрээний загвар', href: '/hr/document-templates' }]}>
             <Head title="Гэрээний загвар" />
@@ -158,45 +162,36 @@ export default function DocumentTemplatesIndex() {
                 </div>
             )}
 
-            <div className="p-4 md:p-6 space-y-4">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                            <ScrollText className="size-5 text-indigo-500" />
-                            Гэрээ / ажлын байрны тодорхойлолтын загвар
-                        </h1>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Загвар үүсгээд ажилтан бүрд сонгож илгээнэ. {'{{талбар}}'} нь ажилтны мэдээллээр автоматаар орлуулагдана.
-                        </p>
-                    </div>
-                    <button onClick={openCreate}
-                        className="flex shrink-0 items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">
-                        <Plus className="size-4" /> Шинэ загвар
-                    </button>
-                </div>
-
-                {/* Filters */}
-                <div className="flex flex-wrap gap-2">
-                    <select value={filterType} onChange={e => setFilterType(e.target.value)}
-                        className="rounded-lg border bg-background text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                        <option value="">Бүх төрөл</option>
-                        {Object.entries(types).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Нэр эсвэл кодоор хайх…"
-                        className="flex-1 min-w-[180px] rounded-lg border bg-background text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                </div>
+            <div className="space-y-3 p-4 md:p-5">
+                <HrPanel
+                    tone="indigo"
+                    icon={ScrollText}
+                    title="Гэрээний загвар"
+                    badge={`${templates.length} загвар`}
+                    subtitle={`Загвар үүсгээд ажилтан бүрд сонгож илгээнэ · ${'{{талбар}}'} автоматаар орлуулагдана`}
+                    actions={
+                        <>
+                            <HrSearch tone="indigo" value={search} onChange={setSearch} placeholder="Нэр эсвэл кодоор хайх…" />
+                            <HrButton tone="indigo" icon={Plus} onClick={openCreate}>Шинэ загвар</HrButton>
+                        </>
+                    }
+                    filters={
+                        <HrSelect tone="indigo" title="Төрөл" value={filterType} onChange={setFilterType}>
+                            <option value="">Бүх төрөл</option>
+                            {Object.entries(types).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </HrSelect>
+                    }
+                />
 
                 {/* List */}
                 {filtered.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed p-10 text-center">
-                        <FileText className="mx-auto size-8 text-muted-foreground/40" />
-                        <p className="mt-2 text-sm text-muted-foreground">Загвар олдсонгүй.</p>
-                    </div>
+                    <HrEmpty tone="indigo" icon={FileText} title="Загвар олдсонгүй"
+                        hint="Гэрээ болон ажлын байрны тодорхойлолтын загвараа энд үүсгэнэ."
+                        action={<HrButton tone="indigo" icon={Plus} onClick={openCreate}>Шинэ загвар</HrButton>} />
                 ) : (
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        {filtered.map(t => (
-                            <div key={t.id} className="flex flex-col rounded-2xl border bg-card p-4 shadow-sm">
+                        {paged.data.map(t => (
+                            <div key={t.id} className="flex flex-col rounded-2xl border border-border/70 bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-lg">
                                 <div className="flex items-start justify-between gap-2">
                                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TYPE_STYLES[t.type] ?? TYPE_STYLES.other}`}>
                                         {t.type_label}
@@ -245,6 +240,13 @@ export default function DocumentTemplatesIndex() {
                             </div>
                         ))}
                     </div>
+                )}
+
+                {paged.total > 0 && (
+                    <HrListCard>
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="загвар" onPage={paged.setPage} />
+                    </HrListCard>
                 )}
             </div>
 
@@ -386,6 +388,7 @@ export default function DocumentTemplatesIndex() {
                 .dark .hr-doc-view td, .dark .hr-doc-view th { border-color: #3f3f46; }
                 .dark .hr-doc-view th { background: #27272a; }
             `}</style>
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

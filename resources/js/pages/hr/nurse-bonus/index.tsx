@@ -3,8 +3,10 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
     Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ChevronUp,
-    Clock, Coins, FileSpreadsheet, Heart, Layers, Plus, Save, Search, Send, SendHorizontal, Trash2, Users, X,
+    Clock, Coins, FileSpreadsheet, Heart, Layers, Plus, Save, Send, SendHorizontal, Trash2, Users, X,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrEmpty, HrGhostButton, HrListCard, HrPager, HrPanel, HrSearch, HrTabs, usePaged } from '@/components/hr/page-panel';
 import { useEffect, useMemo, useState } from 'react';
 
 interface BonusRun {
@@ -178,21 +180,6 @@ function CreateForm({ branches, nurses, onClose }: { branches: Branch[]; nurses:
     );
 }
 
-function StatCard({ icon: Icon, label, value, accent, sub }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string | number; accent: string; sub?: string }) {
-    return (
-        <div className={`rounded-2xl border bg-card shadow-sm p-4 flex items-center gap-3`}>
-            <div className={`size-10 rounded-xl flex items-center justify-center ${accent}`}>
-                <Icon className="size-5" />
-            </div>
-            <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-                <p className="text-lg font-bold text-foreground tabular-nums leading-tight mt-0.5">{value}</p>
-                {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
-            </div>
-        </div>
-    );
-}
-
 function fmtMnt(n: number): string {
     if (!n) return '0₮';
     return Math.round(n).toLocaleString() + '₮';
@@ -215,7 +202,6 @@ function DesktopView({ runs, drafts, onCreate, onBulk, onDelete }: {
 
     const finalRuns = runs.filter(r => r.status === 'final');
     const totalAmount = runs.reduce((s, r) => s + (r.total_amount || 0), 0);
-    const draftAmount = drafts.reduce((s, r) => s + (r.total_amount || 0), 0);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -240,77 +226,73 @@ function DesktopView({ runs, drafts, onCreate, onBulk, onDelete }: {
         });
     }, [filtered]);
 
+    const paged = usePaged(grouped);
+
     function toggle(k: string) { setCollapsed(p => ({ ...p, [k]: !p[k] })); }
 
     return (
-        <div className="hidden md:flex flex-col gap-5 p-4 md:p-6">
-            {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-xl font-bold text-foreground">Сувилагчийн урамшуулал</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Өдөр өдрөөр урамшуулал бүртгэх</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    {drafts.length > 0 && (
-                        <button onClick={onBulk}
-                            className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors">
-                            <SendHorizontal className="size-4" /> Бүгдэнд илгээх ({drafts.length})
-                        </button>
-                    )}
-                    <button onClick={onCreate}
-                        className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition-colors shadow-sm">
-                        <Plus className="size-4" /> Шинэ тооцоо
-                    </button>
-                </div>
-            </div>
+        <div className="hidden md:flex flex-col gap-3 p-4 md:p-5">
+            <HrPanel
+                tone="violet"
+                icon={Heart}
+                title="Сувилагчийн урамшуулал"
+                badge={`${runs.length} тооцоо`}
+                subtitle={`${drafts.length} ноорог · ${finalRuns.length} баталгаажсан · нийт ${fmtMnt(totalAmount)}`}
+                actions={
+                    <>
+                        <HrSearch tone="violet" value={search} onChange={setSearch} placeholder="Сувилагч, салбараар хайх…" />
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <StatCard icon={Layers}  label="Нийт тооцоо"   value={runs.length}        accent="bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400" />
-                <StatCard icon={Clock}   label="Ноорог"         value={drafts.length}      accent="bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" sub={draftAmount ? fmtMnt(draftAmount) : undefined} />
-                <StatCard icon={CheckCircle2} label="Баталгаажсан" value={finalRuns.length}   accent="bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400" />
-                <StatCard icon={Coins}   label="Нийт мөнгөн дүн" value={fmtMnt(totalAmount)} accent="bg-yellow-100 text-yellow-600 dark:bg-yellow-950/40 dark:text-yellow-400" />
-            </div>
+                        {drafts.length > 0 && (
+                            <HrGhostButton icon={SendHorizontal} onClick={onBulk} title="Бүх нооргийг ажилтнуудад илгээх">
+                                Бүгдэнд илгээх ({drafts.length})
+                            </HrGhostButton>
+                        )}
 
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-card shadow-sm px-3 py-2">
-                <div className="relative flex-1 min-w-[200px]">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Сувилагч эсвэл салбараар хайх..."
-                        className="w-full rounded-lg border bg-background pl-8 pr-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring" />
-                </div>
-                <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
-                    {[
-                        { v: 'all',   l: 'Бүгд' },
-                        { v: 'draft', l: 'Ноорог' },
-                        { v: 'final', l: 'Баталгаажсан' },
-                    ].map(opt => (
-                        <button key={opt.v} onClick={() => setStatusFilter(opt.v as never)}
-                            className={`rounded-md px-3 py-1 text-[11px] font-semibold transition-colors ${
-                                statusFilter === opt.v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                            }`}>
-                            {opt.l}
-                        </button>
-                    ))}
-                </div>
-            </div>
+                        <HrButton tone="violet" icon={Plus} onClick={onCreate}>Шинэ тооцоо</HrButton>
+                    </>
+                }
+                tabs={
+                    <HrTabs
+                        tone="violet"
+                        active={statusFilter}
+                        onChange={v => setStatusFilter(v as never)}
+                        items={[
+                            { key: 'all', label: 'Бүгд', value: runs.length, Icon: Layers, on: 'from-slate-600 to-slate-700 shadow-slate-900/30' },
+                            { key: 'draft', label: 'Ноорог', value: drafts.length, Icon: Clock, on: 'from-amber-400 to-amber-500 shadow-amber-500/40' },
+                            { key: 'final', label: 'Баталгаажсан', value: finalRuns.length, Icon: CheckCircle2, on: 'from-emerald-500 to-emerald-600 shadow-emerald-600/40' },
+                        ]}
+                    />
+                }
+                filters={
+                    <span className="flex items-center gap-1.5 rounded-lg border border-border/70 bg-background/70 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
+                        <Coins className="size-3.5 text-amber-500" />
+                        Нийт дүн <span className="font-bold tabular-nums text-foreground">{fmtMnt(totalAmount)}</span>
+                    </span>
+                }
+            />
 
             {/* Grouped list */}
             {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-card py-20 text-center">
-                    <Heart className="size-10 text-muted-foreground/30 mb-3" />
-                    <p className="text-sm text-muted-foreground">{runs.length === 0 ? 'Урамшуулал байхгүй байна' : 'Хайлтад тохирох тооцоо алга'}</p>
-                    {runs.length === 0 && <button onClick={onCreate} className="mt-4 text-xs text-primary underline">Шинэ тооцоо үүсгэх</button>}
-                </div>
+                <HrEmpty
+                    tone="violet"
+                    icon={Heart}
+                    title={runs.length === 0 ? 'Одоогоор урамшуулал бүртгээгүй байна' : 'Хайлтад тохирох тооцоо алга'}
+                    hint={runs.length === 0
+                        ? 'Өдөр сонгон тооцоо үүсгэхэд тухайн өдрийн сувилагчдаар мөр бэлдэнэ.'
+                        : 'Хайлт эсвэл төлвийн шүүлтүүрээ өөрчилж үзнэ үү.'}
+                    action={runs.length === 0
+                        ? <HrButton tone="violet" icon={Plus} onClick={onCreate}>Эхний тооцоог үүсгэх</HrButton>
+                        : undefined}
+                />
             ) : (
                 <div className="flex flex-col gap-3">
-                    {grouped.map(g => {
+                    {paged.data.map(g => {
                         const isCollapsed = collapsed[g.key];
                         const gDrafts = g.runs.filter(r => r.status === 'draft').length;
                         const gFinal  = g.runs.filter(r => r.status === 'final').length;
                         const gAmount = g.runs.reduce((s, r) => s + (r.total_amount || 0), 0);
                         return (
-                            <div key={g.key} className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                            <div key={g.key} className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
                                 <button onClick={() => toggle(g.key)}
                                     className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-violet-50/60 via-card to-card dark:from-violet-950/20 dark:via-card hover:bg-muted/30 transition-colors">
                                     <div className="flex items-center gap-2.5">
@@ -339,7 +321,7 @@ function DesktopView({ runs, drafts, onCreate, onBulk, onDelete }: {
                                 {!isCollapsed && (
                                     <table className="w-full text-sm">
                                         <thead>
-                                            <tr className="border-y bg-muted/20 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                            <tr className="border-y border-border/60 bg-gradient-to-b from-muted/70 to-muted/25 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
                                                 <th className="px-5 py-2.5 text-left">Сувилагч</th>
                                                 <th className="px-3 py-2.5 text-left">Салбар</th>
                                                 <th className="px-3 py-2.5 text-left">Статус</th>
@@ -401,6 +383,13 @@ function DesktopView({ runs, drafts, onCreate, onBulk, onDelete }: {
                         );
                     })}
                 </div>
+            )}
+
+            {paged.total > 0 && (
+                <HrListCard>
+                    <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                        total={paged.total} unit="өдөр" onPage={paged.setPage} />
+                </HrListCard>
             )}
         </div>
     );
@@ -596,6 +585,7 @@ export default function NurseBonusIndex({ runs, branches, nurses }: Props) {
                     </div>
                 </div>
             )}
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

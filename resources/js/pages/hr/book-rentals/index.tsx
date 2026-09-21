@@ -5,6 +5,8 @@ import { Head, router, useForm } from '@inertiajs/react';
 import {
     BookOpen, CheckCircle2, Clock, RotateCcw, Tag, Trash2, Undo2, Users, X, XCircle,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrGhostButton, HrListCard, HrPager, HrPanel, HrTabs, usePaged } from '@/components/hr/page-panel';
 import { useEffect, useState } from 'react';
 
 interface Rental {
@@ -117,59 +119,41 @@ export default function HrBookRentals({ rentals }: Props) {
         router.patch(`/hr/book-rentals/${id}/return`, {}, { preserveScroll: true });
     }
 
+    const paged = usePaged(filtered);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Номын түрээсийн хүсэлт" />
 
-            <div className="flex flex-col gap-6 p-6">
+            <div className="flex flex-col gap-3 p-4 md:p-5">
 
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">Номын түрээсийн хүсэлт</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">Ажилтнуудын номын түрээсийн хүсэлтийг удирдах</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {pending > 0 && (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                                <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                {pending} хүсэлт хүлээгдэж байна
-                            </span>
-                        )}
-                        <a href="/hr/books"
-                            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
-                            <BookOpen className="size-3.5" /> Номын жагсаалт
-                        </a>
-                    </div>
-                </div>
-
-                {/* Filter tabs */}
-                <div className="flex items-center gap-2 flex-wrap">
-                    {([
-                        { key: 'all',      label: 'Бүгд',           value: rentals.length, icon: Users        },
-                        { key: 'pending',  label: 'Хүлээгдэж буй',  value: pending,        icon: Clock        },
-                        { key: 'approved', label: 'Зөвшөөрсөн',     value: approved,       icon: CheckCircle2 },
-                        { key: 'rejected', label: 'Цуцалсан',        value: rejected,       icon: XCircle      },
-                        { key: 'returned', label: 'Буцаасан',        value: returned,       icon: Undo2        },
-                    ] as const).map(s => (
-                        <button key={s.key}
-                            onClick={() => setFilter(s.key)}
-                            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
-                                filter === s.key
-                                    ? 'bg-violet-600 text-white shadow-sm'
-                                    : 'border bg-card text-muted-foreground hover:text-foreground hover:border-border'
-                            }`}>
-                            <s.icon className="size-3.5" />
-                            {s.label}
-                            <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none ${
-                                filter === s.key ? 'bg-white/20' : 'bg-muted text-muted-foreground'
-                            }`}>{s.value}</span>
-                        </button>
-                    ))}
-                </div>
+                <HrPanel
+                    tone="teal"
+                    icon={BookOpen}
+                    title="Номын түрээс"
+                    badge={pending > 0 ? `${pending} хүлээгдэж буй` : `${rentals.length} хүсэлт`}
+                    subtitle="Ажилтнуудын номын түрээсийн хүсэлт, буцаалтын хяналт"
+                    actions={
+                        <HrGhostButton icon={BookOpen} href="/hr/books" title="Номын жагсаалт">Номын жагсаалт</HrGhostButton>
+                    }
+                    tabs={
+                        <HrTabs
+                            tone="teal"
+                            active={filter}
+                            onChange={k => setFilter(k as typeof filter)}
+                            items={[
+                                { key: 'all', label: 'Бүгд', value: rentals.length, Icon: Users, on: 'from-slate-600 to-slate-700 shadow-slate-900/30' },
+                                { key: 'pending', label: 'Хүлээгдэж буй', value: pending, Icon: Clock, on: 'from-amber-400 to-amber-500 shadow-amber-500/40' },
+                                { key: 'approved', label: 'Зөвшөөрсөн', value: approved, Icon: CheckCircle2, on: 'from-emerald-500 to-emerald-600 shadow-emerald-600/40' },
+                                { key: 'rejected', label: 'Цуцалсан', value: rejected, Icon: XCircle, on: 'from-red-500 to-red-600 shadow-red-600/40' },
+                                { key: 'returned', label: 'Буцаасан', value: returned, Icon: Undo2, on: 'from-teal-500 to-teal-600 shadow-teal-600/40' },
+                            ]}
+                        />
+                    }
+                />
 
                 {/* Table */}
-                <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                <HrListCard className="overflow-hidden">
                     {filtered.length === 0 ? (
                         <div className="py-20 text-center">
                             <BookOpen className="size-8 text-muted-foreground/20 mx-auto mb-3" />
@@ -187,7 +171,7 @@ export default function HrBookRentals({ rentals }: Props) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
-                                {filtered.map(r => (
+                                {paged.data.map(r => (
                                     <tr key={r.id} className="hover:bg-muted/20 transition-colors">
                                         {/* Book */}
                                         <td className="px-5 py-3">
@@ -279,7 +263,12 @@ export default function HrBookRentals({ rentals }: Props) {
                             </tbody>
                         </table>
                     )}
-                </div>
+
+                    {paged.total > 0 && (
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="хүсэлт" onPage={paged.setPage} />
+                    )}
+                </HrListCard>
             </div>
 
             <ToastContainer />
@@ -334,6 +323,7 @@ export default function HrBookRentals({ rentals }: Props) {
                     </div>
                 </div>
             )}
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

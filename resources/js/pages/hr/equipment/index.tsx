@@ -6,6 +6,8 @@ import {
     AlertTriangle, Box, CheckCircle2, ChevronDown, ChevronRight, ClipboardList,
     Edit2, Package, Plus, Printer, RotateCcw, Trash2, UserCheck, X, XCircle,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrPager, HrPanel, HrSearch, HrSelect, HrTabs, usePaged } from '@/components/hr/page-panel';
 import { useEffect, useRef, useState } from 'react';
 
 /* ── Types ── */
@@ -272,6 +274,9 @@ export default function EquipmentIndex() {
 
     const breadcrumbs: BreadcrumbItem[] = [{ title: 'Тоног төхөөрөмж', href: '/hr/equipment' }];
 
+    const pagedEquipment = usePaged(filteredEquipment);
+    const pagedAssignments = usePaged(filteredAssignments);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <div className="p-4 md:p-6 space-y-4 print:hidden">
@@ -286,74 +291,57 @@ export default function EquipmentIndex() {
                     </div>
                 )}
 
-                {/* Header */}
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                            <Package className="size-5 text-blue-600" />
-                            Тоног төхөөрөмж
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                            Нийт {equipment.length} тоног төхөөрөмж · {equipment.filter(e => e.status === 'available').length} боломжтой
-                        </p>
-                    </div>
-                    <button onClick={openAdd}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-                        <Plus className="size-4" /> Тоног төхөөрөмж нэмэх
-                    </button>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex gap-1 border-b border-border">
-                    {([
-                        { key: 'equipment',   label: 'Тоног төхөөрөмж', icon: Package },
-                        { key: 'assignments', label: 'Актын бүртгэл',   icon: ClipboardList },
-                    ] as const).map(({ key, label, icon: Icon }) => (
-                        <button key={key} onClick={() => setTab(key)}
-                            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                                tab === key
-                                    ? 'border-blue-600 text-blue-600'
-                                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                            }`}>
-                            <Icon className="size-4" /> {label}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Search + Filter */}
-                <div className="flex gap-2 flex-wrap">
-                    <input
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="Хайх..."
-                        className="border rounded-lg px-3 py-2 text-sm bg-background w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {tab === 'equipment' && (
-                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                            className="border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="all">Бүх статус</option>
-                            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                                <option key={k} value={k}>{v}</option>
-                            ))}
-                        </select>
-                    )}
-                    {tab === 'assignments' && (
-                        <select value={asnStatusFilter} onChange={e => setAsnStatusFilter(e.target.value)}
-                            className="border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="all">Бүх статус</option>
-                            {Object.entries(ASN_STATUS_LABELS).map(([k, v]) => (
-                                <option key={k} value={k}>{v}</option>
-                            ))}
-                        </select>
-                    )}
-                </div>
+                <HrPanel
+                    tone="blue"
+                    icon={Package}
+                    title="Тоног төхөөрөмж"
+                    badge={`${equipment.length} бүртгэл`}
+                    subtitle={`${equipment.filter(e => e.status === 'available').length} боломжтой · ажилтанд хүлээлгэн өгсөн актын бүртгэл`}
+                    actions={
+                        <>
+                            <HrSearch tone="blue" value={search} onChange={setSearch} placeholder="Нэр, серийн дугаараар хайх…" />
+                            <HrButton tone="blue" icon={Plus} onClick={openAdd}>Төхөөрөмж нэмэх</HrButton>
+                        </>
+                    }
+                    tabs={
+                        <HrTabs
+                            tone="blue"
+                            active={tab}
+                            onChange={k => setTab(k as typeof tab)}
+                            items={[
+                                { key: 'equipment', label: 'Тоног төхөөрөмж', value: equipment.length, Icon: Package },
+                                { key: 'assignments', label: 'Актын бүртгэл', value: assignments.length, Icon: ClipboardList },
+                            ]}
+                        />
+                    }
+                    filters={
+                        <>
+                            {tab === 'equipment' && (
+                                <HrSelect tone="blue" title="Статус" value={statusFilter} onChange={setStatusFilter}>
+                                    <option value="all">Бүх статус</option>
+                                    {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                                        <option key={k} value={k}>{v}</option>
+                                    ))}
+                                </HrSelect>
+                            )}
+                            {tab === 'assignments' && (
+                                <HrSelect tone="blue" title="Актын статус" value={asnStatusFilter} onChange={setAsnStatusFilter}>
+                                    <option value="all">Бүх статус</option>
+                                    {Object.entries(ASN_STATUS_LABELS).map(([k, v]) => (
+                                        <option key={k} value={k}>{v}</option>
+                                    ))}
+                                </HrSelect>
+                            )}
+                        </>
+                    }
+                />
 
                 {/* Equipment Table */}
                 {tab === 'equipment' && (
-                    <div className="rounded-xl border border-border overflow-hidden">
+                    <div className="overflow-hidden rounded-2xl border border-border/70 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-muted/50 border-b border-border">
+                                <thead className="border-b border-border/60 bg-gradient-to-b from-muted/70 to-muted/25 backdrop-blur">
                                     <tr>
                                         {['НЭР', 'СЕРИЙН №', 'ТӨЛӨВ БАЙДАЛ', 'СТАТУС', 'ХАРИУЦАГЧ', 'ҮЙЛДЭЛ'].map(h => (
                                             <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">{h}</th>
@@ -366,7 +354,7 @@ export default function EquipmentIndex() {
                                             <Package className="size-10 mx-auto mb-2 opacity-30" />
                                             Тоног төхөөрөмж байхгүй
                                         </td></tr>
-                                    ) : filteredEquipment.map(item => (
+                                    ) : pagedEquipment.data.map(item => (
                                         <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-3">
                                                 <div className="font-medium text-foreground">{item.name}</div>
@@ -433,6 +421,10 @@ export default function EquipmentIndex() {
                                 </tbody>
                             </table>
                         </div>
+
+                        <HrPager page={pagedEquipment.page} lastPage={pagedEquipment.lastPage}
+                            from={pagedEquipment.from} to={pagedEquipment.to} total={pagedEquipment.total}
+                            unit="төхөөрөмж" onPage={pagedEquipment.setPage} />
                     </div>
                 )}
 
@@ -446,10 +438,10 @@ export default function EquipmentIndex() {
                     </div>
                 )}
                 {tab === 'assignments' && (
-                    <div className="rounded-xl border border-border overflow-hidden">
+                    <div className="overflow-hidden rounded-2xl border border-border/70 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-muted/50 border-b border-border">
+                                <thead className="border-b border-border/60 bg-gradient-to-b from-muted/70 to-muted/25 backdrop-blur">
                                     <tr>
                                         {['ТОНОГ ТӨХӨӨРӨМЖ', 'АЖИЛТАН', 'СТАТУС', 'ОГНОО', 'ҮЙЛДЭЛ'].map(h => (
                                             <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">{h}</th>
@@ -462,7 +454,7 @@ export default function EquipmentIndex() {
                                             <ClipboardList className="size-10 mx-auto mb-2 opacity-30" />
                                             Бүртгэл байхгүй
                                         </td></tr>
-                                    ) : filteredAssignments.map(a => (
+                                    ) : pagedAssignments.data.map(a => (
                                         <tr key={a.id} className="hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-3">
                                                 <div className="font-medium text-foreground">{a.equipment_name}</div>
@@ -511,6 +503,10 @@ export default function EquipmentIndex() {
                                 </tbody>
                             </table>
                         </div>
+
+                        <HrPager page={pagedAssignments.page} lastPage={pagedAssignments.lastPage}
+                            from={pagedAssignments.from} to={pagedAssignments.to} total={pagedAssignments.total}
+                            unit="акт" onPage={pagedAssignments.setPage} />
                     </div>
                 )}
             </div>
@@ -814,6 +810,7 @@ export default function EquipmentIndex() {
                 </div>
             )}
             <ToastContainer />
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

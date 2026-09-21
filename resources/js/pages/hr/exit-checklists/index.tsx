@@ -1,6 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
 import { Link, router, usePage } from '@inertiajs/react';
-import { CheckCircle2, Circle, Clock, LogOut, Plus, Search, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, LogOut, Plus, Trash2 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrEmpty, HrListCard, HrPager, HrPanel, HrSearch, HrTabs, usePaged } from '@/components/hr/page-panel';
 import { useState } from 'react';
 
 interface Checklist {
@@ -74,61 +76,45 @@ export default function ExitChecklistIndex() {
         { key: 'completed', label: 'Дуусгасан' },
     ];
 
+    const paged = usePaged(checklists);
+
     return (
         <AppLayout breadcrumbs={[{ title: 'HR', href: '/hr/employees' }, { title: 'Гарах бүртгэл', href: '/hr/exit-checklists' }]}>
-            <div className="p-4 md:p-6 space-y-4">
+            <div className="space-y-3 p-4 md:p-5">
 
-                {/* Top bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                        <LogOut className="size-5 text-red-500" />
-                        Гарах бүртгэл
-                        <span className="text-sm font-normal text-muted-foreground">({checklists.length})</span>
-                    </h1>
-                    <div className="flex items-center gap-2">
-                        <form onSubmit={e => { e.preventDefault(); applyFilter(statusFilter, search); }} className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                            <input value={search} onChange={e => setSearch(e.target.value)}
-                                placeholder="Хайх..."
-                                className="w-44 rounded-xl border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
-                            {search && (
-                                <button type="button" onClick={() => { setSearch(''); applyFilter(statusFilter, ''); }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2">
-                                    <X className="size-3.5 text-muted-foreground" />
-                                </button>
-                            )}
-                        </form>
-                        <Link href="/hr/exit-checklists/create"
-                            className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors">
-                            <Plus className="size-4" /> Шинэ бүртгэл
-                        </Link>
-                    </div>
-                </div>
+                <HrPanel
+                    tone="rose"
+                    icon={LogOut}
+                    title="Гарах бүртгэл"
+                    badge={`${checklists.length} бүртгэл`}
+                    subtitle="Ажлаас гарах ажилтны хүлээлгэн өгөх зүйлсийн хяналт"
+                    actions={
+                        <>
+                            <HrSearch tone="rose" value={search}
+                                onChange={v => { setSearch(v); applyFilter(statusFilter, v); }}
+                                placeholder="Ажилтнаар хайх…" />
 
-                {/* Status tabs */}
-                <div className="flex gap-1.5 flex-wrap">
-                    {STATUS_TABS.map(t => (
-                        <button key={t.key} onClick={() => { setStatusFilter(t.key); applyFilter(t.key); }}
-                            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors
-                                ${statusFilter === t.key ? 'bg-red-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
-                            {t.label}
-                        </button>
-                    ))}
-                </div>
+                            <HrButton tone="rose" icon={Plus} href="/hr/exit-checklists/create">Шинэ бүртгэл</HrButton>
+                        </>
+                    }
+                    tabs={
+                        <HrTabs
+                            tone="rose"
+                            active={statusFilter}
+                            onChange={k => { setStatusFilter(k); applyFilter(k); }}
+                            items={STATUS_TABS.map(t => ({ key: t.key, label: t.label }))}
+                        />
+                    }
+                />
 
                 {/* List */}
                 {checklists.length === 0 ? (
-                    <div className="py-20 text-center rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-                        <LogOut className="size-12 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-                        <p className="text-sm text-muted-foreground">Гарах бүртгэл байхгүй байна</p>
-                        <Link href="/hr/exit-checklists/create"
-                            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors">
-                            <Plus className="size-4" /> Шинэ бүртгэл
-                        </Link>
-                    </div>
+                    <HrEmpty tone="rose" icon={LogOut} title="Гарах бүртгэл байхгүй байна"
+                        hint="Ажилтан ажлаас гарахад тоног төхөөрөмж, эрх, баримтыг энд хянаж хаана."
+                        action={<HrButton tone="rose" icon={Plus} href="/hr/exit-checklists/create">Шинэ бүртгэл</HrButton>} />
                 ) : (
                     <div className="space-y-2">
-                        {checklists.map(c => {
+                        {paged.data.map(c => {
                             const exitCfg  = EXIT_TYPE[c.exit_type]  ?? EXIT_TYPE.other;
                             const statCfg  = STATUS_CFG[c.status]    ?? STATUS_CFG.draft;
                             const StatIcon = statCfg.icon;
@@ -178,7 +164,15 @@ export default function ExitChecklistIndex() {
                         })}
                     </div>
                 )}
+
+                {paged.total > 0 && (
+                    <HrListCard>
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="бүртгэл" onPage={paged.setPage} />
+                    </HrListCard>
+                )}
             </div>
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

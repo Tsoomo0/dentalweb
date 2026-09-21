@@ -146,13 +146,14 @@ export const HR_PANEL_FX = `
 .hr-drift { animation: hrDriftA 16s ease-in-out infinite; }
 .hr-drift-2 { animation: hrDriftB 21s ease-in-out infinite; }
 .hr-grid {
-    color: rgb(16 185 129 / 0.16);
+    /* Хуудас бүр --hr-grid-rgb-ээр өөрийн өнгийг өгнө (өгөгдмөл нь ногоон) */
+    color: rgb(var(--hr-grid-rgb, 16 185 129) / 0.16);
     background-image: radial-gradient(currentColor 1px, transparent 1px);
     background-size: 18px 18px;
     -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
     mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
 }
-.dark .hr-grid { color: rgb(52 211 153 / 0.12); }
+.dark .hr-grid { color: rgb(var(--hr-grid-rgb, 52 211 153) / 0.12); }
 @media (prefers-reduced-motion: reduce) {
     .hr-drift, .hr-drift-2 { animation: none; }
 }

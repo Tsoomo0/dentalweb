@@ -1,7 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
+import { Bleed, SectionHead, SplitText, useMotionRoot } from '@/components/public/motion';
+import PageHeroBig from '@/components/public/page-hero-big';
 import PublicLayout from '@/layouts/public-layout';
-import { Calendar, X, CheckCircle, Image as ImageIcon, Clock } from 'lucide-react';
+import { Calendar, X, Check, Image as ImageIcon } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    TYPES
@@ -18,8 +20,7 @@ interface Treatment {
 interface TreatmentCategory { id: number; name: string; icon: string | null; treatments: Treatment[] }
 interface PageProps { treatments: TreatmentCategory[] }
 
-const RED = '#c81e3a';
-const glassPanel = 'rounded-[30px] border border-white/70 bg-white/50 shadow-[0_14px_40px_rgba(120,30,50,0.06)] backdrop-blur-xl';
+const d = (i: number, step = 80): CSSProperties => ({ '--d': `${i * step}ms` } as CSSProperties);
 
 function priceLabel(min: number | null, max: number | null): string | null {
     if (!min && !max) return null;
@@ -29,23 +30,20 @@ function priceLabel(min: number | null, max: number | null): string | null {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MODAL — эмчилгээний дэлгэрэнгүй (хуучин хувилбараас хадгалсан)
+   MODAL — эмчилгээний дэлгэрэнгүй
    ═══════════════════════════════════════════════════════════════════════════ */
-function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
     useEffect(() => {
-        if (open) document.body.style.overflow = 'hidden';
-        else document.body.style.overflow = '';
-        return () => { document.body.style.overflow = ''; };
-    }, [open]);
-    if (!open) return null;
+        document.body.style.overflow = 'hidden';
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+    }, [onClose]);
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4" onClick={onClose}>
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-3xl"
-                onClick={(e) => e.stopPropagation()}
-                style={{ animation: 'modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
-                {children}
-            </div>
+        <div className="cw-modal-wrap" onClick={onClose} role="dialog" aria-modal="true">
+            <div className="cw-modal-bd" />
+            <div className="cw-modal" onClick={(e) => e.stopPropagation()}>{children}</div>
         </div>
     );
 }
@@ -54,68 +52,62 @@ function TreatmentModal({ treatment, catName, onClose }: { treatment: Treatment;
     const price = priceLabel(treatment.price_min, treatment.price_max);
     const bookingUrl = `/booking?service=${encodeURIComponent(treatment.title)}`;
     const includes = ['Мэргэжлийн үзлэг', 'Эмчилгээний төлөвлөгөө', 'Дараагийн үзлэгийн зөвлөгөө'];
+
     return (
-        <Modal open onClose={onClose}>
-            <div className="relative h-52 flex-shrink-0 overflow-hidden rounded-t-3xl bg-gradient-to-br from-rose-50 to-red-100">
+        <Modal onClose={onClose}>
+            <div className="cw-modal-img">
                 {treatment.image_url
-                    ? <img src={treatment.image_url} alt={treatment.title} className="h-full w-full object-cover" />
-                    : <div className="flex h-full w-full items-center justify-center"><ImageIcon className="h-16 w-16 text-red-200" /></div>}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                <button onClick={onClose} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/40">
-                    <X className="h-4 w-4" />
-                </button>
-                <div className="absolute bottom-4 left-5">
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-white/70">{catName}</span>
-                </div>
+                    ? <img src={treatment.image_url} alt={treatment.title} />
+                    : <div className="cw-ph"><ImageIcon className="h-8 w-8 opacity-50" /></div>}
+                <button onClick={onClose} className="cw-modal-x" aria-label="Хаах"><X className="h-4 w-4" /></button>
+                <span className="cw-modal-cat">{catName}</span>
             </div>
-            <div className="p-6">
-                <div className="mb-4 flex items-start justify-between gap-4">
-                    <h2 className="font-onest text-2xl font-extrabold leading-tight text-gray-900">{treatment.title}</h2>
+
+            <div className="cw-modal-body">
+                <div className="mb-5 flex items-start justify-between gap-6">
+                    <h2>{treatment.title}</h2>
                     {price && (
-                        <div className="flex-shrink-0 text-right">
-                            <p className="mb-0.5 text-xs text-gray-400">Үнэ</p>
-                            <p className="text-lg font-extrabold text-[#c81e3a]">{price}</p>
+                        <div className="flex-none text-right">
+                            <p className="mb-1 text-[10.5px] font-semibold tracking-[.16em] text-[#74787e]">ҮНЭ</p>
+                            <p className="text-[17px] font-semibold tracking-[-.02em] text-[#c81e3a]">{price}</p>
                         </div>
                     )}
                 </div>
+
                 {treatment.duration_min && (
-                    <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-                        <Clock className="h-4 w-4 text-red-400" /><span>Хугацаа: ~{treatment.duration_min} мин</span>
-                    </div>
+                    <p className="mb-4 text-[13px] text-[#74787e]">Үргэлжлэх хугацаа ~{treatment.duration_min} мин</p>
                 )}
-                {treatment.description && <p className="mb-5 text-sm leading-relaxed text-gray-600">{treatment.description}</p>}
+                {treatment.description && <p className="mb-6 text-[14.5px] leading-[1.72] text-[#26282c]">{treatment.description}</p>}
+
                 {treatment.sub_treatments.length > 0 && (
-                    <div className="mb-5">
-                        <h3 className="mb-3 text-sm font-bold text-gray-800">Дэд төрлүүд</h3>
-                        <div className="flex flex-col">
-                            {treatment.sub_treatments.map((s) => {
-                                const sp = priceLabel(s.price_min, s.price_max);
-                                return (
-                                    <div key={s.id} className="flex items-start justify-between gap-4 border-b border-gray-50 py-3 last:border-0">
-                                        <div className="flex-1">
-                                            <p className="text-sm font-semibold text-gray-800">{s.title}</p>
-                                            {s.description && <p className="mt-0.5 text-xs leading-relaxed text-gray-400">{s.description}</p>}
-                                        </div>
-                                        {sp && <span className="flex-shrink-0 text-sm font-bold text-[#c81e3a]">{sp}</span>}
+                    <div className="mb-6">
+                        <p className="cw-modal-h">Дэд төрлүүд</p>
+                        {treatment.sub_treatments.map((s) => {
+                            const sp = priceLabel(s.price_min, s.price_max);
+                            return (
+                                <div key={s.id} className="cw-modal-row">
+                                    <div>
+                                        <p className="text-[14px] font-medium">{s.title}</p>
+                                        {s.description && <p className="mt-1 text-[12.5px] leading-[1.6] text-[#74787e]">{s.description}</p>}
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    {sp && <span className="flex-none text-[14px] font-semibold text-[#c81e3a]">{sp}</span>}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
-                <div className="mb-5 rounded-2xl bg-gray-50 p-4">
-                    <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Багтсан үйлчилгээ</h3>
-                    <div className="grid grid-cols-1 gap-2">
-                        {includes.map((item, i) => (
-                            <div key={i} className="flex items-center gap-2.5">
-                                <CheckCircle className="h-4 w-4 flex-shrink-0 text-red-500" />
-                                <span className="text-sm text-gray-600">{item}</span>
-                            </div>
-                        ))}
-                    </div>
+
+                <div className="mb-7">
+                    <p className="cw-modal-h">Багтсан үйлчилгээ</p>
+                    {includes.map((item) => (
+                        <div key={item} className="flex items-center gap-3 py-2 text-[14px] text-[#26282c]">
+                            <Check className="h-4 w-4 flex-none text-[#c81e3a]" />{item}
+                        </div>
+                    ))}
                 </div>
-                <Link href={bookingUrl} className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-[#c81e3a] py-4 text-base font-bold text-white shadow-lg shadow-red-200 transition-all hover:bg-[#a91730]">
-                    <Calendar className="h-5 w-5" /> Эмч дээр цаг захиалах
+
+                <Link href={bookingUrl} className="cw-btn cw-btn-ink w-full">
+                    <Calendar className="h-[18px] w-[18px]" /> Эмч дээр цаг захиалах
                 </Link>
             </div>
         </Modal>
@@ -125,15 +117,16 @@ function TreatmentModal({ treatment, catName, onClose }: { treatment: Treatment;
 /* ═══════════════════════════════════════════════════════════════════════════
    PAGE
    ═══════════════════════════════════════════════════════════════════════════ */
-const HERO_ICONS = ['◍', '✦', '⬚', '◎', '♨'];
 const STEPS = [
-    { num: '01', title: 'Цаг захиалах', text: 'Онлайнаар эсвэл утсаар өөрт тохирох цагаа сонгоно.' },
-    { num: '02', title: 'Үзлэг, оношилгоо', text: 'Эмч амны хөндийг шалгаж, шаардлагатай оношилгоо хийнэ.' },
-    { num: '03', title: 'Төлөвлөгөө', text: 'Тохирох эмчилгээний төлөвлөгөө, төсвийг тодорхой танилцуулна.' },
-    { num: '04', title: 'Эмчилгээ, хяналт', text: 'Эмчилгээ хийж, дараа нь үр дүнг тогтмол хянана.' },
+    { n: '01', t: 'Цаг захиалах', d: 'Онлайнаар эсвэл утсаар өөрт тохирох цагаа сонгоно.' },
+    { n: '02', t: 'Үзлэг, оношилгоо', d: 'Эмч амны хөндийг шалгаж, шаардлагатай оношилгоо хийнэ.' },
+    { n: '03', t: 'Төлөвлөгөө', d: 'Тохирох эмчилгээний төлөвлөгөө, төсвийг тодорхой танилцуулна.' },
+    { n: '04', t: 'Эмчилгээ, хяналт', d: 'Эмчилгээ хийж, дараа нь үр дүнг тогтмол хянана.' },
 ];
 
 export default function ServicesPage({ treatments = [] }: PageProps) {
+    useMotionRoot();
+
     const fallback: TreatmentCategory[] = [
         { id: 1, name: 'Гажиг засал', icon: null, treatments: [
             { id: 1, title: 'Invisalign', description: 'Харагдахгүй, авч хийж болдог шилэн тэгшлэгч систем.', price_min: 1500000, price_max: 3000000, duration_min: 60, image_url: null, sub_treatments: [] },
@@ -150,124 +143,109 @@ export default function ServicesPage({ treatments = [] }: PageProps) {
 
     const source = treatments.length > 0 ? treatments : fallback;
 
-    /* tab: 0 = Бүгд, эсвэл category.id */
     const [activeCat, setActiveCat] = useState<number | null>(null);
     const [selected, setSelected] = useState<{ t: Treatment; cat: string } | null>(null);
 
-    /* бүх эмчилгээ (тэгшлэсэн), category нэртэйгээ */
     const allTreatments = source.flatMap((c) => c.treatments.map((t) => ({ t, catName: c.name, catId: c.id })));
     const shown = activeCat === null ? allTreatments : allTreatments.filter((x) => x.catId === activeCat);
 
-    /* hero жагсаалт — эхний 5 ангилал */
-    const heroList = source.slice(0, 5).map((c, i) => ({
-        icon: c.icon || HERO_ICONS[i % HERO_ICONS.length],
-        title: c.name,
-        meta: `${c.treatments.length} үйлчилгээ`,
-    }));
-
     return (
-        <PublicLayout>
-            <Head title="Эмчилгээ үйлчилгээ — Кутикул">
-                <style>{`@keyframes modalIn { from { opacity:0; transform:translateY(24px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }`}</style>
-            </Head>
+        <PublicLayout heroOverlay editorial>
+            <Head title="Эмчилгээ үйлчилгээ — Кутикул" />
 
-            {/* ── HERO ──────────────────────────────────────────────────────── */}
-            <div className="relative mt-6 overflow-hidden rounded-[32px] border border-white/70 shadow-[0_18px_50px_rgba(120,30,50,0.14)]">
-                <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 18% 12%, rgba(255,255,255,.18), transparent 46%), linear-gradient(125deg,#d62a48 0%,#b01533 54%,#7d1226 100%)' }} />
-                <div className="absolute left-[-50px] top-[-90px] h-[280px] w-[280px] rounded-full border border-dashed border-white/20" style={{ animation: 'cuticulSpinSlow 48s linear infinite' }} />
-                <div className="relative z-[3] grid items-center gap-10 p-8 sm:p-14 lg:grid-cols-[1.06fr_0.94fr]">
-                    <div>
-                        <div className="mb-5 inline-flex items-center gap-2 rounded-[40px] bg-white/85 px-3.5 py-2 text-[12px] font-bold uppercase tracking-[0.05em] text-[#c81e3a]">✦ Эмчилгээ үйлчилгээ</div>
-                        <h1 className="mb-3.5 font-onest text-[28px] font-extrabold leading-[1.12] tracking-tight text-white sm:text-[36px]">Бүх төрлийн шүдний эмчилгээ</h1>
-                        <p className="mb-7 max-w-[460px] text-[16px] leading-[1.65] text-white/90">Энгийн үзлэгээс эхлээд гажиг засал, имплант хүртэл — танд ямар ч үед хэрэгтэй болж болох эмчилгээг найдвартай, нэг дороос аваарай.</p>
-                        <div className="flex flex-wrap gap-3">
-                            <Link href="/booking" className="rounded-[14px] bg-white px-6 py-3.5 text-[15px] font-bold text-[#c81e3a]">Цаг захиалах →</Link>
-                            <Link href="/contact" className="rounded-[14px] border-[1.5px] border-white/40 bg-white/15 px-6 py-3.5 text-[15px] font-bold text-white">Утсаар холбогдох</Link>
-                        </div>
-                    </div>
-                    <div className="rounded-[22px] bg-white/95 p-6 shadow-[0_20px_50px_rgba(60,8,18,0.3)] sm:p-7">
-                        <div className="mb-4 text-[13px] font-bold uppercase tracking-[0.04em] text-[#9a918d]">Манай үндсэн чиглэлүүд</div>
-                        <div className="flex flex-col">
-                            {heroList.map((hl, i) => (
-                                <div key={i} className="flex items-center gap-3.5 border-b border-[#f3ebea] py-3 last:border-0">
-                                    <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[10px] bg-[#fbeef0] font-onest text-[16px] font-bold text-[#c81e3a]">{hl.icon}</span>
-                                    <span className="flex-1 text-[15px] font-semibold text-[#1c1a1b]">{hl.title}</span>
-                                    <span className="text-[12px] font-medium text-[#9a918d]">{hl.meta}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <PageHeroBig
+                figure="arch"
+                alt="Тунгалаг аппарат зүүж буй үйлчлүүлэгч"
+                ghost="SERVICES"
+                eyebrow="ЭМЧИЛГЭЭ ҮЙЛЧИЛГЭЭ"
+                title={['Бүх төрлийн', 'шүдний эмчилгээ']}
+                mn="Энгийн үзлэгээс имплант хүртэл нэг дороос"
+                lead="Гажиг засал, имплант, цайруулалт, хүүхдийн эмчилгээ — танд ямар ч үед хэрэгтэй болж болох эмчилгээг найдвартай аваарай."
+                stats={[
+                    { num: '20', unit: '+', label: 'Эмчилгээний төрөл' },
+                    { num: '3', unit: 'алхам', label: 'Онош хүртэл' },
+                    { num: '10', unit: '+ жил', label: 'Салбарын туршлага' },
+                ]}
+                marks={{
+                    d1: { x: 44, y: 56 }, path1: 'M44 56 L 30 87 L 22 87', chip1: 'Өвдөлтгүй, зөөлөн',
+                    d2: { x: 58, y: 38 }, path2: 'M58 38 L 80 17 L 98 17', chip2: 'Дижитал оношилгоо',
+                }}
+                cta={[
+                    { label: 'Цаг захиалах', href: '/booking', primary: true },
+                    { label: 'Утсаар холбогдох', href: '/contact' },
+                ]}
+            />
 
-            {/* ── SERVICES ──────────────────────────────────────────────────── */}
-            <div className={`mt-7 p-7 sm:p-11 ${glassPanel}`}>
-                <div className="mb-7 flex flex-wrap gap-2.5">
-                    <button onClick={() => setActiveCat(null)} className="rounded-[40px] border-[1.5px] px-4 py-2 text-[14px] font-semibold transition-all" style={{ borderColor: activeCat === null ? RED : '#ece6e5', background: activeCat === null ? RED : 'rgba(255,255,255,.6)', color: activeCat === null ? '#fff' : '#6b6360' }}>
-                        Бүгд
-                    </button>
-                    {source.map((c) => {
-                        const on = c.id === activeCat;
-                        return (
-                            <button key={c.id} onClick={() => setActiveCat(c.id)} className="rounded-[40px] border-[1.5px] px-4 py-2 text-[14px] font-semibold transition-all" style={{ borderColor: on ? RED : '#ece6e5', background: on ? RED : 'rgba(255,255,255,.6)', color: on ? '#fff' : '#6b6360' }}>
-                                {c.name}
-                            </button>
-                        );
-                    })}
+            {/* ── ҮЙЛЧИЛГЭЭНҮҮД ────────────────────────────────────────────── */}
+            <section className="cw-sec">
+                <div className="cw-tabs" data-reveal="fade">
+                    <button type="button" aria-pressed={activeCat === null} onClick={() => setActiveCat(null)}>Бүгд</button>
+                    {source.map((c) => (
+                        <button key={c.id} type="button" aria-pressed={c.id === activeCat} onClick={() => setActiveCat(c.id)}>{c.name}</button>
+                    ))}
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {shown.map(({ t, catName }) => {
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+                    {shown.map(({ t, catName }, i) => {
                         const meta = t.duration_min ? `~${t.duration_min} мин` : priceLabel(t.price_min, t.price_max) || 'Зөвлөгөөтэй';
                         return (
-                            <button key={`${catName}-${t.id}`} onClick={() => setSelected({ t, cat: catName })}
-                                className="group overflow-hidden rounded-[18px] border border-[#f1e8e7] bg-white text-left shadow-[0_1px_2px_rgba(120,30,50,0.04)] transition-all hover:-translate-y-[3px] hover:border-[#f4d4da] hover:shadow-[0_14px_32px_rgba(120,30,50,0.13)]">
-                                <div className="relative aspect-[16/11] overflow-hidden">
+                            <button
+                                key={`${catName}-${t.id}`}
+                                type="button"
+                                onClick={() => setSelected({ t, cat: catName })}
+                                className="cw-card text-left"
+                                data-reveal="up"
+                                style={d(i % 4, 80)}
+                            >
+                                <div className="cw-card-img aspect-[16/11]">
                                     {t.image_url
-                                        ? <img src={t.image_url} alt={t.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                                        : <div className="flex h-full w-full items-center justify-center" style={{ background: 'repeating-linear-gradient(45deg,#f3eceb,#f3eceb 10px,#eee3e2 10px,#eee3e2 20px)' }}><ImageIcon className="h-7 w-7 text-[#d9b9bd]" /></div>}
-                                    <div className="absolute left-3 top-3 rounded-[30px] bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[#c81e3a] backdrop-blur-sm">{catName}</div>
+                                        ? <img src={t.image_url} alt={t.title} loading="lazy" />
+                                        : <div className="cw-ph"><ImageIcon className="h-6 w-6 opacity-50" /></div>}
+                                    <span className="cw-card-tag">{catName}</span>
                                 </div>
-                                <div className="p-4">
-                                    <h3 className="mb-1.5 font-onest text-[16px] font-bold">{t.title}</h3>
-                                    {t.description && <p className="mb-3 line-clamp-2 text-[13px] leading-[1.55] text-[#6b6360]">{t.description}</p>}
-                                    <div className="flex items-center justify-between border-t border-[#f3ebea] pt-3">
-                                        <span className="text-[11px] font-medium text-[#9a918d]">{meta}</span>
-                                        <span className="text-[12px] font-bold text-[#c81e3a]">Дэлгэрэнгүй →</span>
+                                <div className="cw-card-body">
+                                    <h3>{t.title}</h3>
+                                    {t.description && <p className="mb-3 line-clamp-2 text-[13px] leading-[1.6] text-[#74787e]">{t.description}</p>}
+                                    <div className="cw-card-meta border-t border-[#eceef0] pt-3">
+                                        <span>{meta}</span><b>→</b>
                                     </div>
                                 </div>
                             </button>
                         );
                     })}
                 </div>
-            </div>
+            </section>
 
-            {/* ── PROCESS ───────────────────────────────────────────────────── */}
-            <div className={`mt-7 p-7 sm:p-11 ${glassPanel}`}>
-                <div className="mb-9 text-center">
-                    <div className="mb-4 inline-flex items-center gap-2 rounded-[30px] border border-[#c81e3a]/20 bg-[#c81e3a]/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.1em] text-[#c81e3a]">
-                        <span className="h-[7px] w-[7px] rounded-full bg-[#c81e3a]" />Эмчилгээний явц
-                    </div>
-                    <h2 className="font-onest text-[28px] font-extrabold sm:text-[36px]">Хэрхэн явагддаг вэ?</h2>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {STEPS.map((st) => (
-                        <div key={st.num} className="rounded-[20px] border border-[#f1e8e7] bg-white p-7 shadow-[0_1px_2px_rgba(120,30,50,0.04)]">
-                            <div className="mb-3 font-onest text-[34px] font-extrabold text-[#f0b8c1]">{st.num}</div>
-                            <h3 className="mb-2 font-onest text-[17px] font-bold">{st.title}</h3>
-                            <p className="text-[13px] leading-[1.6] text-[#6b6360]">{st.text}</p>
+            {/* ── ЭМЧИЛГЭЭНИЙ ЯВЦ ──────────────────────────────────────────── */}
+            <section className="cw-sec">
+                <SectionHead eyebrow="Эмчилгээний явц" title="Хэрхэн явагддаг вэ" />
+                <div className="cw-steps">
+                    <div className="cw-steps-line" data-reveal="line" />
+                    {STEPS.map((st, i) => (
+                        <div key={st.n} className="cw-step" data-reveal="up" style={d(i, 130)}>
+                            <u>{st.n}</u>
+                            <h3>{st.t}</h3>
+                            <p>{st.d}</p>
                         </div>
                     ))}
                 </div>
-            </div>
+            </section>
 
-            {/* ── CTA ───────────────────────────────────────────────────────── */}
-            <div className="mt-7 flex flex-wrap items-center justify-between gap-7 rounded-[30px] bg-[#1c1a1b]/95 px-8 py-12 text-white sm:px-12">
-                <div>
-                    <h2 className="mb-2.5 font-onest text-[26px] font-extrabold leading-[1.15] sm:text-[32px]">Аль эмчилгээ танд тохирохыг эмч тодорхойлно</h2>
-                    <p className="max-w-[480px] text-[15px] leading-[1.6] text-[#b6aeac]">Анхны үзлэгээр эмч таны амны хөндийг шалгаж, тохирох эмчилгээний төлөвлөгөө гаргаж өгнө.</p>
-                </div>
-                <Link href="/booking" className="whitespace-nowrap rounded-[14px] bg-[#c81e3a] px-7 py-4 text-[15px] font-bold text-white shadow-[0_10px_24px_rgba(200,30,58,0.35)]">Цаг захиалах →</Link>
-            </div>
+            {/* ── CTA ──────────────────────────────────────────────────────── */}
+            <section className="cw-sec">
+                <Bleed tone="red">
+                    <div className="cw-cta">
+                        <div>
+                            <p className="cw-eyebrow" data-reveal="fade"><i />Зөвлөгөө</p>
+                            <h2 data-reveal="words"><SplitText text="Аль эмчилгээ танд тохирохыг эмч тодорхойлно" accent /></h2>
+                            <p data-reveal="up" style={d(1, 140)}>Анхны үзлэгээр эмч таны амны хөндийг шалгаж, тохирох эмчилгээний төлөвлөгөө гаргаж өгнө.</p>
+                        </div>
+                        <Link href="/booking" className="cw-btn cw-btn-w" data-reveal="up" style={d(2, 140)}>
+                            Цаг захиалах<span>→</span>
+                        </Link>
+                    </div>
+                </Bleed>
+            </section>
 
             {selected && <TreatmentModal treatment={selected.t} catName={selected.cat} onClose={() => setSelected(null)} />}
         </PublicLayout>
