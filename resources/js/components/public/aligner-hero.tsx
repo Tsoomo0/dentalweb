@@ -19,10 +19,11 @@ interface Slide {
     mn: string;
     lead: string;
     stats: { num: string; unit: string; label: string }[];
-    /* тайлбар заагч — зургийн суудалтай харьцангуй хувиар */
+    /* тайлбар заагч — зургийн суудалтай харьцангуй хувиар.
+       Заагч бүр сонголттой: хэрэглэхгүй бол слайдаас нь бүрэн орхино. */
     marks: {
-        d1: { x: number; y: number }; path1: string; chip1: string;
-        d2: { x: number; y: number }; path2: string; chip2: string;
+        d1?: { x: number; y: number }; path1?: string; chip1?: string;
+        d2?: { x: number; y: number }; path2?: string; chip2?: string;
     };
 }
 
@@ -32,18 +33,16 @@ const SLIDES: Slide[] = [
         pic: 'alh-pic-aligner',
         alt: 'Тунгалаг аппарат зүүж буй үйлчлүүлэгч',
         ghost: 'ALIGNER',
-        eyebrow: 'ЗӨӨЛӨН ЭМЧИЛГЭЭНИЙ ШИНЭ ҮЕ',
+        eyebrow: 'ШИНЭ ТЕХНОЛОГИЙН ЭРИН',
         title: ['Shape Memory', 'Aligner'],
         mn: 'Ой санамжтай тунгалаг авагддаг аппарат',
-        lead: 'Металл брекет зүүхгүйгээр шүдийг зөв байрлалд нь оруулна. Хоол идэх, шүдээ угаахдаа сугалж, дараа нь буцааж зүүнэ.',
+        lead: 'Хэлбэрээ эргэн санах ой санамжтай орчин үеийн технологиор хийгдсэн резиний тусламжтайгаар тунгалаг авагддаг аппарат хийж байна. Уг аппарат нь таны шүд ямар байрлалд очих ой санамжтай байдаг учраас идэвхитэй байдлаар, үр дүнтэй шүдийг хөдөлгөн засдаг.',
         stats: [
-            { num: '20–22', unit: 'цаг', label: 'Өдөрт зүүх хугацаа' },
             { num: '6–18', unit: 'сар', label: 'Дундаж эмчилгээний хугацаа' },
-            { num: '0.5', unit: 'мм', label: 'Аппаратын зузаан' },
+            { num: '10–20 / 20–40', unit: 'Step', label: 'Дундаж эмчилгээний явц' },
         ],
         marks: {
-            d1: { x: 52, y: 59 }, path1: 'M52 59 L 34 87 L 24 87', chip1: '0.5 мм — бараг үл мэдэгдэх',
-            d2: { x: 84, y: 35 }, path2: 'M84 35 L 90 16 L 98 16', chip2: 'Ой санамжтай материал',
+            d2: { x: 84, y: 35 }, path2: 'M84 35 L 90 16 L 98 16', chip2: 'Хэлбэрээ эргэн санах ой санамжтай орчин үеийн технологи',
         },
     },
     {
@@ -51,38 +50,30 @@ const SLIDES: Slide[] = [
         pic: 'alh-pic-braces',
         alt: 'Металл брекет зүүсэн үйлчлүүлэгч',
         ghost: 'BRACES',
-        eyebrow: 'БАТАЛГААЖСАН СОНГОДОГ ШИЙДЭЛ',
-        title: ['Classic Metal', 'Braces'],
-        mn: 'Найдвартай, өндөр үр дүнтэй сонгодог аппарат',
+        eyebrow: 'ЭНГИЙН МЕТАЛЛ АППАРАТ',
+        title: ['Metal', 'Braces'],
+        mn: 'Металл аппарат',
         lead: 'Шүдэнд бэхлэгдсэн тул тасралтгүй, тогтвортой хүч үйлчилнэ. Нарийн төвөгтэй хазалтын гажгийг ч үр дүнтэй засна.',
         stats: [
-            { num: '18–30', unit: 'сар', label: 'Дундаж эмчилгээний хугацаа' },
-            { num: '24/7', unit: '', label: 'Тасралтгүй үйлчилнэ' },
-            { num: '4–6', unit: 'дол.хоног', label: 'Хяналтын давтамж' },
+            { num: '1.5–3', unit: 'жил', label: 'Дундаж эмчилгээний хугацаа' },
+            { num: 'Сард 1', unit: 'удаа', label: 'Хяналтын давтамж' },
         ],
-        marks: {
-            d1: { x: 46, y: 50 }, path1: 'M46 50 L 30 87 L 22 87', chip1: 'Нарийн төвөгтэй тохиолдолд',
-            d2: { x: 57, y: 38 }, path2: 'M57 38 L 80 17 L 98 17', chip2: 'Металл брекет систем',
-        },
+        marks: {},
     },
     {
         key: 'ceramic',
         pic: 'alh-pic-ceramic',
         alt: 'Өөрөө түгжээтэй шаазан брекет зүүсэн үйлчлүүлэгч',
         ghost: 'CERAMIC',
-        eyebrow: 'БАРАГ ҮЛ МЭДЭГДЭХ ЭСТЕТИК ШИЙДЭЛ',
+        eyebrow: 'ШҮДЭНД ҮЛ МЭДЭГДЭХ АППАРАТ',
         title: ['Self-Ligating', 'Ceramic'],
         mn: 'Өөрөө түгжээтэй шаазан аппарат',
         lead: 'Шүдний өнгөтэй ойролцоо шаазан брекет. Резин холбоосгүй, өөрөө түгждэг тул үрэлт бага, хяналтын уулзалт цөөрнө.',
         stats: [
-            { num: '12–24', unit: 'сар', label: 'Дундаж эмчилгээний хугацаа' },
-            { num: '6–10', unit: 'дол.хоног', label: 'Хяналтын давтамж' },
-            { num: '0', unit: 'резин', label: 'Холбоосгүй систем' },
+            { num: '1.5–3', unit: 'жил', label: 'Дундаж эмчилгээний хугацаа' },
+            { num: 'Сард 1', unit: 'удаа', label: 'Хяналтын давтамж' },
         ],
-        marks: {
-            d1: { x: 44, y: 49 }, path1: 'M44 49 L 30 87 L 22 87', chip1: 'Резин холбоосгүй',
-            d2: { x: 59, y: 37 }, path2: 'M59 37 L 80 17 L 98 17', chip2: 'Шүдний өнгөтэй шаазан',
-        },
+        marks: {},
     },
 ];
 
@@ -172,22 +163,24 @@ export default function AlignerHero() {
                     <em>SCAN</em><b /><b /><b /><b />
                 </div>
 
-                <div className="alh-marks">
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                        <path className="alh-m1" d={m.path1} />
-                        <path className="alh-m2" d={m.path2} />
-                    </svg>
-                    <span className="alh-dot alh-d1" style={{ left: `${m.d1.x}%`, top: `${m.d1.y}%` }} />
-                    <span className="alh-dot alh-d2" style={{ left: `${m.d2.x}%`, top: `${m.d2.y}%` }} />
-                    <div className="alh-chip alh-chip1"><i />{m.chip1}</div>
-                    <div className="alh-chip alh-chip2"><i />{m.chip2}</div>
-                </div>
+                {(m.chip1 || m.chip2) && (
+                    <div className="alh-marks">
+                        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                            {m.path1 && <path className="alh-m1" d={m.path1} />}
+                            {m.path2 && <path className="alh-m2" d={m.path2} />}
+                        </svg>
+                        {m.d1 && <span className="alh-dot alh-d1" style={{ left: `${m.d1.x}%`, top: `${m.d1.y}%` }} />}
+                        {m.d2 && <span className="alh-dot alh-d2" style={{ left: `${m.d2.x}%`, top: `${m.d2.y}%` }} />}
+                        {m.chip1 && <div className="alh-chip alh-chip1"><i />{m.chip1}</div>}
+                        {m.chip2 && <div className="alh-chip alh-chip2"><i />{m.chip2}</div>}
+                    </div>
+                )}
             </div>
 
             {/* ── 3D сканерын тэмдэг ───────────────────────────────────── */}
             <div className="alh-badge" ref={badgeRef}>
                 <svg viewBox="0 0 86 86" aria-hidden="true"><circle cx="43" cy="43" r="40" /></svg>
-                <u>3D<small>СКАНЕР</small></u>
+                <u>3D<small>СКАНЕР</small><small>ОНОШИЛГОО</small></u>
             </div>
 
             {/* ── гол текст ────────────────────────────────────────────── */}

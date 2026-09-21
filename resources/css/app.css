@@ -817,7 +817,16 @@
 }
 .alh-chip i { width: 5px; height: 5px; border-radius: 50%; background: var(--alh-red); flex: none; }
 .alh-chip1 { left: 6%; top: 83%; }
-.alh-chip2 { right: 3%; top: calc(var(--alh-navh) + 26px); }   /* navbar-ын доогуур */
+/* navbar-ын доогуур. Текст урт тул мөр тасарна — дугуй цэг нь эхний мөрөндөө үлдэнэ. */
+.alh-chip2 {
+    right: 3%;
+    top: calc(var(--alh-navh) + 26px);
+    max-width: min(42%, 290px);
+    white-space: normal;
+    align-items: flex-start;
+    line-height: 1.45;
+}
+.alh-chip2 i { margin-top: .42em; }
 .alh-anim .alh-chip { animation: alh-up .9s cubic-bezier(.19,1,.22,1) both; }
 .alh-anim .alh-dot { animation: alh-fade .7s ease both; }
 .alh-anim .alh-m1, .alh-anim .alh-d1, .alh-anim .alh-chip1 { animation-delay: 1.75s; }
@@ -828,10 +837,10 @@
 .alh-badge {
     position: absolute;
     z-index: 7;
-    left: calc(44% - 43px);
+    left: calc(44% - 50px);
     bottom: 16%;
-    width: 86px;
-    height: 86px;
+    width: 100px;
+    height: 100px;
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 10px 34px rgba(8,9,10,.12);
@@ -844,7 +853,8 @@
 .alh-anim .alh-badge svg { animation: alh-spin 16s linear infinite; }
 @keyframes alh-spin { to { transform: rotate(360deg); } }
 .alh-badge u { text-decoration: none; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-align: center; line-height: 1.35; }
-.alh-badge u small { display: block; font-size: 8.5px; font-weight: 500; letter-spacing: .16em; color: var(--alh-gray); }
+.alh-badge u small { display: block; font-size: 8.5px; font-weight: 500; letter-spacing: .08em; color: var(--alh-gray); }
+.alh-badge u small + small { margin-top: 1px; }
 .alh-anim .alh-badge { animation: alh-pop 1s cubic-bezier(.3,1.4,.4,1) 1.55s both; }
 @keyframes alh-pop { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
 
@@ -902,7 +912,11 @@
     max-width: 22ch;
     letter-spacing: -.012em;
 }
-.alh-lead { font-size: 14.5px; line-height: 1.72; color: var(--alh-gray); max-width: 38ch; margin: 0 0 clamp(20px, 3.4vh, 34px); }
+.alh-lead { font-size: 14.5px; line-height: 1.72; color: var(--alh-gray); max-width: 46ch; margin: 0 0 clamp(20px, 3.4vh, 34px); }
+/* намхан дэлгэц (laptop) — урт lead текст stats-тай мөргөлдөхөөс сэргийлнэ */
+@media (min-width: 901px) and (max-height: 820px) {
+    .alh-lead { font-size: 13.5px; line-height: 1.6; }
+}
 .alh-anim .alh-mn { animation: alh-up .95s cubic-bezier(.19,1,.22,1) .62s both; }
 .alh-anim .alh-lead { animation: alh-fade .85s ease .8s both; }
 
@@ -999,7 +1013,7 @@
 @media (max-width: 1150px) {
     .alh-copy { max-width: 46%; }
     .alh-photo { width: 52%; }
-    .alh-badge { left: calc(48% - 43px); }
+    .alh-badge { left: calc(48% - 50px); }
 }
 @media (max-width: 900px) {
     .alh { height: auto; min-height: 0; padding-bottom: 28px; }
