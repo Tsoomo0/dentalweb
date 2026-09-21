@@ -5,11 +5,16 @@ import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
 import OrthoView, { type OrthoAssistant, type OrthoBranch, type OrthoDoctor, type OrthoSchedule } from './ortho-view';
 import RoleWeekView, { type RoleAccent, type SupportBranch, type SupportSchedule, type SupportStaff } from './support-view';
+import {
+    HrGhostButton, HrPanel, HrTabs,
+} from '@/components/hr/page-panel';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
 import { router, usePage } from '@inertiajs/react';
 import type { FormDataConvertible } from '@inertiajs/core';
 import {
     Braces, Building2, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Copy,
     Plus, Radiation, Save, ShieldCheck, Sparkles, Stethoscope, Trash2, Users, Wrench, X,
+    type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -149,6 +154,11 @@ const SUPPORT_ICONS: Record<SupportKey, React.ReactNode> = {
     reception: <Users className="size-4" />, cleaner: <Sparkles className="size-4" />,
     technician: <Wrench className="size-4" />,
 };
+/** Түргэн шүүлтүүрийн таб дээр ашиглах дүрс (HrTabs компонент хүлээж авна). */
+const SUPPORT_TAB_ICON: Record<SupportKey, LucideIcon> = {
+    xray: Radiation, sterile: ShieldCheck, reception: Users, cleaner: Sparkles, technician: Wrench,
+};
+
 const SUPPORT_ACCENTS: Record<SupportKey, RoleAccent> = {
     xray:       { grad: 'from-amber-400 to-orange-500',  hex: '#f59e0b', ring: 'ring-amber-400/60',  soft: 'bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400',    tile: 'from-amber-500 via-orange-500 to-orange-600' },
     sterile:    { grad: 'from-teal-400 to-emerald-500',  hex: '#14b8a6', ring: 'ring-teal-400/60',   soft: 'bg-teal-100 text-teal-600 dark:bg-teal-950/50 dark:text-teal-400',        tile: 'from-teal-500 via-emerald-500 to-emerald-600' },
@@ -414,58 +424,57 @@ export default function WorkSchedulesIndex() {
                     </div>
                 )}
 
-                {/* ── Top bar ── */}
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-                    <div className={`flex items-center gap-3 ${portal === 'my' ? 'max-md:hidden' : ''}`}>
-                        <div className="flex size-11 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
-                            <CalendarDays className="size-5" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-black tracking-tight text-gray-900 dark:text-gray-100 leading-none">{portal === 'my' ? 'Хуваарь гаргах' : 'Ажлын хуваарь'}</h1>
-                            <p className="text-xs text-muted-foreground mt-1">{portal === 'my' ? 'Өөрийн салбарын хуваарь оруулах' : 'Эмч · сувилагчийн 7 хоногийн хуваарь'}</p>
-                        </div>
-                    </div>
-                    {tab === 'clinic' && branch !== null && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex items-center gap-0.5 rounded-full border bg-card p-1 shadow-sm">
-                                <button onClick={() => navWeek(-1)} className="p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"><ChevronLeft className="size-4" /></button>
-                                <span className="text-sm font-bold px-3 min-w-[140px] text-center">{weekLabel}</span>
-                                <button onClick={() => navWeek(1)} className="p-1.5 rounded-full hover:bg-muted text-muted-foreground transition-colors"><ChevronRight className="size-4" /></button>
-                            </div>
-                            <button onClick={goToday} className="px-3.5 py-2 rounded-full border bg-card text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors shadow-sm">Өнөөдөр</button>
-                            {portal !== 'my' && (
-                                <button onClick={copyPrevWeek}
-                                    className="flex items-center gap-1.5 rounded-full border bg-card px-3.5 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors shadow-sm">
-                                    <Copy className="size-4" /> <span className="hidden sm:inline">Өмнөх 7 хоног хуулах</span>
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </div>
+                {/* ── Толгой самбар + таб (нэгдсэн HR загвар) ── */}
+                <div className={portal === 'my' ? 'max-md:hidden' : ''}>
+                    <HrPanel
+                        tone="indigo"
+                        icon={CalendarDays}
+                        title={portal === 'my' ? 'Хуваарь гаргах' : 'Ажлын хуваарь'}
+                        badge={branchName ?? undefined}
+                        subtitle={portal === 'my' ? 'Өөрийн салбарын хуваарь оруулах' : 'Эмч · сувилагчийн 7 хоногийн хуваарь'}
+                        actions={tab === 'clinic' && branch !== null ? (
+                            <>
+                                <div className="flex h-9 items-center gap-0.5 rounded-xl border border-border/70 bg-background/70 px-1 shadow-sm backdrop-blur">
+                                    <button onClick={() => navWeek(-1)} title="Өмнөх 7 хоног"
+                                        className="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                                        <ChevronLeft className="size-3.5" />
+                                    </button>
+                                    <span className="min-w-[132px] px-1 text-center text-xs font-bold tabular-nums text-foreground">{weekLabel}</span>
+                                    <button onClick={() => navWeek(1)} title="Дараах 7 хоног"
+                                        className="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                                        <ChevronRight className="size-3.5" />
+                                    </button>
+                                </div>
 
-                {/* ── Tabs (шууд солигдоно) ── */}
-                {visibleTabs.length > 1 && (
-                <div className="flex flex-wrap items-center gap-1 rounded-2xl border bg-card p-1 shadow-sm w-fit max-w-full">
-                    {visibleTabs.includes('clinic') && (
-                        <button onClick={() => setTab('clinic')}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold transition-colors ${tab === 'clinic' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300' : 'text-muted-foreground hover:bg-muted'}`}>
-                            <CalendarDays className="size-4" /> Эмч сувилагчийн хуваарь
-                        </button>
-                    )}
-                    {visibleTabs.includes('ortho') && (
-                        <button onClick={() => setTab('ortho')}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold transition-colors ${tab === 'ortho' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : 'text-muted-foreground hover:bg-muted'}`}>
-                            <Braces className="size-4" /> Гажиг засал / туслах эмчийн хуваарь
-                        </button>
-                    )}
-                    {(['xray', 'sterile', 'reception', 'cleaner', 'technician'] as SupportKey[]).filter(k => visibleTabs.includes(k)).map(k => (
-                        <button key={k} onClick={() => setTab(k)}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-sm font-bold transition-colors ${tab === k ? SUPPORT_ACCENTS[k].soft : 'text-muted-foreground hover:bg-muted'}`}>
-                            {SUPPORT_ICONS[k]} {SUPPORT_TAB_LABELS[k]}
-                        </button>
-                    ))}
+                                <HrGhostButton icon={CalendarClock} onClick={goToday} title="Өнөөдрийн 7 хоног">Өнөөдөр</HrGhostButton>
+
+                                {portal !== 'my' && (
+                                    <HrGhostButton icon={Copy} onClick={copyPrevWeek} title="Өмнөх 7 хоногийн хуваарийг хуулах">
+                                        Өмнөх 7 хоног хуулах
+                                    </HrGhostButton>
+                                )}
+                            </>
+                        ) : undefined}
+                        tabs={visibleTabs.length > 1 ? (
+                            <HrTabs
+                                tone="indigo"
+                                active={tab}
+                                onChange={k => setTab(k as TabKey)}
+                                items={[
+                                    ...(visibleTabs.includes('clinic')
+                                        ? [{ key: 'clinic', label: 'Эмч · сувилагч', Icon: CalendarDays, on: 'from-indigo-500 to-indigo-600 shadow-indigo-600/40' }]
+                                        : []),
+                                    ...(visibleTabs.includes('ortho')
+                                        ? [{ key: 'ortho', label: 'Гажиг засал / туслах', Icon: Braces, on: 'from-rose-500 to-rose-600 shadow-rose-600/40' }]
+                                        : []),
+                                    ...(['xray', 'sterile', 'reception', 'cleaner', 'technician'] as SupportKey[])
+                                        .filter(k => visibleTabs.includes(k))
+                                        .map(k => ({ key: k, label: SUPPORT_TAB_LABELS[k], Icon: SUPPORT_TAB_ICON[k] })),
+                                ]}
+                            />
+                        ) : undefined}
+                    />
                 </div>
-                )}
 
                 {tab === 'ortho' ? (
                     <OrthoView
@@ -501,15 +510,21 @@ export default function WorkSchedulesIndex() {
                     /* ══════ Landing: салбар сонгох (premium full-width) ══════ */
                     <div className="space-y-6">
                         {/* Hero */}
-                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 px-6 py-6 shadow-md">
-                            <div className="absolute -right-10 -top-12 size-44 rounded-full bg-white/5 blur-3xl" />
+                        <div className="relative isolate overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-indigo-50/80 via-card to-violet-50/50 px-6 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-24px_rgba(99,102,241,0.35)] dark:from-indigo-950/30 dark:via-card dark:to-violet-950/20">
+                            <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+                                <div className="hr-drift absolute -right-10 -top-16 size-52 rounded-full bg-indigo-400/20 blur-3xl dark:bg-indigo-500/15" />
+                                <div className="hr-drift-2 absolute -left-12 -bottom-20 size-48 rounded-full bg-violet-400/15 blur-3xl" />
+                            </div>
                             <div className="relative flex items-center gap-3.5">
-                                <div className="flex size-12 items-center justify-center rounded-xl bg-white/10 backdrop-blur ring-1 ring-white/20 text-white">
-                                    <Plus className="size-6" />
-                                </div>
+                                <span className="relative flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 via-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-600/35 ring-1 ring-inset ring-white/30">
+                                    <span aria-hidden className="absolute inset-x-1.5 top-1 h-1/3 rounded-full bg-white/25 blur-[2px]" />
+                                    <Plus className="relative size-6" />
+                                </span>
                                 <div>
-                                    <h2 className="text-xl font-black tracking-tight text-white leading-none">Хуваарь нэмэх</h2>
-                                    <p className="text-[13px] text-white/60 mt-1.5">Аль салбарын 7 хоногийн хуваарь оруулахаа сонгоно уу</p>
+                                    <h2 className="bg-gradient-to-br from-foreground via-foreground to-foreground/60 bg-clip-text text-xl font-extrabold leading-none tracking-tight text-transparent">
+                                        Хуваарь нэмэх
+                                    </h2>
+                                    <p className="mt-1.5 text-[13px] text-muted-foreground">Аль салбарын 7 хоногийн хуваарь оруулахаа сонгоно уу</p>
                                 </div>
                             </div>
                         </div>
@@ -597,7 +612,7 @@ export default function WorkSchedulesIndex() {
                 {/* ── Day sheet ── */}
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-700/70 overflow-hidden bg-card shadow-sm">
                     {/* Banner */}
-                    <div className="relative overflow-hidden bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 px-5 py-3.5">
+                    <div className="relative overflow-hidden bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-700 px-5 py-3.5">
                         <div className="absolute -right-10 -top-12 size-40 rounded-full bg-white/5 blur-3xl" />
                         <div className="relative flex items-center gap-4">
                             <div className="text-white">
@@ -704,6 +719,7 @@ export default function WorkSchedulesIndex() {
             )}
 
             <ToastContainer />
+            <style>{HR_PANEL_FX}</style>
         </Layout>
     );
 }

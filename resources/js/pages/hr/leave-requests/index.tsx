@@ -3,6 +3,8 @@ import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import { AlertCircle, CalendarDays, CheckCircle2, Clock, Download, FileSpreadsheet, Trash2, Users, X, XCircle } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrGhostButton, HrListCard, HrPager, HrPanel, HrTabs } from '@/components/hr/page-panel';
 import { useEffect, useState } from 'react';
 
 interface LeaveRequest {
@@ -95,63 +97,46 @@ export default function HrLeaveRequests({ requests }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Чөлөөний хүсэлт" />
 
-            <div className="flex flex-col gap-6 p-6">
+            <div className="flex flex-col gap-3 p-4 md:p-5">
 
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">Чөлөөний хүсэлт</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">Ажилтнуудын чөлөөний хүсэлтийг удирдах</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {pending > 0 && (
-                            <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                                <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                {pending} хүсэлт хүлээгдэж байна
-                            </span>
-                        )}
-                        <a href="/hr/leave-requests/export-excel"
-                            className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
-                            <FileSpreadsheet className="size-3.5 text-green-600" /> Excel
-                        </a>
-                    </div>
-                </div>
-
-                {/* Stats + filter */}
-                <div className="flex items-center gap-2">
-                    {([
-                        { key: 'all',      label: 'Бүгд',           value: requests.length, icon: Users,        active: 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900' },
-                        { key: 'pending',  label: 'Хүлээгдэж буй',  value: pending,         icon: Clock,        active: 'bg-amber-500 text-white' },
-                        { key: 'approved', label: 'Зөвшөөрсөн',     value: approved,        icon: CheckCircle2, active: 'bg-green-600 text-white' },
-                        { key: 'rejected', label: 'Цуцалсан',        value: rejected,        icon: XCircle,      active: 'bg-red-500 text-white' },
-                    ] as const).map(s => (
-                        <button key={s.key}
-                            onClick={() => setFilter(s.key)}
-                            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
-                                filter === s.key
-                                    ? s.active + ' shadow-sm'
-                                    : 'border bg-card text-muted-foreground hover:text-foreground hover:border-border'
-                            }`}>
-                            <s.icon className="size-3.5" />
-                            {s.label}
-                            <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none ${
-                                filter === s.key ? 'bg-white/20' : 'bg-muted text-muted-foreground'
-                            }`}>{s.value}</span>
-                        </button>
-                    ))}
-                </div>
+                <HrPanel
+                    tone="amber"
+                    icon={CalendarDays}
+                    title="Чөлөөний хүсэлт"
+                    badge={pending > 0 ? `${pending} хүлээгдэж буй` : undefined}
+                    subtitle="Ажилтнуудын чөлөөний хүсэлтийг хянаж шийдвэрлэх"
+                    actions={
+                        <HrGhostButton icon={FileSpreadsheet} href="/hr/leave-requests/export-excel" title="Excel татах">Excel</HrGhostButton>
+                    }
+                    tabs={
+                        <HrTabs
+                            tone="amber"
+                            active={filter}
+                            onChange={k => setFilter(k as typeof filter)}
+                            items={[
+                                { key: 'all', label: 'Бүгд', value: requests.length, Icon: Users, on: 'from-slate-600 to-slate-700 shadow-slate-900/30' },
+                                { key: 'pending', label: 'Хүлээгдэж буй', value: pending, Icon: Clock, on: 'from-amber-400 to-amber-500 shadow-amber-500/40' },
+                                { key: 'approved', label: 'Зөвшөөрсөн', value: approved, Icon: CheckCircle2, on: 'from-emerald-500 to-emerald-600 shadow-emerald-600/40' },
+                                { key: 'rejected', label: 'Цуцалсан', value: rejected, Icon: XCircle, on: 'from-red-500 to-red-600 shadow-red-600/40' },
+                            ]}
+                        />
+                    }
+                />
 
                 {/* Table */}
-                <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                <HrListCard className="overflow-hidden">
                     {filtered.length === 0 ? (
-                        <div className="py-20 text-center">
-                            <CalendarDays className="size-8 text-muted-foreground/20 mx-auto mb-3" />
-                            <p className="text-sm text-muted-foreground">Чөлөөний хүсэлт байхгүй байна</p>
+                        <div className="flex flex-col items-center gap-2 py-16 text-center">
+                            <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-muted to-muted/40 ring-1 ring-inset ring-border">
+                                <CalendarDays className="size-5 text-muted-foreground/70" />
+                            </span>
+                            <p className="mt-1 text-sm font-semibold text-foreground">Чөлөөний хүсэлт байхгүй байна</p>
+                            <p className="text-xs text-muted-foreground">Ажилтан хүсэлт илгээмэгц энд шууд харагдана.</p>
                         </div>
                     ) : (
                         <table className="w-full text-sm">
-                            <thead className="border-b bg-muted/40">
-                                <tr className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <thead className="border-b border-border/60 bg-gradient-to-b from-muted/70 to-muted/25 backdrop-blur">
+                                <tr className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                                     <th className="px-5 py-3 text-left">Ажилтан</th>
                                     <th className="px-4 py-3 text-left">Огноо</th>
                                     <th className="px-4 py-3 text-left">Төрөл</th>
@@ -282,33 +267,13 @@ export default function HrLeaveRequests({ requests }: Props) {
                             </tbody>
                         </table>
                     )}
-                </div>
-
-                {/* Pagination */}
-                {filtered.length > PAGE_SIZE && (
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">
-                            Нийт {filtered.length} хүсэлтээс {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} харуулж байна
-                        </p>
-                        <div className="flex items-center gap-1">
-                            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                                className="rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                                Өмнөх
-                            </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                                <button key={p} onClick={() => setPage(p)}
-                                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                                        p === page
-                                            ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900'
-                                            : 'border text-muted-foreground hover:bg-muted'
-                                    }`}>{p}</button>
-                            ))}
-                            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                                className="rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                                Дараах
-                            </button>
-                        </div>
-                    </div>
+                </HrListCard>
+                {filtered.length > 0 && (
+                    <HrListCard>
+                        <HrPager page={page} lastPage={totalPages}
+                            from={(page - 1) * PAGE_SIZE + 1} to={Math.min(page * PAGE_SIZE, filtered.length)}
+                            total={filtered.length} unit="хүсэлт" onPage={setPage} />
+                    </HrListCard>
                 )}
             </div>
 
@@ -365,6 +330,7 @@ export default function HrLeaveRequests({ requests }: Props) {
                     </div>
                 </div>
             )}
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

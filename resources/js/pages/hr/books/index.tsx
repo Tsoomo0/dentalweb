@@ -5,6 +5,8 @@ import { Head, router, useForm } from '@inertiajs/react';
 import {
     BookOpen, Edit2, Plus, Tag, Trash2, X, BookMarked, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrGhostButton, HrPager, HrPanel, usePaged } from '@/components/hr/page-panel';
 import { useEffect, useRef, useState } from 'react';
 
 interface Category { id: number; name: string; color: string }
@@ -197,43 +199,33 @@ export default function HrBooks({ books, categories }: Props) {
 
     const pending = books.reduce((acc, b) => acc, 0);
 
+    const paged = usePaged(filtered);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Номын сан" />
 
-            <div className="flex flex-col gap-6 p-6">
+            <div className="flex flex-col gap-3 p-4 md:p-5">
 
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">Номын сан</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                            {books.length} ном · {books.reduce((s, b) => s + b.total_copies, 0)} нийт хувь
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowCatPanel(v => !v)}
-                            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                                showCatPanel
-                                    ? 'bg-violet-600 text-white border-violet-600'
-                                    : 'text-muted-foreground hover:bg-muted'
-                            }`}>
-                            <Tag className="size-3.5" />
-                            Ангилал
-                            {showCatPanel ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-                        </button>
-                        <a href="/hr/book-rentals"
-                            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
-                            <BookMarked className="size-3.5" /> Түрээсийн хүсэлт
-                        </a>
-                        <button
-                            onClick={openAddBook}
-                            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 transition-colors">
-                            <Plus className="size-3.5" /> Ном нэмэх
-                        </button>
-                    </div>
-                </div>
+                <HrPanel
+                    tone="teal"
+                    icon={BookMarked}
+                    title="Номын сан"
+                    badge={`${books.length} ном`}
+                    subtitle={`${books.reduce((s, b) => s + b.total_copies, 0)} нийт хувь · ажилтнуудад олгох мэргэжлийн ном`}
+                    actions={
+                        <>
+                            <HrGhostButton icon={Tag} onClick={() => setShowCatPanel(v => !v)}
+                                title="Ангилал удирдах">Ангилал</HrGhostButton>
+
+                            <HrGhostButton icon={BookMarked} href="/hr/book-rentals" title="Түрээсийн хүсэлт">
+                                Түрээсийн хүсэлт
+                            </HrGhostButton>
+
+                            <HrButton tone="teal" icon={Plus} onClick={openAddBook}>Ном нэмэх</HrButton>
+                        </>
+                    }
+                />
 
                 {/* Category panel */}
                 {showCatPanel && (
@@ -333,7 +325,7 @@ export default function HrBooks({ books, categories }: Props) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
-                                {filtered.map(b => (
+                                {paged.data.map(b => (
                                     <tr key={b.id} className="hover:bg-muted/20 transition-colors">
                                         {/* Book info */}
                                         <td className="px-5 py-3">
@@ -408,6 +400,11 @@ export default function HrBooks({ books, categories }: Props) {
                                 ))}
                             </tbody>
                         </table>
+                    )}
+
+                    {paged.total > 0 && (
+                        <HrPager page={paged.page} lastPage={paged.lastPage} from={paged.from} to={paged.to}
+                            total={paged.total} unit="ном" onPage={paged.setPage} />
                     )}
                 </div>
             </div>
@@ -580,6 +577,7 @@ export default function HrBooks({ books, categories }: Props) {
                     </div>
                 </div>
             )}
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }

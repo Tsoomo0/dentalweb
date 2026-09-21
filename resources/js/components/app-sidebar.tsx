@@ -351,22 +351,27 @@ export function AppSidebar() {
         );
 
     return (
-        <Sidebar collapsible="icon" variant="inset" className="overflow-hidden">
+        <Sidebar collapsible="icon" variant="inset" className="app-sidebar-canvas overflow-hidden">
             <div className="flex h-full w-full flex-row overflow-hidden">
                 {/* ── Icon rail ─────────────────────────────── */}
                 <nav
                     aria-label="Үндсэн ангилал"
-                    className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-sidebar-border py-2"
+                    className="relative flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-sidebar-border/70 bg-black/[0.035] py-2 dark:bg-white/[0.03]"
                 >
+                    {/* Зурвасын дээд ирмэгийн нарийн туяа */}
+                    <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-primary/40 via-sidebar-border/60 to-transparent" />
+
                     <Link
                         href="/admin/dashboard"
-                        className="mb-1 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg"
+                        title="Нүүр хуудас"
+                        className="group/logo relative mb-1.5 flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm ring-1 ring-inset ring-black/5 transition-transform hover:scale-105 dark:ring-white/10"
                     >
                         {logoUrl ? (
                             <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
                         ) : (
-                            <span className="flex h-full w-full items-center justify-center rounded-lg bg-primary">
-                                <Smile className="h-5 w-5 text-primary-foreground" />
+                            <span className="relative flex h-full w-full items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30">
+                                <span aria-hidden className="absolute inset-x-1.5 top-1 h-1/3 rounded-full bg-white/25 blur-[2px]" />
+                                <Smile className="relative h-5 w-5 text-primary-foreground" />
                             </span>
                         )}
                     </Link>
@@ -386,18 +391,23 @@ export function AppSidebar() {
                                             setOpen(true);
                                         }}
                                         className={cn(
-                                            'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+                                            'relative flex size-9 shrink-0 items-center justify-center rounded-xl transition-all duration-200 active:scale-95',
                                             isActive
-                                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                                                ? 'bg-gradient-to-br from-primary to-primary/75 text-primary-foreground shadow-lg shadow-primary/30 ring-1 ring-inset ring-white/25'
+                                                : 'text-sidebar-foreground/60 hover:-translate-y-px hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                                         )}
                                     >
-                                        <category.icon className="h-5 w-5" />
+                                        {isActive && (
+                                            <span aria-hidden className="absolute inset-x-1.5 top-1 h-1/3 rounded-full bg-white/25 blur-[2px]" />
+                                        )}
+
+                                        <category.icon className="relative h-5 w-5" />
+
                                         {badge > 0 && (
                                             <span
                                                 className={cn(
-                                                    'absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold',
-                                                    isActive ? 'bg-white text-primary' : 'bg-primary text-white',
+                                                    'absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums ring-2 ring-sidebar',
+                                                    isActive ? 'bg-white text-primary' : 'bg-gradient-to-b from-red-500 to-red-600 text-white shadow-sm',
                                                 )}
                                             >
                                                 {badge > 99 ? '99+' : badge}
@@ -413,13 +423,22 @@ export function AppSidebar() {
 
                 {/* ── Идэвхтэй ангиллын цэс ─────────────────── */}
                 <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
-                    <SidebarHeader>
-                        <div className="px-2 pt-1">
-                            <div className="truncate text-[11px] font-medium text-sidebar-foreground/60">
-                                {site_settings?.site_name || 'Admin'}
+                    <SidebarHeader className="pb-1">
+                        <div className="relative flex items-center gap-2.5 px-2 pt-1">
+                            <span className="relative flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-lg shadow-primary/25 ring-1 ring-inset ring-white/25">
+                                <span aria-hidden className="absolute inset-x-1.5 top-1 h-1/3 rounded-full bg-white/25 blur-[2px]" />
+                                <activeCategory.icon className="relative size-4" />
+                            </span>
+                            <div className="min-w-0">
+                                <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                                    {site_settings?.site_name || 'Admin'}
+                                </p>
+                                <p className="truncate bg-gradient-to-br from-sidebar-foreground via-sidebar-foreground to-sidebar-foreground/60 bg-clip-text text-sm font-extrabold tracking-tight text-transparent">
+                                    {activeCategory.label}
+                                </p>
                             </div>
-                            <div className="truncate text-sm font-bold">{activeCategory.label}</div>
                         </div>
+                        <div aria-hidden className="mx-2 mt-2 h-px bg-gradient-to-r from-primary/40 via-sidebar-border to-transparent" />
                     </SidebarHeader>
 
                     <SidebarContent>
@@ -428,7 +447,7 @@ export function AppSidebar() {
                         ))}
                     </SidebarContent>
 
-                    <SidebarFooter>
+                    <SidebarFooter className="border-t border-sidebar-border/60">
                         <NavUser />
                     </SidebarFooter>
                 </div>

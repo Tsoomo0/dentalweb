@@ -5,6 +5,7 @@ namespace App\Models\HR;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -74,9 +75,23 @@ class EmployeeDocument extends Model
         return $this->status === 'completed';
     }
 
+    protected static function booted(): void
+    {
+        // Баримтыг устгавал ажилтны гэрээний жагсаалтад өнчин мөр үлдэхгүй
+        static::deleted(function (EmployeeDocument $document) {
+            EmployeeContract::where('document_id', $document->id)->delete();
+        });
+    }
+
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    /** Баталгаажсаны дараа ажилтан дээр буусан гэрээний мөр. */
+    public function contract(): HasOne
+    {
+        return $this->hasOne(EmployeeContract::class, 'document_id');
     }
 
     public function template(): BelongsTo

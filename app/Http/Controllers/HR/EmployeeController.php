@@ -26,6 +26,9 @@ use Inertia\Response;
 
 class EmployeeController extends Controller
 {
+    /** Нэг хуудсанд харуулах ажилтны тоо. */
+    private const PER_PAGE = 10;
+
     public function index(Request $request): Response
     {
         $query = Employee::with(['branch', 'position'])->orderBy('last_name');
@@ -47,7 +50,7 @@ class EmployeeController extends Controller
             $query->where('branch_id', $branchId);
         }
 
-        $employees = $query->paginate(20)->withQueryString()
+        $employees = $query->paginate(self::PER_PAGE)->withQueryString()
             ->through(fn (Employee $e) => [
                 'id' => $e->id,
                 'employee_number' => $e->employee_number,
@@ -63,10 +66,20 @@ class EmployeeController extends Controller
                 'hired_date' => $e->hired_date?->format('Y.m.d'),
             ]);
 
+        // Түргэн шүүлтүүрийн хажууд харагдах тоо — шүүлтүүрээс хамаарахгүй
+        $statusCounts = Employee::selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
         return Inertia::render('hr/employees/index', [
             'employees' => $employees,
             'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'filters' => $request->only(['search', 'status', 'branch_id']),
+            'stats' => [
+                'total' => (int) $statusCounts->sum(),
+                'active' => (int) $statusCounts->get('active', 0),
+                'inactive' => (int) $statusCounts->get('inactive', 0),
+            ],
         ]);
     }
 
@@ -300,7 +313,7 @@ class EmployeeController extends Controller
 
     public function show(Employee $employee): Response
     {
-        $employee->load(['branch', 'position', 'contracts', 'licenses', 'familyMembers', 'user', 'exitChecklist']);
+        $employee->load(['branch', 'position', 'contracts.document', 'licenses', 'familyMembers', 'user', 'exitChecklist']);
 
         $payrollHistory = PayrollEntry::with('run')
             ->where('employee_id', $employee->id)
@@ -328,7 +341,7 @@ class EmployeeController extends Controller
 
     public function edit(Employee $employee): Response
     {
-        $employee->load(['contracts', 'licenses', 'familyMembers']);
+        $employee->load(['contracts.document', 'licenses', 'familyMembers']);
 
         return Inertia::render('hr/employees/edit', [
             'employee' => $this->formatEmployee($employee),
@@ -597,10 +610,20 @@ class EmployeeController extends Controller
             'contracts' => $e->contracts->map(fn ($c) => [
                 'id' => $c->id,
                 'contract_type' => $c->contract_type,
+                'title' => $c->title,
                 'start_date' => $c->start_date?->format('Y-m-d'),
                 'end_date' => $c->end_date?->format('Y-m-d'),
                 'notes' => $c->notes,
                 'days_until_expiry' => $c->days_until_expiry,
+                // Цахим гэрээ — 2 тал гарын үсэг зурсан баримтаас үүссэн
+                'document_id' => $c->document_id,
+                'document_type_label' => $c->document?->type_label,
+                'document_number' => $c->document?->doc_number,
+                'employer_name' => $c->document?->employer_name,
+                'employer_signed_at' => $c->document?->employer_signed_at?->format('Y-m-d H:i'),
+                'employee_signed_at' => $c->document?->employee_signed_at?->format('Y-m-d H:i'),
+                // Гараар оруулсан сканнердсан файл
+                'file_url' => $c->file_url,
             ]),
             'licenses' => $e->licenses->map(fn ($l) => [
                 'id' => $l->id,

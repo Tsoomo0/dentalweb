@@ -3,6 +3,7 @@
 namespace App\Services\HR;
 
 use App\Jobs\DeliverEmployeeDocument;
+use App\Models\HR\EmployeeContract;
 use App\Models\HR\EmployeeDocument;
 use App\Models\User;
 use App\Notifications\EmployeeDocumentDeclined;
@@ -82,7 +83,36 @@ class EmployeeDocumentFlow
             'delivery_error' => null,
         ])->save();
 
+        self::syncContract($document);
+
         self::dispatchDelivery($document);
+    }
+
+    /**
+     * Баталгаажсан гэрээг ажилтны «Хөдөлмөрийн гэрээ» хэсэгт буулгана.
+     *
+     * Ажлын байрны тодорхойлолт гэрээ биш тул орохгүй. Нэг баримт нэг
+     * мөртэй байхаар document_id-гаар шинэчилнэ — дахин баталгаажсан ч
+     * давхардахгүй.
+     */
+    private static function syncContract(EmployeeDocument $document): void
+    {
+        if (in_array($document->type, EmployeeContract::NON_CONTRACT_TYPES, true)) {
+            return;
+        }
+
+        EmployeeContract::updateOrCreate(
+            ['document_id' => $document->id],
+            [
+                'employee_id' => $document->employee_id,
+                // Дуусах огноогүй бол тодорхойгүй хугацаатай гэж үзнэ
+                'contract_type' => $document->expires_at ? 'fixed' : 'indefinite',
+                'title' => $document->title,
+                'start_date' => $document->effective_date ?? $document->completed_at?->toDateString(),
+                'end_date' => $document->expires_at,
+                'notes' => $document->notes,
+            ]
+        );
     }
 
     /** Баталгаажсан гэрээг дахин илгээх — и-мэйл хүрээгүй тохиолдолд. */

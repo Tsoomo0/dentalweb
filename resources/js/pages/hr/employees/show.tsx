@@ -1,15 +1,22 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     AlertTriangle, Briefcase, ChevronLeft, CreditCard,
-    DollarSign, FileText, Heart, LogOut, Pencil, Phone, Trash2, User, Users,
+    DollarSign, FileText, Heart, LogOut, Pencil, Phone, ShieldCheck, Trash2, User, Users,
+    type LucideIcon,
 } from 'lucide-react';
+import { HR_PANEL_FX } from '@/components/hr/document-status';
+import { HrButton, HrGhostButton, HrPanel } from '@/components/hr/page-panel';
 
 interface Contract {
-    id: number; contract_type: string;
+    id: number; contract_type: string; title: string | null;
     start_date: string | null; end_date: string | null;
     notes: string | null; days_until_expiry: number | null;
+    document_id: number | null; document_type_label: string | null;
+    document_number: string | null; employer_name: string | null;
+    employer_signed_at: string | null; employee_signed_at: string | null;
+    file_url: string | null;
 }
 interface License {
     id: number; name: string; issuer: string | null;
@@ -54,33 +61,57 @@ interface Props { employee: Employee; payrollHistory: PayrollHistoryRow[]; exit_
 
 function expiryBadge(days: number | null) {
     if (days === null) return null;
-    if (days < 0)   return <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700"><AlertTriangle className="size-3" />Дууссан</span>;
-    if (days <= 7)  return <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700"><AlertTriangle className="size-3" />{days} хоног</span>;
-    if (days <= 30) return <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700"><AlertTriangle className="size-3" />{days} хоног</span>;
-    if (days <= 90) return <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-bold text-yellow-700">{days} хоног</span>;
-    return <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">{days} хоног</span>;
+
+    const pill = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ring-inset';
+
+    if (days < 0) return <span className={`${pill} bg-red-50 text-red-700 ring-red-200 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900/60`}><AlertTriangle className="size-3" />Дууссан</span>;
+    if (days <= 7) return <span className={`${pill} bg-red-50 text-red-700 ring-red-200 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900/60`}><AlertTriangle className="size-3" />{days} хоног</span>;
+    if (days <= 30) return <span className={`${pill} bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:ring-orange-900/60`}><AlertTriangle className="size-3" />{days} хоног</span>;
+    if (days <= 90) return <span className={`${pill} bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900/60`}>{days} хоног</span>;
+
+    return <span className={`${pill} bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900/60`}>{days} хоног</span>;
 }
 
 function Row({ label, value }: { label: string; value?: string | null | boolean }) {
     if (value === null || value === undefined || value === '') return null;
+
     return (
-        <div className="flex items-start gap-2 border-b border-border/50 py-2 last:border-0">
-            <span className="w-36 shrink-0 text-xs text-muted-foreground">{label}</span>
-            <span className="text-sm font-medium text-foreground">
+        <div className="flex items-start gap-3 border-b border-border/40 py-2 last:border-0">
+            <span className="w-32 shrink-0 text-[11px] leading-5 text-muted-foreground">{label}</span>
+            <span className="min-w-0 flex-1 text-[13px] font-medium leading-5 text-foreground">
                 {typeof value === 'boolean' ? (value ? 'Тийм' : 'Үгүй') : value}
             </span>
         </div>
     );
 }
 
-function Section({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
+function Section({ title, icon: Icon, tone = 'rose', action, children }: {
+    title: string;
+    icon: LucideIcon;
+    /** Дүрсний градиент өнгө */
+    tone?: 'rose' | 'sky' | 'violet' | 'emerald' | 'amber' | 'indigo';
+    action?: React.ReactNode;
+    children: React.ReactNode;
+}) {
+    const TONE: Record<string, string> = {
+        rose: 'from-rose-400 to-red-600 shadow-rose-600/30',
+        sky: 'from-sky-400 to-cyan-600 shadow-sky-600/30',
+        violet: 'from-violet-400 to-purple-600 shadow-violet-600/30',
+        emerald: 'from-emerald-400 to-teal-600 shadow-emerald-600/30',
+        amber: 'from-amber-400 to-orange-600 shadow-amber-600/30',
+        indigo: 'from-indigo-400 to-violet-600 shadow-indigo-600/30',
+    };
+
     return (
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 border-b pb-3">
-                <div className="flex size-7 items-center justify-center rounded-lg bg-red-50">
-                    <Icon className="size-4 text-red-600" />
+        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)] transition-shadow hover:shadow-lg">
+            <div className="mb-3 flex items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className={`relative flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-sm ring-1 ring-inset ring-white/25 ${TONE[tone]}`}>
+                        <Icon className="size-3.5" />
+                    </span>
+                    <h3 className="truncate text-[13px] font-bold text-foreground">{title}</h3>
                 </div>
-                <h3 className="text-sm font-bold text-foreground">{title}</h3>
+                {action}
             </div>
             {children}
         </div>
@@ -135,87 +166,88 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={e.full_name} />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6">
+            <div className="flex h-full flex-1 flex-col gap-3 p-4 md:p-5">
 
-                {/* Header */}
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => router.visit('/hr/employees')}
-                            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted transition-colors"
-                        >
-                            <ChevronLeft className="size-4" /> Буцах
-                        </button>
-                        <div className="flex items-center gap-4">
+                <HrPanel
+                    tone="rose"
+                    title={e.full_name}
+                    avatar={
+                        <span className="relative shrink-0">
                             {e.photo_url
-                                ? <img src={e.photo_url} className="size-16 rounded-full object-cover ring-2 ring-background shadow" alt="" />
-                                : <div className="flex size-16 items-center justify-center rounded-full bg-red-100 text-xl font-bold text-red-600 ring-2 ring-background shadow">
+                                ? <img src={e.photo_url} alt=""
+                                    className="size-12 rounded-2xl object-cover object-top shadow-lg ring-1 ring-inset ring-black/5 dark:ring-white/10" />
+                                : <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 via-rose-500 to-red-600 text-base font-black text-white shadow-lg shadow-rose-600/35 ring-1 ring-inset ring-white/30">
                                     {e.full_name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-                                  </div>
-                            }
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h1 className="text-xl font-bold text-foreground">{e.full_name}</h1>
-                                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                                        e.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
-                                    }`}>
-                                        {e.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
-                                    </span>
-                                </div>
-                                <div className="mt-0.5 flex items-center gap-3 text-sm text-muted-foreground">
-                                    <span>{e.employee_number}</span>
-                                    {e.position && <><span>·</span><span>{e.position}</span></>}
-                                    {e.branch && <><span>·</span><span>{e.branch}</span></>}
-                                </div>
-                                <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                                    <Phone className="size-3.5" /> {e.phone}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {exit_checklist_id ? (
-                            <Link href={`/hr/exit-checklists/${exit_checklist_id}`}
-                                className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
-                                <LogOut className="size-4" /> Гарах бүртгэл
-                            </Link>
-                        ) : e.status === 'active' && (
-                            <Link href={`/hr/exit-checklists/create?employee_id=${e.id}`}
-                                className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
-                                <LogOut className="size-4" /> Гарах бүртгэл эхлүүлэх
-                            </Link>
-                        )}
-                        <button
-                            onClick={() => router.visit(`/hr/employees/${e.id}/edit`)}
-                            className="flex items-center gap-2 rounded-lg bg-foreground px-4 py-2 text-sm font-bold text-background hover:opacity-80 transition-opacity"
-                        >
-                            <Pencil className="size-4" /> Засах
-                        </button>
-                        <button
-                            onClick={() => {
-                                if (window.confirm(`"${e.full_name}" ажилтныг устгах уу? Эмчийн бүртгэл болон нэвтрэх эрх хамт устгагдана.`)) {
-                                    router.delete(`/hr/employees/${e.id}`);
-                                }
-                            }}
-                            className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-                        >
-                            <Trash2 className="size-4" /> Устгах
-                        </button>
-                    </div>
-                </div>
+                                </span>}
+                            <span className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-card ${
+                                e.status === 'active' ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                        </span>
+                    }
+                    badge={
+                        <span className={`inline-flex items-center gap-1 ${
+                            e.status === 'active' ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                            <span className={`size-1.5 rounded-full ${e.status === 'active' ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                            {e.status === 'active' ? 'Идэвхтэй' : 'Идэвхгүй'}
+                        </span>
+                    }
+                    subtitle={
+                        <>
+                            <span className="font-semibold text-foreground">{e.employee_number}</span>
+                            {e.position && <><span className="text-muted-foreground/40">·</span><span>{e.position}</span></>}
+                            {e.branch && <><span className="text-muted-foreground/40">·</span><span>{e.branch}</span></>}
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className="inline-flex items-center gap-1 tabular-nums"><Phone className="size-3" />{e.phone}</span>
+                        </>
+                    }
+                    actions={
+                        <>
+                            <HrGhostButton icon={ChevronLeft} onClick={() => router.visit('/hr/employees')} title="Жагсаалт руу буцах">
+                                Буцах
+                            </HrGhostButton>
+
+                            {exit_checklist_id ? (
+                                <HrGhostButton icon={LogOut} href={`/hr/exit-checklists/${exit_checklist_id}`} title="Гарах бүртгэл">
+                                    Гарах бүртгэл
+                                </HrGhostButton>
+                            ) : e.status === 'active' && (
+                                <HrGhostButton icon={LogOut} href={`/hr/exit-checklists/create?employee_id=${e.id}`} title="Гарах бүртгэл эхлүүлэх">
+                                    Гарах бүртгэл
+                                </HrGhostButton>
+                            )}
+
+                            <HrButton tone="rose" icon={Pencil} onClick={() => router.visit(`/hr/employees/${e.id}/edit`)}>
+                                Засах
+                            </HrButton>
+
+                            <button
+                                title="Ажилтныг устгах"
+                                onClick={() => {
+                                    if (window.confirm(`"${e.full_name}" ажилтныг устгах уу? Эмчийн бүртгэл болон нэвтрэх эрх хамт устгагдана.`)) {
+                                        router.delete(`/hr/employees/${e.id}`);
+                                    }
+                                }}
+                                className="flex size-9 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-red-500 shadow-sm backdrop-blur transition-all hover:-translate-y-px hover:bg-red-50 active:translate-y-0 active:scale-[0.97] dark:hover:bg-red-950/30">
+                                <Trash2 className="size-3.5" />
+                            </button>
+                        </>
+                    }
+                />
 
                 {/* Сануулга */}
                 {warnings.length > 0 && (
-                    <div className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-4">
-                        <div className="mb-2 flex items-center gap-2 text-sm font-bold text-orange-700">
-                            <AlertTriangle className="size-4" /> Анхааруулга
+                    <div className="rounded-2xl border border-amber-300/70 bg-gradient-to-br from-amber-50/80 via-card to-orange-50/50 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(245,158,11,0.4)] dark:border-amber-900/60 dark:from-amber-950/30 dark:via-card dark:to-orange-950/20">
+                        <div className="mb-2 flex items-center gap-2">
+                            <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-sm ring-1 ring-inset ring-white/25">
+                                <AlertTriangle className="size-3.5" />
+                            </span>
+                            <p className="text-[13px] font-bold text-foreground">Анхааруулга</p>
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                             {warnings.map((w, i) => (
-                                <div key={i} className="flex items-center justify-between text-sm">
-                                    <span className="text-orange-700">{w.label}</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs text-orange-500">{w.date}</span>
+                                <div key={i} className="flex items-center justify-between gap-3 rounded-lg px-2 py-1 text-[13px] transition-colors hover:bg-amber-500/5">
+                                    <span className="text-foreground">{w.label}</span>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="text-[11px] tabular-nums text-muted-foreground">{w.date}</span>
                                         {expiryBadge(w.days)}
                                     </div>
                                 </div>
@@ -224,10 +256,10 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
 
                     {/* Хувийн мэдээлэл */}
-                    <Section title="Хувийн мэдээлэл" icon={User}>
+                    <Section title="Хувийн мэдээлэл" icon={User} tone="rose">
                         <Row label="Овог нэр"       value={e.full_name} />
                         <Row label="Регистр"        value={e.register_number} />
                         <Row label="Төрсөн огноо"   value={e.birth_date} />
@@ -244,7 +276,7 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                     </Section>
 
                     {/* Холбоо барих */}
-                    <Section title="Холбоо барих" icon={Phone}>
+                    <Section title="Холбоо барих" icon={Phone} tone="sky">
                         <Row label="Утас"  value={e.phone} />
                         <Row label="Имэйл" value={e.email} />
                         <Row label="Хаяг"  value={e.address} />
@@ -261,7 +293,7 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                     </Section>
 
                     {/* Ажлын мэдээлэл */}
-                    <Section title="Ажлын мэдээлэл" icon={Briefcase}>
+                    <Section title="Ажлын мэдээлэл" icon={Briefcase} tone="amber">
                         <Row label="Салбар"         value={e.branch} />
                         <Row label="Тушаал"         value={e.position} />
                         <Row label="Цалин"          value={`${Number(e.salary).toLocaleString()}₮`} />
@@ -272,28 +304,55 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                     </Section>
 
                     {/* Санхүү */}
-                    <Section title="Санхүүгийн мэдээлэл" icon={CreditCard}>
+                    <Section title="Санхүүгийн мэдээлэл" icon={CreditCard} tone="emerald">
                         <Row label="Банк"          value={e.bank_name} />
                         <Row label="Дансны дугаар" value={e.bank_account} />
                         <Row label="Дансны нэр"    value={e.bank_account_name} />
                     </Section>
 
                     {/* Гэрээ */}
-                    <Section title="Хөдөлмөрийн гэрээ" icon={FileText}>
+                    <Section title="Хөдөлмөрийн гэрээ" icon={FileText} tone="indigo">
                         {e.contracts.length === 0
                             ? <p className="text-sm italic text-muted-foreground">Гэрээ бүртгэгдээгүй</p>
                             : e.contracts.map(c => (
                                 <div key={c.id} className="mb-3 rounded-lg border bg-muted/30 p-3 last:mb-0">
-                                    <div className="mb-1.5 flex items-center justify-between">
+                                    <div className="mb-1.5 flex items-center justify-between gap-2">
                                         <span className="text-sm font-semibold text-foreground">
-                                            {c.contract_type === 'fixed' ? 'Тодорхой хугацаатай' : 'Тодорхойгүй хугацаатай'}
+                                            {c.title || c.document_type_label || (c.contract_type === 'fixed' ? 'Тодорхой хугацаатай' : 'Тодорхойгүй хугацаатай')}
                                         </span>
                                         {expiryBadge(c.days_until_expiry)}
+                                    </div>
+                                    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                                        <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-900/60">
+                                            {c.contract_type === 'fixed' ? 'Тодорхой хугацаатай' : 'Тодорхойгүй хугацаатай'}
+                                        </span>
+                                        {c.document_id && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900/60">
+                                                <ShieldCheck className="size-3" />2 тал гарын үсэг зурсан
+                                            </span>
+                                        )}
+                                        {c.document_number && (
+                                            <span className="text-[10px] font-semibold text-muted-foreground">№{c.document_number}</span>
+                                        )}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                         {c.start_date} {c.end_date ? `→ ${c.end_date}` : '(дуусах огноогүй)'}
                                     </div>
+                                    {c.employee_signed_at && (
+                                        <div className="mt-1 text-[11px] text-muted-foreground">
+                                            Ажилтан {c.employee_signed_at}
+                                            {c.employer_signed_at ? ` · ${c.employer_name ?? 'Захирал'} ${c.employer_signed_at}` : ''}
+                                        </div>
+                                    )}
                                     {c.notes && <p className="mt-1 text-xs text-muted-foreground">{c.notes}</p>}
+                                    {(c.document_id || c.file_url) && (
+                                        <a href={c.document_id ? `/hr/employee-documents/${c.document_id}/pdf?inline=1` : c.file_url!}
+                                            target="_blank" rel="noopener"
+                                            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+                                            <FileText className="size-3.5" />
+                                            {c.document_id ? 'Гэрээг харах (PDF)' : 'Хавсаргасан файл'}
+                                        </a>
+                                    )}
                                 </div>
                             ))
                         }
@@ -381,16 +440,16 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                 </div>
 
                 {/* Цалингийн задаргаа */}
-                <div className="rounded-xl border bg-card p-5 shadow-sm">
-                    <div className="mb-4 flex items-center justify-between border-b pb-3">
+                <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-20px_rgba(0,0,0,0.25)]">
+                    <div className="mb-3 flex items-center justify-between gap-2 border-b border-border/60 pb-2.5">
                         <div className="flex items-center gap-2">
-                            <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50">
-                                <DollarSign className="size-4 text-emerald-600" />
-                            </div>
-                            <h3 className="text-sm font-bold text-foreground">Цалингийн задаргаа</h3>
+                            <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-sm ring-1 ring-inset ring-white/25">
+                                <DollarSign className="size-3.5" />
+                            </span>
+                            <h3 className="text-[13px] font-bold text-foreground">Цалингийн задаргаа</h3>
                         </div>
                         <a href="/hr/payroll"
-                            className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                            className="flex items-center gap-0.5 rounded-lg px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                             Бүгдийг харах →
                         </a>
                     </div>
@@ -401,7 +460,7 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse text-xs">
                                 <thead>
-                                    <tr className="border-b bg-muted/20 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    <tr className="border-b border-border/60 bg-gradient-to-b from-muted/70 to-muted/25 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
                                         <th className="px-3 py-2 text-left">Цалин</th>
                                         <th className="px-3 py-2 text-right">Үндсэн цалин</th>
                                         <th className="px-3 py-2 text-right">Тооцсон цалин</th>
@@ -444,6 +503,7 @@ export default function ShowEmployee({ employee: e, payrollHistory, exit_checkli
                     )}
                 </div>
             </div>
+        <style>{HR_PANEL_FX}</style>
         </AppLayout>
     );
 }
