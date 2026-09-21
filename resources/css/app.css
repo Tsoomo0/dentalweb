@@ -1218,26 +1218,6 @@
 .cw-feat h3 { margin: 0 0 9px; font-size: clamp(16px, 1.4vw, 19px); font-weight: 600; letter-spacing: -.02em; }
 .cw-feat p { margin: 0; font-size: 13.5px; line-height: 1.68; color: var(--cw-gray); }
 
-/* ── гүйдэг мөр (ticker) ─────────────────────────────────────────────────── */
-.cw-ticker { overflow: hidden; border-top: 1px solid var(--cw-line); border-bottom: 1px solid var(--cw-line); padding: 18px 0; }
-.cw-ticker-track { display: flex; width: max-content; animation: cw-marquee 38s linear infinite; }
-.cw-ticker-track > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 26px;
-    padding-right: 26px;
-    font-size: clamp(14px, 1.4vw, 18px);
-    font-weight: 600;
-    letter-spacing: -.02em;
-    white-space: nowrap;
-    color: var(--cw-ink);
-}
-.cw-ticker-track i { width: 6px; height: 6px; border-radius: 50%; background: var(--cw-red); display: block; flex: none; }
-.cw-ticker-track > span:nth-child(3n+2) { color: var(--cw-red); }
-@keyframes cw-marquee { to { transform: translateX(-50%); } }
-.cw-ticker:hover .cw-ticker-track { animation-play-state: paused; }
-@media (prefers-reduced-motion: reduce) { .cw-ticker-track { animation: none; } }
-
 /* ── тоон самбар (ink) ───────────────────────────────────────────────────── */
 .cw-nums { display: grid; grid-template-columns: repeat(3, 1fr); padding: clamp(40px, 5.5vh, 68px) 0; }
 .cw-nums > div { padding-right: 28px; }
