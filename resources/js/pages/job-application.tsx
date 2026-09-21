@@ -1,4 +1,6 @@
 import PublicLayout from '@/layouts/public-layout';
+import PageHeroBig from '@/components/public/page-hero-big';
+import { useMotionRoot } from '@/components/public/motion';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import {
     Plus, Trash2, CheckCheck,
@@ -55,9 +57,8 @@ const defRef     = (): ReferenceRow    => ({ name: '', relation: '', phone: '', 
 const defFamily  = (): FamilyMemberRow => ({ name: '', relation: '', birth_year: '', occupation: '', phone: '' });
 
 /* ─── Shared styles (Кутикул glassmorphism) ──────────────────────────────── */
-const glassPanel = 'rounded-[30px] border border-white/70 bg-white/50 shadow-[0_14px_40px_rgba(120,30,50,0.06)] backdrop-blur-xl';
-const inp = 'w-full rounded-xl border border-[#ece2e0] bg-[#fdfbfb] px-4 py-3 text-[14px] text-[#1c1a1b] outline-none transition-all duration-200 placeholder:text-[#bdb2ae] hover:border-[#e0c9cd] focus:border-[#c81e3a] focus:bg-white focus:ring-4 focus:ring-[#c81e3a]/10';
-const sel = `${inp} cuticul-select cursor-pointer`;
+const inp = 'cw-in';
+const sel = 'cw-in';
 const LEVEL_OPTIONS = ['', 'Анхан', 'Хэрэглээний', 'Бүрэн эзэмшсэн'];
 
 /* Дахин илгээх хүртэлх хүлээх хугацаа (сек) — сервер тал дээрх хязгаартай тааруулсан */
@@ -69,31 +70,22 @@ function SectionCard({ step, icon: Icon, title, children }: {
     step: number; icon: React.ElementType; title: string; children: React.ReactNode;
 }) {
     return (
-        <div className={`relative overflow-hidden p-6 sm:p-8 ${glassPanel}`}>
-            {/* чимэглэлийн булангийн гэрэлтэлт */}
-            <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full"
-                style={{ background: 'radial-gradient(circle,rgba(246,160,176,.32),transparent 70%)', filter: 'blur(6px)' }} />
-            <div className="relative mb-6 flex items-center gap-4">
-                <span className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl font-onest text-[18px] font-extrabold text-white"
-                    style={{ background: 'linear-gradient(150deg,#e8506a,#c81e3a)', boxShadow: '0 10px 22px rgba(200,30,58,0.28)' }}>
-                    {String(step).padStart(2, '0')}
-                </span>
-                <div className="min-w-0">
-                    <div className="mb-0.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#c81e3a]">
-                        <Icon className="h-3.5 w-3.5" /> Хэсэг {step}
-                    </div>
-                    <h2 className="truncate font-onest text-[20px] font-extrabold text-[#1c1a1b]">{title}</h2>
-                </div>
+        <section className="cw-fs" data-reveal="up">
+            <div className="cw-fs-head">
+                <u>{String(step).padStart(2, '0')}</u>
+                <h2 className="flex items-center gap-2.5">
+                    <Icon className="h-[18px] w-[18px] flex-none text-[#c81e3a]" />{title}
+                </h2>
             </div>
-            <div className="relative rounded-[24px] border border-[#f1e8e7] bg-white/90 p-5 shadow-[0_2px_10px_rgba(120,30,50,0.04)] sm:p-7">{children}</div>
-        </div>
+            {children}
+        </section>
     );
 }
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
     return (
-        <label className="mb-2 block text-[12.5px] font-semibold text-[#5a5350]">
-            {children}{required && <span className="ml-0.5 text-[#c81e3a]">*</span>}
+        <label className="cw-lb">
+            {children}{required && <span>*</span>}
         </label>
     );
 }
@@ -171,6 +163,7 @@ function CheckField({ label, checked, onChange }: { label: string; checked: bool
 interface PageProps { positions?: string[] }
 
 export default function JobApplicationPage({ positions = [] }: PageProps) {
+    useMotionRoot();
     const { flash } = usePage<{ [key: string]: unknown; flash?: { success?: string; error?: string } }>().props;
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm<FormData>({
@@ -263,29 +256,31 @@ export default function JobApplicationPage({ positions = [] }: PageProps) {
     const submitLocked = processing || cooldown > 0;
 
     return (
-        <PublicLayout>
+        <PublicLayout heroOverlay editorial>
             <Head title="Ажлын анкет — Кутикул" />
 
-            {/* ── HERO ──────────────────────────────────────────────────────── */}
-            <div className="relative mt-6 overflow-hidden rounded-[32px] border border-white/70 shadow-[0_18px_50px_rgba(120,30,50,0.14)]">
-                <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 84% 20%, rgba(255,255,255,.2), transparent 48%), linear-gradient(125deg,#d62a48,#b01533 52%,#7d1226)' }} />
-                <div className="absolute left-[-50px] top-[-90px] h-[280px] w-[280px] rounded-full border border-dashed border-white/20" style={{ animation: 'cuticulSpinSlow 48s linear infinite' }} />
-                <div className="relative z-[3] p-8 text-center sm:p-14">
-                    <div className="mb-5 inline-flex items-center gap-2 rounded-[40px] bg-white/85 px-3.5 py-2 text-[12px] font-bold uppercase tracking-[0.05em] text-[#c81e3a]">✦ Ажлын анкет</div>
-                    <h1 className="mx-auto mb-3.5 max-w-[640px] font-onest text-[28px] font-extrabold leading-[1.12] tracking-tight text-white sm:text-[36px]">Манай багт нэгдэхийг хүсэж байна уу?</h1>
-                    <p className="mx-auto max-w-[520px] text-[16px] leading-[1.65] text-white/90">Доорх анкетыг бүрэн бөглөж илгээнэ үү. Бид таны мэдээлэлтэй танилцаад удахгүй холбоо барих болно.</p>
-                </div>
-            </div>
+            <PageHeroBig
+                figure="doc"
+                alt="Ажлын анкет"
+                ghost="CAREERS"
+                eyebrow="АЖЛЫН АНКЕТ"
+                title={['Манай багт', 'нэгдээрэй']}
+                mn="Мэргэжлийн хамт олонтой хамт ажиллаарай"
+                lead="Доорх анкетыг бүрэн бөглөж илгээнэ үү. Бид таны мэдээлэлтэй танилцаад удахгүй холбоо барина."
+                stats={[
+                    { num: '4', unit: 'салбар', label: 'Ажиллах байршил' },
+                    { num: '10', unit: '+ жил', label: 'Тогтвортой байгууллага' },
+                    { num: '100', unit: '%', label: 'Тасралтгүй сургалт' },
+                ]}
+                marks={{
+                    d1: { x: 42, y: 58 }, path1: 'M42 58 L 30 87 L 22 87', chip1: 'Тасралтгүй сургалт',
+                    d2: { x: 58, y: 36 }, path2: 'M58 36 L 80 17 L 98 17', chip2: 'Мэргэжлийн хөгжил',
+                }}
+            />
 
             {/* ── NOTICE ────────────────────────────────────────────────────── */}
             {notice && (
-                <div
-                    role="status"
-                    className="mt-5 flex items-start gap-3 rounded-[20px] border p-5"
-                    style={notice.type === 'success'
-                        ? { borderColor: '#bfe5cd', background: '#f2fbf5' }
-                        : { borderColor: '#f3ccd3', background: '#fdf4f5' }}
-                >
+                <div role="status" className={`cw-note mt-8 ${notice.type === 'success' ? 'cw-note-ok' : 'cw-note-err'}`}>
                     {notice.type === 'success'
                         ? <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-[#1f9254]" />
                         : <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-[#c81e3a]" />}
@@ -304,7 +299,7 @@ export default function JobApplicationPage({ positions = [] }: PageProps) {
             )}
 
             {/* ── FORM ──────────────────────────────────────────────────────── */}
-            <form onSubmit={submit} className="mt-7 flex flex-col gap-6">
+            <form onSubmit={submit} className="mt-10 flex flex-col gap-11">
 
                 {/* ── 1. Үндсэн мэдээлэл ── */}
                 <SectionCard step={1} icon={User} title="Үндсэн мэдээлэл">
@@ -721,7 +716,7 @@ export default function JobApplicationPage({ positions = [] }: PageProps) {
                 </SectionCard>
 
                 {/* ── Submit ── */}
-                <div className={`flex flex-col items-center gap-4 p-7 text-center sm:flex-row sm:justify-between sm:text-left ${glassPanel}`}>
+                <div className="cw-fs flex flex-col items-center gap-5 pb-2 text-center sm:flex-row sm:justify-between sm:text-left">
                     <p className="max-w-[420px] text-[13px] leading-[1.6] text-[#9a918d]">
                         Анкетыг илгээснээр таны мэдээллийг зөвхөн ажилд авах зорилгоор, нууцлалын журмын дагуу хадгална.
                     </p>

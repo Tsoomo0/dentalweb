@@ -1,12 +1,14 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import PublicLayout from '@/layouts/public-layout';
+import PageHeroBig from '@/components/public/page-hero-big';
+import { useMotionRoot } from '@/components/public/motion';
 import {
     Calendar, CheckCheck, ChevronLeft, ChevronRight, Clock, MessageSquare,
     Phone, Mail, User, Video, CheckCircle2, MapPin, FileText,
     Building2, Stethoscope, X, Sparkles, Sun, Sunset, Sunrise,
     Info, AlertTriangle, ChevronDown,
 } from 'lucide-react';
-import { type FormEvent, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 interface OnlineSlot {
     id: string;
@@ -55,37 +57,32 @@ function shortName(full: string): string {
 
 const RED = '#c81e3a';
 
-/* glass карт-н нийтлэг хүрээ */
-const glassPanel =
-    'rounded-[30px] border border-white/70 bg-white/50 shadow-[0_14px_40px_rgba(120,30,50,0.06)] backdrop-blur-xl';
-
-// ── Section card wrapper (glass) ─────────────────────────────────────
+// ── Маягтын дугаарласан хэсэг (editorial) ────────────────────────────
 function Card({ step, title, icon: Icon, children }: {
     step: number; title: string; icon: React.ElementType; children: React.ReactNode
 }) {
     return (
-        <div className={`p-6 sm:p-8 ${glassPanel}`}>
-            <div className="mb-5 flex items-center gap-3">
-                <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[9px] bg-[#c81e3a] font-onest text-[14px] font-extrabold text-white">
-                    {step}
-                </span>
-                <Icon className="h-4 w-4 text-[#c81e3a]" />
-                <h2 className="font-onest text-[18px] font-bold text-[#1c1a1b]">{title}</h2>
+        <section className="cw-fs" data-reveal="up">
+            <div className="cw-fs-head">
+                <u>{String(step).padStart(2, '0')}</u>
+                <h2 className="flex items-center gap-2.5">
+                    <Icon className="h-[18px] w-[18px] flex-none text-[#c81e3a]" />{title}
+                </h2>
             </div>
             {children}
-        </div>
+        </section>
     );
 }
 
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
     return (
-        <label className="mb-1.5 block text-[13px] font-semibold text-[#3a3533]">
-            {children}{required && <span className="ml-0.5 text-[#c81e3a]">*</span>}
+        <label className="cw-lb">
+            {children}{required && <span>*</span>}
         </label>
     );
 }
 
-const inputCls = "w-full rounded-[10px] border-[1.5px] border-[#ece2e0] bg-white px-4 py-2.5 text-sm text-[#1c1a1b] outline-none transition-all focus:border-[#c81e3a] focus:ring-2 focus:ring-[#c81e3a]/15 placeholder:text-[#b3a7a3]";
+const inputCls = 'cw-in';
 
 const MN_WEEKDAYS = ['Ням', 'Даваа', 'Мягмар', 'Лхагва', 'Пүрэв', 'Баасан', 'Бямба'];
 const MN_MONTHS_LONG = [
@@ -99,6 +96,7 @@ function formatDate(dateStr: string) {
 }
 
 export default function BookingPage({ doctors, branches, treatments, consultation_fee }: Props) {
+    useMotionRoot();
     const { flash } = usePage<{ [key: string]: unknown; flash?: { booking_success?: string; inperson_success?: boolean } }>().props;
 
     const [bookingType,      setBookingType]      = useState<BookingType>('in_person');
@@ -328,56 +326,55 @@ export default function BookingPage({ doctors, branches, treatments, consultatio
     return (
         <>
             <Head title="Цаг авах — Кутикул"/>
-            <PublicLayout>
+            <PublicLayout heroOverlay editorial>
 
                 {/* ── HERO ──────────────────────────────────────────── */}
-                <div className="relative mt-6 overflow-hidden rounded-[32px] border border-white/70 shadow-[0_18px_50px_rgba(120,30,50,0.14)]">
-                    <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 84% 20%, rgba(255,255,255,.2), transparent 48%), linear-gradient(125deg,#d62a48 0%,#b01533 52%,#7d1226 100%)' }} />
-                    <div className="absolute right-[-50px] top-[-80px] h-[300px] w-[300px] rounded-full border-[1.5px] border-dashed border-white/20" style={{ animation: 'cuticulSpinSlow 46s linear infinite' }} />
-                    <div className="relative z-[3] max-w-[640px] p-8 sm:p-14">
-                        <div className="mb-[18px] inline-flex items-center gap-2 rounded-[40px] bg-white/85 px-3.5 py-2 text-[12px] font-bold uppercase tracking-[0.05em] text-[#c81e3a]">
-                            <Calendar className="h-3.5 w-3.5" /> Цаг авах
-                        </div>
-                        <h1 className="mb-3 font-onest text-[28px] font-extrabold leading-[1.12] tracking-tight text-white sm:text-[36px]">
-                            {bookingType === 'online'
-                                ? 'Онлайн үзлэг зөвлөгөө'
-                                : 'Биечлэн ирэх хүсэлтээ үлдээгээрэй'}
-                        </h1>
-                        <p className="max-w-[520px] text-[16px] leading-[1.65] text-white/90">
-                            {bookingType === 'online'
-                                ? 'Салбар, эмч, тохирох цагийг сонгоод Google Meet ээр үзлэг зөвлөгөө хамрагдаарай.'
-                                : 'Хүсэлтээ илгээгээрэй — манай ажилтан тантай холбогдож, тохиромжтой цагийг хамт олох болно.'}
-                        </p>
-                        {/* booking type segmented control */}
-                        <div className="mt-6 inline-flex rounded-[16px] bg-white/15 p-1 backdrop-blur-md">
-                            <button type="button" onClick={() => switchType('online')}
-                                aria-pressed={bookingType === 'online'}
-                                title="Онлайн үзлэг зөвлөгөө"
-                                className={`flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition-all ${bookingType === 'online' ? 'bg-white text-[#c81e3a] shadow-[0_4px_14px_rgba(0,0,0,0.12)]' : 'text-white/85 hover:bg-white/10'}`}>
-                                <Video className="h-4 w-4" />
-                                Онлайн үзлэг зөвлөгөө
-                            </button>
-                            <button type="button" onClick={() => switchType('in_person')}
-                                aria-pressed={bookingType === 'in_person'}
-                                title="Биечлэн ирэх хүсэлт"
-                                className={`flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition-all ${bookingType === 'in_person' ? 'bg-white text-[#c81e3a] shadow-[0_4px_14px_rgba(0,0,0,0.12)]' : 'text-white/85 hover:bg-white/10'}`}>
-                                <Building2 className="h-4 w-4" />
-                                Биечлэн ирэх хүсэлт
-                            </button>
-                        </div>
+                <PageHeroBig
+                    figure="calendar"
+                    alt="Цаг захиалга"
+                    ghost="BOOKING"
+                    eyebrow="ЦАГ АВАХ"
+                    title={['Онлайнаар', 'цаг захиалах']}
+                    mn="Салбар, эмч, цагаа хэдхэн товшилтоор"
+                    lead="Утсаар хүлээхгүйгээр өөрт тохирох салбар, эмч, цагаа сонгоод шууд баталгаажуулаарай."
+                    stats={[
+                        { num: '24/7', unit: '', label: 'Онлайн захиалга' },
+                        { num: '5', unit: 'мин', label: 'Дунджаар зарцуулна' },
+                        { num: '4', unit: 'салбар', label: 'Сонгох боломж' },
+                    ]}
+                    marks={{
+                        d1: { x: 42, y: 58 }, path1: 'M42 58 L 30 87 L 22 87', chip1: 'Хэдхэн товшилт',
+                        d2: { x: 58, y: 36 }, path2: 'M58 36 L 80 17 L 98 17', chip2: 'Баталгаажсан цаг',
+                    }}
+                />
 
-                        {/* steps */}
-                        <div className="mt-7 flex flex-wrap items-center gap-2 text-[12px] font-semibold text-white/85">
-                            {(bookingType === 'online' ? onlineSteps : inPersonSteps).map((stp, i, arr) => (
-                                <div key={i} className="flex items-center gap-2">
-                                    <span className="flex items-center gap-1.5">
-                                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[10px] font-extrabold">{i+1}</span>
-                                        {stp}
-                                    </span>
-                                    {i < arr.length - 1 && <ChevronRight className="h-3 w-3 text-white/45"/>}
-                                </div>
-                            ))}
-                        </div>
+                <div className="cw-sec-tight">
+                    {/* booking type segmented control */}
+                    <div className="cw-seg">
+                        <button type="button" onClick={() => switchType('online')}
+                            aria-pressed={bookingType === 'online'}
+                            title="Онлайн үзлэг зөвлөгөө"
+                            className="cw-seg-b">
+                            <Video className="h-4 w-4" />
+                            Онлайн үзлэг зөвлөгөө
+                        </button>
+                        <button type="button" onClick={() => switchType('in_person')}
+                            aria-pressed={bookingType === 'in_person'}
+                            title="Биечлэн ирэх хүсэлт"
+                            className="cw-seg-b">
+                            <Building2 className="h-4 w-4" />
+                            Биечлэн ирэх хүсэлт
+                        </button>
+                    </div>
+
+                    {/* steps */}
+                    <div className="cw-stepline">
+                        {(bookingType === 'online' ? onlineSteps : inPersonSteps).map((stp, i, arr) => (
+                            <div key={i}>
+                                <span><b>{i + 1}</b>{stp}</span>
+                                {i < arr.length - 1 && <ChevronRight className="h-3 w-3 opacity-40" />}
+                            </div>
+                        ))}
                     </div>
                 </div>
 
