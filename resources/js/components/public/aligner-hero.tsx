@@ -195,8 +195,8 @@ export default function AlignerHero() {
                 <p className="alh-mn">{slide.mn}</p>
                 <p className="alh-lead">{slide.lead}</p>
                 <div className="alh-cta">
-                    <Link className="alh-btn alh-btn-a" href="/booking">Үнэгүй зөвлөгөө авах</Link>
-                    <Link className="alh-btn alh-btn-b" href="/services">Хэрхэн ажилладаг вэ</Link>
+                    <Link className="alh-btn alh-btn-a" href="/booking">Зөвлөгөө авах</Link>
+                    <Link className="alh-btn alh-btn-b" href="/services">Эмчилгээ үйлчилгээ</Link>
                 </div>
             </div>
 
