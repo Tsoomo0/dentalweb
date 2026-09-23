@@ -62,14 +62,37 @@ php artisan config:clear
 
 ## 4. Queue worker — ЗААВАЛ
 
+Юуны өмнө **аль хэдийн ажиллаж байгаа эсэхийг** шалгана. Энэ серверт worker
+нь `cuticul-worker` гэсэн нэртэй, `deploy/supervisor-queue.conf`-оос ӨӨР
+тохиргоогоор аль эрт суусан байгаа:
+
+```bash
+sudo supervisorctl status
+```
+
+Жагсаалтад `cuticul-worker` байвал дахин суулгах ШААРДЛАГАГҮЙ.
+
+Огт байхгүй бол:
+
 ```bash
 sudo cp deploy/supervisor-queue.conf /etc/supervisor/conf.d/laravel-queue.conf
 sudo supervisorctl reread && sudo supervisorctl update
-sudo supervisorctl status laravel-queue:*
+sudo supervisorctl status
 ```
 
 Webhook нь түүхий датаг хадгалаад ажлыг дараалалд өгдөг. Worker байхгүй бол
-`jobs` хүснэгтэд хуримтлагдаад зогсоно.
+дараалалд хуримтлагдаад зогсоно.
+
+> **Код шинэчлэх бүрт ЗААВАЛ:** worker нь ачаалагдсан кодоо санах ойдоо
+> барьдаг тул `git pull` хийсэн ч хуучин кодоор ажилласаар байна.
+>
+> ```bash
+> php artisan queue:restart
+> ```
+>
+> Энэ нь worker бүрт «одоогийн ажлаа дуусгаад гар» гэж дохио өгнө —
+> supervisor тэднийг шинэ кодтойгоор дахин асаана. Ажил дундуур тасрахгүй,
+> worker-ийн нэр юу ч байсан ажиллана.
 
 ## 5. Cron — ЗААВАЛ
 
