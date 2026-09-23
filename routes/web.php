@@ -7,6 +7,11 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BankReconciliationController;
 use App\Http\Controllers\Admin\BotBuilderController;
 use App\Http\Controllers\Admin\BranchController;
+use App\Http\Controllers\Admin\CallBlockedNumberController;
+use App\Http\Controllers\Admin\CallController;
+use App\Http\Controllers\Admin\CallDashboardController;
+use App\Http\Controllers\Admin\CallReportController;
+use App\Http\Controllers\Admin\CallSettingsController;
 use App\Http\Controllers\Admin\ChatInboxController;
 use App\Http\Controllers\Admin\DailySheetAdminController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -43,6 +48,8 @@ use App\Http\Controllers\Admin\TreatmentController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\PatientRegisterController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\CallPro\CallRecordingController;
+use App\Http\Controllers\CallPro\CallWebhookController;
 use App\Http\Controllers\Doctor\DoctorOnlineSlotController;
 use App\Http\Controllers\Doctor\DoctorPortalController;
 use App\Http\Controllers\Doctor\DoctorProfileController;
@@ -89,14 +96,8 @@ use App\Http\Controllers\Reception\TreatmentPaymentController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Social\DataDeletionController;
 use App\Http\Controllers\Social\PublicFormController;
-use App\Http\Controllers\Admin\CallController;
-use App\Http\Controllers\Admin\CallBlockedNumberController;
-use App\Http\Controllers\Admin\CallDashboardController;
-use App\Http\Controllers\Admin\CallReportController;
-use App\Http\Controllers\Admin\CallSettingsController;
-use App\Http\Controllers\CallPro\CallRecordingController;
-use App\Http\Controllers\CallPro\CallWebhookController;
 use App\Http\Controllers\Social\SocialWebhookController;
+use App\Http\Middleware\VerifyCallProWebhook;
 use App\Models\Doctor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -163,7 +164,7 @@ Route::post('/webhooks/social', [SocialWebhookController::class, 'receive'])->na
 // Түүхэн дата илгээхэд ?source=history нэмнэ.
 Route::match(['get', 'post'], '/webhooks/callpro/{event?}', [CallWebhookController::class, 'handle'])
     ->whereIn('event', ['start', 'answered', 'end', 'abandoned'])
-    ->middleware(\App\Http\Middleware\VerifyCallProWebhook::class)
+    ->middleware(VerifyCallProWebhook::class)
     ->name('webhooks.callpro');
 
 // ── Нууцлалын бодлого (Meta App-д шаардлагатай) ──────────────────────────────
@@ -681,6 +682,8 @@ Route::middleware(['auth', 'reception'])->prefix('reception')->name('reception.'
     Route::get('/calls/poll', [ReceptionCallController::class, 'poll'])->middleware('throttle:60,1')->name('calls.poll');
     Route::patch('/calls/{call}/resolve', [ReceptionCallController::class, 'resolve'])->name('calls.resolve');
     Route::patch('/calls/{call}/unresolve', [ReceptionCallController::class, 'unresolve'])->name('calls.unresolve');
+    // Салбаргүй дуудлагыг өөрийн салбарт татаж авна — бүх ресепшнд нээлттэй.
+    Route::patch('/calls/{call}/claim', [ReceptionCallController::class, 'claim'])->name('calls.claim');
     Route::post('/profile', [ReceptionDashboardController::class, 'updateProfile'])->name('profile.update');
 
     // Эмчилгээний төлбөр (эмч → ресепшн)

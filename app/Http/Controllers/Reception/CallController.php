@@ -20,9 +20,10 @@ use Inertia\Response;
  * Ресепшн — өөрийн салбарын дуудлага.
  *
  * Админаас ялгаатай гурван зарчим:
- *   1. ЗӨВХӨН өөрийн салбарын дуудлага харагдана. Салбар нь тодорхойгүй
- *      дуудлага (мэдээллийн дугаар, IVR дээр таслагдсан) энд ОРОХГҮЙ —
- *      тэдгээр нь админы хариуцах зүйл.
+ *   1. ЗӨВХӨН өөрийн салбарын дуудлага харагдана. Цорын ганц үл хамаарах зүйл
+ *      нь «Салбаргүй» харагдац: IVR дээр товч дарахаас өмнө таслагдсан
+ *      дуудлагад салбар гэж байхгүй тул бүх салбарын ресепшнд нээлттэй
+ *      байж, хэн нэг нь хариуцаж авна.
  *   2. Анхдагч харагдац нь «шийдвэрлэх ёстой» жагсаалт. Ресепшний ажил бол
  *      түүхийг ухах биш, эргэж холбогдох хүнээ олох.
  *   3. Спам дугаар бүртгэх эрхгүй — тэр нь бүх салбарт нөлөөлдөг тул админд.
@@ -140,7 +141,7 @@ class CallController extends Controller
 
         return [
             // Анхдагчаар шийдвэрлэх ёстой дуудлагууд — ресепшний өдөр тутмын ажил
-            'view' => in_array($view, ['todo', 'missed', 'mine', 'all'], true) ? $view : 'todo',
+            'view' => in_array($view, ['todo', 'unassigned', 'missed', 'mine', 'all'], true) ? $view : 'todo',
             'from' => $request->query('from') ?: Carbon::now()->subDays(7)->toDateString(),
             'to' => $request->query('to') ?: Carbon::now()->toDateString(),
             'search' => trim((string) $request->query('search')),
@@ -170,19 +171,25 @@ class CallController extends Controller
         $branchId = $this->branchId();
 
         return Call::query()
-            // Салбаргүй ажилтан бүх салбарыг харах ёсгүй — юу ч харуулахгүй нь
-            // буруу датаг харуулснаас аюулгүй.
-            ->where('branch_id', $branchId ?? 0)
             ->where('is_spam', false)
+            ->when(
+                $f['view'] === 'unassigned',
+                // Салбаргүй алдсан дуудлага бүх ресепшнд нээлттэй — үйлчлүүлэгч
+                // салбараа сонгож амжаагүй тул хэн ч хариуцаж болно.
+                fn ($q) => $q->whereNull('branch_id')->unhandledMissed(),
+                // Салбаргүй ажилтан бүх салбарыг харах ёсгүй — юу ч харуулахгүй
+                // нь буруу датаг харуулснаас аюулгүй.
+                fn ($q) => $q->where('branch_id', $branchId ?? 0),
+            )
             ->when($f['view'] === 'todo', fn ($q) => $q->unhandledMissed())
             ->when($f['view'] === 'missed', fn ($q) => $q->where('is_missed', true))
             // Өөрийн дотуур дугаараар хариулсан дуудлагууд. Дугаар холбоогүй
             // ажилтанд хоосон жагсаалт гарна — бусдын дуудлагыг өөрийнх гэж
             // үзүүлэхээс хоосон харуулах нь зөв.
             ->when($f['view'] === 'mine', fn ($q) => $q->whereIn('agent', $this->myExtensionNumbers()))
-            // «Шийдвэрлэх» жагсаалт огнооны шүүлтээс хамаарахгүй: 10 хоногийн
-            // өмнөх барьж амжаагүй дуудлага нүднээс далд үлдэх ёсгүй.
-            ->when($f['view'] !== 'todo', function ($q) use ($f) {
+            // Шийдвэрлэх ёстой жагсаалтууд огнооны шүүлтээс хамаарахгүй:
+            // 10 хоногийн өмнөх барьж амжаагүй дуудлага нүднээс далд үлдэх ёсгүй.
+            ->when(! in_array($f['view'], ['todo', 'unassigned'], true), function ($q) use ($f) {
                 $q->whereDate('started_at', '>=', $f['from'])
                     ->whereDate('started_at', '<=', $f['to']);
             })
@@ -220,6 +227,11 @@ class CallController extends Controller
         return [
             // Шийдвэрлэх ёстой нь өдрөөр хязгаарлагдахгүй — өчигдрийнх ч орно
             'todo' => (clone $base())->unhandledMissed()->count(),
+            // Хэн ч хариуцаагүй, салбаргүй дуудлага — бүх ресепшнд ижил тоо
+            'unassigned' => Call::whereNull('branch_id')
+                ->where('is_spam', false)
+                ->unhandledMissed()
+                ->count(),
             'today_total' => (int) ($row->total ?? 0),
             'today_missed' => $missed,
             'today_answer_rate' => $graded > 0 ? round($answered / $graded * 100, 1) : null,
@@ -250,7 +262,38 @@ class CallController extends Controller
             'resolution_label' => $c->resolution_label,
             'resolution_note' => $c->resolution_note,
             'has_recording' => $c->hasRecording(),
+            // Салбаргүй дуудлагад «Би авлаа» товч гарна — шийдвэрлэх товч биш.
+            'is_unassigned' => $c->branch_id === null,
         ];
+    }
+
+    /**
+     * Салбаргүй алдсан дуудлагыг өөрийн салбарт хариуцаж авна.
+     *
+     * Үйлчлүүлэгч IVR дээр товч дарж амжаагүй тул систем салбарыг нь мэдэхгүй.
+     * Ийм дуудлага өмнө нь зөвхөн админд харагдаж, практикт хэн ч эргэж
+     * залгадаггүй байв. Одоо бүх ресепшнд нээлттэй болж, хэн нэг нь авмагц
+     * тухайн салбарын жагсаалтад шилжиж, бусдын нүднээс алга болно —
+     * ингэснээр 4 салбар нэг хүн рүү давхар залгахгүй.
+     *
+     * Хариуцагчийг тусад нь хадгалахгүй: дуудлага салбартаа орсноор ердийн
+     * «шийдвэрлэх» урсгалд шилжих бөгөөд эргэж залгасны дараа `handled_by`
+     * дээр хэн болох нь бүртгэгдэнэ. Хэн авсныг аудит лог хадгална.
+     */
+    public function claim(Call $call): RedirectResponse
+    {
+        $branchId = $this->branchId();
+
+        abort_if($branchId === null, 403, 'Салбаргүй ажилтан дуудлага хариуцаж чадахгүй.');
+        abort_unless($call->branch_id === null, 409, 'Энэ дуудлагыг өөр хүн аль хэдийн хариуцсан байна.');
+        abort_unless($call->is_missed && $call->handled_at === null, 403, 'Энэ дуудлага хариуцах шаардлагагүй байна.');
+
+        $call->update(['branch_id' => $branchId]);
+
+        AuditService::log('updated', $call, ['branch_id' => null], $call->only('branch_id'),
+            'Салбаргүй дуудлагыг хариуцав: '.$call->number);
+
+        return back()->with('success', 'Дуудлага таны салбарт хуваарилагдлаа.');
     }
 
     /**

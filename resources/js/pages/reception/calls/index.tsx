@@ -35,11 +35,12 @@ interface CallRow {
     resolution_label: string | null;
     resolution_note: string | null;
     has_recording: boolean;
+    is_unassigned: boolean;
 }
 interface Paginated<T> extends PageMeta {
     data: T[];
 }
-type View = 'todo' | 'missed' | 'mine' | 'all';
+type View = 'todo' | 'unassigned' | 'missed' | 'mine' | 'all';
 interface Filters { view: View; from: string; to: string; search: string; per_page: number }
 interface MyExtension {
     extension: string;
@@ -50,6 +51,7 @@ interface MyExtension {
 interface Me { extensions: MyExtension[]; answered_today: number }
 interface Stats {
     todo: number;
+    unassigned: number;
     today_total: number;
     today_missed: number;
     today_answer_rate: number | null;
@@ -65,12 +67,20 @@ interface Props {
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Дуудлага', href: '/reception/calls' }];
 
-const VIEWS: { key: View; label: string }[] = [
-    { key: 'todo', label: 'Шийдвэрлэх' },
-    { key: 'missed', label: 'Алдсан' },
-    { key: 'mine', label: 'Миний' },
-    { key: 'all', label: 'Бүгд' },
-];
+/**
+ * «Салбаргүй» — IVR дээр товч дарж амжаагүй дуудлага. Бүх салбарын ресепшнд
+ * ижил жагсаалт харагдана. Тоог шошгон дээр гаргана: энэ жагсаалтын гол
+ * эрсдэл бол хэн ч руу нь орж хараагүй өнгөрөх явдал.
+ */
+function views(unassigned: number): { key: View; label: string }[] {
+    return [
+        { key: 'todo', label: 'Шийдвэрлэх' },
+        { key: 'unassigned', label: unassigned > 0 ? `Салбаргүй · ${unassigned}` : 'Салбаргүй' },
+        { key: 'missed', label: 'Алдсан' },
+        { key: 'mine', label: 'Миний' },
+        { key: 'all', label: 'Бүгд' },
+    ];
+}
 
 function fmtDuration(sec: number | null) {
     if (sec === null || sec === undefined) return '—';
@@ -138,6 +148,9 @@ export default function ReceptionCalls({ calls, filters, resolutions, stats, bra
     }
 
     const isTodo = form.view === 'todo';
+    const isUnassigned = form.view === 'unassigned';
+    // Хоёулаа «хийх ажлын» жагсаалт — огноогоор хязгаарлагдахгүй, хүлээлт харагдана.
+    const isWorklist = isTodo || isUnassigned;
 
     return (
         <ReceptionLayout breadcrumbs={breadcrumbs}>
@@ -179,12 +192,12 @@ export default function ReceptionCalls({ calls, filters, resolutions, stats, bra
                     <FilterBar>
                         <div>
                             <label className={LABEL}>Харагдац</label>
-                            <Segmented value={form.view} options={VIEWS} onChange={(v) => set('view', v)} />
+                            <Segmented value={form.view} options={views(live.unassigned)} onChange={(v) => set('view', v)} />
                         </div>
 
                         {/* «Шийдвэрлэх» жагсаалт огноогоор хязгаарлагдахгүй —
                             хуучин барьж амжаагүй дуудлага далд үлдэх ёсгүй. */}
-                        {!isTodo && (
+                        {!isWorklist && (
                             <>
                                 <div>
                                     <label className={LABEL}>Эхлэх</label>
@@ -213,6 +226,17 @@ export default function ReceptionCalls({ calls, filters, resolutions, stats, bra
                     </FilterBar>
                 </form>
 
+                {/* Энэ жагсаалт бүх салбарт нэг ижил харагддаг тул шалтгааныг нь
+                    тайлбарлах ёстой — эс бөгөөс «яагаад өөр салбарын дуудлага
+                    надад харагдаад байна вэ» гэсэн эргэлзээ төрнө. */}
+                {isUnassigned && (
+                    <div className="rounded-xl border border-amber-300/60 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/[0.07] dark:text-amber-200">
+                        Эдгээр үйлчлүүлэгч <b>салбараа сонгож амжаагүй</b> тул дуудлага нь аль ч салбарт
+                        харьяалагдахгүй. Бүх салбарын ресепшнд ижил харагдана — эргэж холбогдож чадах хүн
+                        «Би авлаа» дарна. Дарсан даруйд тухайн хүний салбарт шилжиж, бусдын жагсаалтаас хасагдана.
+                    </div>
+                )}
+
                 {/* ── Жагсаалт ── */}
                 <Card>
                     <TableWrap>
@@ -221,7 +245,7 @@ export default function ReceptionCalls({ calls, filters, resolutions, stats, bra
                                 <tr>
                                     <th className={TH}>Дугаар</th>
                                     <th className={TH}>Огноо</th>
-                                    {isTodo && <th className={TH}>Хүлээсэн</th>}
+                                    {isWorklist && <th className={TH}>Хүлээсэн</th>}
                                     <th className={TH}>Төлөв</th>
                                     <th className={TH} />
                                 </tr>
@@ -229,12 +253,18 @@ export default function ReceptionCalls({ calls, filters, resolutions, stats, bra
                             <tbody>
                                 {calls.data.length === 0 && (
                                     <tr>
-                                        <td colSpan={isTodo ? 6 : 5}>
+                                        <td colSpan={isWorklist ? 6 : 5}>
                                             {isTodo ? (
                                                 <Empty
                                                     icon={CheckCircle2}
                                                     title="Бүх дуудлага шийдэгдсэн"
                                                     hint="Эргэж холбогдох хүн алга. Шинэ алдсан дуудлага ирвэл энд гарч ирнэ."
+                                                />
+                                            ) : isUnassigned ? (
+                                                <Empty
+                                                    icon={CheckCircle2}
+                                                    title="Хариуцагчгүй дуудлага алга"
+                                                    hint="Салбараа сонгож амжаагүй үйлчлүүлэгч бүрт эргэж холбогдсон байна."
                                                 />
                                             ) : (
                                                 <Empty icon={PhoneCall} title="Дуудлага олдсонгүй" hint="Огноо эсвэл хайлтаа өөрчилж үзнэ үү." />
@@ -264,7 +294,7 @@ export default function ReceptionCalls({ calls, filters, resolutions, stats, bra
                                             )}
                                         </td>
 
-                                        {isTodo && (
+                                        {isWorklist && (
                                             <td className={cn(TD, 'align-top')}>
                                                 {c.waited_minutes !== null && (
                                                     <Pill tone={waitTone(c.waited_minutes)} icon={Clock}>
@@ -317,6 +347,18 @@ export default function ReceptionCalls({ calls, filters, resolutions, stats, bra
                                                             title="Тэмдэглэл буцаах"
                                                             onClick={() => router.patch(`/reception/calls/${c.id}/unresolve`, {}, { preserveScroll: true })}
                                                         />
+                                                    ) : c.is_unassigned ? (
+                                                        /* Хариуцагч эхлээд тодорхой болно. Авмагц тухайн
+                                                           салбарын «Шийдвэрлэх» жагсаалтад шилжиж, бусад
+                                                           салбарын дэлгэцээс алга болно — 4 салбар нэг
+                                                           хүн рүү давхар залгахгүй. */
+                                                        <button
+                                                            onClick={() => router.patch(`/reception/calls/${c.id}/claim`, {}, { preserveScroll: true })}
+                                                            className={CTA}
+                                                            title="Энэ дуудлагыг өөрийн салбартаа татаж авна"
+                                                        >
+                                                            Би авлаа
+                                                        </button>
                                                     ) : (
                                                         <button onClick={() => setResolving(c)} className={CTA}>
                                                             Тэмдэглэх

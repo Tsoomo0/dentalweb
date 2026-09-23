@@ -114,29 +114,29 @@ class AdminCallsPageTest extends TestCase
         $admin = $this->admin();
 
         $this->actingAs($admin)
-            ->post('/admin/call-settings/queues', ['name' => 'Bayanzurkh', 'branch_id' => $branch->id])
+            ->post('/admin/call-settings/queues', ['name' => '1', 'branch_id' => $branch->id])
             ->assertSessionHasNoErrors()
             ->assertRedirect();
 
         // Салбаргүй queue — Мэдээлэл авах мэт бүх салбарт хамаарах дараалал
         $this->actingAs($admin)
-            ->post('/admin/call-settings/queues', ['name' => 'Medeelel avah', 'label' => 'Мэдээлэл авах'])
+            ->post('/admin/call-settings/queues', ['name' => '0', 'label' => 'Мэдээлэл авах'])
             ->assertSessionHasNoErrors()
             ->assertRedirect();
 
-        $this->assertSame($branch->id, CallQueue::where('name', 'Bayanzurkh')->value('branch_id'));
-        $this->assertNull(CallQueue::where('name', 'Medeelel avah')->value('branch_id'));
+        $this->assertSame($branch->id, CallQueue::where('name', '1')->value('branch_id'));
+        $this->assertNull(CallQueue::where('name', '0')->value('branch_id'));
     }
 
     /** Зориуд салбаргүй болгосон queue "бүртгэгдээгүй" анхааруулгад орохгүй. */
     public function test_registered_shared_queue_is_not_reported_as_unmapped(): void
     {
-        CallQueue::create(['name' => 'Medeelel avah', 'branch_id' => null]);
+        CallQueue::create(['name' => '0', 'branch_id' => null]);
 
         Call::create([
             'unique_id' => 'q.1',
             'number' => '99112233',
-            'queue_name' => 'Medeelel avah',
+            'queue_name' => '0',
             'started_at' => now(),
         ]);
 
@@ -147,10 +147,10 @@ class AdminCallsPageTest extends TestCase
 
     public function test_duplicate_queue_is_rejected(): void
     {
-        CallQueue::create(['name' => 'Bayangol', 'branch_id' => $this->branch()->id]);
+        CallQueue::create(['name' => '2', 'branch_id' => $this->branch()->id]);
 
         $this->actingAs($this->admin())
-            ->post('/admin/call-settings/queues', ['name' => 'Bayangol'])
+            ->post('/admin/call-settings/queues', ['name' => '2'])
             ->assertSessionHasErrors('name');
     }
 

@@ -16,31 +16,31 @@ use Illuminate\Database\Seeder;
  * харьяаллыг ДАРЖ БИЧНЭ гэдгийг анхаарна уу — жагсаалтыг эх сурвалж гэж үзнэ.
  *
  * Queue нэрийг харьцуулахдаа том/жижиг үсэг, зураас, зайг тооцдоггүй тул
- * "Khan-Uul", "khanuul", "Khan Uul" бүгд ижил утгатай.
+ * бичилт бага зэрэг өөрчлөгдсөн ч таарна.
  */
 class CallProSeeder extends Seeder
 {
     /**
-     * Салбар → CallPro queue нэрс + дотуур дугаарууд.
+     * Салбар → IVR товч + дотуур дугаарууд.
      *
-     * Queue нь дүүргийн нэрээр нэрлэгдсэн байдаг (CallPro console → History →
-     * Queue). Алдсан дуудлага зөвхөн энэ нэрээр салбартаа хуваарилагдана.
+     * CallPro нь IVR цэсэнд дарсан ТОВЧИЙГ queue нэр болгон илгээдэг: 70003931
+     * дээр 1 дарвал queue_name="1" ирнэ. Бодит дуудлагаар баталсан (2026-09-23).
      */
     private const BRANCHES = [
         'Сансар' => [
-            'queues' => ['Bayanzurkh'],
+            'queues' => ['1'],
             'extensions' => ['100', '500', '506', '508', '511'],
         ],
         'Хороолол' => [
-            'queues' => ['Bayangol'],
+            'queues' => ['2'],
             'extensions' => ['101', '501', '509', '512', '513'],
         ],
         'Цамбагарав' => [
-            'queues' => ['Songinokhairkhan'],
+            'queues' => ['3'],
             'extensions' => ['102', '502', '510'],
         ],
         'Яармаг' => [
-            'queues' => ['Khan-Uul'],
+            'queues' => ['4'],
             'extensions' => ['503', '505', '514', '515'],
         ],
     ];
@@ -56,8 +56,9 @@ class CallProSeeder extends Seeder
         '504' => 'Мэдээлэл авах',
     ];
 
+    /** IVR-ийн 0 товч — мэдээллийн ажилтан. Салбар тодорхойлохгүй. */
     private const SHARED_QUEUES = [
-        'Medeelel avah' => 'Мэдээлэл авах',
+        '0' => 'Мэдээлэл авах',
     ];
 
     public function run(): void

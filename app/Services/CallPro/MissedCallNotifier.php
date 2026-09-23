@@ -3,6 +3,7 @@
 namespace App\Services\CallPro;
 
 use App\Models\CallPro\Call;
+use App\Models\CallPro\CallExtension;
 use App\Models\User;
 use App\Notifications\MissedCall;
 use App\Services\Chat\PushService;
@@ -101,11 +102,35 @@ class MissedCallNotifier
             return $admins;
         }
 
-        $reception = User::whereHas('role', fn ($q) => $q->where('name', 'receptionist'))
-            ->where('branch_id', $call->branch_id)
-            ->get();
+        return $admins->merge($this->branchStaff($call->branch_id))->unique('id');
+    }
 
-        return $admins->merge($reception)->unique('id');
+    /**
+     * Тухайн салбарын дуудлага барьдаг ажилтнууд.
+     *
+     * Эх сурвалж нь ДОТУУР ДУГААР: утас нь гар дор байгаа хүн л дуудлагыг
+     * барьж чадна. `users.branch_id` нь ажлын байрны бүртгэл болохоос аль
+     * утсыг хэн хариуцдагийг хэлдэггүй.
+     *
+     * Нэг ч дугаар холбоогүй салбарт (тохиргоо дутуу) ресепшний ажилтнууд руу
+     * буцаж шилжинэ — мэдэгдэл хэнд ч хүрэхгүй чимээгүй өнгөрөхөөс бүдүүвч
+     * хаяглалт хамаагүй дээр.
+     */
+    private function branchStaff(int $branchId)
+    {
+        $userIds = CallExtension::where('branch_id', $branchId)
+            ->where('is_active', true)
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->unique();
+
+        if ($userIds->isNotEmpty()) {
+            return User::whereIn('id', $userIds)->get();
+        }
+
+        return User::whereHas('role', fn ($q) => $q->where('name', 'receptionist'))
+            ->where('branch_id', $branchId)
+            ->get();
     }
 
     private function sendPush($recipients, Call $call, int $repeat): void

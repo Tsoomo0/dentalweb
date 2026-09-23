@@ -397,4 +397,92 @@ class ReceptionCallsTest extends TestCase
             ->get('/reception/calls')
             ->assertInertia(fn ($page) => $page->where('pending_missed_calls', 1));
     }
+
+    /* ── Салбаргүй дуудлага ──────────────────────────────── */
+
+    /**
+     * IVR дээр товч дарж амжаагүй дуудлага бүх салбарт НЭГ ижил харагдана.
+     *
+     * Өмнө нь ийм дуудлага зөвхөн админд харагдаж, практикт хэн ч эргэж
+     * залгадаггүй байв.
+     */
+    public function test_unassigned_view_shows_branchless_missed_calls(): void
+    {
+        $this->makeCall(['is_missed' => true, 'branch_id' => null]);
+        $this->makeCall(['is_missed' => true]);                              // Сансарынх
+        $this->makeCall(['is_missed' => true, 'branch_id' => $this->yarmag->id]);
+
+        foreach ([$this->sansar, $this->yarmag] as $branch) {
+            $this->actingAs($this->reception($branch))
+                ->get('/reception/calls?view=unassigned')
+                ->assertInertia(fn ($page) => $page
+                    ->has('calls.data', 1)
+                    ->where('calls.data.0.is_unassigned', true)
+                    ->where('stats.unassigned', 1)
+                );
+        }
+    }
+
+    /** Шийдэгдсэн салбаргүй дуудлага жагсаалтаас хасагдана. */
+    public function test_unassigned_view_hides_handled_calls(): void
+    {
+        $this->makeCall([
+            'is_missed' => true,
+            'branch_id' => null,
+            'handled_at' => Carbon::now(),
+        ]);
+
+        $this->actingAs($this->reception())
+            ->get('/reception/calls?view=unassigned')
+            ->assertInertia(fn ($page) => $page->has('calls.data', 0));
+    }
+
+    /** «Би авлаа» — дуудлага хариуцагчийн салбарт шилжинэ. */
+    public function test_reception_can_claim_a_branchless_call(): void
+    {
+        $call = $this->makeCall(['is_missed' => true, 'branch_id' => null]);
+
+        $this->actingAs($this->reception($this->yarmag))
+            ->patch("/reception/calls/{$call->id}/claim")
+            ->assertRedirect();
+
+        $this->assertSame($this->yarmag->id, $call->fresh()->branch_id);
+    }
+
+    /**
+     * Хоёр ресепшн зэрэг дарвал хоёр дахь нь татгалзана — эс бөгөөс дуудлага
+     * эзэн солигдож, эхнийх нь залгаж байхад нөгөө салбарын жагсаалтад орно.
+     */
+    public function test_claiming_an_already_claimed_call_is_rejected(): void
+    {
+        $call = $this->makeCall(['is_missed' => true, 'branch_id' => null]);
+
+        $this->actingAs($this->reception($this->sansar))
+            ->patch("/reception/calls/{$call->id}/claim")
+            ->assertRedirect();
+
+        $this->actingAs($this->reception($this->yarmag))
+            ->patch("/reception/calls/{$call->id}/claim")
+            ->assertStatus(409);
+
+        $this->assertSame($this->sansar->id, $call->fresh()->branch_id);
+    }
+
+    /** Салбаргүй ажилтан хариуцаж чадахгүй — дуудлага хаашаа ч очихгүй. */
+    public function test_branchless_staff_cannot_claim(): void
+    {
+        $call = $this->makeCall(['is_missed' => true, 'branch_id' => null]);
+
+        $user = User::factory()->create([
+            'role_id' => Role::firstOrCreate(['name' => 'receptionist'])->id,
+            'branch_id' => null,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->patch("/reception/calls/{$call->id}/claim")
+            ->assertStatus(403);
+
+        $this->assertNull($call->fresh()->branch_id);
+    }
 }

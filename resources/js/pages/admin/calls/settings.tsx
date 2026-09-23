@@ -35,9 +35,8 @@ interface Staff { id: number; name: string }
 interface UnmappedAgent { agent: string; total: number; last_seen: string | null }
 interface UnmappedQueue { queue_name: string; total: number; last_seen: string | null }
 interface Operations {
-    work_start: string;
-    work_end: string;
-    work_days: number[];
+    /** Гараг (1=Даваа … 7=Ням) → тухайн өдрийн цаг. Байхгүй гараг = амралт. */
+    work_hours: Record<string, { start: string; end: string }>;
     sla_minutes: number;
     notify_after_hours: boolean;
     report_time: string;
@@ -377,20 +376,21 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
                     <CardHead
                         icon={Building2}
                         tone="sky"
-                        title="Queue → салбар"
+                        title="IVR товч → салбар"
                         count={queues.length}
                         actions={
                             !showAddQueue && (
                                 <button onClick={() => { setShowAddQueue(true); setEditingQueueId(null); }} className={CTA}>
-                                    <Plus className="size-3.5" /> Queue нэмэх
+                                    <Plus className="size-3.5" /> Товч нэмэх
                                 </button>
                             )
                         }
                     />
                     <CardNote>
-                        IVR дээр товч дарахад үйлчлүүлэгч тухайн queue-д ордог. Алдсан дуудлагад
-                        дотуур дугаар ирдэггүй тул салбарыг зөвхөн эндээс тодорхойлно. Салбарыг
-                        хоосон орхивол алдсан дуудлага зөвхөн админд харагдана (жишээ: Мэдээлэл авах).
+                        70003931 дээр дарсан товчийг CallPro «queue нэр» болгон илгээдэг — 1 дарвал
+                        «1» ирнэ. Алдсан дуудлагад дотуур дугаар ирдэггүй тул салбарыг зөвхөн эндээс
+                        тодорхойлно. Салбарыг хоосон орхивол алдсан дуудлага зөвхөн админд харагдана
+                        (жишээ: 0 — мэдээлэл авах).
                     </CardNote>
 
                     {showAddQueue && (
@@ -398,12 +398,12 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
                             onSubmit={submitAddQueue}
                             className="grid gap-3 border-b border-gray-200/80 bg-sky-500/[0.04] p-4 md:grid-cols-4 dark:border-white/10"
                         >
-                            <Field label="Queue нэр" error={queueAdd.errors.name}>
+                            <Field label="IVR товч" error={queueAdd.errors.name}>
                                 <input
                                     autoFocus
                                     value={queueAdd.data.name}
                                     onChange={(e) => queueAdd.setData('name', e.target.value)}
-                                    placeholder="Bayanzurkh"
+                                    placeholder="3"
                                     className={cn(INPUT, 'font-mono')}
                                 />
                             </Field>
@@ -463,7 +463,7 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
                                         <tr key={q.id} className="border-b border-gray-100 bg-sky-500/[0.05] dark:border-white/5">
                                             <td colSpan={5} className="p-4">
                                                 <form onSubmit={(ev) => submitEditQueue(ev, q.id)} className="grid gap-3 md:grid-cols-4">
-                                                    <Field label="Queue нэр" error={queueEdit.errors.name}>
+                                                    <Field label="IVR товч" error={queueEdit.errors.name}>
                                                         <input
                                                             value={queueEdit.data.name}
                                                             onChange={(ev) => queueEdit.setData('name', ev.target.value)}
@@ -577,28 +577,72 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
 }
 
 const WEEKDAYS = [
-    { value: 1, label: 'Да' }, { value: 2, label: 'Мя' }, { value: 3, label: 'Лх' },
-    { value: 4, label: 'Пү' }, { value: 5, label: 'Ба' }, { value: 6, label: 'Бя' },
-    { value: 7, label: 'Ня' },
+    { value: 1, label: 'Даваа' }, { value: 2, label: 'Мягмар' }, { value: 3, label: 'Лхагва' },
+    { value: 4, label: 'Пүрэв' }, { value: 5, label: 'Баасан' }, { value: 6, label: 'Бямба' },
+    { value: 7, label: 'Ням' },
 ];
+
+const DAY_OFF = { start: '09:00', end: '20:00' };
+
+/** Хуваарь дээрх нэг мөр. Амарсан өдрийн цаг ч хадгалагдана — дахин асаахад сэргэнэ. */
+interface DayRow { on: boolean; start: string; end: string }
+
+function toSchedule(hours: Operations['work_hours']): Record<number, DayRow> {
+    return Object.fromEntries(
+        WEEKDAYS.map(({ value }) => {
+            const h = hours[String(value)];
+
+            return [value, { on: !!h, start: h?.start ?? DAY_OFF.start, end: h?.end ?? DAY_OFF.end }];
+        }),
+    );
+}
+
+function toHours(schedule: Record<number, DayRow>): Operations['work_hours'] {
+    return Object.fromEntries(
+        Object.entries(schedule)
+            .filter(([, row]) => row.on)
+            .map(([day, row]) => [day, { start: row.start, end: row.end }]),
+    );
+}
 
 /* ── Ажлын цаг ба SLA ──────────────────────────────────── */
 function OperationsCard({ operations }: { operations: Operations }) {
+    const [schedule, setSchedule] = useState<Record<number, DayRow>>(() => toSchedule(operations.work_hours));
+
     const form = useForm({
-        work_start: operations.work_start,
-        work_end: operations.work_end,
-        work_days: operations.work_days,
+        work_hours: operations.work_hours,
         sla_minutes: operations.sla_minutes,
         notify_after_hours: operations.notify_after_hours,
         report_time: operations.report_time,
     });
 
-    function toggleDay(day: number) {
-        const days = form.data.work_days.includes(day)
-            ? form.data.work_days.filter((d) => d !== day)
-            : [...form.data.work_days, day].sort();
-        form.setData('work_days', days);
+    function patchDay(day: number, changes: Partial<DayRow>) {
+        const next = { ...schedule, [day]: { ...schedule[day], ...changes } };
+        setSchedule(next);
+        form.setData('work_hours', toHours(next));
     }
+
+    /**
+     * Эхний ажлын өдрийн цагийг бусад БҮХ ажлын өдөрт хуулна.
+     *
+     * Ихэнх салбар ажлын өдрүүддээ ижил цагтай, зөвхөн бямба нь өөр байдаг.
+     * 6 өдрийн цагийг гараар бичих нь алдаа гаргах хамгийн түгээмэл зам.
+     */
+    function copyFirstDayToAll() {
+        const first = WEEKDAYS.map((d) => d.value).find((d) => schedule[d].on);
+
+        if (first === undefined) return;
+
+        const { start, end } = schedule[first];
+        const next = Object.fromEntries(
+            Object.entries(schedule).map(([day, row]) => [day, row.on ? { ...row, start, end } : row]),
+        ) as Record<number, DayRow>;
+
+        setSchedule(next);
+        form.setData('work_hours', toHours(next));
+    }
+
+    const workingDays = WEEKDAYS.filter((d) => schedule[d.value].on).length;
 
     function submit(e: FormEvent) {
         e.preventDefault();
@@ -609,27 +653,89 @@ function OperationsCard({ operations }: { operations: Operations }) {
         <Card>
             <CardHead icon={Clock} tone="violet" title="Ажлын цаг ба хяналт" />
             <CardNote>
-                Ажлын цагаас гадуур ирсэн дуудлагыг тусад нь тооцно — тэр үед хэн ч
+                Гараг бүрт өөр цаг тавьж болно — бямба богино ажилладаг бол тэр өдрөө л
+                засна. Ажлын цагаас гадуур ирсэн дуудлагыг тусад нь тооцно: тэр үед хэн ч
                 байхгүй тул ажилтныг буруутгах нь шударга бус. Мөн шөнө дунд мэдэгдэл
                 өгөхгүй, SLA сэрэмжлүүлэг ажиллуулахгүй.
             </CardNote>
 
             <form onSubmit={submit} className="space-y-5 p-4">
-                <div className="grid gap-4 md:grid-cols-4">
-                    <Field label="Ажил эхлэх" error={form.errors.work_start}>
-                        <input
-                            type="time" value={form.data.work_start}
-                            onChange={(e) => form.setData('work_start', e.target.value)}
-                            className={INPUT}
-                        />
-                    </Field>
-                    <Field label="Ажил дуусах" error={form.errors.work_end}>
-                        <input
-                            type="time" value={form.data.work_end}
-                            onChange={(e) => form.setData('work_end', e.target.value)}
-                            className={INPUT}
-                        />
-                    </Field>
+                <div>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className={LABEL}>Ажлын хуваарь</p>
+                        {workingDays > 1 && (
+                            <button
+                                type="button"
+                                onClick={copyFirstDayToAll}
+                                className="text-[11px] font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+                            >
+                                Эхний өдрийн цагийг бүгдэд хуулах
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="divide-y divide-gray-200/80 overflow-hidden rounded-xl border border-gray-200 dark:divide-white/10 dark:border-white/10">
+                        {WEEKDAYS.map((d) => {
+                            const row = schedule[d.value];
+                            // Шөнө дамжсан ээлж (20:00–02:00) — админ андуурсан эсэхээ мэдэх ёстой.
+                            const overnight = row.on && row.start > row.end;
+
+                            return (
+                                <div
+                                    key={d.value}
+                                    className={cn(
+                                        'flex flex-wrap items-center gap-3 px-3.5 py-2.5 transition',
+                                        row.on ? 'bg-white dark:bg-transparent' : 'bg-gray-50/70 dark:bg-white/[0.02]',
+                                    )}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => patchDay(d.value, { on: !row.on })}
+                                        aria-pressed={row.on}
+                                        className={cn(
+                                            'w-24 shrink-0 rounded-lg border px-2 py-1.5 text-sm font-semibold transition active:scale-95',
+                                            row.on
+                                                ? 'border-transparent bg-gradient-to-br from-indigo-500 to-sky-600 text-white shadow-sm shadow-indigo-500/25'
+                                                : 'border-gray-200 bg-white text-muted-foreground hover:bg-gray-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.07]',
+                                        )}
+                                    >
+                                        {d.label}
+                                    </button>
+
+                                    {row.on ? (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <input
+                                                type="time" value={row.start}
+                                                onChange={(e) => patchDay(d.value, { start: e.target.value })}
+                                                className={cn(INPUT, 'w-32')}
+                                            />
+                                            <span className="text-muted-foreground">—</span>
+                                            <input
+                                                type="time" value={row.end}
+                                                onChange={(e) => patchDay(d.value, { end: e.target.value })}
+                                                className={cn(INPUT, 'w-32')}
+                                            />
+                                            {overnight && <Pill tone="amber">шөнө дамжина</Pill>}
+                                        </div>
+                                    ) : (
+                                        <span className="text-sm text-muted-foreground">Амарна</span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {Object.keys(form.errors)
+                        .filter((k) => k.startsWith('work_hours'))
+                        .slice(0, 1)
+                        .map((k) => (
+                            <p key={k} className="mt-1 text-[11px] font-medium text-red-600">
+                                {form.errors[k as keyof typeof form.errors]}
+                            </p>
+                        ))}
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
                     <Field label="Барих хугацаа (мин)" error={form.errors.sla_minutes}>
                         <input
                             type="number" min={1} max={1440} value={form.data.sla_minutes}
@@ -645,33 +751,6 @@ function OperationsCard({ operations }: { operations: Operations }) {
                             className={INPUT}
                         />
                     </Field>
-                </div>
-
-                <div>
-                    <p className={LABEL}>Ажлын өдрүүд</p>
-                    <div className="flex flex-wrap gap-1.5">
-                        {WEEKDAYS.map((d) => {
-                            const on = form.data.work_days.includes(d.value);
-
-                            return (
-                                <button
-                                    key={d.value}
-                                    type="button"
-                                    onClick={() => toggleDay(d.value)}
-                                    aria-pressed={on}
-                                    className={cn(
-                                        'size-10 rounded-xl border text-sm font-semibold transition active:scale-95',
-                                        on
-                                            ? 'border-transparent bg-gradient-to-br from-indigo-500 to-sky-600 text-white shadow-sm shadow-indigo-500/25'
-                                            : 'border-gray-200 bg-white text-muted-foreground hover:bg-gray-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.07]',
-                                    )}
-                                >
-                                    {d.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                    {form.errors.work_days && <p className="mt-1 text-[11px] font-medium text-red-600">{form.errors.work_days}</p>}
                 </div>
 
                 <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3.5 dark:border-white/10 dark:bg-white/[0.02]">

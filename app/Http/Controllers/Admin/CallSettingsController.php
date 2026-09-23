@@ -96,7 +96,7 @@ class CallSettingsController extends Controller
     /**
      * Ирсэн боловч огт БҮРТГЭГДЭЭГҮЙ queue нэрс.
      *
-     * Бүртгэлтэй боловч зориуд салбаргүй болгосон queue (Medeelel avah гэх мэт)
+     * Бүртгэлтэй боловч зориуд салбаргүй болгосон queue (0 — мэдээлэл авах)
      * энд ОРОХГҮЙ — тэр нь зөв тохиргоо. Үнэн анхааруулга дарагдахаас
      * сэргийлнэ.
      */
@@ -202,20 +202,23 @@ class CallSettingsController extends Controller
     public function updateOperations(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'work_start' => 'required|date_format:H:i',
-            'work_end' => 'required|date_format:H:i',
-            'work_days' => 'required|array|min:1',
-            'work_days.*' => 'integer|min:1|max:7',
+            // Гараг бүр өөрийн цагтай: { "1": { "start": "09:00", "end": "20:00" } }
+            // Байхгүй гараг нь амралтын өдөр. Нэг ч өдөргүй бол бүх дуудлага
+            // «цагаас гадуур» болж, мэдэгдэл бүрэн унтарна.
+            'work_hours' => 'required|array|min:1',
+            'work_hours.*.start' => 'required|date_format:H:i',
+            'work_hours.*.end' => 'required|date_format:H:i|different:work_hours.*.start',
             'sla_minutes' => 'required|integer|min:1|max:1440',
             'notify_after_hours' => 'boolean',
             'report_time' => 'required|date_format:H:i',
+        ], [
+            'work_hours.required' => 'Дор хаяж нэг ажлын өдөр сонгоно уу.',
+            'work_hours.*.end.different' => 'Эхлэх, дуусах цаг ижил байж болохгүй.',
         ]);
 
         $old = CallSettings::all();
 
-        Setting::set('call_work_start', $data['work_start']);
-        Setting::set('call_work_end', $data['work_end']);
-        Setting::set('call_work_days', implode(',', array_unique($data['work_days'])));
+        Setting::set('call_work_hours', json_encode($this->workHours($data['work_hours'])));
         Setting::set('call_sla_minutes', (string) $data['sla_minutes']);
         Setting::set('call_notify_after_hours', $request->boolean('notify_after_hours') ? '1' : '0');
         Setting::set('call_report_time', $data['report_time']);
@@ -224,6 +227,33 @@ class CallSettingsController extends Controller
             'Дуудлагын ажлын цаг / SLA тохиргоо зассан');
 
         return back()->with('success', 'Тохиргоо хадгалагдлаа.');
+    }
+
+    /**
+     * Хуваарийн түлхүүрийг цэвэрлэнэ.
+     *
+     * Массивын ТҮЛХҮҮРИЙГ validate дүрмээр хязгаарлах боломжгүй тул 1–7-гоос
+     * гадуур гараг ирвэл энд хаяна. Түлхүүрийг мөр болгож хадгална — JSON
+     * объект болж хөрвөхөд гараг алдагдахгүй.
+     *
+     * @param  array<int|string,array{start:string,end:string}>  $input
+     * @return array<string,array{start:string,end:string}>
+     */
+    private function workHours(array $input): array
+    {
+        $hours = [];
+
+        foreach ($input as $day => $row) {
+            $day = (int) $day;
+
+            if ($day >= 1 && $day <= 7) {
+                $hours[(string) $day] = ['start' => $row['start'], 'end' => $row['end']];
+            }
+        }
+
+        ksort($hours);
+
+        return $hours;
     }
 
     private function queueRules(?int $ignoreId = null): array

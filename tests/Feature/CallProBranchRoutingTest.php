@@ -47,12 +47,12 @@ class CallProBranchRoutingTest extends TestCase
 
     public function test_seeder_maps_every_branch(): void
     {
-        $this->assertSame($this->branchId('Сансар'), CallQueue::where('name', 'Bayanzurkh')->value('branch_id'));
-        $this->assertSame($this->branchId('Яармаг'), CallQueue::where('name', 'Khan-Uul')->value('branch_id'));
+        $this->assertSame($this->branchId('Сансар'), CallQueue::where('name', '1')->value('branch_id'));
+        $this->assertSame($this->branchId('Яармаг'), CallQueue::where('name', '4')->value('branch_id'));
 
         // 4 салбарын 17 дугаар + мэдээллийн 504
         $this->assertSame(18, CallExtension::count());
-        // 4 салбарын queue + салбаргүй "Medeelel avah"
+        // IVR-ийн 1-4 товч + салбаргүй 0 (мэдээлэл авах)
         $this->assertSame(5, CallQueue::count());
     }
 
@@ -79,14 +79,14 @@ class CallProBranchRoutingTest extends TestCase
         }
     }
 
-    /** Алдсан дуудлага — queue нэрээр салбар тодорхойлогдоно. */
+    /** Алдсан дуудлага — IVR-д дарсан товчоор салбар тодорхойлогдоно. */
     public function test_abandoned_call_routes_by_queue(): void
     {
         $cases = [
-            'Songinokhairkhan' => 'Цамбагарав',
-            'Bayangol' => 'Хороолол',
-            'Bayanzurkh' => 'Сансар',
-            'Khan-Uul' => 'Яармаг',
+            '3' => 'Цамбагарав',
+            '2' => 'Хороолол',
+            '1' => 'Сансар',
+            '4' => 'Яармаг',
         ];
 
         foreach ($cases as $queue => $branch) {
@@ -99,13 +99,15 @@ class CallProBranchRoutingTest extends TestCase
         }
     }
 
-    /** CallPro бичилт өөрчилвөл ч таарах ёстой (үсгийн хэмжээ, зураас). */
-    public function test_queue_matching_ignores_case_and_separators(): void
+    /** CallPro товчийг зайтай илгээсэн ч таарах ёстой. */
+    public function test_queue_matching_ignores_spacing(): void
     {
-        foreach (['khanuul', 'KHAN-UUL', 'Khan Uul'] as $i => $variant) {
-            $this->hook('abandoned', ['number' => '9911223'.$i, 'queue_name' => $variant]);
+        foreach ([' 4', '4 ', ' 4 '] as $i => $variant) {
+            $number = '9911223'.$i;
 
-            $call = Call::where('queue_name', $variant)->first();
+            $this->hook('abandoned', ['number' => $number, 'queue_name' => $variant]);
+
+            $call = Call::where('number', $number)->first();
             $this->assertSame($this->branchId('Яармаг'), $call->branch_id, "«{$variant}» таарсангүй");
         }
     }
@@ -133,9 +135,9 @@ class CallProBranchRoutingTest extends TestCase
     /** Бүртгэлтэй боловч зориуд салбаргүй queue. */
     public function test_shared_queue_is_registered_without_branch(): void
     {
-        $this->assertNull(CallQueue::where('name', 'Medeelel avah')->value('branch_id'));
+        $this->assertNull(CallQueue::where('name', '0')->value('branch_id'));
 
-        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => 'Medeelel avah']);
+        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => '0']);
 
         $call = Call::first();
         $this->assertTrue($call->is_missed);
@@ -162,7 +164,7 @@ class CallProBranchRoutingTest extends TestCase
             'branch_id' => $this->branchId('Сансар'),
         ]);
 
-        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => 'Medeelel avah']);
+        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => '0']);
 
         $this->assertNull(Call::first()->branch_id);
 
@@ -170,7 +172,40 @@ class CallProBranchRoutingTest extends TestCase
         Notification::assertNotSentTo($reception, MissedCall::class);
     }
 
-    /** Салбартай алдсан дуудлага — зөвхөн ТУХАЙН салбарын ресепшнд. */
+    /**
+     * Мэдэгдэл нь ДОТУУР ДУГААР хариуцдаг ажилтанд очно.
+     *
+     * Утас гар дор байгаа хүн л дуудлагыг барьж чадна — `users.branch_id`
+     * бол ажлын байрны бүртгэл болохоос утасны эзэн хэн болохыг хэлдэггүй.
+     */
+    public function test_missed_call_notifies_extension_owner(): void
+    {
+        Notification::fake();
+
+        $receptionRole = Role::firstOrCreate(['name' => 'receptionist'])->id;
+
+        // Салбарын бүртгэлгүй ч Сансарын 506 дугаарыг хариуцдаг.
+        $owner = User::factory()->create(['role_id' => $receptionRole, 'branch_id' => null]);
+        CallExtension::where('extension', '506')->update(['user_id' => $owner->id]);
+
+        // Сансарт бүртгэлтэй ч ямар ч дугаар хариуцдаггүй.
+        $bystander = User::factory()->create([
+            'role_id' => $receptionRole,
+            'branch_id' => $this->branchId('Сансар'),
+        ]);
+
+        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => '1']);
+
+        Notification::assertSentTo($owner, MissedCall::class);
+        Notification::assertNotSentTo($bystander, MissedCall::class);
+    }
+
+    /**
+     * Салбартай алдсан дуудлага — зөвхөн ТУХАЙН салбарын ресепшнд.
+     *
+     * Энэ нь нөөц зам: тухайн салбарын нэг ч дугаарт ажилтан холбоогүй үед
+     * мэдэгдэл чимээгүй алга болохгүй, ресепшний бүртгэлээр хаяглагдана.
+     */
     public function test_branch_missed_call_reaches_that_branch_only(): void
     {
         Notification::fake();
@@ -179,7 +214,7 @@ class CallProBranchRoutingTest extends TestCase
         $sansar = User::factory()->create(['role_id' => $receptionRole, 'branch_id' => $this->branchId('Сансар')]);
         $yarmag = User::factory()->create(['role_id' => $receptionRole, 'branch_id' => $this->branchId('Яармаг')]);
 
-        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => 'Bayanzurkh']);
+        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => '1']);
 
         Notification::assertSentTo($sansar, MissedCall::class);
         Notification::assertNotSentTo($yarmag, MissedCall::class);

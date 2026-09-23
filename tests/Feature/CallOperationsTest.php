@@ -39,15 +39,25 @@ class CallOperationsTest extends TestCase
         $this->setWorkHours('09:00', '20:00', '1,2,3,4,5,6');
     }
 
+    /** Заасан гарагуудад ижил цаг тавина. */
     private function setWorkHours(string $start, string $end, string $days): void
     {
-        foreach ([
-            'call_work_start' => $start,
-            'call_work_end' => $end,
-            'call_work_days' => $days,
-        ] as $key => $value) {
-            Setting::updateOrCreate(['key' => $key], ['value' => $value, 'group' => 'callpro', 'label' => $key]);
+        $hours = [];
+
+        foreach (explode(',', $days) as $day) {
+            $hours[trim($day)] = ['start' => $start, 'end' => $end];
         }
+
+        $this->setSchedule($hours);
+    }
+
+    /** @param  array<string,array{start:string,end:string}>  $hours */
+    private function setSchedule(array $hours): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'call_work_hours'],
+            ['value' => json_encode($hours), 'group' => 'callpro', 'label' => 'call_work_hours'],
+        );
 
         Setting::clearCache();
     }
@@ -82,6 +92,106 @@ class CallOperationsTest extends TestCase
         $this->assertFalse(CallSettings::isWorkingTime(Carbon::parse('2026-09-02 21:00')));
         // Ням гараг — амралт
         $this->assertFalse(CallSettings::isWorkingTime(Carbon::parse('2026-09-06 14:00')));
+    }
+
+    /** Гараг бүр өөрийн цагтай — бямба нь богино ажилладаг нь түгээмэл. */
+    public function test_each_day_keeps_its_own_hours(): void
+    {
+        $this->setSchedule([
+            '3' => ['start' => '09:00', 'end' => '20:00'],   // Лхагва
+            '6' => ['start' => '10:00', 'end' => '15:00'],   // Бямба
+        ]);
+
+        // Лхагва 19:00 — ажлын цаг
+        $this->assertTrue(CallSettings::isWorkingTime(Carbon::parse('2026-09-02 19:00')));
+        // Бямба 19:00 — аль хэдийн хаагдсан
+        $this->assertFalse(CallSettings::isWorkingTime(Carbon::parse('2026-09-05 19:00')));
+        // Бямба 11:00 — нээлттэй
+        $this->assertTrue(CallSettings::isWorkingTime(Carbon::parse('2026-09-05 11:00')));
+        // Бямба 09:30 — хараахан нээгээгүй
+        $this->assertFalse(CallSettings::isWorkingTime(Carbon::parse('2026-09-05 09:30')));
+        // Даваа огт хуваарьгүй
+        $this->assertFalse(CallSettings::isWorkingTime(Carbon::parse('2026-09-07 12:00')));
+    }
+
+    /**
+     * Шөнө дамжсан ээлж өмнөх өдрийнхөө хуваариар үргэлжилнэ.
+     *
+     * Баасны 20:00–02:00 ээлжийн үед бямбын 01:00 цагийн дуудлага «цагаас
+     * гадуур» гэж тэмдэглэгдвэл ажилтан буруутай мэт харагдана.
+     */
+    public function test_overnight_shift_carries_into_the_next_day(): void
+    {
+        $this->setSchedule([
+            '5' => ['start' => '20:00', 'end' => '02:00'],   // Баасан шөнө
+        ]);
+
+        // Баасан 22:00 — ээлжийн эхэнд
+        $this->assertTrue(CallSettings::isWorkingTime(Carbon::parse('2026-09-04 22:00')));
+        // Бямба 01:00 — баасны ээлж үргэлжилсээр
+        $this->assertTrue(CallSettings::isWorkingTime(Carbon::parse('2026-09-05 01:00')));
+        // Бямба 03:00 — ээлж дууссан
+        $this->assertFalse(CallSettings::isWorkingTime(Carbon::parse('2026-09-05 03:00')));
+        // Баасан 19:00 — хараахан эхлээгүй
+        $this->assertFalse(CallSettings::isWorkingTime(Carbon::parse('2026-09-04 19:00')));
+    }
+
+    /** Админ гараг бүрийн цагийг тусад нь хадгална. */
+    public function test_admin_can_save_per_day_hours(): void
+    {
+        $this->actingAs($this->admin())
+            ->patch('/admin/call-settings/operations', [
+                'work_hours' => [
+                    '1' => ['start' => '09:00', 'end' => '20:00'],
+                    '6' => ['start' => '10:00', 'end' => '15:00'],
+                ],
+                'sla_minutes' => 30,
+                'notify_after_hours' => false,
+                'report_time' => '20:30',
+            ])
+            ->assertRedirect();
+
+        Setting::clearCache();
+
+        $this->assertSame([1, 6], CallSettings::workDays());
+        $this->assertSame(['start' => '10:00', 'end' => '15:00'], CallSettings::workHours()[6]);
+    }
+
+    /** Нэг ч ажлын өдөргүй бол бүх дуудлага «цагаас гадуур» болж мэдэгдэл унтарна. */
+    public function test_empty_schedule_is_rejected(): void
+    {
+        $this->actingAs($this->admin())
+            ->patch('/admin/call-settings/operations', [
+                'work_hours' => [],
+                'sla_minutes' => 30,
+                'report_time' => '20:30',
+            ])
+            ->assertSessionHasErrors('work_hours');
+    }
+
+    /** Ижил эхлэх/дуусах цаг нь 0 цаг уу, 24 цаг уу гэдэг нь ойлгомжгүй. */
+    public function test_identical_start_and_end_is_rejected(): void
+    {
+        $this->actingAs($this->admin())
+            ->patch('/admin/call-settings/operations', [
+                'work_hours' => ['1' => ['start' => '09:00', 'end' => '09:00']],
+                'sla_minutes' => 30,
+                'report_time' => '20:30',
+            ])
+            ->assertSessionHasErrors('work_hours.1.end');
+    }
+
+    /** Тохиргоо алдагдсан ч систем чимээгүй болох ёсгүй. */
+    public function test_broken_schedule_falls_back_to_the_default(): void
+    {
+        Setting::updateOrCreate(
+            ['key' => 'call_work_hours'],
+            ['value' => 'эвдэрсэн', 'group' => 'callpro', 'label' => 'call_work_hours'],
+        );
+        Setting::clearCache();
+
+        $this->assertSame([1, 2, 3, 4, 5, 6], CallSettings::workDays());
+        $this->assertTrue(CallSettings::isWorkingTime(Carbon::parse('2026-09-02 14:00')));
     }
 
     public function test_after_hours_missed_call_is_flagged_and_silent(): void
