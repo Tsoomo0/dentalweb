@@ -4,8 +4,10 @@ namespace App\Http\Controllers\HR;
 
 use App\Http\Controllers\Controller;
 use App\Models\HR\Position;
+use App\Services\HR\DoctorAccountSync;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -52,11 +54,26 @@ class PositionController extends Controller
             'portal' => 'required|in:doctor,reception,lab,staff,hr,admin',
         ]);
 
-        $position->update([
-            'name' => $request->name,
-            'portal' => $request->portal,
-            'is_active' => $request->boolean('is_active', true),
-        ]);
+        $portalChanged = $position->portal !== $request->portal;
+
+        DB::transaction(function () use ($request, $position, $portalChanged) {
+            $position->update([
+                'name' => $request->name,
+                'portal' => $request->portal,
+                'is_active' => $request->boolean('is_active', true),
+            ]);
+
+            // Portal өөрчлөгдвөл энэ тушаалтай ажилтнуудын Doctor бүртгэлийг
+            // дахин тааруулна. Үгүй бол "эмч" болгосон ажилтан эмчийн порталд
+            // нэвтрэх боломжгүй хэвээр үлддэг.
+            if (! $portalChanged) {
+                return;
+            }
+
+            $position->employees()
+                ->with(['position', 'user'])
+                ->each(fn ($employee) => DoctorAccountSync::sync($employee));
+        });
 
         return back()->with('success', 'Албан тушаал шинэчлэгдлээ.');
     }

@@ -3,6 +3,7 @@
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\DoctorMiddleware;
 use App\Http\Middleware\EitherAuthMiddleware;
+use App\Http\Middleware\EnsureSealUnlocked;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\HrMiddleware;
 use App\Http\Middleware\LabMiddleware;
@@ -38,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'lab' => LabMiddleware::class,
             'patient' => PatientMiddleware::class,
             'either.auth' => EitherAuthMiddleware::class,
+            'seal' => EnsureSealUnlocked::class,
         ]);
 
         // QPay callback + Meta webhook — гадны сервер дуудах тул CSRF-аас чөлөөлөх

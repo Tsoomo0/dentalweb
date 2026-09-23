@@ -20,10 +20,12 @@ use App\Http\Controllers\HR\OrthoScheduleController;
 use App\Http\Controllers\HR\PayrollController;
 use App\Http\Controllers\HR\PositionController;
 use App\Http\Controllers\HR\ReceptionBonusController;
+use App\Http\Controllers\HR\SealLockController;
 use App\Http\Controllers\HR\SupportScheduleController;
 use App\Http\Controllers\HR\VacationRequestController;
 use App\Http\Controllers\HR\WarningController;
 use App\Http\Controllers\HR\WorkScheduleController;
+use App\Http\Controllers\SignatureController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () {
@@ -160,18 +162,34 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     Route::post('document-templates/{documentTemplate}/duplicate', [DocumentTemplateController::class, 'duplicate'])->name('document-templates.duplicate');
     Route::delete('document-templates/{documentTemplate}', [DocumentTemplateController::class, 'destroy'])->name('document-templates.destroy');
 
+    // ── Тамга / гарын үсгийн түгжээ ──────────────────────────────────────────
+    // HR портал нь хүн нөөцийн бүх ажилтанд нээлттэй тул тамга солих, захирлын
+    // гарын үсэг зурах үйлдлийг нэмэлт PIN кодоор хамгаална.
+    Route::get('seal', [SealLockController::class, 'status'])->name('seal.status');
+    Route::post('seal/unlock', [SealLockController::class, 'unlock'])->middleware('throttle:10,1')->name('seal.unlock');
+    Route::post('seal/lock', [SealLockController::class, 'lock'])->name('seal.lock');
+
     // ── Байгууллагын тамга ───────────────────────────────────────────────────
     Route::get('company-stamp', [CompanyStampController::class, 'show'])->name('company-stamp.show');
-    Route::post('company-stamp', [CompanyStampController::class, 'store'])->name('company-stamp.store');
-    Route::delete('company-stamp', [CompanyStampController::class, 'destroy'])->name('company-stamp.destroy');
+    Route::post('company-stamp', [CompanyStampController::class, 'store'])->middleware('seal')->name('company-stamp.store');
+    Route::delete('company-stamp', [CompanyStampController::class, 'destroy'])->middleware('seal')->name('company-stamp.destroy');
     Route::get('company-stamp/preview', [CompanyStampController::class, 'preview'])->name('company-stamp.preview');
+
+    // ── Захирлын хадгалсан гарын үсэг — бичих үйлдэл түгжээтэй ───────────────
+    // Ажилтан өөрийн баримтад гарын үсэг зурахад /signatures (түгжээгүй) чигээр
+    // үлдэнэ; энд зөвхөн HR талын гэрээний дэлгэцээс хийх өөрчлөлт түгжигдэнэ.
+    Route::get('signatures', [SignatureController::class, 'index'])->middleware('throttle:60,1')->name('signatures.index');
+    Route::post('signatures', [SignatureController::class, 'store'])->middleware(['seal', 'throttle:20,1'])->name('signatures.store');
+    Route::patch('signatures/{signature}/default', [SignatureController::class, 'setDefault'])->middleware('seal')->name('signatures.default');
+    Route::post('signatures/{signature}/touch', [SignatureController::class, 'touch'])->middleware('throttle:60,1')->name('signatures.touch');
+    Route::delete('signatures/{signature}', [SignatureController::class, 'destroy'])->middleware('seal')->name('signatures.destroy');
 
     // ── Ажилтны гэрээ / ажлын байрны тодорхойлолт ────────────────────────────
     Route::get('employee-documents', [EmployeeDocumentController::class, 'index'])->name('employee-documents.index');
     Route::post('employee-documents', [EmployeeDocumentController::class, 'store'])->name('employee-documents.store');
     Route::get('employee-documents/{employeeDocument}/content', [EmployeeDocumentController::class, 'show'])->name('employee-documents.content');
     Route::put('employee-documents/{employeeDocument}', [EmployeeDocumentController::class, 'update'])->name('employee-documents.update');
-    Route::post('employee-documents/{employeeDocument}/sign', [EmployeeDocumentController::class, 'signEmployer'])->name('employee-documents.sign');
+    Route::post('employee-documents/{employeeDocument}/sign', [EmployeeDocumentController::class, 'signEmployer'])->middleware('seal')->name('employee-documents.sign');
     Route::post('employee-documents/{employeeDocument}/remind', [EmployeeDocumentController::class, 'remind'])->name('employee-documents.remind');
     Route::post('employee-documents/{employeeDocument}/redeliver', [EmployeeDocumentController::class, 'redeliver'])->name('employee-documents.redeliver');
     Route::patch('employee-documents/{employeeDocument}/cancel', [EmployeeDocumentController::class, 'cancel'])->name('employee-documents.cancel');

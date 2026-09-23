@@ -39,7 +39,7 @@ class CompanyStampTest extends TestCase
 
         $this->actingAs($admin)->getJson('/hr/company-stamp')->assertOk()->assertJsonPath('has_stamp', false);
 
-        $this->actingAs($admin)
+        $this->unlockSeal()->actingAs($admin)
             ->postJson('/hr/company-stamp', ['image' => self::PNG])
             ->assertOk()
             ->assertJsonPath('has_stamp', true);
@@ -55,7 +55,7 @@ class CompanyStampTest extends TestCase
     {
         Storage::fake(CompanyStamp::DISK);
 
-        $this->actingAs($this->admin())
+        $this->unlockSeal()->actingAs($this->admin())
             ->postJson('/hr/company-stamp', ['image' => 'data:text/html;base64,PHNjcmlwdD4='])
             ->assertStatus(422);
 
@@ -69,7 +69,7 @@ class CompanyStampTest extends TestCase
         Notification::fake();
 
         $admin = $this->admin();
-        $this->actingAs($admin)->postJson('/hr/company-stamp', ['image' => self::PNG])->assertOk();
+        $this->unlockSeal()->actingAs($admin)->postJson('/hr/company-stamp', ['image' => self::PNG])->assertOk();
 
         $document = $this->draft();
 
@@ -95,7 +95,7 @@ class CompanyStampTest extends TestCase
         Notification::fake();
 
         $admin = $this->admin();
-        $this->actingAs($admin)->postJson('/hr/company-stamp', ['image' => self::PNG]);
+        $this->unlockSeal()->actingAs($admin)->postJson('/hr/company-stamp', ['image' => self::PNG]);
 
         $document = $this->draft();
 

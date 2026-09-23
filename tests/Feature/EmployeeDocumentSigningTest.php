@@ -99,7 +99,7 @@ class EmployeeDocumentSigningTest extends TestCase
         $document = $this->makeDraft($employee, $this->template());
 
         $this->actingAs($this->hrUser())
-            ->post("/hr/employee-documents/{$document->id}/sign", [
+            ->unlockSeal()->post("/hr/employee-documents/{$document->id}/sign", [
                 'signature' => self::SIGNATURE,
                 'employer_name' => 'Ж. Оюунбилэг',
                 'employer_position' => 'Гүйцэтгэх захирал',
@@ -124,7 +124,7 @@ class EmployeeDocumentSigningTest extends TestCase
         $director = $this->hrUser();
         $document = $this->makeDraft($employee, $this->template());
 
-        $this->actingAs($director)->post("/hr/employee-documents/{$document->id}/sign", [
+        $this->actingAs($director)->unlockSeal()->post("/hr/employee-documents/{$document->id}/sign", [
             'signature' => self::SIGNATURE,
             'employer_name' => 'Ж. Оюунбилэг',
             'employer_position' => 'Гүйцэтгэх захирал',
@@ -203,7 +203,7 @@ class EmployeeDocumentSigningTest extends TestCase
         $template = $this->template(['requires_employee_signature' => false]);
         $document = $this->makeDraft($employee, $template);
 
-        $this->actingAs($this->hrUser())->post("/hr/employee-documents/{$document->id}/sign", [
+        $this->actingAs($this->hrUser())->unlockSeal()->post("/hr/employee-documents/{$document->id}/sign", [
             'signature' => self::SIGNATURE,
             'employer_name' => 'Ж. Оюунбилэг',
             'employer_position' => 'Гүйцэтгэх захирал',

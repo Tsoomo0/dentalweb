@@ -3,6 +3,7 @@ import SignatureInput, { type SignatureInputRef } from '@/components/signature-i
 import RichTextEditor, { type RichTextEditorRef } from '@/components/rich-text-editor';
 import DocumentViewer, { DOC_STYLES, signatureBlockHtml } from '@/components/document-viewer';
 import CompanyStampManager from '@/components/company-stamp-manager';
+import { SealUnlockPanel, SealUnlockedBadge, useSealLock } from '@/components/seal-lock';
 import {
     Avatar, CompletionRing, HR_PANEL_FX, SignProgress, StatusPill, StepBadge, statusOf,
 } from '@/components/hr/document-status';
@@ -11,7 +12,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import {
     AlertCircle, ArrowLeft, Ban, BellRing, CheckCircle2, ChevronLeft, ChevronRight,
     Download, Eye, FilePlus2, FileSignature, FileText, Loader2, MailCheck, MailWarning, MoreHorizontal,
-    PenLine, Pencil, Plus, Search, Send, Stamp, Trash2, X, XCircle,
+    Lock, PenLine, Pencil, Plus, Search, Send, Stamp, Trash2, X, XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, FormEvent } from 'react';
 
@@ -368,11 +369,13 @@ export default function EmployeeDocumentsIndex() {
                                 )}
                             </div>
 
-                            <button onClick={() => setShowStamp(true)} title={stamp ? 'Байгууллагын тамга' : 'Тамга оруулаагүй байна'}
+                            <button onClick={() => setShowStamp(true)}
+                                title={stamp ? 'Байгууллагын тамга — түгжээтэй' : 'Тамга оруулаагүй байна — түгжээтэй'}
                                 className={`flex h-9 items-center gap-1.5 rounded-xl border bg-background/70 px-2.5 text-xs font-medium shadow-sm backdrop-blur transition-all hover:-translate-y-px hover:bg-muted active:translate-y-0 active:scale-[0.97] ${
                                     stamp ? 'border-border/70 text-muted-foreground' : 'border-amber-400/60 text-amber-600 dark:text-amber-400'}`}>
                                 <Stamp className="size-3.5" />
                                 <span className="hidden sm:inline">{stamp ? 'Тамга' : 'Тамга оруулах'}</span>
+                                <Lock className="size-3 opacity-60" />
                             </button>
 
                             <button onClick={() => setShowCreate(true)}
@@ -1102,8 +1105,10 @@ function EmployerSignModal({ doc, defaults, stamp, onClose }: {
 }) {
     const sigRef = useRef<SignatureInputRef>(null);
     const body = useDocumentBody(doc.id);
-    // Гэрээг тав тухтай уншихын тулд гарын үсгийн хэсгийг тусад нь 2 дахь алхам болгов
-    const [step, setStep] = useState<'read' | 'sign'>('read');
+    const seal = useSealLock();
+    // Гэрээг тав тухтай уншихын тулд гарын үсгийн хэсгийг тусад нь 2 дахь алхам болгов.
+    // Хооронд нь «unlock» алхам орж, захирлын гарын үсэгт хүрэхэд код асууна.
+    const [step, setStep] = useState<'read' | 'unlock' | 'sign'>('read');
     const [signature, setSignature] = useState('');
     const [name, setName] = useState(doc.employer_name || defaults.name);
     const [position, setPosition] = useState(doc.employer_position || defaults.position);
@@ -1128,8 +1133,22 @@ function EmployerSignModal({ doc, defaults, stamp, onClose }: {
         }, {
             preserveScroll: true,
             onSuccess: onClose,
+            onError: errors => {
+                // Түгжээ хугацаа дуусч хаагдсан бол кодыг дахин асууна
+                if (errors.seal) {
+                    seal.markLocked();
+                    setStep('unlock');
+                }
+            },
             onFinish: () => setProcessing(false),
         });
+    }
+
+    /** Гарын үсгийн алхам руу шилжинэ — түгжээтэй бол эхлээд кодыг асууна. */
+    async function goToSign() {
+        // Төлөв хараахан ирээгүй бол дэмий код асуухгүйн тулд нэг дахин шалгана
+        const open = seal.unlocked ?? await seal.refresh();
+        setStep(open ? 'sign' : 'unlock');
     }
 
     return (
@@ -1140,11 +1159,22 @@ function EmployerSignModal({ doc, defaults, stamp, onClose }: {
                         <h2 className="truncate font-semibold text-foreground">{doc.title}</h2>
                         <p className="text-xs text-muted-foreground">{doc.employee_name} · {doc.type_label}</p>
                     </div>
-                    <StepBadge step={step} labels={['Уншиж танилцах', 'Гарын үсэг']} />
-                    <button type="button" onClick={onClose}><X className="size-4.5 text-muted-foreground" /></button>
+                    <StepBadge step={step === 'read' ? 'read' : 'sign'} labels={['Уншиж танилцах', 'Гарын үсэг']} />
+                    <div className="flex shrink-0 items-center gap-2">
+                        {seal.unlocked && <SealUnlockedBadge remaining={seal.remaining} onRelock={seal.relock} />}
+                        <button type="button" onClick={onClose}><X className="size-4.5 text-muted-foreground" /></button>
+                    </div>
                 </div>
 
-                {step === 'read' ? (
+                {step === 'unlock' ? (
+                    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
+                        <SealUnlockPanel
+                            description="Гэрээнд захирлын гарын үсэг зурахад хамгаалалтын код шаардлагатай."
+                            onUnlocked={expiresIn => { seal.onUnlocked(expiresIn); setStep('sign'); }}
+                            onCancel={() => setStep('read')}
+                        />
+                    </div>
+                ) : step === 'read' ? (
                     <>
                         {body === null
                             ? <BodyLoader />
@@ -1157,9 +1187,10 @@ function EmployerSignModal({ doc, defaults, stamp, onClose }: {
                             <div className="ml-auto flex gap-2">
                                 <button type="button" onClick={onClose}
                                     className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Болих</button>
-                                <button type="button" onClick={() => setStep('sign')}
+                                <button type="button" onClick={goToSign}
                                     className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors">
-                                    <PenLine className="size-4" /> Гарын үсэг зурах
+                                    {seal.unlocked ? <PenLine className="size-4" /> : <Lock className="size-4" />}
+                                    Гарын үсэг зурах
                                 </button>
                             </div>
                         </div>
@@ -1190,6 +1221,8 @@ function EmployerSignModal({ doc, defaults, stamp, onClose }: {
                                 <SignatureInput
                                     ref={sigRef}
                                     height={200}
+                                    apiBase="/hr/signatures"
+                                    onLocked={() => { seal.markLocked(); setStep('unlock'); }}
                                     onChange={value => { setSignature(value); if (value) setError(''); }}
                                 />
                                 {error && <p className="mt-1.5 text-xs text-red-500">{error}</p>}

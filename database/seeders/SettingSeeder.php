@@ -272,6 +272,15 @@ class SettingSeeder extends Seeder
                 'type' => 'password',
                 'is_sensitive' => true,
             ],
+            [
+                'key' => 'document_seal_code',
+                'value' => '1234',
+                'group' => 'system',
+                'label' => 'Тамга / гарын үсгийн хамгаалалтын код',
+                'description' => 'Байгууллагын тамга солих, захирлын гарын үсэг зурахад шаардагдах PIN код',
+                'type' => 'password',
+                'is_sensitive' => true,
+            ],
         ];
 
         foreach ($settings as $setting) {

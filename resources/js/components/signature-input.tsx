@@ -26,6 +26,14 @@ interface Props {
     height?: number;
     /** Утга өөрчлөгдөх бүрд дуудагдана — товч идэвхжүүлэхэд ашиглана. */
     onChange?: (value: string) => void;
+    /**
+     * Гарын үсгийн сангийн API суурь зам. HR талын гэрээний дэлгэцээс
+     * `/hr/signatures` дамжуулснаар нэмэх/устгах үйлдэл түгжээтэй болно;
+     * ажилтны хувийн хэсэгт анхны утга (`/signatures`) хэвээр үлдэнэ.
+     */
+    apiBase?: string;
+    /** Сервер түгжээтэй гэж хариулбал (423) дуудагдана. */
+    onLocked?: () => void;
 }
 
 type Tab = 'saved' | 'draw' | 'upload';
@@ -35,7 +43,7 @@ type Tab = 'saved' | 'draw' | 'upload';
  * хадгалсанаас сонгох гурван арга.
  */
 const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureInput(
-    { height = 190, onChange },
+    { height = 190, onChange, apiBase = '/signatures', onLocked },
     ref
 ) {
     const sigRef = useRef<SignaturePadRef>(null);
@@ -56,7 +64,7 @@ const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureIn
     /* ── Хадгалсан гарын үсгүүдээ татна ── */
     useEffect(() => {
         let alive = true;
-        fetch('/signatures', { headers: csrfHeaders() })
+        fetch(apiBase, { headers: csrfHeaders() })
             .then(r => (r.ok ? r.json() : { signatures: [] }))
             .then((data: { signatures: SavedSignature[] }) => {
                 if (!alive) return;
@@ -100,7 +108,7 @@ const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureIn
             const value = currentValue();
             // Хадгалсан гарын үсэг ашиглавал сүүлд хэрэглэсэн огноог тэмдэглэнэ
             if (tab === 'saved' && selectedId) {
-                fetch(`/signatures/${selectedId}/touch`, { method: 'POST', headers: csrfHeaders() }).catch(() => {});
+                fetch(`${apiBase}/${selectedId}/touch`, { method: 'POST', headers: csrfHeaders() }).catch(() => {});
             }
 
             return value;
@@ -111,7 +119,7 @@ const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureIn
             setUploaded('');
             emit('');
         },
-    }), [currentValue, tab, selectedId, emit]);
+    }), [currentValue, tab, selectedId, emit, apiBase]);
 
     function switchTab(next: Tab) {
         setTab(next);
@@ -153,12 +161,18 @@ const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureIn
 
         setBusy(true);
         try {
-            const res = await fetch('/signatures', {
+            const res = await fetch(apiBase, {
                 method: 'POST',
                 headers: { ...csrfHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: value, label: label.trim() || null, source: tab === 'upload' ? 'upload' : 'draw' }),
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 423) {
+                setNotice({ text: data.message ?? 'Түгжээ хаагдсан байна.', kind: 'err' });
+                onLocked?.();
+
+                return;
+            }
             if (!res.ok) {
                 setNotice({ text: data.message ?? 'Хадгалж чадсангүй.', kind: 'err' });
 
@@ -177,13 +191,29 @@ const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureIn
     }
 
     async function makeDefault(id: number) {
-        await fetch(`/signatures/${id}/default`, { method: 'PATCH', headers: csrfHeaders() }).catch(() => {});
+        const res = await fetch(`${apiBase}/${id}/default`, { method: 'PATCH', headers: csrfHeaders() }).catch(() => null);
+
+        if (res?.status === 423) {
+            setNotice({ text: 'Түгжээ хаагдсан байна.', kind: 'err' });
+            onLocked?.();
+
+            return;
+        }
+
         setSaved(prev => prev.map(s => ({ ...s, is_default: s.id === id })));
     }
 
     async function remove(id: number) {
         if (!confirm('Энэ гарын үсгийг устгах уу?')) return;
-        await fetch(`/signatures/${id}`, { method: 'DELETE', headers: csrfHeaders() }).catch(() => {});
+        const res = await fetch(`${apiBase}/${id}`, { method: 'DELETE', headers: csrfHeaders() }).catch(() => null);
+
+        if (res?.status === 423) {
+            setNotice({ text: 'Түгжээ хаагдсан байна.', kind: 'err' });
+            onLocked?.();
+
+            return;
+        }
+
         setSaved(prev => prev.filter(s => s.id !== id));
         if (selectedId === id) {
             setSelectedId(null);

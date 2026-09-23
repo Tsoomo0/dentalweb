@@ -15,14 +15,16 @@ use App\Models\HR\Position;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\HR\DoctorAccountSync;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
-use Maatwebsite\Excel\Facades\Excel;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class EmployeeController extends Controller
 {
@@ -83,7 +85,7 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function exportExcel(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function exportExcel(): BinaryFileResponse
     {
         $employees = Employee::with(['branch', 'position'])
             ->orderBy('last_name')->get();
@@ -113,41 +115,41 @@ class EmployeeController extends Controller
         }
 
         $request->validate([
-            'last_name'       => 'required|string|max:100',
-            'first_name'      => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
             'register_number' => 'required|string|max:20|unique:employees,register_number',
-            'birth_date'      => 'required|date',
-            'gender'          => 'required|in:male,female',
-            'phone'           => 'required|string|max:20',
-            'branch_id'       => 'required|exists:branches,id',
-            'position_id'     => 'required|exists:positions,id',
-            'hired_date'      => 'required|date',
-            'salary'          => 'required|numeric|min:0',
-            'username'        => 'required|string|unique:users,name',
-            'password'        => 'required|string|min:6',
-            'email'           => 'nullable|email|max:191|unique:users,email',
-            'extra_portals'   => 'nullable|array',
+            'birth_date' => 'required|date',
+            'gender' => 'required|in:male,female',
+            'phone' => 'required|string|max:20',
+            'branch_id' => 'required|exists:branches,id',
+            'position_id' => 'required|exists:positions,id',
+            'hired_date' => 'required|date',
+            'salary' => 'required|numeric|min:0',
+            'username' => 'required|string|unique:users,name',
+            'password' => 'required|string|min:6',
+            'email' => 'nullable|email|max:191|unique:users,email',
+            'extra_portals' => 'nullable|array',
             'extra_portals.*' => 'in:reception,lab,hr',
-            'schedule_permissions'   => 'nullable|array',
+            'schedule_permissions' => 'nullable|array',
             'schedule_permissions.*' => 'in:clinic,ortho,xray,sterile,reception,cleaner,technician',
         ], [
-            'last_name.required'       => 'Овог заавал бөглөнө үү.',
-            'first_name.required'      => 'Нэр заавал бөглөнө үү.',
+            'last_name.required' => 'Овог заавал бөглөнө үү.',
+            'first_name.required' => 'Нэр заавал бөглөнө үү.',
             'register_number.required' => 'Регистрийн дугаар заавал бөглөнө үү.',
-            'register_number.unique'   => 'Энэ регистрийн дугаар аль хэдийн бүртгэгдсэн байна.',
-            'birth_date.required'      => 'Төрсөн огноо заавал бөглөнө үү.',
-            'gender.required'          => 'Хүйс заавал сонгоно уу.',
-            'phone.required'           => 'Утасны дугаар заавал бөглөнө үү.',
-            'branch_id.required'       => 'Салбар заавал сонгоно уу.',
-            'position_id.required'     => 'Албан тушаал заавал сонгоно уу.',
-            'hired_date.required'      => 'Ажилд орсон огноо заавал бөглөнө үү.',
-            'salary.required'          => 'Цалин заавал бөглөнө үү.',
-            'username.required'        => 'Нэвтрэх нэр заавал бөглөнө үү.',
-            'username.unique'          => 'Энэ нэвтрэх нэр аль хэдийн бүртгэгдсэн байна.',
-            'password.required'        => 'Нууц үг заавал бөглөнө үү.',
-            'password.min'             => 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой.',
-            'email.unique'             => 'Энэ имэйл хаяг аль хэдийн бүртгэгдсэн байна.',
-            'email.email'              => 'Зөв имэйл хаяг оруулна уу.',
+            'register_number.unique' => 'Энэ регистрийн дугаар аль хэдийн бүртгэгдсэн байна.',
+            'birth_date.required' => 'Төрсөн огноо заавал бөглөнө үү.',
+            'gender.required' => 'Хүйс заавал сонгоно уу.',
+            'phone.required' => 'Утасны дугаар заавал бөглөнө үү.',
+            'branch_id.required' => 'Салбар заавал сонгоно уу.',
+            'position_id.required' => 'Албан тушаал заавал сонгоно уу.',
+            'hired_date.required' => 'Ажилд орсон огноо заавал бөглөнө үү.',
+            'salary.required' => 'Цалин заавал бөглөнө үү.',
+            'username.required' => 'Нэвтрэх нэр заавал бөглөнө үү.',
+            'username.unique' => 'Энэ нэвтрэх нэр аль хэдийн бүртгэгдсэн байна.',
+            'password.required' => 'Нууц үг заавал бөглөнө үү.',
+            'password.min' => 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой.',
+            'email.unique' => 'Энэ имэйл хаяг аль хэдийн бүртгэгдсэн байна.',
+            'email.email' => 'Зөв имэйл хаяг оруулна уу.',
         ]);
 
         // Email оруулаагүй бол auto-generated email-ийн uniqueness шалгах
@@ -462,50 +464,7 @@ class EmployeeController extends Controller
 
             // Холбоотой Doctor record-ыг албан тушаалтай тааруулах
             $employee->refresh();
-            $isDoctorPosition = $employee->position?->portal === 'doctor';
-            $doctor = $employee->doctor()->withTrashed()->first();
-
-            if (! $isDoctorPosition) {
-                // Эмчийн тушаалаас өөр тушаал руу шилжсэн — эмчийн нэвтрэлтийг хаана.
-                // Үлдсэн Doctor бүртгэл нь ижил мэйл/нууц үгтэй тул нэвтрэх үед
-                // doctor guard-д эхэлж баригдаад, ажилтныг өөрийн порталд
-                // (lab, reception гэх мэт) оруулахгүй болгодог.
-                $doctor?->delete();
-            } elseif ($doctor) {
-                $syncData = [
-                    'branch_id' => $employee->branch_id,
-                    'name' => $employee->full_name,
-                    'specialization' => $employee->position?->name ?? $doctor->specialization,
-                    'phone' => $employee->phone,
-                    'email' => $employee->email,
-                ];
-                if ($request->hasFile('photo')) {
-                    $syncData['photo'] = $employee->photo;
-                }
-                if ($doctor->trashed()) {
-                    $doctor->restore();
-                }
-                $doctor->update($syncData);
-                if ($employee->branch_id) {
-                    $doctor->branches()->sync([$employee->branch_id]);
-                }
-            } else {
-                // Эмчийн тушаал руу шинээр шилжсэн — Doctor бүртгэл үүсгэнэ.
-                $doctor = Doctor::create([
-                    'employee_id' => $employee->id,
-                    'branch_id' => $employee->branch_id,
-                    'name' => $employee->full_name,
-                    'specialization' => $employee->position?->name,
-                    'phone' => $employee->phone,
-                    'email' => $employee->user?->email ?? $employee->email,
-                    'photo' => $employee->photo,
-                    'is_active' => true,
-                    'password' => $employee->user?->password,
-                ]);
-                if ($employee->branch_id) {
-                    $doctor->branches()->sync([$employee->branch_id]);
-                }
-            }
+            DoctorAccountSync::sync($employee, $request->hasFile('photo'));
         });
 
         AuditService::log('updated', $employee, null,
@@ -551,9 +510,9 @@ class EmployeeController extends Controller
         //   reception → receptionist
         //   бусад     → employee (зөвхөн /my хэсэгрүү нэвтэрнэ)
         $roleName = match ($portal) {
-            'admin'     => 'admin',
+            'admin' => 'admin',
             'reception' => 'receptionist',
-            default     => 'employee',
+            default => 'employee',
         };
 
         // Олдохгүй бол employee-руу буулгана (admin БИШ — security)
