@@ -19,6 +19,7 @@ interface Extension {
     branch_name: string | null;
     user_id: number | null;
     user_name: string | null;
+    staff_name: string | null;
     label: string | null;
     is_active: boolean;
 }
@@ -31,7 +32,7 @@ interface Queue {
     is_active: boolean;
 }
 interface Branch { id: number; name: string }
-interface Staff { id: number; name: string }
+interface Staff { id: number; name: string; position: string | null }
 interface UnmappedAgent { agent: string; total: number; last_seen: string | null }
 interface UnmappedQueue { queue_name: string; total: number; last_seen: string | null }
 interface Operations {
@@ -63,8 +64,8 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
     const [editingQueueId, setEditingQueueId] = useState<number | null>(null);
     const [showAddQueue, setShowAddQueue] = useState(false);
 
-    const extAdd = useForm({ extension: '', branch_id: '', user_id: '', label: '', is_active: true as boolean });
-    const extEdit = useForm({ extension: '', branch_id: '', user_id: '', label: '', is_active: true as boolean });
+    const extAdd = useForm({ extension: '', branch_id: '', user_id: '', staff_name: '', label: '', is_active: true as boolean });
+    const extEdit = useForm({ extension: '', branch_id: '', user_id: '', staff_name: '', label: '', is_active: true as boolean });
     const queueAdd = useForm({ name: '', branch_id: '', label: '', is_active: true as boolean });
     const queueEdit = useForm({ name: '', branch_id: '', label: '', is_active: true as boolean });
 
@@ -82,6 +83,7 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
             extension: e.extension,
             branch_id: e.branch_id ? String(e.branch_id) : '',
             user_id: e.user_id ? String(e.user_id) : '',
+            staff_name: e.staff_name ?? '',
             label: e.label ?? '',
             is_active: e.is_active,
         });
@@ -113,7 +115,7 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
     function prefillAgent(agent: string) {
         setEditingExtId(null);
         setShowAddExt(true);
-        extAdd.setData({ extension: agent, branch_id: '', user_id: '', label: '', is_active: true });
+        extAdd.setData({ extension: agent, branch_id: '', user_id: '', staff_name: '', label: '', is_active: true });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -212,7 +214,9 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
                     />
                     <CardNote>
                         Хариулсан дуудлага энэ дугаараар салбартаа хуваарилагдана. Салбарыг хоосон
-                        орхивол аль ч салбарт харьяалагдахгүй (жишээ: 504 — мэдээлэл авах).
+                        орхивол аль ч салбарт харьяалагдахгүй. Алдсан дуудлагын мэдэгдэл нь
+                        дугаарт холбогдсон ажилтанд очдог тул хүн бүрийнхээ дугаарыг холбоно уу —
+                        нийтийн суурин утсыг хүнд холбохын оронд гараар тэмдэглэнэ.
                     </CardNote>
 
                     {showAddExt && (
@@ -239,16 +243,14 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
                                     {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                                 </select>
                             </Field>
-                            <Field label="Ажилтан" error={extAdd.errors.user_id}>
-                                <select
-                                    value={extAdd.data.user_id}
-                                    onChange={(e) => extAdd.setData('user_id', e.target.value)}
-                                    className={INPUT}
-                                >
-                                    <option value="">— заавал биш —</option>
-                                    {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
-                            </Field>
+                            <StaffField
+                                staff={staff}
+                                userId={extAdd.data.user_id}
+                                staffName={extAdd.data.staff_name}
+                                onUserId={(v) => extAdd.setData('user_id', v)}
+                                onStaffName={(v) => extAdd.setData('staff_name', v)}
+                                error={extAdd.errors.user_id ?? extAdd.errors.staff_name}
+                            />
                             <Field label="Тайлбар" error={extAdd.errors.label}>
                                 <input
                                     value={extAdd.data.label}
@@ -313,16 +315,14 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
                                                             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                                                         </select>
                                                     </Field>
-                                                    <Field label="Ажилтан" error={extEdit.errors.user_id}>
-                                                        <select
-                                                            value={extEdit.data.user_id}
-                                                            onChange={(ev) => extEdit.setData('user_id', ev.target.value)}
-                                                            className={INPUT}
-                                                        >
-                                                            <option value="">— ажилтангүй —</option>
-                                                            {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                                        </select>
-                                                    </Field>
+                                                    <StaffField
+                                                        staff={staff}
+                                                        userId={extEdit.data.user_id}
+                                                        staffName={extEdit.data.staff_name}
+                                                        onUserId={(v) => extEdit.setData('user_id', v)}
+                                                        onStaffName={(v) => extEdit.setData('staff_name', v)}
+                                                        error={extEdit.errors.user_id ?? extEdit.errors.staff_name}
+                                                    />
                                                     <Field label="Тайлбар" error={extEdit.errors.label}>
                                                         <input
                                                             value={extEdit.data.label}
@@ -354,7 +354,12 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
                                             <td className={TD}>
                                                 {e.branch_name ?? <span className="text-muted-foreground">салбаргүй</span>}
                                             </td>
-                                            <td className={TD}>{e.user_name ?? <span className="text-muted-foreground">—</span>}</td>
+                                            <td className={TD}>
+                                                {e.user_name
+                                                    ?? (e.staff_name
+                                                        ? <span className="text-muted-foreground italic">{e.staff_name}</span>
+                                                        : <span className="text-muted-foreground">—</span>)}
+                                            </td>
                                             <td className={cn(TD, 'text-muted-foreground')}>{e.label ?? '—'}</td>
                                             <td className={TD}><StatusPill active={e.is_active} /></td>
                                             <td className={TD}>
@@ -573,6 +578,56 @@ export default function CallSettings({ extensions, queues, branches, staff, unma
                 )}
             </div>
         </AppLayout>
+    );
+}
+
+/**
+ * Дугаарыг ХҮНД эсвэл ТЭМДЭГЛЭГЭЭНД холбоно.
+ *
+ * Бүх дугаар тодорхой нэг хүнийх байдаггүй: ресепшний ширээн дээрх суурин
+ * утсыг хэд хэдэн ажилтан ээлжлэн авдаг. Ийм дугаарыг хүнд холбож болохгүй,
+ * гэхдээ хоосон орхивол тохиргоо дутуу юу, зориуд хоосон юу нь ялгагдахгүй.
+ *
+ * Хоёулаа зэрэг бөглөгдөхгүй: ажилтан сонгомогц гараар бичих нүд хаагдана.
+ * Алдсан дуудлагын мэдэгдэл ХҮНД холбогдсон дугаараар л хаяглагддаг тул
+ * «хэн хариуцах вэ» гэдэгт нэг л хариулт байх ёстой.
+ */
+function StaffField({ staff, userId, staffName, onUserId, onStaffName, error }: {
+    staff: Staff[];
+    userId: string;
+    staffName: string;
+    onUserId: (v: string) => void;
+    onStaffName: (v: string) => void;
+    error?: string;
+}) {
+    const linked = userId !== '';
+
+    return (
+        <Field label="Ажилтан" error={error}>
+            <select
+                value={userId}
+                onChange={(e) => {
+                    onUserId(e.target.value);
+                    if (e.target.value !== '') onStaffName('');
+                }}
+                className={INPUT}
+            >
+                <option value="">— хүнд холбоогүй —</option>
+                {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                        {s.position ? `${s.name} · ${s.position}` : s.name}
+                    </option>
+                ))}
+            </select>
+
+            <input
+                value={linked ? '' : staffName}
+                onChange={(e) => onStaffName(e.target.value)}
+                disabled={linked}
+                placeholder="эсвэл гараар: Суурин утас"
+                className={cn(INPUT, 'mt-1.5', linked && 'opacity-50')}
+            />
+        </Field>
     );
 }
 

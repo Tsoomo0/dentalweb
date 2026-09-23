@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CallExtension extends Model
 {
-    protected $fillable = ['extension', 'branch_id', 'user_id', 'label', 'is_active'];
+    protected $fillable = ['extension', 'branch_id', 'user_id', 'staff_name', 'label', 'is_active'];
 
     protected $casts = ['is_active' => 'boolean'];
 

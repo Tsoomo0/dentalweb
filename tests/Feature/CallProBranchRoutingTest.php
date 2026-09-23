@@ -28,7 +28,7 @@ class CallProBranchRoutingTest extends TestCase
     {
         parent::setUp();
 
-        foreach (['Сансар', 'Хороолол', 'Цамбагарав', 'Яармаг'] as $name) {
+        foreach (['Оффис', 'Сансар', 'Хороолол', 'Цамбагарав', 'Яармаг'] as $name) {
             Branch::create(['name' => $name]);
         }
 
@@ -50,9 +50,9 @@ class CallProBranchRoutingTest extends TestCase
         $this->assertSame($this->branchId('Сансар'), CallQueue::where('name', '1')->value('branch_id'));
         $this->assertSame($this->branchId('Яармаг'), CallQueue::where('name', '4')->value('branch_id'));
 
-        // 4 салбарын 17 дугаар + мэдээллийн 504
+        // 4 салбарын 17 дугаар + операторын 504
         $this->assertSame(18, CallExtension::count());
-        // IVR-ийн 1-4 товч + салбаргүй 0 (мэдээлэл авах)
+        // IVR-ийн 0–4 товч
         $this->assertSame(5, CallQueue::count());
     }
 
@@ -113,12 +113,17 @@ class CallProBranchRoutingTest extends TestCase
     }
 
     /**
-     * Мэдээллийн дугаар (504) аль ч салбарт харьяалагдахгүй — бүх салбарын
-     * үйлчлүүлэгч холбогддог тул нэгд нь хамааруулж болохгүй.
+     * Оператор (0 товч, 504 дугаар) нь Оффис салбарт сууна.
+     *
+     * Ганц хүн ажилладаг тул түүний алдсан дуудлага өөр салбар руу тарах
+     * ёсгүй — 0 товч ба 504 дугаар хоёулаа Оффист холбогдоно.
      */
-    public function test_information_desk_has_no_branch(): void
+    public function test_operator_belongs_to_the_office_branch(): void
     {
-        $this->assertNull(CallExtension::where('extension', '504')->value('branch_id'));
+        $office = $this->branchId('Оффис');
+
+        $this->assertSame($office, CallExtension::where('extension', '504')->value('branch_id'));
+        $this->assertSame($office, CallQueue::where('name', '0')->value('branch_id'));
 
         $this->hook('answered', [
             'unique_id' => 'info.1',
@@ -129,15 +134,20 @@ class CallProBranchRoutingTest extends TestCase
 
         $call = Call::where('unique_id', 'info.1')->first();
         $this->assertSame('504', $call->agent);
-        $this->assertNull($call->branch_id);
+        $this->assertSame($office, $call->branch_id);
     }
 
-    /** Бүртгэлтэй боловч зориуд салбаргүй queue. */
+    /**
+     * Бүртгэлтэй боловч ЗОРИУД салбаргүй queue.
+     *
+     * Нэг салбарт хамааруулах боломжгүй дараалал (жишээ нь хэд хэдэн салбарт
+     * нэгэн зэрэг хонх дуугаргадаг) ирвэл салбар хоосон үлдэнэ.
+     */
     public function test_shared_queue_is_registered_without_branch(): void
     {
-        $this->assertNull(CallQueue::where('name', '0')->value('branch_id'));
+        CallQueue::create(['name' => '9', 'branch_id' => null, 'label' => 'Нийтийн', 'is_active' => true]);
 
-        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => '0']);
+        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => '9']);
 
         $call = Call::first();
         $this->assertTrue($call->is_missed);
@@ -164,7 +174,8 @@ class CallProBranchRoutingTest extends TestCase
             'branch_id' => $this->branchId('Сансар'),
         ]);
 
-        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => '0']);
+        // Бүртгэлгүй queue — IVR дээр товч дарж амжаагүй дуудлагатай ижил.
+        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => 'тодорхойгүй']);
 
         $this->assertNull(Call::first()->branch_id);
 

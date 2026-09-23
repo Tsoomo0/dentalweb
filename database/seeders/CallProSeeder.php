@@ -27,6 +27,12 @@ class CallProSeeder extends Seeder
      * дээр 1 дарвал queue_name="1" ирнэ. Бодит дуудлагаар баталсан (2026-09-23).
      */
     private const BRANCHES = [
+        // Мэдээллийн ажилтан (оператор) — 0 дарахад түүн рүү холбогдоно.
+        // Ганц хүн ажилладаг тул алдсан дуудлага нь өөр хэнд ч очих ёсгүй.
+        'Оффис' => [
+            'queues' => ['0'],
+            'extensions' => ['504'],
+        ],
         'Сансар' => [
             'queues' => ['1'],
             'extensions' => ['100', '500', '506', '508', '511'],
@@ -43,22 +49,6 @@ class CallProSeeder extends Seeder
             'queues' => ['4'],
             'extensions' => ['503', '505', '514', '515'],
         ],
-    ];
-
-    /**
-     * Аль ч салбарт харьяалагдахгүй дугаар, queue.
-     *
-     * Мэдээллийн ажилтанд бүх салбарын үйлчлүүлэгч холбогддог тул нэг салбарт
-     * хамааруулах боломжгүй. branch_id хоосон үлдэх бөгөөд эндээс алдсан
-     * дуудлага гарвал зөвхөн АДМИН мэдэгдэл авч, зохих салбарт хуваарилна.
-     */
-    private const SHARED_EXTENSIONS = [
-        '504' => 'Мэдээлэл авах',
-    ];
-
-    /** IVR-ийн 0 товч — мэдээллийн ажилтан. Салбар тодорхойлохгүй. */
-    private const SHARED_QUEUES = [
-        '0' => 'Мэдээлэл авах',
     ];
 
     public function run(): void
@@ -89,24 +79,6 @@ class CallProSeeder extends Seeder
             }
 
             $this->command?->info("{$name}: ".count($config['extensions']).' дугаар, queue: '.implode(', ', $config['queues']));
-        }
-
-        foreach (self::SHARED_EXTENSIONS as $extension => $label) {
-            CallExtension::updateOrCreate(
-                ['extension' => $extension],
-                ['branch_id' => null, 'label' => $label, 'is_active' => true],
-            );
-
-            $this->command?->info("Дугаар {$extension}: {$label} (салбаргүй — зөвхөн админд)");
-        }
-
-        foreach (self::SHARED_QUEUES as $queue => $label) {
-            CallQueue::updateOrCreate(
-                ['name' => $queue],
-                ['branch_id' => null, 'label' => $label, 'is_active' => true],
-            );
-
-            $this->command?->info("Queue {$queue}: {$label} (салбаргүй)");
         }
 
         if ($missing !== []) {

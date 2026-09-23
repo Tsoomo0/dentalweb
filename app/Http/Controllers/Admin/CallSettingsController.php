@@ -41,6 +41,7 @@ class CallSettingsController extends Controller
                 'branch_name' => $e->branch?->name,
                 'user_id' => $e->user_id,
                 'user_name' => $e->user?->name,
+                'staff_name' => $e->staff_name,
                 'label' => $e->label,
                 'is_active' => $e->is_active,
             ]);
@@ -121,12 +122,37 @@ class CallSettingsController extends Controller
             ->all();
     }
 
-    /** Дуудлага хариулж болох ажилтнууд (админ + ресепшн). */
+    /**
+     * Дуудлага барьдаг ажилтнууд — ресепшний порталд нэвтрэх эрхтэй хүмүүс.
+     *
+     * Өмнө нь role-оор (админ + ресепшн) шүүдэг байсан тул оператор жагсаалтад
+     * огт гардаггүй, харин дуудлагатай огт хамаагүй админ гарч ирдэг байв.
+     *
+     * Ресепшн ч, оператор ч дуудлагаа ЭНЭ порталаар хардаг тул «порталд
+     * нэвтрэх эрхтэй» гэдэг нь «дуудлага барьдаг» гэсэнтэй ижил утгатай.
+     * Албан тушаалын нэрээр шүүхгүй: нэр нь өөрчлөгдөхөд чимээгүй эвдэрнэ.
+     *
+     * `canAccessPortal` нь `extra_portals`-ийг ч тооцдог бөгөөд түүнийг PHP
+     * талд шалгана — SQLite дээр JSON хайлт найдваргүй.
+     */
     private function staffOptions(): array
     {
-        return User::whereHas('role', fn ($q) => $q->whereIn('name', ['admin', 'receptionist']))
+        return User::query()
+            // Өвчтөнүүд ч хэрэглэгч учраас эхлээд ажилтнуудаар нарийсгана.
+            ->where(fn ($q) => $q->whereHas('employee')
+                ->orWhereHas('role', fn ($r) => $r->where('name', 'receptionist')))
+            ->with(['role:id,name', 'employee.position:id,name,portal'])
             ->orderBy('name')
-            ->get(['id', 'name'])
+            ->get(['id', 'name', 'role_id'])
+            ->filter(fn (User $u) => $u->employee?->canAccessPortal('reception')
+                || $u->role?->name === 'receptionist')
+            ->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                // Нэр давхцвал хэн болохыг ялгахад хэрэгтэй.
+                'position' => $u->employee?->position?->name,
+            ])
+            ->values()
             ->all();
     }
 
@@ -139,14 +165,34 @@ class CallSettingsController extends Controller
             ],
             'branch_id' => 'nullable|exists:branches,id',
             'user_id' => 'nullable|exists:users,id',
+            // Нийтийн суурин утас гэх мэт, тодорхой хүнд холбогдохгүй дугаар.
+            'staff_name' => 'nullable|string|max:100',
             'label' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ];
     }
 
+    /**
+     * Ажилтан сонгосон бол гараар бичсэн нэрийг хаяна.
+     *
+     * Хоёулаа бөглөгдвөл алдсан дуудлага хэнд очихыг тодорхойлоход зөрчил
+     * үүснэ: жагсаалтад нэг нэр, мэдэгдэлд өөр хүн гэж сална.
+     *
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function resolveStaff(array $data): array
+    {
+        $data['staff_name'] = filled($data['user_id'] ?? null)
+            ? null
+            : (filled($data['staff_name'] ?? null) ? trim((string) $data['staff_name']) : null);
+
+        return $data;
+    }
+
     public function storeExtension(Request $request): RedirectResponse
     {
-        $data = $request->validate($this->rules());
+        $data = $this->resolveStaff($request->validate($this->rules()));
 
         $ext = CallExtension::create([
             ...$data,
@@ -161,8 +207,8 @@ class CallSettingsController extends Controller
 
     public function updateExtension(Request $request, CallExtension $extension): RedirectResponse
     {
-        $data = $request->validate($this->rules($extension->id));
-        $old = $extension->only(['extension', 'branch_id', 'user_id', 'is_active']);
+        $data = $this->resolveStaff($request->validate($this->rules($extension->id)));
+        $old = $extension->only(['extension', 'branch_id', 'user_id', 'staff_name', 'is_active']);
 
         $extension->update([
             ...$data,
@@ -170,7 +216,7 @@ class CallSettingsController extends Controller
         ]);
 
         AuditService::log('updated', $extension, $old,
-            $extension->only(['extension', 'branch_id', 'user_id', 'is_active']),
+            $extension->only(['extension', 'branch_id', 'user_id', 'staff_name', 'is_active']),
             'CallPro дотуур дугаар зассан: '.$extension->extension);
 
         return back()->with('success', 'Дотуур дугаар шинэчлэгдлээ.');

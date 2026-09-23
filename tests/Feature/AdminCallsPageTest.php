@@ -6,6 +6,8 @@ use App\Models\Branch;
 use App\Models\CallPro\Call;
 use App\Models\CallPro\CallExtension;
 use App\Models\CallPro\CallQueue;
+use App\Models\HR\Employee;
+use App\Models\HR\Position;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,6 +28,24 @@ class AdminCallsPageTest extends TestCase
     private function branch(string $name = 'Сансар'): Branch
     {
         return Branch::create(['name' => $name]);
+    }
+
+    /** Албан тушаалтай ажилтан — дотуур дугаарын жагсаалт үүгээр шүүгддэг. */
+    private function staff(string $position, ?string $portal, string $name): User
+    {
+        $user = User::factory()->create([
+            'name' => $name,
+            'role_id' => Role::firstOrCreate(['name' => 'employee'])->id,
+        ]);
+
+        Employee::create([
+            'user_id' => $user->id,
+            'last_name' => 'Т',
+            'first_name' => $name,
+            'position_id' => Position::firstOrCreate(['name' => $position], ['portal' => $portal])->id,
+        ]);
+
+        return $user;
     }
 
     public function test_admin_can_open_call_log(): void
@@ -250,5 +270,93 @@ class AdminCallsPageTest extends TestCase
         $this->actingAs($this->admin())
             ->post('/admin/call-settings/extensions', ['extension' => '101', 'branch_id' => $branch->id])
             ->assertSessionHasErrors('extension');
+    }
+
+    /* ── Дугаарыг хэнд холбох вэ ─────────────────────────── */
+
+    /**
+     * Жагсаалтад ЗӨВХӨН дуудлага барьдаг хүмүүс гарна.
+     *
+     * Өмнө нь role-оор шүүдэг байсан тул оператор огт олдохгүй, харин
+     * дуудлагатай огт хамаагүй админ гарч ирдэг байв.
+     */
+    public function test_staff_list_only_offers_people_who_handle_calls(): void
+    {
+        $reception = $this->staff('Ресепшн', 'reception', 'Ресепшн Цолмон');
+        $operator = $this->staff('Оператор', 'reception', 'Оператор Болд');
+        $this->staff('Эмч', 'doctor', 'Эмч Дорж');
+
+        $this->actingAs($this->admin())
+            ->get('/admin/call-settings')
+            ->assertInertia(function ($page) use ($reception, $operator) {
+                $names = collect($page->toArray()['props']['staff'])->pluck('name');
+
+                $this->assertTrue($names->contains($reception->name));
+                $this->assertTrue($names->contains($operator->name));
+                $this->assertFalse($names->contains('Эмч Дорж'), 'Эмч жагсаалтад орох ёсгүй');
+                $this->assertFalse($names->contains(fn ($n) => str_contains($n, 'admin')));
+            });
+    }
+
+    /** Албан тушаал нь сонголтын хажууд гарна — нэр давхцвал ялгахад хэрэгтэй. */
+    public function test_staff_options_carry_the_position_name(): void
+    {
+        $this->staff('Оператор', 'reception', 'Оператор Болд');
+
+        $this->actingAs($this->admin())
+            ->get('/admin/call-settings')
+            ->assertInertia(fn ($page) => $page
+                ->where('staff.0.name', 'Оператор Болд')
+                ->where('staff.0.position', 'Оператор')
+                ->etc()
+            );
+    }
+
+    /** Нийтийн суурин утсыг хүнд холбохын оронд гараар тэмдэглэнэ. */
+    public function test_extension_can_be_labelled_by_hand(): void
+    {
+        $branch = $this->branch();
+
+        $this->actingAs($this->admin())
+            ->post('/admin/call-settings/extensions', [
+                'extension' => '520',
+                'branch_id' => $branch->id,
+                'staff_name' => '  Суурин утас  ',
+            ])
+            ->assertRedirect();
+
+        $ext = CallExtension::where('extension', '520')->first();
+        $this->assertSame('Суурин утас', $ext->staff_name);
+        $this->assertNull($ext->user_id);
+    }
+
+    /**
+     * Ажилтан сонговол гараар бичсэн нэр хаягдана — «хэн хариуцах вэ» гэдэгт
+     * нэг л хариулт байх ёстой.
+     */
+    public function test_choosing_a_person_clears_the_hand_written_name(): void
+    {
+        $branch = $this->branch();
+        $user = $this->staff('Ресепшн', 'reception', 'Ресепшн Цолмон');
+
+        $ext = CallExtension::create([
+            'extension' => '521',
+            'branch_id' => $branch->id,
+            'staff_name' => 'Суурин утас',
+        ]);
+
+        $this->actingAs($this->admin())
+            ->patch("/admin/call-settings/extensions/{$ext->id}", [
+                'extension' => '521',
+                'branch_id' => $branch->id,
+                'user_id' => $user->id,
+                'staff_name' => 'Суурин утас',
+                'is_active' => true,
+            ])
+            ->assertRedirect();
+
+        $ext->refresh();
+        $this->assertSame($user->id, $ext->user_id);
+        $this->assertNull($ext->staff_name);
     }
 }
