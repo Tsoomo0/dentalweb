@@ -64,7 +64,9 @@ class ProcessCallEvent implements ShouldQueue
                 'error' => null,
             ])->save();
 
-            $notifier->notify($call);
+            // Салбар нь хожим тодорхойлогдсон бол тухайн салбарын ажилтнууд
+            // мэдэгдэл аваагүй үлдсэн байна — тэдэнд нөхөж илгээнэ.
+            $notifier->notify($call, branchOnly: $ingestor->branchJustResolved);
         } catch (\Throwable $e) {
             $event->forceFill(['error' => substr($e->getMessage(), 0, 1000)])->save();
 

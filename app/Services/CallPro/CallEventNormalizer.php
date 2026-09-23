@@ -115,11 +115,16 @@ class CallEventNormalizer
     /**
      * Event-ийг тодорхойлно. CallPro payload дотор event нэр илгээдэггүй тул
      * URL-аар ялгана. Хэрэв URL-д заагаагүй бол талбаруудаас таамаглана.
+     *
+     * `queue` нь CallPro-гийн event биш — бидний өөрсдийн нэмсэн төрөл.
+     * Үйлчлүүлэгч IVR дээр аль товч дарсныг ХОЙШ нь мэдэх болсон үед
+     * (мэдэгдлийн мэйлээс, эсвэл урсгал дээрх HTTP дуудлагаас) ашиглана.
+     * Дуудлагын төлөвийг өөрчлөхгүй, зөвхөн салбарыг нь нөхнө.
      */
     private function resolveEvent(?string $hint, array $out): string
     {
         $hint = strtolower((string) $hint);
-        if (in_array($hint, ['start', 'answered', 'end', 'abandoned'], true)) {
+        if (in_array($hint, ['start', 'answered', 'end', 'abandoned', 'queue'], true)) {
             return $hint;
         }
 

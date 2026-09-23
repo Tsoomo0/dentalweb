@@ -22,11 +22,30 @@ class CallIngestor
     /** Abandoned event-ийг өмнөх Call start-тай тааруулах хугацааны цонх. */
     private const ABANDON_MATCH_MINUTES = 30;
 
+    /**
+     * `queue` event нь дуудлага дууссанаас ХОЙШ ирдэг (мэдэгдлийн мэйл хүрэх
+     * хүртэл хэдэн минут зарцуулагдана) тул илүү өргөн цонх хэрэгтэй.
+     */
+    private const QUEUE_MATCH_MINUTES = 120;
+
+    /**
+     * Энэ ingest-ийн явцад салбар ШИНЭЭР тодорхойлогдсон эсэх.
+     *
+     * Салбаргүй алдсан дуудлагад зөвхөн админ мэдэгдэл авдаг. Хожим queue нь
+     * мэдэгдээд салбар нь тодорхой болвол тухайн салбарын ажилтнууд руу
+     * нэмж мэдэгдэх ёстой — эс бөгөөс дуудлага эзэнгүй хэвээр үлдэнэ.
+     */
+    public bool $branchJustResolved = false;
+
     /** @var array<string,int|null>|null queue нэр → branch_id */
     private ?array $queueMap = null;
 
     public function ingest(array $data, string $source = 'realtime'): Call
     {
+        if (($data['event'] ?? null) === 'queue') {
+            return DB::transaction(fn () => $this->enrichWithQueue($data, $source));
+        }
+
         return DB::transaction(function () use ($data, $source) {
             $call = $this->findOrCreateCall($data, $source);
 
@@ -40,6 +59,88 @@ class CallIngestor
 
             return $call;
         });
+    }
+
+    /**
+     * Дуудлага дууссаны ДАРАА мэдэгдсэн queue-гээр салбарыг нь нөхнө.
+     *
+     * CallPro нь «хэрэглэгч утсаа тасаллаа» гэсэн тохиолдолд webhook
+     * илгээдэггүй, зөвхөн мэдэгдлийн мэйл явуулдаг. Тэр мэйл хүрэх үед
+     * дуудлага аль хэдийн `end` event-ээр хаагдсан байдаг тул энгийн
+     * abandoned логик таарахгүй — шинэ мөр үүсгэж, давхардуулна.
+     *
+     * Тиймээс энд ЗӨВХӨН баяжуулна: queue болон салбарыг нөхнө, харин
+     * төлөв, цаг, is_missed зэрэг аль хэдийн тогтсон баримтыг хөндөхгүй.
+     */
+    private function enrichWithQueue(array $data, string $source): Call
+    {
+        $call = $this->findCallForQueue($data) ?? $this->newMissedCall($data, $source);
+
+        if (blank($call->queue_name) && filled($data['queue_name'] ?? null)) {
+            $call->queue_name = $data['queue_name'];
+        }
+
+        if ($call->branch_id === null && filled($call->queue_name)) {
+            $branchId = $this->branchIdForQueue($call->queue_name);
+
+            if ($branchId !== null) {
+                $call->branch_id = $branchId;
+                $this->branchJustResolved = true;
+            }
+        }
+
+        $call->save();
+
+        return $call;
+    }
+
+    /**
+     * Мэйл ямар дуудлагыг хэлж байгааг олно.
+     *
+     * Нэг дугаар богино хугацаанд хэд хэдэн удаа залгаж болно (жишээ нь
+     * ярьчихаад дахин залгах) тул эхлээд ЯГ таарах төрлийг нь хайна:
+     * салбаргүй үлдсэн алдсан дуудлага. Олдохгүй бол хамгийн сүүлийн
+     * ирсэн дуудлагыг авна.
+     */
+    private function findCallForQueue(array $data): ?Call
+    {
+        if (blank($data['number_norm'] ?? null)) {
+            return null;
+        }
+
+        $since = ($data['call_date'] ?? Carbon::now())->copy()->subMinutes(self::QUEUE_MATCH_MINUTES);
+
+        $base = fn () => Call::where('number_norm', $data['number_norm'])
+            ->where('direction', 'inbound')
+            ->where('started_at', '>=', $since)
+            ->latest('started_at');
+
+        return $base()->where('is_missed', true)->whereNull('branch_id')->first()
+            ?? $base()->first();
+    }
+
+    /**
+     * Мэдэгдэл ирсэн ч тухайн дуудлагын бүртгэл олдсонгүй.
+     *
+     * CallPro дахин илгээх бодлогогүй тул `start`/`end` webhook алдагдсан
+     * байж болно. Мэдэгдэл өөрөө «хүн холбогдож чадалгүй тасалсан» гэдгийг
+     * баталж байгаа тул дуудлагыг хаяхгүй, алдсан гэж бүртгэнэ.
+     */
+    private function newMissedCall(array $data, string $source): Call
+    {
+        $call = new Call([
+            'number' => $data['number'] ?? null,
+            'number_norm' => $data['number_norm'] ?? null,
+            'direction' => 'inbound',
+            'is_missed' => true,
+            'source' => $source,
+        ]);
+
+        $call->started_at = $data['call_date'] ?? Carbon::now();
+
+        $this->applyOperationalFlags($call);
+
+        return $call;
     }
 
     /**

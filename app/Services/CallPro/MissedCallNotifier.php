@@ -21,9 +21,14 @@ class MissedCallNotifier
 
     public function __construct(private readonly PushService $push) {}
 
-    public function notify(Call $call): void
+    /**
+     * @param  bool  $branchOnly  Салбар нь ХОЖИМ тодорхойлогдсон тохиолдол.
+     *                            Админ мэдэгдлээ аль хэдийн авсан тул зөвхөн
+     *                            тухайн салбарын ажилтнууд руу дахин илгээнэ.
+     */
+    public function notify(Call $call, bool $branchOnly = false): void
     {
-        if (! $this->shouldNotify($call)) {
+        if (! $this->shouldNotify($call, $branchOnly)) {
             return;
         }
 
@@ -45,7 +50,9 @@ class MissedCallNotifier
             repeatCount: max(1, $repeat),
         );
 
-        $recipients = $this->recipients($call);
+        $recipients = $branchOnly && $call->branch_id !== null
+            ? $this->branchStaff($call->branch_id)
+            : $this->recipients($call);
 
         if ($recipients->isNotEmpty()) {
             Notification::send($recipients, $notif);
@@ -55,9 +62,15 @@ class MissedCallNotifier
         $call->forceFill(['missed_notified_at' => now()])->save();
     }
 
-    private function shouldNotify(Call $call): bool
+    private function shouldNotify(Call $call, bool $branchOnly = false): bool
     {
-        if (! $call->is_missed || $call->missed_notified_at !== null) {
+        if (! $call->is_missed) {
+            return false;
+        }
+
+        // Хоёр дахь удаагаа мэдэгдэхийг зөвхөн салбар шинээр тодорхойлогдсон
+        // үед зөвшөөрнө — өөр тохиолдолд нэг дуудлага давхар сэрэмжлүүлнэ.
+        if (! $branchOnly && $call->missed_notified_at !== null) {
             return false;
         }
 

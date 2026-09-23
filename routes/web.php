@@ -163,7 +163,9 @@ Route::post('/webhooks/social', [SocialWebhookController::class, 'receive'])->na
 // Тэдний баримтад GET, POST аль нь ч байж болно гэсэн тул хоёуланг зөвшөөрөв.
 // Түүхэн дата илгээхэд ?source=history нэмнэ.
 Route::match(['get', 'post'], '/webhooks/callpro/{event?}', [CallWebhookController::class, 'handle'])
-    ->whereIn('event', ['start', 'answered', 'end', 'abandoned'])
+    // `queue` нь CallPro-гийн event биш — товч дарсныг ХОЙШ мэдэгдэх бидний
+    // өөрсдийн цэг. Дуудлагын төлөвийг хөндөхгүй, зөвхөн салбарыг нь нөхнө.
+    ->whereIn('event', ['start', 'answered', 'end', 'abandoned', 'queue'])
     ->middleware(VerifyCallProWebhook::class)
     ->name('webhooks.callpro');
 
