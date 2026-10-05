@@ -10,7 +10,7 @@ class Branch extends Model
     protected $fillable = [
         'name', 'type', 'address', 'phone', 'image',
         'description', 'doctor_count', 'is_featured',
-        'is_active', 'order', 'lat', 'lng', 'radius_m',
+        'is_active', 'order', 'lat', 'lng', 'radius_m', 'attendance_gps_enabled',
     ];
 
     protected $casts = [
@@ -19,6 +19,7 @@ class Branch extends Model
         'lat' => 'float',
         'lng' => 'float',
         'radius_m' => 'integer',
+        'attendance_gps_enabled' => 'boolean',
     ];
 
     /**

@@ -14,15 +14,20 @@ export interface SignaturePadRef {
     clear:     () => void;
 }
 
+/** Зураасны үндсэн зузаан (CSS пиксель). */
+const BASE_WIDTH = 2.5;
+
+/**
+ * Pointer Events — хулгана, хуруу, stylus, Wacom самбар бүгд нэг кодоор.
+ * Үзэг (pointerType === 'pen') даралтаа дамжуулбал зураас нимгэн/зузаан
+ * болж жинхэнэ гарын үсэг шиг харагдана; бусад үед жигд зузаантай.
+ */
 const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function SignaturePad(
     { height = 160, penColor = '#1e3a5f', onBegin, onEnd },
     ref
 ) {
     const canvasRef    = useRef<HTMLCanvasElement>(null);
-    const isDrawing    = useRef(false);
     const isEmpty      = useRef(true);
-    const lastX        = useRef(0);
-    const lastY        = useRef(0);
     const onBeginRef   = useRef(onBegin);
     onBeginRef.current = onBegin;
     const onEndRef     = useRef(onEnd);
@@ -34,15 +39,19 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function Sig
         const canvas = canvasRef.current;
         if (!canvas) return;
 
+        // Утасны тод дэлгэцэнд бүдгэрэхгүй — гэхдээ зургийн хэмжээ хэт томрохгүй байхаар 2-оор хязгаарлана
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
         // ResizeObserver fires as part of the browser's natural layout cycle —
         // contentRect.width is always the real rendered width, even when
         // clientWidth / getBoundingClientRect() return 0 (StrictMode second run).
         const ro = new ResizeObserver(entries => {
-            const w = Math.round(entries[0]?.contentRect.width ?? 0);
+            const w = Math.round((entries[0]?.contentRect.width ?? 0) * dpr);
+            const h = Math.round(height * dpr);
             if (w > 0) {
-                if (canvas.width !== w || canvas.height !== height) {
+                if (canvas.width !== w || canvas.height !== h) {
                     canvas.width  = w;
-                    canvas.height = height;
+                    canvas.height = h;
                     isEmpty.current = true;
                 }
                 ro.disconnect();
@@ -50,103 +59,80 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function Sig
         });
         ro.observe(canvas);
 
-        // Scale CSS coords → buffer coords (safety net when sizes differ).
-        function pos(clientX: number, clientY: number) {
+        let drawing: { id: number; x: number; y: number; w: number } | null = null;
+
+        // CSS координатыг canvas-ын буферийн координат руу
+        function pos(e: PointerEvent) {
             const r      = canvas!.getBoundingClientRect();
             const scaleX = r.width  > 0 ? canvas!.width  / r.width  : 1;
             const scaleY = r.height > 0 ? canvas!.height / r.height : 1;
-            return {
-                x: (clientX - r.left) * scaleX,
-                y: (clientY - r.top)  * scaleY,
-            };
+            return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleY };
         }
 
-        function dot(x: number, y: number) {
+        function widthFor(e: PointerEvent) {
+            const pressure = e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5;
+            return BASE_WIDTH * dpr * (0.35 + pressure * 1.3);
+        }
+
+        function down(e: PointerEvent) {
+            if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+            e.preventDefault();
+            canvas!.setPointerCapture(e.pointerId);
+            const { x, y } = pos(e);
+            const w = widthFor(e);
+            drawing = { id: e.pointerId, x, y, w };
+
             const ctx = canvas!.getContext('2d')!;
             ctx.beginPath();
-            ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+            ctx.arc(x, y, w / 2, 0, Math.PI * 2);
             ctx.fillStyle = colorRef.current;
             ctx.fill();
-        }
 
-        function line(x: number, y: number) {
-            const ctx = canvas!.getContext('2d')!;
-            ctx.beginPath();
-            ctx.moveTo(lastX.current, lastY.current);
-            ctx.lineTo(x, y);
-            ctx.strokeStyle = colorRef.current;
-            ctx.lineWidth   = 2.5;
-            ctx.lineCap     = 'round';
-            ctx.lineJoin    = 'round';
-            ctx.stroke();
-            lastX.current = x;
-            lastY.current = y;
-        }
-
-        function begin(x: number, y: number) {
-            isDrawing.current = true;
-            lastX.current = x;
-            lastY.current = y;
-            dot(x, y);
             if (isEmpty.current) {
                 isEmpty.current = false;
                 onBeginRef.current?.();
             }
         }
 
-        function md(e: MouseEvent) {
+        function move(e: PointerEvent) {
+            if (!drawing || e.pointerId !== drawing.id) return;
             e.preventDefault();
-            const { x, y } = pos(e.clientX, e.clientY);
-            begin(x, y);
+            const ctx = canvas!.getContext('2d')!;
+            // Хурдан хөдлөхөд алгассан цэгүүдийг ч зурна (дэмждэг хөтчид)
+            const points = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
+            for (const p of points.length ? points : [e]) {
+                const { x, y } = pos(p);
+                // Зузааныг огцом биш зөөлөн өөрчилнө
+                const w: number = drawing.w + (widthFor(p) - drawing.w) * 0.35;
+                ctx.beginPath();
+                ctx.moveTo(drawing.x, drawing.y);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = colorRef.current;
+                ctx.lineWidth   = w;
+                ctx.lineCap     = 'round';
+                ctx.lineJoin    = 'round';
+                ctx.stroke();
+                drawing = { id: drawing.id, x, y, w };
+            }
         }
-        function mm(e: MouseEvent) {
-            if (!isDrawing.current) return;
-            const { x, y } = pos(e.clientX, e.clientY);
-            line(x, y);
-        }
-        function mu() {
-            if (!isDrawing.current) return;
-            isDrawing.current = false;
+
+        function up(e: PointerEvent) {
+            if (!drawing || e.pointerId !== drawing.id) return;
+            drawing = null;
             onEndRef.current?.();
         }
 
-        function ts(e: TouchEvent) {
-            if (e.touches.length !== 1) return;
-            e.preventDefault();
-            const t = e.touches[0];
-            const { x, y } = pos(t.clientX, t.clientY);
-            begin(x, y);
-        }
-        function tm(e: TouchEvent) {
-            if (!isDrawing.current || e.touches.length !== 1) return;
-            e.preventDefault();
-            const t = e.touches[0];
-            const { x, y } = pos(t.clientX, t.clientY);
-            line(x, y);
-        }
-        function te() {
-            if (!isDrawing.current) return;
-            isDrawing.current = false;
-            onEndRef.current?.();
-        }
-
-        canvas.addEventListener('mousedown',   md, { passive: false });
-        window.addEventListener('mousemove',   mm);
-        window.addEventListener('mouseup',     mu);
-        canvas.addEventListener('touchstart',  ts, { passive: false });
-        canvas.addEventListener('touchmove',   tm, { passive: false });
-        canvas.addEventListener('touchend',    te);
-        canvas.addEventListener('touchcancel', te);
+        canvas.addEventListener('pointerdown',   down, { passive: false });
+        canvas.addEventListener('pointermove',   move, { passive: false });
+        canvas.addEventListener('pointerup',     up);
+        canvas.addEventListener('pointercancel', up);
 
         return () => {
             ro.disconnect();
-            canvas.removeEventListener('mousedown',   md);
-            window.removeEventListener('mousemove',   mm);
-            window.removeEventListener('mouseup',     mu);
-            canvas.removeEventListener('touchstart',  ts);
-            canvas.removeEventListener('touchmove',   tm);
-            canvas.removeEventListener('touchend',    te);
-            canvas.removeEventListener('touchcancel', te);
+            canvas.removeEventListener('pointerdown',   down);
+            canvas.removeEventListener('pointermove',   move);
+            canvas.removeEventListener('pointerup',     up);
+            canvas.removeEventListener('pointercancel', up);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -176,7 +162,7 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(function Sig
         <div style={{ position: 'relative', background: 'white', overflow: 'hidden', height, touchAction: 'none', userSelect: 'none' }}>
             <canvas
                 ref={canvasRef}
-                style={{ display: 'block', width: '100%', height: `${height}px`, cursor: 'crosshair' }}
+                style={{ display: 'block', width: '100%', height: `${height}px`, cursor: 'crosshair', touchAction: 'none' }}
             />
             <span style={{
                 pointerEvents: 'none', position: 'absolute', bottom: 4, right: 8,

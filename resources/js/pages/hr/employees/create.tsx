@@ -522,17 +522,12 @@ export default function CreateEmployee({ branches, positions }: Props) {
                                     <SectionTitle>Хуваарь гаргах эрх</SectionTitle>
                                     <div className="rounded-lg border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/15 p-4">
                                         <p className="text-xs text-indigo-700 dark:text-indigo-300 mb-3">
-                                            Тэмдэглэсэн хуваарийг <strong>өөрийн эрхээрээ нэвтэрч, зөвхөн өөрийн салбарын хэмжээнд</strong> гаргах эрх олгоно. Нэг ажилтанд хэд хэдэн төрлийн хуваарь өгч болно.
+                                            Тэмдэглэсэн албан тушаалтнуудын хуваарийг <strong>өөрийн эрхээрээ нэвтэрч, зөвхөн өөрийн салбарын хэмжээнд</strong> гаргах эрх олгоно (жишээ нь ахлах сувилагчид "Сувилагч", "Ариутгалын сувилагч").
                                         </p>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             {[
-                                                { value: 'clinic',     label: 'Эмч сувилагчийн хуваарь' },
-                                                { value: 'ortho',      label: 'Гажиг засал / туслах эмчийн хуваарь' },
-                                                { value: 'xray',       label: 'Рентген техникчийн хуваарь' },
-                                                { value: 'sterile',    label: 'Ариутгалын сувилагчийн хуваарь' },
-                                                { value: 'reception',  label: 'Ресепшний хуваарь' },
-                                                { value: 'cleaner',    label: 'Үйлчлэгчийн хуваарь' },
-                                                { value: 'technician', label: 'Шүдний техникчийн хуваарь' },
+                                                { value: '*', label: 'Бүх албан тушаал' },
+                                                ...positions.map(p => ({ value: String(p.id), label: p.name })),
                                             ].map(opt => {
                                                 const checked = data.schedule_permissions.includes(opt.value);
                                                 return (

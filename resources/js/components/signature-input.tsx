@@ -34,6 +34,12 @@ interface Props {
     apiBase?: string;
     /** Сервер түгжээтэй гэж хариулбал (423) дуудагдана. */
     onLocked?: () => void;
+    /**
+     * false бол гарын үсгийн сан (хадгалсан, «Хадгалах») харагдахгүй — зөвхөн
+     * зурах, зураг оруулах. Өвчтөн, туслах эмч зэрэг нэвтэрсэн хэрэглэгчийн
+     * бус хүний гарын үсгийг хэрэглэгчийн санд хадгалахгүйн тулд.
+     */
+    library?: boolean;
 }
 
 type Tab = 'saved' | 'draw' | 'upload';
@@ -43,7 +49,7 @@ type Tab = 'saved' | 'draw' | 'upload';
  * хадгалсанаас сонгох гурван арга.
  */
 const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureInput(
-    { height = 190, onChange, apiBase = '/signatures', onLocked },
+    { height = 190, onChange, apiBase = '/signatures', onLocked, library = true },
     ref
 ) {
     const sigRef = useRef<SignaturePadRef>(null);
@@ -63,6 +69,7 @@ const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureIn
 
     /* ── Хадгалсан гарын үсгүүдээ татна ── */
     useEffect(() => {
+        if (!library) return;
         let alive = true;
         fetch(apiBase, { headers: csrfHeaders() })
             .then(r => (r.ok ? r.json() : { signatures: [] }))
@@ -236,9 +243,11 @@ const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureIn
                 <button type="button" className={TAB_BTN(tab === 'upload')} onClick={() => switchTab('upload')}>
                     <ImageUp className="size-3.5" /> Зураг оруулах
                 </button>
-                <button type="button" className={TAB_BTN(tab === 'saved')} onClick={() => switchTab('saved')}>
-                    <Save className="size-3.5" /> Хадгалсан{saved.length > 0 ? ` (${saved.length})` : ''}
-                </button>
+                {library && (
+                    <button type="button" className={TAB_BTN(tab === 'saved')} onClick={() => switchTab('saved')}>
+                        <Save className="size-3.5" /> Хадгалсан{saved.length > 0 ? ` (${saved.length})` : ''}
+                    </button>
+                )}
             </div>
 
             {/* ── Зурах ── */}
@@ -368,7 +377,7 @@ const SignatureInput = forwardRef<SignatureInputRef, Props>(function SignatureIn
             )}
 
             {/* Хадгалах */}
-            {tab !== 'saved' && (
+            {library && tab !== 'saved' && (
                 <div className="flex flex-wrap items-center gap-2">
                     <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Нэр (заавал биш) — жишээ: Үндсэн гарын үсэг"
                         className="min-w-0 flex-1 rounded-lg border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400" />

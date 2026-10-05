@@ -2,8 +2,8 @@ import { shortDoctorName } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    AlertTriangle, Award, BarChart3, Bell, BookOpen, BriefcaseBusiness, CalendarClock,
-    CalendarDays, CheckCheck, CheckCircle2, DollarSign, FileSignature, FlaskConical, MessageSquare,
+    AlarmClock, AlertTriangle, Award, BarChart3, Bell, BookOpen, BriefcaseBusiness, CalendarClock,
+    CalendarDays, CheckCheck, CheckCircle2, DollarSign, FileSignature, Fingerprint, FlaskConical, MessageSquare,
     GraduationCap, Package, PhoneMissed, RotateCcw, ShieldAlert, Smile, Stethoscope, Trash2,
     Umbrella, Video, X, XCircle,
 } from 'lucide-react';
@@ -63,13 +63,19 @@ interface NotifData {
     range_label?: string; period?: string; total?: number; answered?: number;
     missed?: number; unhandled?: number; after_hours?: number;
     appointments?: number; answer_rate?: number | null;
+    // Ирц — хоцролт, төхөөрөмж тасрах
+    checked_in_at?: string; scheduled_start?: string; late_minutes?: number;
+    device_name?: string; last_seen_at?: string | null; hint?: string;
+    // Ажлын хуваарь — нийтлэгдсэн, ээлж солих
+    count?: number; lines?: { date: string; change: string; label: string }[]; event?: string;
+    requester_name?: string; target_name?: string; shift_label?: string; target_shift_label?: string | null;
 }
 interface NotifItem {
     id: string; notif_type: string;
     data: NotifData; read_at: string | null; created_at: string;
 }
 interface NotificationsShared { unread_count: number; items: NotifItem[] }
-type Tab = 'all' | 'apt' | 'billing' | 'job' | 'leave' | 'payroll' | 'library' | 'equipment' | 'feedback' | 'warning' | 'contract' | 'consent' | 'treatment' | 'lab' | 'call';
+type Tab = 'all' | 'apt' | 'billing' | 'job' | 'leave' | 'payroll' | 'library' | 'equipment' | 'feedback' | 'warning' | 'contract' | 'consent' | 'treatment' | 'lab' | 'call' | 'attendance';
 
 /* ── Filters ──────────────────────────────────────────────────────────── */
 const isApt        = (n: NotifItem) => ['NewAppointment','AppointmentBookedPatient','AppointmentConfirmedPatient','PatientAppointmentRequested'].includes(n.notif_type);
@@ -87,6 +93,7 @@ const isContract   = (n: NotifItem) => ['EmployeeDocumentSent','EmployeeDocument
 const isConsent    = (n: NotifItem) => n.notif_type === 'ConsentRequestSent' || n.notif_type === 'ConsentFormSigned' || n.notif_type === 'OrthoSignatureRequested';
 const isTreatment  = (n: NotifItem) => n.notif_type === 'TreatmentSentToReception';
 const isCall       = (n: NotifItem) => ['MissedCall','MissedCallEscalated','CallSummaryReport'].includes(n.notif_type);
+const isAttendance = (n: NotifItem) => ['LateCheckIn', 'AttendanceDeviceOffline', 'SchedulePublished', 'ShiftSwapNotice'].includes(n.notif_type);
 const isLab        = (n: NotifItem) => n.notif_type === 'LabOrderCreated' || n.notif_type === 'LabOrderReady'
                                      || n.notif_type === 'LabOrderReturned' || n.notif_type === 'LabOrderReturnFixed'
                                      || n.notif_type === 'LabLessonPublished' || n.notif_type === 'LabExamPublished'
@@ -119,6 +126,7 @@ const TAB_META: Record<Tab, { label: string; icon: React.ElementType; color: str
     treatment: { label: 'Эмчилгээ',        icon: Stethoscope,       color: '#06b6d4' },
     lab:       { label: 'Лаб',              icon: FlaskConical,      color: '#7c3aed' },
     call:      { label: 'Дуудлага',         icon: PhoneMissed,       color: '#d03b3b' },
+    attendance:{ label: 'Ирц',              icon: Fingerprint,       color: '#0284c7' },
 };
 
 /* ── Notif icon + color helper ────────────────────────────────────────── */
@@ -180,6 +188,10 @@ function getNotifMeta(n: NotifItem): { icon: React.ElementType; bg: string; fg: 
         case 'MissedCall':                     return { icon: PhoneMissed,      bg: 'bg-red-100 dark:bg-red-900/30',        fg: 'text-red-600 dark:text-red-400' };
         case 'MissedCallEscalated':            return { icon: AlertTriangle,    bg: 'bg-red-100 dark:bg-red-900/30',        fg: 'text-red-600 dark:text-red-400' };
         case 'CallSummaryReport':              return { icon: BarChart3,        bg: 'bg-blue-100 dark:bg-blue-900/30',      fg: 'text-blue-600 dark:text-blue-400' };
+        case 'LateCheckIn':                    return { icon: AlarmClock,       bg: 'bg-rose-100 dark:bg-rose-900/30',      fg: 'text-rose-600 dark:text-rose-400' };
+        case 'SchedulePublished':              return { icon: CalendarClock,    bg: 'bg-indigo-100 dark:bg-indigo-900/30',  fg: 'text-indigo-600 dark:text-indigo-400' };
+        case 'ShiftSwapNotice':                return { icon: RotateCcw,        bg: 'bg-amber-100 dark:bg-amber-900/30',    fg: 'text-amber-600 dark:text-amber-400' };
+        case 'AttendanceDeviceOffline':        return { icon: Fingerprint,      bg: 'bg-amber-100 dark:bg-amber-900/30',    fg: 'text-amber-600 dark:text-amber-400' };
         default:                               return { icon: CalendarClock,    bg: 'bg-blue-100 dark:bg-blue-900/30',      fg: 'text-blue-600 dark:text-blue-400' };
     }
 }
@@ -274,6 +286,14 @@ function NotifContent({ n }: { n: NotifItem }) {
             return <a href={d.url ?? '/admin/calls'} className="block"><p className="text-xs font-semibold text-red-700 dark:text-red-400 leading-snug">Алдсан дуудлага — {d.number}{(d.repeat_count ?? 1) > 1 ? ` (${d.repeat_count} дахь удаа)` : ''}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.number, d.branch_name ?? d.queue_name, d.called_at].filter(Boolean).join(' · ')}</p></a>;
         case 'MissedCallEscalated':
             return <a href={d.url ?? '/admin/calls'} className="block"><p className="text-xs font-semibold text-red-700 dark:text-red-400 leading-snug">Хугацаа хэтэрлээ — {d.number}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.waited_minutes} минут болсон ч эргэж холбогдоогүй{d.branch_name ? ` · ${d.branch_name}` : ''}</p></a>;
+        case 'SchedulePublished':
+            return <a href={d.url ?? '/my/work-schedule'} className="block"><p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 leading-snug">{d.message}</p>{(d.lines ?? []).slice(0, 3).map((l, i) => <p key={i} className="text-[11px] text-muted-foreground mt-0.5 truncate">{l.date.slice(5).replace('-', '/')} · {l.change === 'removed' ? 'хасагдсан: ' : ''}{l.label}</p>)}{(d.count ?? 0) > 3 ? <p className="text-[11px] text-muted-foreground mt-0.5">… бусад {(d.count ?? 0) - 3}</p> : null}</a>;
+        case 'ShiftSwapNotice':
+            return <a href={d.url ?? '/my/work-schedule'} className="block"><p className="text-xs font-semibold text-amber-700 dark:text-amber-400 leading-snug">{d.message}</p>{d.shift_label ? <p className="text-[11px] text-muted-foreground mt-0.5">{d.shift_label}</p> : null}{d.target_shift_label ? <p className="text-[11px] text-muted-foreground mt-0.5">↔ {d.target_shift_label}</p> : null}{d.rejection_reason ? <p className="text-[11px] text-red-500 mt-0.5">{d.rejection_reason}</p> : null}</a>;
+        case 'LateCheckIn':
+            return <a href="/hr/attendance" className="block"><p className="text-xs font-semibold text-rose-700 dark:text-rose-400 leading-snug">{d.employee_name} {d.late_minutes} минут хоцорлоо</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.date, `хуваарь ${d.scheduled_start}`, `ирсэн ${d.checked_in_at}`].join(' · ')}</p></a>;
+        case 'AttendanceDeviceOffline':
+            return <a href={d.url ?? '/hr/attendance/devices'} className="block"><p className="text-xs font-semibold text-amber-700 dark:text-amber-400 leading-snug">Ирцийн төхөөрөмж холбогдохгүй — {d.device_name}</p><p className="text-[11px] text-muted-foreground mt-0.5">{[d.branch_name, d.last_seen_at ? `сүүлд ${d.last_seen_at}` : 'нэг ч удаа холбогдоогүй'].filter(Boolean).join(' · ')}</p>{d.hint ? <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{d.hint}</p> : null}</a>;
         case 'CallSummaryReport':
             return <a href={d.url ?? '/admin/calls/reports'} className="block"><p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{d.period === 'weekly' ? 'Долоо хоногийн' : 'Өдрийн'} дуудлагын тайлан — {d.range_label}</p><p className="text-[11px] text-muted-foreground mt-0.5">{d.total} дуудлага · {d.missed} алдсан{d.answer_rate !== null && d.answer_rate !== undefined ? ` · хариулалт ${d.answer_rate}%` : ''}{(d.unhandled ?? 0) > 0 ? ` · ${d.unhandled} шийдэгдээгүй` : ''}</p></a>;
         default:
@@ -328,8 +348,9 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
     const LAB_TYPES       = ['LabOrderCreated','LabOrderReturned','LabLessonPublished','LabExamPublished','LabExamGraded'];
     // Админ нэмэлтээр SLA сэрэмжлүүлэг ба өдрийн тайланг хардаг — эдгээр нь
     // зөвхөн удирдлагад очдог тул ресепшний жагсаалтад ороогүй.
-    const ADMIN_TYPES     = [...RECEPTION_TYPES,'MissedCallEscalated','CallSummaryReport','NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged','LabOrderCreated','LabOrderReturned'];
-    const HR_TYPES        = ['NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged'];
+    const ATTENDANCE_TYPES = ['LateCheckIn','AttendanceDeviceOffline'];
+    const ADMIN_TYPES     = [...RECEPTION_TYPES,'MissedCallEscalated','CallSummaryReport','NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged','LabOrderCreated','LabOrderReturned',...ATTENDANCE_TYPES];
+    const HR_TYPES        = ['NewJobApplication','LeaveRequestSubmitted','VacationRequestSubmitted','BookRentalSubmitted','EquipmentAssignmentResponse','FeedbackSubmitted','WarningAcknowledged',...ATTENDANCE_TYPES];
     const DOCTOR_TYPES    = ['PayrollSlipSent','ReceptionBonusSent','NurseBonusSent','LeaveRequestDecision','VacationRequestDecision','BookRentalDecision','EquipmentAssigned','FeedbackResponded','WarningIssued','OrthoVisitSigned','GeneralVisitSigned'];
     const PATIENT_TYPES   = ['ConsentRequestSent','AppointmentBookedPatient','AppointmentConfirmedPatient','OrthoSignatureRequested','GeneralVisitSignatureRequested'];
     const MY_TYPES        = ['PayrollSlipSent','ReceptionBonusSent','NurseBonusSent','LeaveRequestDecision','VacationRequestDecision','BookRentalDecision','EquipmentAssigned','FeedbackResponded','WarningIssued'];
@@ -428,8 +449,8 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
         portal === 'patient'   ? ['all', 'apt'] :
         portal === 'my'        ? ['all', 'leave', 'payroll', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
         portal === 'reception' ? ['all', 'apt', 'billing', 'treatment', 'lab', 'consent'] :
-        portal === 'admin'     ? ['all', 'apt', 'billing', 'job', 'treatment', 'lab', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
-        portal === 'hr'        ? ['all', 'job', 'leave', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
+        portal === 'admin'     ? ['all', 'apt', 'billing', 'job', 'treatment', 'lab', 'consent', 'leave', 'attendance', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
+        portal === 'hr'        ? ['all', 'job', 'leave', 'attendance', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
         portal === 'doctor'    ? ['all', 'leave', 'payroll', 'library', 'equipment', 'feedback', 'warning', 'contract'] :
         portal === 'lab'       ? ['all', 'lab'] :
         ['all', 'apt', 'billing', 'job', 'treatment', 'lab', 'consent', 'leave', 'library', 'equipment', 'feedback', 'warning'];
@@ -450,6 +471,7 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
             case 'treatment': return items.filter(isTreatment);
             case 'lab':       return items.filter(isLab);
             case 'call':      return items.filter(isCall);
+            case 'attendance':return items.filter(isAttendance);
             default:          return items;
         }
     }, [items, tab]);
@@ -470,6 +492,7 @@ export function NotificationBell({ variant = 'default' }: { variant?: 'default' 
         treatment: items.filter(n => isTreatment(n)  && !n.read_at).length,
         lab:       items.filter(n => isLab(n)         && !n.read_at).length,
         call:      items.filter(n => isCall(n)        && !n.read_at).length,
+        attendance:items.filter(n => isAttendance(n)  && !n.read_at).length,
     };
 
     const markRead = async (id: string) => {

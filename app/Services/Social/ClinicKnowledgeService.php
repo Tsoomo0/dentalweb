@@ -5,7 +5,7 @@ namespace App\Services\Social;
 use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\Faq;
-use App\Models\HR\WorkSchedule;
+use App\Models\HR\Shift;
 use App\Models\Setting;
 use App\Models\TreatmentCategory;
 use Illuminate\Support\Facades\Cache;
@@ -174,7 +174,7 @@ class ClinicKnowledgeService
     }
 
     /**
-     * Эмч нарын ойрын 7 хоногийн ажлын хуваарийг (WorkSchedule → employee_id) текст болгоно.
+     * Эмч нарын ойрын 7 хоногийн НИЙТЛЭГДСЭН хуваарийг (Shift → employee_id) текст болгоно.
      * "Энэ эмч хэзээ ажиллах вэ" гэсэн асуултад AI хариулна.
      *
      * @param  \Illuminate\Support\Collection<int, Doctor>  $doctors
@@ -186,10 +186,10 @@ class ClinicKnowledgeService
             return null;
         }
 
-        $rows = WorkSchedule::whereIn('employee_id', $byEmployee->keys()->all())
-            ->whereBetween('date', [now()->startOfDay(), now()->copy()->addDays(7)->endOfDay()])
-            ->where('shift_type', '!=', 'off')
-            ->orderBy('date')
+        $rows = Shift::published()->work()->with(['template:id,name', 'branch:id,name'])
+            ->whereIn('employee_id', $byEmployee->keys()->all())
+            ->whereBetween('date', [now()->toDateString(), now()->addDays(7)->toDateString()])
+            ->orderBy('date')->orderBy('start_time')
             ->get()
             ->groupBy('employee_id');
 
@@ -204,12 +204,13 @@ class ClinicKnowledgeService
             if (! $doctor) {
                 continue;
             }
-            $slots = $days->map(function (WorkSchedule $s) use ($dayNames) {
+            $slots = $days->map(function (Shift $s) use ($dayNames) {
                 $label = $s->date->format('m/d').' ('.$dayNames[$s->date->dayOfWeek].')';
                 $start = $s->start_time ? substr((string) $s->start_time, 0, 5) : null;
                 $end = $s->end_time ? substr((string) $s->end_time, 0, 5) : null;
+                $branch = $s->branch ? " {$s->branch->name}" : '';
 
-                return $start && $end ? "{$label} {$start}-{$end}" : $label.' '.$s->shift_label;
+                return ($start && $end ? "{$label} {$start}-{$end}" : $label.' '.($s->template?->name ?? 'ажиллана')).$branch;
             })->implode('; ');
             $lines[] = "- {$doctor->name}: {$slots}";
         }

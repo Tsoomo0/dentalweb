@@ -11,9 +11,10 @@ use App\Models\HR\EquipmentAssignment;
 use App\Models\HR\FeedbackRequest;
 use App\Models\HR\LeaveRequest;
 use App\Models\HR\PayrollRun;
+use App\Models\HR\Shift;
 use App\Models\HR\VacationRequest;
-use App\Models\HR\WorkSchedule;
-use Carbon\Carbon;
+use App\Services\Attendance\AttendanceEvaluator;
+use App\Services\Schedule\RosterLookup;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -74,34 +75,34 @@ class DashboardController extends Controller
             ]);
 
         /* ── Today's attendance ────────────────────────────────────────────── */
-        $todayLogs = AttendanceLog::whereDate('date', $today)->get();
-        $scheduledToday = WorkSchedule::whereDate('date', $today)->whereNotIn('shift_type', ['off'])->count();
+        // Нийтлэгдсэн хуваарь + ирцийн харьцуулалт (хүлцэл тооцсон хоцролт)
+        $todayLogs = AttendanceLog::whereDate('date', $today)->get()->keyBy('employee_id');
+        $todayPublished = Shift::published()->with('template:id,name,color')->whereDate('date', $today)->get();
+        $plans = RosterLookup::plans($todayPublished->pluck('employee_id'), $today, $today);
+        $evaluator = AttendanceEvaluator::make();
+
+        $scheduledToday = collect($plans)->filter(fn ($days) => $days[$today]['work'] ?? false)->count();
         $checkedInToday = $todayLogs->where('checked_in_at', '!=', null)->count();
         $checkedOutToday = $todayLogs->where('checked_out_at', '!=', null)->count();
-        $notYetCheckedIn = max(0, $scheduledToday - $checkedInToday);
+        $notYetCheckedIn = collect($plans)
+            ->filter(fn ($days, $employeeId) => ($days[$today]['work'] ?? false) && ! $todayLogs->get($employeeId)?->checked_in_at)
+            ->count();
 
-        $todayLateCount = 0;
-        foreach ($todayLogs as $log) {
-            if (! $log->checked_in_at) {
-                continue;
-            }
-            $sched = WorkSchedule::where('employee_id', $log->employee_id)
-                ->whereDate('date', $today)
-                ->whereNotIn('shift_type', ['off'])
-                ->first();
-            if ($sched && $sched->start_time) {
-                $start = Carbon::createFromFormat('H:i:s', $sched->start_time)->setDateFrom(now());
-                if ($log->checked_in_at->gt($start)) {
-                    $todayLateCount++;
-                }
-            }
-        }
+        $todayLateCount = collect($plans)
+            ->filter(fn ($days, $employeeId) => $evaluator->evaluate($today, $todayLogs->get($employeeId), $days[$today] ?? null, null)['late'] > 0)
+            ->count();
 
         /* ── Today's schedule ───────────────────────────────────────────────── */
-        $todayShifts = WorkSchedule::whereDate('date', $today)
-            ->select('shift_type', DB::raw('count(*) as count'))
-            ->groupBy('shift_type')
-            ->pluck('count', 'shift_type');
+        $todayShifts = $todayPublished
+            ->groupBy(fn (Shift $s) => $s->shift_template_id ?? ($s->isWork() ? 'work' : 'off'))
+            ->map(fn ($group) => [
+                'name' => $group->first()->template?->name ?? ($group->first()->isWork() ? 'Тусгай цаг' : 'Амралт'),
+                'color' => $group->first()->template?->color ?? '#94a3b8',
+                'count' => $group->pluck('employee_id')->unique()->count(),
+                'is_work' => $group->first()->isWork(),
+            ])
+            ->sortByDesc(fn ($g) => [$g['is_work'], $g['count']])
+            ->values();
 
         /* ── Alerts: probation ending within 30 days ───────────────────────── */
         $probationAlerts = Employee::with(['position', 'branch'])

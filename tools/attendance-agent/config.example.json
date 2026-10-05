@@ -1,0 +1,14 @@
+{
+  "server_url": "https://yourdomain.mn/api/attendance/ingest",
+  "api_token": "att_... (HR → Ирцийн төхөөрөмж хуудаснаас)",
+  "device": {
+    "ip": "192.168.1.201",
+    "port": 4370,
+    "comm_key": 0,
+    "timeout": 15,
+    "force_udp": false,
+    "encoding": "UTF-8"
+  },
+  "overlap_hours": 24,
+  "verify_ssl": true
+}

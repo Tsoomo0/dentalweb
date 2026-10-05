@@ -26,6 +26,7 @@ export default function BranchCreate() {
         lat: '',
         lng: '',
         radius_m: '100',
+        attendance_gps_enabled: true as boolean,
     });
 
     function useCurrentLocation() {
@@ -117,6 +118,20 @@ export default function BranchCreate() {
                         {/* Geofence */}
                         <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
                             <p className="text-sm font-semibold">📍 Ирцийн байршил (Geofence)</p>
+                            <label className="flex cursor-pointer items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={data.attendance_gps_enabled}
+                                    onChange={(e) => setData('attendance_gps_enabled', e.target.checked)}
+                                    className="mt-0.5 size-4 rounded accent-red-600"
+                                />
+                                <span>
+                                    <span className="block text-sm font-medium">Утсаар байршлаар ирц бүртгэхийг зөвшөөрөх</span>
+                                    <span className="block text-xs text-muted-foreground">
+                                        Унтраавал энэ салбарын ажилчид зөвхөн хурууны хээний төхөөрөмжөөр (4370 / Push) бүртгүүлнэ.
+                                    </span>
+                                </span>
+                            </label>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
                                     <label className="text-xs font-medium text-muted-foreground">Latitude</label>

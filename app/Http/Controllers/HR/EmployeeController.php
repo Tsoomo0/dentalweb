@@ -131,7 +131,7 @@ class EmployeeController extends Controller
             'extra_portals' => 'nullable|array',
             'extra_portals.*' => 'in:reception,lab,hr',
             'schedule_permissions' => 'nullable|array',
-            'schedule_permissions.*' => 'in:clinic,ortho,xray,sterile,reception,cleaner,technician',
+            'schedule_permissions.*' => ['string', 'regex:/^(\*|\d+)$/'], // албан тушаалын id эсвэл '*' (бүгд)
         ], [
             'last_name.required' => 'Овог заавал бөглөнө үү.',
             'first_name.required' => 'Нэр заавал бөглөнө үү.',
@@ -374,7 +374,7 @@ class EmployeeController extends Controller
             'extra_portals' => 'nullable|array',
             'extra_portals.*' => 'in:reception,lab,hr',
             'schedule_permissions' => 'nullable|array',
-            'schedule_permissions.*' => 'in:clinic,ortho,xray,sterile,reception,cleaner,technician',
+            'schedule_permissions.*' => ['string', 'regex:/^(\*|\d+)$/'], // албан тушаалын id эсвэл '*' (бүгд)
         ]);
 
         DB::transaction(function () use ($request, $employee) {

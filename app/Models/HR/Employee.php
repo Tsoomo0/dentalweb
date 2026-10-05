@@ -39,7 +39,7 @@ class Employee extends Model
         'notes',
         // Нэмэлт портал нэвтрэх эрх (жишээ: сувилагч → ['reception'])
         'extra_portals',
-        // Хуваарь гаргах эрх (жишээ: ['clinic']) — өөрийн салбарын хэмжээнд
+        // Хуваарь гаргах эрх — албан тушаалын id-ууд эсвэл ['*'] (бүгд), өөрийн салбарын хэмжээнд
         'schedule_permissions',
     ];
 
@@ -55,21 +55,20 @@ class Employee extends Model
         'schedule_permissions' => 'array',
     ];
 
-    /** Боломжит хуваарь гаргах эрхийн төрлүүд (таб бүрд тус тусдаа). */
-    public const SCHEDULE_AREAS = [
-        'clinic'     => 'Эмч сувилагчийн хуваарь',
-        'ortho'      => 'Гажиг засал / туслах эмчийн хуваарь',
-        'xray'       => 'Рентген техникчийн хуваарь',
-        'sterile'    => 'Ариутгалын сувилагчийн хуваарь',
-        'reception'  => 'Ресепшний хуваарь',
-        'cleaner'    => 'Үйлчлэгчийн хуваарь',
-        'technician' => 'Шүдний техникчийн хуваарь',
-    ];
-
-    /** Тухайн хэсгийн хуваарь гаргах эрхтэй эсэх. */
-    public function canManageSchedule(string $area): bool
+    /**
+     * Хуваарийг нь гаргаж болох албан тушаалууд (өөрийн салбарт).
+     * null = бүх албан тушаал ('*'), [] = эрхгүй.
+     *
+     * @return list<int>|null
+     */
+    public function schedulablePositionIds(): ?array
     {
-        return in_array($area, $this->schedule_permissions ?? [], true);
+        $perms = $this->schedule_permissions ?? [];
+        if (in_array('*', $perms, true)) {
+            return null;
+        }
+
+        return array_values(array_map('intval', array_filter($perms, fn ($p) => ctype_digit((string) $p))));
     }
 
     /** Ямар нэг хуваарь гаргах эрхтэй эсэх. */
@@ -148,6 +147,16 @@ class Employee extends Model
     public function exitChecklist(): HasOne
     {
         return $this->hasOne(EmployeeExitChecklist::class);
+    }
+
+    public function shifts(): HasMany
+    {
+        return $this->hasMany(Shift::class);
+    }
+
+    public function schedulePattern(): HasOne
+    {
+        return $this->hasOne(SchedulePattern::class);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
+        then: function () {
+            // Ирцийн төхөөрөмж/агент — session, CSRF, Inertia-гүй stateless маршрут
+            Route::middleware('api')->group(base_path('routes/attendance.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [

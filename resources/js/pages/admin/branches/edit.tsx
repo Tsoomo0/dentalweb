@@ -17,6 +17,7 @@ interface Branch {
     lat: number | null;
     lng: number | null;
     radius_m: number;
+    attendance_gps_enabled: boolean;
 }
 
 interface Props {
@@ -46,6 +47,7 @@ export default function BranchEdit({ branch }: Props) {
         lat: branch.lat?.toString() ?? '',
         lng: branch.lng?.toString() ?? '',
         radius_m: (branch.radius_m ?? 100).toString(),
+        attendance_gps_enabled: branch.attendance_gps_enabled ?? true,
     });
 
     function useCurrentLocation() {
@@ -128,6 +130,20 @@ export default function BranchEdit({ branch }: Props) {
                         {/* Geofence */}
                         <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
                             <p className="text-sm font-semibold">📍 Ирцийн байршил (Geofence)</p>
+                            <label className="flex cursor-pointer items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={data.attendance_gps_enabled}
+                                    onChange={(e) => setData('attendance_gps_enabled', e.target.checked)}
+                                    className="mt-0.5 size-4 rounded accent-red-600"
+                                />
+                                <span>
+                                    <span className="block text-sm font-medium">Утсаар байршлаар ирц бүртгэхийг зөвшөөрөх</span>
+                                    <span className="block text-xs text-muted-foreground">
+                                        Унтраавал энэ салбарын ажилчид зөвхөн хурууны хээний төхөөрөмжөөр (4370 / Push) бүртгүүлнэ.
+                                    </span>
+                                </span>
+                            </label>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
                                     <label className="text-xs font-medium text-muted-foreground">Latitude</label>

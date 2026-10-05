@@ -6,7 +6,10 @@ import {
     Trash2, User, UserCheck, X, XCircle,
     CalendarClock, FileText,
 } from 'lucide-react';
-import { type FormEvent, useEffect, useMemo, useRef } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+
+/** /doctor-duty хариу — эмчийн тухайн өдрийн нийтлэгдсэн хуваарь. */
+interface DoctorDuty { status: 'work' | 'off' | 'none'; start: string | null; end: string | null; label: string | null; branches: string[]; }
 
 /* ── Types ──────────────────────────────────────────────────────── */
 export interface ModalDoctor   { id: number; name: string; specialization: string | null; branch_id: number | null; branch_ids: number[] }
@@ -157,6 +160,21 @@ export function AptFormModal({
             : doctors,
         [data.branch_id, doctors],
     );
+
+    // Сонгосон өдөр эмч нийтлэгдсэн хуваарьтай эсэх (HR-ийн хуваариас) — алдаа гарвал зүгээр л харуулахгүй
+    const [duty, setDuty] = useState<Record<string, DoctorDuty> | null>(null);
+    useEffect(() => {
+        if (!data.appointment_date) { setDuty(null); return; }
+        let alive = true;
+        fetch(`/doctor-duty?date=${data.appointment_date}`, { headers: { Accept: 'application/json' } })
+            .then(r => (r.ok ? r.json() : null))
+            .then(j => { if (alive) setDuty(j?.duty ?? null); })
+            .catch(() => { if (alive) setDuty(null); });
+        return () => { alive = false; };
+    }, [data.appointment_date]);
+    const doctorDuty = data.doctor_id && duty ? duty[data.doctor_id] : undefined;
+    const dutyOutside = !!doctorDuty && doctorDuty.status === 'work' && !!doctorDuty.start && !!data.appointment_time
+        && (data.appointment_time < doctorDuty.start || (doctorDuty.end !== null && data.appointment_time >= doctorDuty.end));
 
     function setStartTime(v: string) {
         setData(prev => ({ ...prev, appointment_time: v, appointment_time_end: addMins(v, 20) }));
@@ -361,6 +379,14 @@ export function AptFormModal({
                                     <option key={d.id} value={d.id}>{d.name}{d.specialization ? ` · ${d.specialization}` : ''}</option>
                                 ))}
                             </select>
+                            {doctorDuty && doctorDuty.status !== 'none' && (
+                                <p className={`mt-1 text-[11px] font-medium ${doctorDuty.status === 'off' || dutyOutside ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                    {doctorDuty.status === 'off'
+                                        ? 'Энэ өдөр амралттай'
+                                        : `Хуваарь: ${doctorDuty.start ? `${doctorDuty.start}–${doctorDuty.end}` : doctorDuty.label ?? 'ажиллана'}${doctorDuty.branches.length ? ` · ${doctorDuty.branches.join(', ')}` : ''}${dutyOutside ? ' — сонгосон цаг хуваарийн гадна' : ''}`}
+                                </p>
+                            )}
+                            {doctorDuty?.status === 'none' && <p className="mt-1 text-[11px] text-muted-foreground">Энэ өдөр хуваарь тавигдаагүй</p>}
                         </div>
                     </div>
 

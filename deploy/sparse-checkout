@@ -1,0 +1,19 @@
+# Production сервер дээр татах файлын жагсаалт (git sparse-checkout, non-cone).
+# Бүгдийг татаад, систем ажиллахад хэрэггүй хавтсуудыг хасна. Шинэ хавтас
+# нэмэгдвэл анхнаасаа татагдана — хасах шаардлагатай бол энд нэмнэ.
+#
+# Сервер дээр НЭГ УДАА ажиллуулна (дараагийн git pull бүр үүнийг дагана):
+#   cd /var/www/html
+#   git sparse-checkout set --no-cone --stdin < deploy/sparse-checkout
+#
+# Энэ файлыг өөрчилсний дараа дээрх командыг дахин ажиллуулна.
+# Буцаах:  git sparse-checkout disable
+/*
+!/docs/
+!/ml/
+!/tools/
+!/scripts/
+!/tests/
+!/.github/
+!/.claude/
+!/FAQ-template.docx

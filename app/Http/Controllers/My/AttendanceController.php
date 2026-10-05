@@ -4,15 +4,22 @@ namespace App\Http\Controllers\My;
 
 use App\Http\Controllers\Controller;
 use App\Models\HR\AttendanceLog;
-use App\Models\HR\WorkSchedule;
-use App\Models\User;
-use App\Notifications\LateCheckIn;
+use App\Models\HR\AttendancePunch;
+use App\Models\HR\Employee;
+use App\Services\Attendance\AttendanceIngestService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Утаснаас байршлаар (GPS) ирц бүртгэх. Бүртгэл нь хурууны хээний
+ * төхөөрөмжийнхтэй адил attendance_punches-д орж, өдрийн нэгтгэл
+ * AttendanceIngestService-ээр тооцоологдоно.
+ */
 class AttendanceController extends Controller
 {
+    public function __construct(private readonly AttendanceIngestService $attendance) {}
+
     public function checkIn(Request $request): RedirectResponse
     {
         $employee = ProfileController::resolveEmployee();
@@ -20,42 +27,16 @@ class AttendanceController extends Controller
             return redirect()->route('portal.select');
         }
 
-        $employee->load('branch');
-        $branch = $employee->branch;
-
-        $lat = $request->input('lat');
-        $lng = $request->input('lng');
-
-        if ($branch && $branch->lat && $branch->lng) {
-            if ($lat === null || $lng === null) {
-                return redirect()->back()->withErrors([
-                    'geofence' => 'Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.',
-                ]);
-            }
-            $distance = $this->haversine($lat, $lng, $branch->lat, $branch->lng);
-            $radius = $branch->radius_m ?? 100;
-
-            if ($distance > $radius) {
-                return redirect()->back()->withErrors([
-                    'geofence' => "Та салбараасаа хол байна ({$distance}м). Зөвхөн {$radius}м дотор бүртгэх боломжтой.",
-                ]);
-            }
+        if ($error = $this->geofenceError($employee, $request)) {
+            return redirect()->back()->withErrors(['geofence' => $error]);
         }
 
-        $today = Carbon::today();
-        $log = AttendanceLog::firstOrCreate(
-            ['employee_id' => $employee->id, 'date' => $today->toDateString()],
-        );
+        $log = AttendanceLog::where('employee_id', $employee->id)
+            ->whereDate('date', Carbon::today())
+            ->first();
 
-        if (! $log->checked_in_at) {
-            $now = now();
-            $log->update([
-                'checked_in_at' => $now,
-                'check_in_lat' => $lat,
-                'check_in_lng' => $lng,
-            ]);
-
-            $this->notifyIfLate($employee, $now, $today);
+        if (! $log?->checked_in_at) {
+            $this->attendance->recordGps($employee, AttendancePunch::TYPE_IN, $request->input('lat'), $request->input('lng'));
         }
 
         return redirect()->back();
@@ -68,75 +49,50 @@ class AttendanceController extends Controller
             return redirect()->route('portal.select');
         }
 
-        $employee->load('branch');
-        $branch = $employee->branch;
-
-        $lat = $request->input('lat');
-        $lng = $request->input('lng');
-
-        if ($branch && $branch->lat && $branch->lng) {
-            if ($lat === null || $lng === null) {
-                return redirect()->back()->withErrors([
-                    'geofence' => 'Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.',
-                ]);
-            }
-            $distance = $this->haversine($lat, $lng, $branch->lat, $branch->lng);
-            $radius = $branch->radius_m ?? 100;
-
-            if ($distance > $radius) {
-                return redirect()->back()->withErrors([
-                    'geofence' => "Та салбараасаа хол байна ({$distance}м). Зөвхөн {$radius}м дотор бүртгэх боломжтой.",
-                ]);
-            }
+        if ($error = $this->geofenceError($employee, $request)) {
+            return redirect()->back()->withErrors(['geofence' => $error]);
         }
 
-        $today = Carbon::today();
         $log = AttendanceLog::where('employee_id', $employee->id)
-            ->where('date', $today->toDateString())
+            ->whereDate('date', Carbon::today())
             ->first();
 
         if ($log && $log->checked_in_at && ! $log->checked_out_at) {
-            $log->update([
-                'checked_out_at' => now(),
-                'check_out_lat' => $lat,
-                'check_out_lng' => $lng,
-            ]);
+            $this->attendance->recordGps($employee, AttendancePunch::TYPE_OUT, $request->input('lat'), $request->input('lng'));
         }
 
         return redirect()->back();
     }
 
-    private function notifyIfLate($employee, Carbon $checkedInAt, Carbon $today): void
+    /** Салбарт байршлаар бүртгэх хаалттай эсвэл радиусаас гадуур бол алдааны мессеж. */
+    private function geofenceError(Employee $employee, Request $request): ?string
     {
-        $schedule = WorkSchedule::where('employee_id', $employee->id)
-            ->where('date', $today->toDateString())
-            ->whereNotIn('shift_type', ['off'])
-            ->first();
+        $employee->load('branch');
+        $branch = $employee->branch;
 
-        if (! $schedule || ! $schedule->start_time) {
-            return;
+        if ($branch && ! $branch->attendance_gps_enabled) {
+            return 'Таны салбарт ирцийг хурууны хээний төхөөрөмжөөр бүртгэнэ.';
         }
 
-        $scheduledStart = Carbon::createFromFormat('H:i:s', $schedule->start_time, $today->timezone);
-        $scheduledStart->setDate($today->year, $today->month, $today->day);
-
-        $lateMinutes = (int) $scheduledStart->diffInMinutes($checkedInAt, false);
-
-        if ($lateMinutes <= 0) {
-            return;
+        if (! $branch || ! $branch->lat || ! $branch->lng) {
+            return null;
         }
 
-        $hrAdmins = User::whereHas('role', fn ($q) => $q->whereIn('name', ['admin', 'hr']))->get();
+        $lat = $request->input('lat');
+        $lng = $request->input('lng');
 
-        foreach ($hrAdmins as $admin) {
-            $admin->notify(new LateCheckIn(
-                employee: $employee,
-                checkedInAt: $checkedInAt->format('H:i'),
-                scheduledStart: substr($schedule->start_time, 0, 5),
-                lateMinutes: $lateMinutes,
-                date: $today->toDateString(),
-            ));
+        if ($lat === null || $lng === null) {
+            return 'Байршил тогтоогдсонгүй. Утасны байршлын зөвшөөрлийг идэвхжүүлнэ үү.';
         }
+
+        $distance = $this->haversine($lat, $lng, $branch->lat, $branch->lng);
+        $radius = $branch->radius_m ?? 100;
+
+        if ($distance > $radius) {
+            return "Та салбараасаа хол байна ({$distance}м). Зөвхөн {$radius}м дотор бүртгэх боломжтой.";
+        }
+
+        return null;
     }
 
     private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): int

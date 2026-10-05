@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\HR\AttendanceController;
+use App\Http\Controllers\HR\AttendanceDeviceController;
 use App\Http\Controllers\HR\BookCategoryController;
 use App\Http\Controllers\HR\BookController;
 use App\Http\Controllers\HR\BookRentalController;
@@ -16,15 +17,14 @@ use App\Http\Controllers\HR\ExitChecklistController;
 use App\Http\Controllers\HR\FeedbackController;
 use App\Http\Controllers\HR\LeaveRequestController;
 use App\Http\Controllers\HR\NurseBonusController;
-use App\Http\Controllers\HR\OrthoScheduleController;
 use App\Http\Controllers\HR\PayrollController;
 use App\Http\Controllers\HR\PositionController;
 use App\Http\Controllers\HR\ReceptionBonusController;
+use App\Http\Controllers\HR\ScheduleSetupController;
 use App\Http\Controllers\HR\SealLockController;
-use App\Http\Controllers\HR\SupportScheduleController;
 use App\Http\Controllers\HR\VacationRequestController;
 use App\Http\Controllers\HR\WarningController;
-use App\Http\Controllers\HR\WorkScheduleController;
+use App\Http\Controllers\Schedule\BoardController as ScheduleBoardController;
 use App\Http\Controllers\SignatureController;
 use Illuminate\Support\Facades\Route;
 
@@ -114,26 +114,48 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     // ── Ирцийн бүртгэл ──────────────────────────────────────────────────────
     Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('attendance/export-excel', [AttendanceController::class, 'exportExcel'])->name('attendance.export-excel');
+    // Хуруу дарахаа мартсан үед HR гараар засах (шалтгаан заавал, хэн засав нь хадгалагдана)
+    Route::get('attendance/day', [AttendanceController::class, 'day'])->name('attendance.day');
+    Route::post('attendance/manual', [AttendanceController::class, 'storeManual'])->name('attendance.manual');
+    Route::delete('attendance/punches/{punch}', [AttendanceController::class, 'destroyPunch'])->name('attendance.punches.destroy');
 
-    // ── Ажлын хуваарь ────────────────────────────────────────────────────────
-    Route::get('work-schedules', [WorkScheduleController::class, 'index'])->name('work-schedules.index');
-    Route::post('work-schedules', [WorkScheduleController::class, 'store'])->name('work-schedules.store');
-    Route::post('work-schedules/copy-week', [WorkScheduleController::class, 'copyWeek'])->name('work-schedules.copy-week');
-    Route::post('work-schedules/row-fill', [WorkScheduleController::class, 'rowFill'])->name('work-schedules.row-fill');
-    Route::post('work-schedules/save-tasks', [WorkScheduleController::class, 'saveTasks'])->name('work-schedules.save-tasks');
-    Route::delete('work-schedules/{workSchedule}', [WorkScheduleController::class, 'destroy'])->name('work-schedules.destroy');
+    // ── Ирцийн төхөөрөмж (хурууны хээ: 4370 агент / ADMS push / USB) ──────────
+    Route::get('attendance/devices', [AttendanceDeviceController::class, 'index'])->name('attendance.devices.index');
+    Route::post('attendance/devices', [AttendanceDeviceController::class, 'store'])->name('attendance.devices.store');
+    Route::put('attendance/devices/{device}', [AttendanceDeviceController::class, 'update'])->name('attendance.devices.update');
+    Route::delete('attendance/devices/{device}', [AttendanceDeviceController::class, 'destroy'])->name('attendance.devices.destroy');
+    Route::post('attendance/devices/{device}/token', [AttendanceDeviceController::class, 'regenerateToken'])->name('attendance.devices.token');
+    Route::post('attendance/devices/{device}/import', [AttendanceDeviceController::class, 'importUsb'])->name('attendance.devices.import');
+    Route::post('attendance/device-users/bulk-map', [AttendanceDeviceController::class, 'bulkMap'])->name('attendance.device-users.bulk-map');
+    Route::patch('attendance/device-users/{deviceUser}', [AttendanceDeviceController::class, 'mapUser'])->name('attendance.device-users.map');
 
-    // ── Гажиг заслын хуваарь (харагдац нь work-schedules доторх таб) ──────────
-    Route::get('ortho-schedules', fn () => redirect()->route('hr.work-schedules.index'))->name('ortho-schedules.index');
-    Route::post('ortho-schedules', [OrthoScheduleController::class, 'store'])->name('ortho-schedules.store');
-    Route::post('ortho-schedules/range', [OrthoScheduleController::class, 'range'])->name('ortho-schedules.range');
-    Route::post('ortho-schedules/clear-range', [OrthoScheduleController::class, 'clearRange'])->name('ortho-schedules.clear-range');
-    Route::delete('ortho-schedules/{orthoSchedule}', [OrthoScheduleController::class, 'destroy'])->name('ortho-schedules.destroy');
-
-    // ── Туслах ажилтны хуваарь (рентген техникч / ариутгал / ресепшн — work-schedules доторх таб) ──
-    Route::post('support-schedules', [SupportScheduleController::class, 'store'])->name('support-schedules.store');
-    Route::post('support-schedules/row-fill', [SupportScheduleController::class, 'rowFill'])->name('support-schedules.row-fill');
-    Route::delete('support-schedules/{supportSchedule}', [SupportScheduleController::class, 'destroy'])->name('support-schedules.destroy');
+    // ── Ажлын хуваарь (нэгдсэн: бүх албан тушаал, ноорог → нийтлэх) ─────────
+    Route::redirect('work-schedules', '/hr/schedule')->name('work-schedules.index');
+    Route::controller(ScheduleBoardController::class)->prefix('schedule')->name('schedule.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('board', 'board')->name('board');
+        Route::post('days', 'days')->name('days');
+        Route::post('copy', 'copy')->name('copy');
+        Route::post('generate', 'generate')->name('generate');
+        Route::post('publish', 'publish')->name('publish');
+        Route::post('discard', 'discard')->name('discard');
+        Route::get('print', 'print')->name('print');
+        Route::get('tasks', 'tasks')->name('tasks');
+        Route::post('tasks', 'saveTasks')->name('tasks.save');
+    });
+    Route::controller(ScheduleSetupController::class)->prefix('schedule')->name('schedule.')->group(function () {
+        Route::post('templates', 'storeTemplate')->name('templates.store');
+        Route::post('templates/reorder', 'reorderTemplates')->name('templates.reorder');
+        Route::put('templates/{template}', 'updateTemplate')->name('templates.update');
+        Route::delete('templates/{template}', 'destroyTemplate')->name('templates.destroy');
+        Route::put('patterns/{employee}', 'savePattern')->name('patterns.save');
+        Route::post('patterns/{employee}/from-week', 'patternFromWeek')->name('patterns.from-week');
+        Route::delete('patterns/{employee}', 'destroyPattern')->name('patterns.destroy');
+        Route::post('rules', 'saveRule')->name('rules.save');
+        Route::delete('rules/{rule}', 'destroyRule')->name('rules.destroy');
+        Route::put('settings', 'saveSettings')->name('settings.save');
+        Route::patch('swaps/{swap}', 'decideSwap')->name('swaps.decide');
+    });
 
     // ── Гарах бүртгэл ────────────────────────────────────────────────────────
     Route::get('exit-checklists', [ExitChecklistController::class, 'index'])->name('exit-checklists.index');

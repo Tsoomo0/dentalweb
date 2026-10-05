@@ -1,0 +1,11 @@
+# Build гаралт — exe-г git-д хадгалахгүй, build.bat-аар үүсгэнэ
+build/
+dist/
+__pycache__/
+
+# Ажиллаж байх үеийн файлууд — config.json-д нууц токен байна
+config.json
+state.json
+state.json.tmp
+agent.log*
+agent.lock

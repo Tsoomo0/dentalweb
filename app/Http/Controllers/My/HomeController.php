@@ -8,10 +8,8 @@ use App\Models\HR\EmployeeDocument;
 use App\Models\HR\EmployeeWarning;
 use App\Models\HR\HrDocument;
 use App\Models\HR\LeaveRequest;
-use App\Models\HR\OrthoSchedule;
-use App\Models\HR\SupportSchedule;
 use App\Models\HR\VacationRequest;
-use App\Models\HR\WorkSchedule;
+use App\Services\Schedule\RosterLookup;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -33,38 +31,18 @@ class HomeController extends Controller
 
         $weekEnd = $weekStart->copy()->addDays(6);
 
-        // Хуваарь 3 эх сурвалжид байж болно (эмч сувилагч / туслах / гажиг засал).
-        // Гурвыг нь огноогоор нэгтгэнэ (давуу эрх: work > support > ortho).
+        // Зөвхөн НИЙТЛЭГДСЭН хуваарь. Нэг өдөр хэд хэдэн ээлжтэй бол нэгтгэж харуулна.
         $byDate = [];
-
-        foreach (OrthoSchedule::with('assignedDoctor')->where('employee_id', $employee->id)
-            ->whereBetween('date', [$weekStart, $weekEnd])->get() as $o) {
-            $working = in_array($o->state, ['work', 'warehouse'], true);
-            $byDate[$o->date->format('Y-m-d')] = [
-                'shift_type' => $working ? 'full' : 'off',
-                'shift_label' => OrthoSchedule::STATES[$o->state] ?? $o->state,
-                'start_time' => null, 'end_time' => null, 'room' => null,
-                'assigned_doctor_name' => $o->assignedDoctor?->full_name, 'notes' => $o->note,
-            ];
-        }
-        foreach (SupportSchedule::where('employee_id', $employee->id)
-            ->whereBetween('date', [$weekStart, $weekEnd])->get() as $sp) {
-            $byDate[$sp->date->format('Y-m-d')] = [
-                'shift_type' => $sp->shift_type,
-                'shift_label' => SupportSchedule::SHIFTS[$sp->shift_type] ?? $sp->shift_type,
-                'start_time' => $sp->start_time ? substr($sp->start_time, 0, 5) : null,
-                'end_time' => $sp->end_time ? substr($sp->end_time, 0, 5) : null,
-                'room' => null, 'assigned_doctor_name' => null, 'notes' => $sp->note,
-            ];
-        }
-        foreach (WorkSchedule::with('assignedDoctor')->where('employee_id', $employee->id)
-            ->whereBetween('date', [$weekStart, $weekEnd])->get() as $s) {
-            $byDate[$s->date->format('Y-m-d')] = [
-                'shift_type' => $s->shift_type,
-                'shift_label' => $s->shift_label,
-                'start_time' => $s->start_time ? substr($s->start_time, 0, 5) : null,
-                'end_time' => $s->end_time ? substr($s->end_time, 0, 5) : null,
-                'room' => $s->room, 'assigned_doctor_name' => $s->assignedDoctor?->full_name, 'notes' => $s->notes,
+        foreach (RosterLookup::plans([$employee->id], $weekStart->toDateString(), $weekEnd->toDateString())[$employee->id] ?? [] as $date => $plan) {
+            $first = collect($plan['shifts'])->first(fn ($s) => $s->isWork()) ?? $plan['shifts'][0];
+            $byDate[$date] = [
+                'shift_type' => self::shiftType($plan),
+                'shift_label' => $plan['label'],
+                'start_time' => $plan['start'],
+                'end_time' => $plan['end'],
+                'room' => $first->room,
+                'assigned_doctor_name' => $first->assignedDoctor?->full_name,
+                'notes' => $first->note,
             ];
         }
 
@@ -97,7 +75,7 @@ class HomeController extends Controller
             ->count();
 
         $attendance = AttendanceLog::where('employee_id', $employee->id)
-            ->where('date', $today->toDateString())
+            ->whereDate('date', $today->toDateString())
             ->first();
 
         $fullDayLabels = ['Даваа', 'Мягмар', 'Лхагва', 'Пүрэв', 'Баасан', 'Бямба', 'Ням'];
@@ -141,6 +119,29 @@ class HomeController extends Controller
                 'checked_out_at' => $attendance->checked_out_at?->format('H:i'),
                 'worked_minutes' => $attendance->worked_minutes,
             ] : null,
+            // Салбарт байршлаар бүртгэх хаалттай бол "Ажил эхлэх / Тарах" товч нуугдаж,
+            // зөвхөн хурууны хээгээр бүртгэгдсэн цаг харагдана.
+            'gps_attendance_enabled' => $employee->branch?->attendance_gps_enabled ?? true,
         ]);
+    }
+
+    /**
+     * Нүүр хуудасны өнгө/тайлбарт зориулсан ангилал — ээлжийн загвар чөлөөтэй
+     * тодорхойлогддог тул эхлэх/дуусах цагаас нь тааж ангилна.
+     */
+    private static function shiftType(array $plan): string
+    {
+        if (! $plan['work']) {
+            return 'off';
+        }
+        if ($plan['start_min'] === null) {
+            return 'full';
+        }
+
+        return match (true) {
+            $plan['start_min'] >= 12 * 60 => 'afternoon',
+            $plan['end_min'] <= 17 * 60 => 'morning',
+            default => 'full',
+        };
     }
 }

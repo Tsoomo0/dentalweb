@@ -6,7 +6,7 @@ import { Link, router } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
 import {
     AlertTriangle, BookOpen, CalendarCheck, CalendarDays,
-    ChevronRight, Clock, DollarSign, FileSignature, FileText, LayoutGrid,
+    ChevronRight, Clock, DollarSign, FileSignature, FileText, Fingerprint, LayoutGrid,
     MessageSquare, Package, Umbrella, User, UserCircle2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -47,6 +47,8 @@ interface Props {
     today: { date: string; day_label: string };
     attendance: Attendance | null;
     can_manage_schedule?: boolean;
+    /** Салбарт утсаар байршлаар бүртгэх хаалттай бол зөвхөн хурууны хээгээр бүртгүүлнэ. */
+    gps_attendance_enabled?: boolean;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
@@ -70,7 +72,7 @@ function pad2(n: number) { return String(n).padStart(2, '0'); }
 /* ════════════════════════════════════════════════════════════════════════════
    MOBILE HOME
 ════════════════════════════════════════════════════════════════════════════ */
-function MobileHome({ employee, today_schedule, week_days, stats, today, attendance }: Props) {
+function MobileHome({ employee, today_schedule, week_days, stats, today, attendance, gps_attendance_enabled = true }: Props) {
     const now      = useNow();
     const [selDay, setSelDay] = useState(() => week_days.findIndex(d => d.is_today));
     const [loading, setLoading] = useState<'in' | 'out' | null>(null);
@@ -215,16 +217,22 @@ function MobileHome({ employee, today_schedule, week_days, stats, today, attenda
                                     {hasSchedule ? `Ажлын цаг: ${today_schedule!.start_time} – ${today_schedule!.end_time}` : 'Өнөөдрийн хуваарь байхгүй'}
                                 </span>
                             </div>
-                            <button
-                                onClick={handleCheckIn}
-                                disabled={loading === 'in'}
-                                style={{ flexShrink: 0, background: '#4ade80', color: '#14532d', border: 'none', borderRadius: 14, padding: '10px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: loading === 'in' ? 0.7 : 1 }}
-                            >
-                                {loading === 'in'
-                                    ? <span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#14532d', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
-                                    : '▶'}
-                                Ажил эхлэх
-                            </button>
+                            {gps_attendance_enabled ? (
+                                <button
+                                    onClick={handleCheckIn}
+                                    disabled={loading === 'in'}
+                                    style={{ flexShrink: 0, background: '#4ade80', color: '#14532d', border: 'none', borderRadius: 14, padding: '10px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: loading === 'in' ? 0.7 : 1 }}
+                                >
+                                    {loading === 'in'
+                                        ? <span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#14532d', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                                        : '▶'}
+                                    Ажил эхлэх
+                                </button>
+                            ) : (
+                                <span style={{ flexShrink: 0, background: 'rgba(255,255,255,0.15)', color: 'white', borderRadius: 14, padding: '8px 12px', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Fingerprint size={14} /> Хурууны хээгээр
+                                </span>
+                            )}
                         </div>
                     ) : !checkedOut ? (
                         /* Checked in, not yet checked out */
@@ -238,16 +246,22 @@ function MobileHome({ employee, today_schedule, week_days, stats, today, attenda
                                 </div>
                                 <span style={{ fontSize: 22, fontWeight: 900, color: 'white', letterSpacing: 1, fontVariantNumeric: 'tabular-nums' }}>{elapsed}</span>
                             </div>
-                            <button
-                                onClick={handleCheckOut}
-                                disabled={loading === 'out'}
-                                style={{ width: '100%', background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 14, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: loading === 'out' ? 0.7 : 1 }}
-                            >
-                                {loading === 'out'
-                                    ? <span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
-                                    : '■'}
-                                Тарах
-                            </button>
+                            {gps_attendance_enabled ? (
+                                <button
+                                    onClick={handleCheckOut}
+                                    disabled={loading === 'out'}
+                                    style={{ width: '100%', background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 14, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: loading === 'out' ? 0.7 : 1 }}
+                                >
+                                    {loading === 'out'
+                                        ? <span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                                        : '■'}
+                                    Тарах
+                                </button>
+                            ) : (
+                                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Fingerprint size={13} /> Тарахдаа төхөөрөмж дээр хуруугаа уншуулна уу
+                                </p>
+                            )}
                         </div>
                     ) : (
                         /* Checked out */
@@ -450,7 +464,7 @@ function MobileHome({ employee, today_schedule, week_days, stats, today, attenda
 /* ════════════════════════════════════════════════════════════════════════════
    DESKTOP HOME
 ════════════════════════════════════════════════════════════════════════════ */
-function DesktopHome({ employee, today_schedule, week_days, stats, attendance, can_manage_schedule }: Props) {
+function DesktopHome({ employee, today_schedule, week_days, stats, attendance, can_manage_schedule, gps_attendance_enabled = true }: Props) {
     const now = useNow();
     const [loading, setLoading] = useState<'in' | 'out' | null>(null);
     const [geoError, setGeoError] = useState<string | null>(null);
@@ -554,16 +568,22 @@ function DesktopHome({ employee, today_schedule, week_days, stats, attendance, c
                             <div className="flex-1">
                                 <p className="text-sm text-muted-foreground">Та одоогоор бүртгэгдээгүй байна</p>
                             </div>
-                            <button
-                                onClick={handleCheckIn}
-                                disabled={loading === 'in'}
-                                className="flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 px-5 py-2.5 text-sm font-bold text-white transition-colors"
-                            >
-                                {loading === 'in'
-                                    ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                    : <span>▶</span>}
-                                Ажил эхлэх
-                            </button>
+                            {gps_attendance_enabled ? (
+                                <button
+                                    onClick={handleCheckIn}
+                                    disabled={loading === 'in'}
+                                    className="flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 px-5 py-2.5 text-sm font-bold text-white transition-colors"
+                                >
+                                    {loading === 'in'
+                                        ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                        : <span>▶</span>}
+                                    Ажил эхлэх
+                                </button>
+                            ) : (
+                                <span className="flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                                    <Fingerprint className="size-4" /> Хурууны хээгээр бүртгүүлнэ
+                                </span>
+                            )}
                         </>
                     ) : !checkedOut ? (
                         <>
@@ -575,16 +595,22 @@ function DesktopHome({ employee, today_schedule, week_days, stats, attendance, c
                                 <span className="text-muted-foreground">→</span>
                                 <span className="text-xs text-muted-foreground font-medium">Одоо ажиллаж байна</span>
                             </div>
-                            <button
-                                onClick={handleCheckOut}
-                                disabled={loading === 'out'}
-                                className="flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 px-5 py-2.5 text-sm font-bold text-white transition-colors"
-                            >
-                                {loading === 'out'
-                                    ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                    : <span>■</span>}
-                                Тарах
-                            </button>
+                            {gps_attendance_enabled ? (
+                                <button
+                                    onClick={handleCheckOut}
+                                    disabled={loading === 'out'}
+                                    className="flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 px-5 py-2.5 text-sm font-bold text-white transition-colors"
+                                >
+                                    {loading === 'out'
+                                        ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                        : <span>■</span>}
+                                    Тарах
+                                </button>
+                            ) : (
+                                <span className="flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                                    <Fingerprint className="size-4" /> Тарахдаа хуруугаа уншуулна
+                                </span>
+                            )}
                         </>
                     ) : (
                         <>

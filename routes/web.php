@@ -72,11 +72,11 @@ use App\Http\Controllers\My\PasswordController;
 use App\Http\Controllers\My\PayrollController;
 use App\Http\Controllers\My\ProfileController as MyProfileController;
 use App\Http\Controllers\My\ReceptionBonusController;
-use App\Http\Controllers\My\ScheduleManageController;
 use App\Http\Controllers\My\TrainingController;
 use App\Http\Controllers\My\VacationRequestController;
 use App\Http\Controllers\My\WarningController;
 use App\Http\Controllers\My\WorkScheduleController;
+use App\Http\Controllers\Schedule\BoardController as ScheduleBoardController;
 use App\Http\Controllers\Patient\PatientLeasingPaymentController;
 use App\Http\Controllers\Patient\PatientOnlineConsultationController;
 use App\Http\Controllers\Patient\PatientOutstandingController;
@@ -87,6 +87,7 @@ use App\Http\Controllers\PublicController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\Reception\CallController as ReceptionCallController;
 use App\Http\Controllers\Reception\DailySheetController;
+use App\Http\Controllers\Reception\DoctorDutyController;
 use App\Http\Controllers\Reception\OrthoApplianceController;
 use App\Http\Controllers\Reception\PatientController as ReceptionPatientController;
 use App\Http\Controllers\Reception\PatientUserController;
@@ -234,6 +235,9 @@ Route::middleware(['either.auth'])->group(function () {
     Route::get('/portal/work', [PortalController::class, 'goWork'])->name('portal.work');
     Route::get('/portal/hr', [PortalController::class, 'goHr'])->name('portal.hr');
 
+    // Цаг захиалгын цонхонд: эмч тухайн өдөр нийтлэгдсэн хуваарьтай эсэх (ресепшн, админ, эмчийн календарь)
+    Route::get('/doctor-duty', DoctorDutyController::class)->middleware('throttle:60,1')->name('doctor-duty');
+
     // Push subscription (PWA)
     Route::get('push/vapid-key', [PushSubscriptionController::class, 'vapidKey'])->name('push.vapid');
     Route::post('push/subscribe', [PushSubscriptionController::class, 'subscribe'])->name('push.subscribe');
@@ -294,21 +298,23 @@ Route::middleware(['either.auth'])->group(function () {
         Route::patch('/warnings/{warning}/acknowledge', [WarningController::class, 'acknowledge'])->name('warnings.acknowledge');
         // Ажлын хуваарь
         Route::get('/work-schedule', [WorkScheduleController::class, 'index'])->name('work-schedule.index');
+        Route::post('/work-schedule/availability', [WorkScheduleController::class, 'toggleAvailability'])->name('work-schedule.availability');
+        Route::post('/work-schedule/swaps', [WorkScheduleController::class, 'requestSwap'])->name('work-schedule.swaps.store');
+        Route::patch('/work-schedule/swaps/{swap}/respond', [WorkScheduleController::class, 'respondSwap'])->name('work-schedule.swaps.respond');
+        Route::patch('/work-schedule/swaps/{swap}/cancel', [WorkScheduleController::class, 'cancelSwap'])->name('work-schedule.swaps.cancel');
 
-        // Хуваарь гаргах (эрхтэй ажилтан — зөвхөн өөрийн салбарын хэмжээнд)
-        Route::prefix('schedule-manage')->name('schedule-manage.')->group(function () {
-            Route::get('/', [ScheduleManageController::class, 'index'])->name('index');
-            Route::post('/', [ScheduleManageController::class, 'storeWork'])->name('store');
-            Route::post('/row-fill', [ScheduleManageController::class, 'rowFillWork'])->name('row-fill');
-            Route::post('/save-tasks', [ScheduleManageController::class, 'saveTasks'])->name('save-tasks');
-            Route::post('/ortho', [ScheduleManageController::class, 'storeOrtho'])->name('ortho.store');
-            Route::post('/ortho/range', [ScheduleManageController::class, 'rangeOrtho'])->name('ortho.range');
-            Route::post('/ortho/clear-range', [ScheduleManageController::class, 'clearRangeOrtho'])->name('ortho.clear-range');
-            Route::delete('/ortho/{orthoSchedule}', [ScheduleManageController::class, 'destroyOrtho'])->name('ortho.destroy');
-            Route::post('/support', [ScheduleManageController::class, 'storeSupport'])->name('support.store');
-            Route::post('/support/row-fill', [ScheduleManageController::class, 'rowFillSupport'])->name('support.row-fill');
-            Route::delete('/support/{supportSchedule}', [ScheduleManageController::class, 'destroySupport'])->name('support.destroy');
-            Route::delete('/{workSchedule}', [ScheduleManageController::class, 'destroyWork'])->name('destroy');
+        // Хуваарь гаргах (эрхтэй ажилтан — зөвхөн өөрийн салбар, эрх олгосон албан тушаалууд)
+        Route::controller(ScheduleBoardController::class)->prefix('schedule-manage')->name('schedule-manage.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/board', 'board')->name('board');
+            Route::post('/days', 'days')->name('days');
+            Route::post('/copy', 'copy')->name('copy');
+            Route::post('/generate', 'generate')->name('generate');
+            Route::post('/publish', 'publish')->name('publish');
+            Route::post('/discard', 'discard')->name('discard');
+            Route::get('/print', 'print')->name('print');
+            Route::get('/tasks', 'tasks')->name('tasks');
+            Route::post('/tasks', 'saveTasks')->name('tasks.save');
         });
         // Баримт бичиг
         Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');

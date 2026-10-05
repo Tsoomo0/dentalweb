@@ -109,6 +109,11 @@ function ToastCard({ item, onRemove }: { item: ToastItem; onRemove: (id: string)
     );
 }
 
+/** Inertia flash-гүй (JSON) үйлдлийн дараа toast харуулах. ToastContainer хуудсанд байх ёстой. */
+export function showToast(type: ToastType, message: string) {
+    window.dispatchEvent(new CustomEvent('app-toast', { detail: { type, message } }));
+}
+
 /* ─── Toast container (reads flash from Inertia shared data) ─────────────── */
 export function ToastContainer() {
     const { props } = usePage<any>();
@@ -151,6 +156,16 @@ export function ToastContainer() {
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [flash.success, flash.error, flash.warning, flash.info]);
+
+    // ── JSON хариутай үйлдлүүд (Inertia flash-гүй) showToast()-оор дууддаг ──
+    useEffect(() => {
+        const onToast = (e: Event) => {
+            const { type, message } = (e as CustomEvent<{ type: ToastType; message: string }>).detail ?? {};
+            if (message) add(type ?? 'info', message);
+        };
+        window.addEventListener('app-toast', onToast);
+        return () => window.removeEventListener('app-toast', onToast);
+    }, [add]);
 
     if (toasts.length === 0) return null;
 

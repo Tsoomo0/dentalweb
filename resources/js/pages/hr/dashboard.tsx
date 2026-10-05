@@ -51,7 +51,8 @@ interface Feedback {
 }
 interface PageProps {
     stats: Stats;
-    today_shifts: Record<string, number>;
+    /** Нийтлэгдсэн хуваарь, ээлжийн загвараар бүлэглэсэн */
+    today_shifts: { name: string; color: string; count: number; is_work: boolean }[];
     pending_leave: PendingLeave[];
     pending_vacation: PendingVacation[];
     pending_rentals: PendingRental[];
@@ -70,18 +71,6 @@ interface PageProps {
 }
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
-const SHIFT_LABELS: Record<string, string> = {
-    morning: 'Өглөө', afternoon: 'Орой', full: 'Бүтэн', off: 'Чөлөөт',
-};
-const SHIFT_COLOR: Record<string, string> = {
-    morning:   'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
-    afternoon: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    full:      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    off:       'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-};
-const SHIFT_DOT: Record<string, string> = {
-    morning: 'bg-sky-500', afternoon: 'bg-orange-500', full: 'bg-emerald-500', off: 'bg-gray-400',
-};
 const SEV_COLOR: Record<string, string> = {
     low:    'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
     medium: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
@@ -187,7 +176,7 @@ export default function HrDashboard() {
 
     const todayDate = new Date(today);
     const dateLabel = `${todayDate.getFullYear()} оны ${todayDate.getMonth() + 1}-р сарын ${todayDate.getDate()}`;
-    const totalScheduled = Object.values(today_shifts).reduce((s, n) => s + n, 0);
+    const totalScheduled = today_shifts.filter(g => g.is_work).reduce((s, g) => s + g.count, 0);
     const totalPendingApprovals = stats.pending_leave + stats.pending_vacation + stats.pending_book_rental;
 
     return (
@@ -514,24 +503,20 @@ export default function HrDashboard() {
 
                         {/* Today's schedule */}
                         <Card>
-                            <SectionHeader title="Өнөөдрийн хуваарь" href="/hr/work-schedules" />
+                            <SectionHeader title="Өнөөдрийн хуваарь" href="/hr/schedule" />
                             {totalScheduled === 0 ? (
                                 <p className="text-xs text-muted-foreground py-3 text-center">Өнөөдөр хуваарь байхгүй</p>
                             ) : (
                                 <div className="space-y-2">
-                                    {(['full', 'morning', 'afternoon', 'off'] as const).map(type => {
-                                        const cnt = today_shifts[type] ?? 0;
-                                        if (!cnt) return null;
-                                        return (
-                                            <div key={type} className={`flex items-center justify-between rounded-xl px-3 py-2 ${SHIFT_COLOR[type]}`}>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`size-2 rounded-full ${SHIFT_DOT[type]}`} />
-                                                    <span className="text-xs font-semibold">{SHIFT_LABELS[type]}</span>
-                                                </div>
-                                                <span className="text-sm font-black">{cnt} <span className="text-[10px] font-normal opacity-70">ажилтан</span></span>
+                                    {today_shifts.map(g => (
+                                        <div key={g.name} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: `${g.color}1f` }}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="size-2 rounded-full" style={{ background: g.color }} />
+                                                <span className="text-xs font-semibold">{g.name}</span>
                                             </div>
-                                        );
-                                    })}
+                                            <span className="text-sm font-black">{g.count} <span className="text-[10px] font-normal opacity-70">ажилтан</span></span>
+                                        </div>
+                                    ))}
                                     <div className="flex items-center justify-between rounded-xl bg-gray-100 dark:bg-gray-800 px-3 py-2 mt-1">
                                         <div className="flex items-center gap-2">
                                             <Clock className="size-3.5 text-muted-foreground" />

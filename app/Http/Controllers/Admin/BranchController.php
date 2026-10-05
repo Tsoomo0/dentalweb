@@ -45,9 +45,10 @@ class BranchController extends Controller
             'lat' => 'nullable|numeric|between:-90,90',
             'lng' => 'nullable|numeric|between:-180,180',
             'radius_m' => 'nullable|integer|min:50|max:1000',
+            'attendance_gps_enabled' => 'boolean',
         ]);
 
-        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active', 'lat', 'lng', 'radius_m');
+        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active', 'lat', 'lng', 'radius_m', 'attendance_gps_enabled');
         $data['order'] = Branch::max('order') + 1;
 
         if ($request->hasFile('image')) {
@@ -82,9 +83,10 @@ class BranchController extends Controller
             'lat' => 'nullable|numeric|between:-90,90',
             'lng' => 'nullable|numeric|between:-180,180',
             'radius_m' => 'nullable|integer|min:50|max:1000',
+            'attendance_gps_enabled' => 'boolean',
         ]);
 
-        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active', 'lat', 'lng', 'radius_m');
+        $data = $request->only('name', 'address', 'phone', 'description', 'doctor_count', 'is_featured', 'is_active', 'lat', 'lng', 'radius_m', 'attendance_gps_enabled');
 
         if ($request->hasFile('image')) {
             if ($branch->image) {

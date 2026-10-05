@@ -21,6 +21,7 @@ import {
     DollarSign,
     FileSignature,
     FileText,
+    Fingerprint,
     FlaskConical,
     Globe,
     GraduationCap,
@@ -197,8 +198,9 @@ const categories: Category[] = [
                     { title: 'Хянах самбар', url: '/hr/dashboard', icon: LayoutGrid },
                     { title: 'Ажилтнууд', url: '/hr/employees', icon: Users },
                     { title: 'Албан тушаал', url: '/hr/positions', icon: Briefcase },
-                    { title: 'Ажлын хуваарь', url: '/hr/work-schedules', icon: CalendarClock },
+                    { title: 'Ажлын хуваарь', url: '/hr/schedule', icon: CalendarClock },
                     { title: 'Ирцийн бүртгэл', url: '/hr/attendance', icon: ClipboardList },
+                    { title: 'Ирцийн төхөөрөмж', url: '/hr/attendance/devices', icon: Fingerprint },
                 ],
             },
             {
