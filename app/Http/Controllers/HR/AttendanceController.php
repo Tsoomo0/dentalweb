@@ -37,11 +37,11 @@ class AttendanceController extends Controller
         // Ирцийг НИЙТЛЭГДСЭН хуваарьтай харьцуулж хоцролт/эрт явсан/илүү цаг/ирээгүйг тооцно.
         $report = (new AttendanceReport($from->toDateString(), $to->toDateString(), $branchId, $employeeId))->build();
 
-        $employeeQuery = Employee::where('status', 'active')->orderBy('first_name');
-        if ($branchId) {
-            $employeeQuery->where('branch_id', $branchId);
-        }
-        $employees = $employeeQuery->get(['id', 'first_name', 'last_name']);
+        // Салбар сонгосон бол эмчийн «Мөн ажилладаг салбарууд»-аар тэнд ажилладаг хүмүүсийг ч гаргана.
+        $employees = Employee::with('doctor.branches:id')->where('status', 'active')->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name', 'branch_id'])
+            ->when($branchId, fn ($list) => $list->filter(fn (Employee $e) => in_array($branchId, $e->workBranchIds(), true)))
+            ->values();
 
         return Inertia::render('hr/attendance/index', [
             'logs' => $report['rows'],

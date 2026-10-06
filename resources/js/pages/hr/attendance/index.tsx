@@ -5,7 +5,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { HrPager, usePaged } from '@/components/hr/page-panel';
 import axios from 'axios';
 import {
-    AlarmClock, CalendarCheck2, CalendarDays, ChevronLeft, ChevronRight, Clock, DoorOpen, Download, Fingerprint, Hourglass,
+    AlarmClock, Building2, CalendarCheck2, CalendarDays, ChevronLeft, ChevronRight, Clock, DoorOpen, Download, Fingerprint, Hourglass,
     Info, ListChecks, MapPin, PencilLine, Plus, Table2, Trash2, Usb, UserCheck, UserX, X,
 } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -42,6 +42,8 @@ interface AttendanceLog {
     scheduled_start: string | null; scheduled_end: string | null; scheduled_minutes: number; shift_label: string | null;
     late_minutes: number | null; early_leave_minutes: number | null; overtime_minutes: number | null;
     status: DayStatus; no_checkout: boolean;
+    /** Үндсэн салбараасаа өөр хаана хуруу дарсан (жишээ нь Сансарын эмч Хороололд) */
+    branches?: string[];
 }
 interface SummaryRow {
     employee_id: number; employee_name: string; full_name: string; position: string | null; photo_url: string | null;
@@ -720,7 +722,15 @@ export default function HrAttendanceIndex() {
                                                 <div className="flex min-w-0 items-center gap-2.5">
                                                     <Avatar name={log.employee_name} photoUrl={log.photo_url} seed={log.employee_id} />
                                                     <div className="min-w-0">
-                                                        <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{log.employee_name}</p>
+                                                        <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold leading-tight text-foreground">
+                                                            <span className="truncate">{log.employee_name}</span>
+                                                            {log.branches && log.branches.length > 0 && (
+                                                                <span title="Үндсэн салбараасаа өөр газар ажилласан"
+                                                                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-indigo-500/10 px-1.5 py-px text-[10px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-500/20 dark:text-indigo-300">
+                                                                    <Building2 className="size-2.5" />{log.branches.join(', ')}
+                                                                </span>
+                                                            )}
+                                                        </p>
                                                         <p className="truncate text-[11px] leading-tight text-muted-foreground">
                                                             {log.position ?? 'Албан тушаалгүй'}
                                                             {log.scheduled_start && log.scheduled_end && <span className="tabular-nums"> · {log.scheduled_start}–{log.scheduled_end}</span>}

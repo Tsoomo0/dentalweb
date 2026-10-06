@@ -37,7 +37,7 @@ class DeviceUserMatcher
     {
         $people = $employees->map(fn (Employee $e) => [
             'id' => $e->id,
-            'branch_id' => $e->branch_id,
+            'branch_ids' => $e->workBranchIds(), // үндсэн + эмчийн нэмэлт салбарууд
             'first' => $this->skeleton((string) $e->first_name),
             'last' => $this->skeleton((string) $e->last_name),
         ])->filter(fn ($p) => mb_strlen($p['first']) >= 2)->values();
@@ -80,7 +80,7 @@ class DeviceUserMatcher
     }
 
     /**
-     * @param  Collection<int, array{id: int, branch_id: ?int, first: string, last: string}>  $people
+     * @param  Collection<int, array{id: int, branch_ids: list<int>, first: string, last: string}>  $people
      * @param  list<int>  $taken
      */
     private function bestMatch(string $deviceName, ?int $branchId, Collection $people, array $taken): ?int
@@ -123,7 +123,7 @@ class DeviceUserMatcher
             if ($whole === $p['first']) {
                 $score += 2; // "Bat-Erdene" нь "Бат"-аас илүү "Бат-Эрдэнэ"-д таарна
             }
-            if ($branchId && $p['branch_id'] === $branchId) {
+            if ($branchId && in_array((int) $branchId, $p['branch_ids'], true)) {
                 $score += 1;
             }
 

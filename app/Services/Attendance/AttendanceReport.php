@@ -2,8 +2,11 @@
 
 namespace App\Services\Attendance;
 
+use App\Models\Branch;
 use App\Models\HR\AttendanceLog;
+use App\Models\HR\AttendancePunch;
 use App\Models\HR\Employee;
+use App\Models\HR\Shift;
 use App\Services\Schedule\LeaveCalendar;
 use App\Services\Schedule\RosterLookup;
 use Carbon\CarbonPeriod;
@@ -24,16 +27,20 @@ final class AttendanceReport
     /** @return array{rows: list<array<string, mixed>>, summary: list<array<string, mixed>>} */
     public function build(): array
     {
+        // Салбараар шүүхэд үндсэн салбараас гадна эмчийн «Мөн ажилладаг салбарууд»,
+        // тэр салбарт хуваарьтай эсвэл тэнд хуруу дарсан хүмүүсийг ч оруулна.
+        $memberIds = $this->branchId ? $this->branchMemberIds() : null;
+
         $logs = AttendanceLog::with('employee.position')
             ->whereBetween('date', [$this->from, $this->to])
             ->when($this->employeeId, fn ($q) => $q->where('employee_id', $this->employeeId))
-            ->when($this->branchId, fn ($q) => $q->whereHas('employee', fn ($e) => $e->where('branch_id', $this->branchId)))
+            ->when($memberIds !== null, fn ($q) => $q->whereIn('employee_id', $memberIds))
             ->get()
             ->filter(fn (AttendanceLog $l) => $l->employee !== null);
 
         $employees = Employee::with('position')->where('status', 'active')
             ->when($this->employeeId, fn ($q) => $q->whereKey($this->employeeId))
-            ->when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))
+            ->when($memberIds !== null, fn ($q) => $q->whereIn('id', $memberIds))
             ->get()
             ->concat($logs->pluck('employee'))
             ->unique('id')
@@ -45,6 +52,8 @@ final class AttendanceReport
         $evaluator = AttendanceEvaluator::make();
         $today = today()->toDateString();
         $logIndex = $logs->keyBy(fn (AttendanceLog $l) => $l->employee_id.'|'.$l->date->toDateString());
+        $punchBranches = $this->punchBranches($ids);
+        $branchNames = Branch::pluck('name', 'id');
 
         $rows = [];
         $summary = [];
@@ -65,6 +74,14 @@ final class AttendanceReport
                 $plan = $plans[$employee->id][$date] ?? null;
                 $log = $logIndex->get($employee->id.'|'.$date);
                 $leave = $leaves[$employee->id][$date] ?? null;
+                $punchedAt = $punchBranches[$employee->id.'|'.$date] ?? [];
+
+                // Өөр салбарын ажилтан энэ салбарт зөвхөн хуваарьтай/хуруу дарсан өдрөөрөө тооцогдоно.
+                if ($this->branchId && (int) $employee->branch_id !== $this->branchId
+                    && ! in_array($this->branchId, array_map('intval', $plan['branch_ids'] ?? []), true)
+                    && ! in_array($this->branchId, $punchedAt, true)) {
+                    continue;
+                }
 
                 if ($plan && $plan['work']) {
                     $s['planned_days']++;
@@ -98,7 +115,11 @@ final class AttendanceReport
                     continue;
                 }
 
-                $rows[] = $this->row($employee, $date, $log, $plan, $r, $date === $today);
+                // Үндсэн салбараасаа өөр газар хуруу дарсан бол хаана ажилласныг харуулна.
+                $elsewhere = array_values(array_filter($punchedAt, fn ($b) => $b !== (int) $employee->branch_id));
+                $row = $this->row($employee, $date, $log, $plan, $r, $date === $today);
+                $row['branches'] = array_values(array_map(fn ($b) => $branchNames[$b] ?? '', $elsewhere));
+                $rows[] = $row;
             }
 
             if ($s['planned_days'] || $s['worked_days'] || $s['leave_days']) {
@@ -111,6 +132,61 @@ final class AttendanceReport
         usort($summary, fn ($a, $b) => strcmp($a['employee_name'], $b['employee_name']));
 
         return ['rows' => $rows, 'summary' => $summary];
+    }
+
+    /**
+     * Тухайн салбарт хамаарах ажилтнууд: үндсэн салбар, эмчийн нэмэлт салбар,
+     * энэ хугацаанд тэнд хуваарьтай эсвэл тэндхийн төхөөрөмж дээр хуруу дарсан.
+     *
+     * @return list<int>
+     */
+    private function branchMemberIds(): array
+    {
+        $branchId = $this->branchId;
+
+        $ids = Employee::where('branch_id', $branchId)
+            ->orWhereHas('doctor.branches', fn ($q) => $q->where('branches.id', $branchId))
+            ->pluck('id');
+
+        $scheduled = Shift::published()
+            ->where('branch_id', $branchId)
+            ->whereBetween('date', [$this->from, $this->to])
+            ->pluck('employee_id');
+
+        $punched = AttendancePunch::query()
+            ->join('attendance_devices', 'attendance_devices.id', '=', 'attendance_punches.attendance_device_id')
+            ->where('attendance_devices.branch_id', $branchId)
+            ->whereNotNull('attendance_punches.employee_id')
+            ->whereBetween('attendance_punches.punched_at', ["{$this->from} 00:00:00", "{$this->to} 23:59:59"])
+            ->distinct()
+            ->pluck('attendance_punches.employee_id');
+
+        return $ids->concat($scheduled)->concat($punched)->map(fn ($id) => (int) $id)->unique()->values()->all();
+    }
+
+    /**
+     * Ажилтан бүр өдөр бүр аль салбарын төхөөрөмж дээр хуруу дарсан.
+     *
+     * @return array<string, list<int>> "employee_id|Y-m-d" => [branch_id, ...]
+     */
+    private function punchBranches(iterable $employeeIds): array
+    {
+        $out = [];
+
+        AttendancePunch::query()
+            ->join('attendance_devices', 'attendance_devices.id', '=', 'attendance_punches.attendance_device_id')
+            ->whereIn('attendance_punches.employee_id', collect($employeeIds)->all())
+            ->whereNotNull('attendance_devices.branch_id')
+            ->whereBetween('attendance_punches.punched_at', ["{$this->from} 00:00:00", "{$this->to} 23:59:59"])
+            ->selectRaw('attendance_punches.employee_id as e, DATE(attendance_punches.punched_at) as d, attendance_devices.branch_id as b')
+            ->distinct()
+            ->toBase()
+            ->get()
+            ->each(function ($r) use (&$out) {
+                $out[$r->e.'|'.substr((string) $r->d, 0, 10)][] = (int) $r->b;
+            });
+
+        return $out;
     }
 
     private function row(Employee $employee, string $date, ?AttendanceLog $log, ?array $plan, array $r, bool $isToday): array

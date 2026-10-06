@@ -41,7 +41,8 @@ interface DeviceUser {
 interface Option { id: number; name: string; }
 interface PageProps {
     devices: Device[]; deviceUsers: DeviceUser[];
-    employees: (Option & { branch_id: number | null })[]; branches: Option[];
+    /** branch_ids — үндсэн салбар + эмчийн «Мөн ажилладаг салбарууд» */
+    employees: (Option & { branch_ids: number[] })[]; branches: Option[];
     server: { ingest_url: string; push_host: string; push_port: number };
     newToken: { device_id: number; token: string } | null;
     [key: string]: unknown;
@@ -459,10 +460,11 @@ export default function AttendanceDevices() {
 }
 
 /** Төхөөрөмжийн салбарын ажилтнуудыг эхэнд — 4 салбарын бүх ажилтнаас хайхгүй. */
-function EmployeeOptions({ employees, branchId }: { employees: (Option & { branch_id: number | null })[]; branchId: number | null }) {
+function EmployeeOptions({ employees, branchId }: { employees: (Option & { branch_ids: number[] })[]; branchId: number | null }) {
     if (!branchId) return <>{employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</>;
-    const own = employees.filter(e => e.branch_id === branchId);
-    const others = employees.filter(e => e.branch_id !== branchId);
+    // Тухайн салбарт үндсэн эсвэл нэмэлтээр ажилладаг хүмүүс эхэнд
+    const own = employees.filter(e => e.branch_ids.includes(branchId));
+    const others = employees.filter(e => !e.branch_ids.includes(branchId));
     return (
         <>
             <optgroup label="Энэ салбарын">{own.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</optgroup>

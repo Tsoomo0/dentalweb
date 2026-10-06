@@ -81,7 +81,8 @@ class AttendanceDeviceController extends Controller
             ->orderBy('device_user_pin')
             ->get();
 
-        $employees = Employee::where('status', 'active')->orderBy('first_name')
+        // Эмчийн «Мөн ажилладаг салбарууд»-ыг ч тооцно — нэг хүн хоёр салбарын төхөөрөмж дээр байж болно.
+        $employees = Employee::with('doctor.branches:id')->where('status', 'active')->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'employee_number', 'branch_id']);
         $employeeLabels = $employees->mapWithKeys(fn ($e) => [$e->id => "{$e->full_name} ({$e->employee_number})"]);
 
@@ -112,7 +113,7 @@ class AttendanceDeviceController extends Controller
         return Inertia::render('hr/attendance/devices', [
             'devices' => $devices,
             'deviceUsers' => $deviceUsers,
-            'employees' => $employees->map(fn ($e) => ['id' => $e->id, 'name' => $employeeLabels[$e->id], 'branch_id' => $e->branch_id]),
+            'employees' => $employees->map(fn ($e) => ['id' => $e->id, 'name' => $employeeLabels[$e->id], 'branch_ids' => $e->workBranchIds()]),
             'branches' => Branch::orderBy('order')->get(['id', 'name']),
             'server' => [
                 'ingest_url' => url('/api/attendance/ingest'),

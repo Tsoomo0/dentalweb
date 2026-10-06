@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\Doctor;
 use App\Models\HR\AttendanceDevice;
 use App\Models\HR\AttendanceDeviceUser;
 use App\Models\HR\AttendanceLog;
@@ -37,6 +38,8 @@ class AttendanceDeviceTest extends TestCase
         parent::setUp();
 
         Carbon::setTestNow('2026-10-05 12:00:00');
+        // Хуудсыг render хийхэд Vite dev server / build manifest хэрэггүй
+        $this->withoutVite();
         $this->branch = Branch::create(['name' => 'Сансар']);
     }
 
@@ -349,6 +352,48 @@ class AttendanceDeviceTest extends TestCase
 
         // Дэлгэц дээр 17:23 → 18:24 гэж харагдах тул 61 минут (секундээр бол 60.85)
         $this->assertSame(61, AttendanceLog::sole()->worked_minutes);
+    }
+
+    public function test_doctor_working_in_two_branches_shows_up_where_she_punched(): void
+    {
+        $khoroolol = Branch::create(['name' => 'Хороолол']);
+        $sugar = $this->employee('Сугар'); // үндсэн салбар — Сансар
+        $doctor = Doctor::create(['employee_id' => $sugar->id, 'branch_id' => $this->branch->id, 'name' => 'Сугар']);
+        $doctor->branches()->attach($khoroolol->id); // «Мөн ажилладаг салбарууд»
+        $bat = Employee::create(['last_name' => 'Дорж', 'first_name' => 'Бат', 'branch_id' => $khoroolol->id, 'salary' => 1, 'status' => 'active']);
+
+        [$sansarDevice, $sansarToken] = $this->pullDevice();
+        [$khorooDevice, $khorooToken] = $this->pullDevice(['name' => 'Хороолол TX628', 'branch_id' => $khoroolol->id, 'ip_address' => '192.168.0.201']);
+        $this->mapPin($sansarDevice, '3', $sugar);
+        $this->mapPin($khorooDevice, '12', $sugar); // нөгөө төхөөрөмж дээр өөр PIN
+        $this->mapPin($khorooDevice, '1', $bat);
+
+        $this->ingest($khorooToken, [
+            ['pin' => '12', 'punched_at' => '2026-10-01 09:00:00'], ['pin' => '12', 'punched_at' => '2026-10-01 18:00:00'],
+            ['pin' => '1', 'punched_at' => '2026-10-01 08:50:00'],
+        ])->assertOk();
+        $this->ingest($sansarToken, [['pin' => '3', 'punched_at' => '2026-10-02 09:05:00']])->assertOk();
+
+        $hr = $this->hrUser();
+        $rows = fn (int $branchId) => collect($this->actingAs($hr)->get("/hr/attendance?year=2026&month=10&branch_id={$branchId}")
+            ->assertOk()->viewData('page')['props']['logs'])
+            ->filter(fn ($r) => $r['id'] !== null)
+            ->mapWithKeys(fn ($r) => [$r['employee_name'].' '.$r['date'] => $r['branches']]);
+
+        // Хороолол: өөрийн ажилтан + Сугар зөвхөн Хороололд ажилласан өдрөөрөө
+        $khoroo = $rows($khoroolol->id);
+        $this->assertEqualsCanonicalizing(['Д.Бат 2026-10-01', 'Б.Сугар 2026-10-01'], $khoroo->keys()->all());
+        $this->assertSame(['Хороолол'], $khoroo['Б.Сугар 2026-10-01'], 'Үндсэн салбар нь Сансар тул тэмдэг гарна');
+
+        // Сансар (үндсэн): Сугарын бүх өдөр, Хороололд ажилласан өдөр нь тэмдэгтэй
+        $sansar = $rows($this->branch->id);
+        $this->assertSame(['Хороолол'], $sansar['Б.Сугар 2026-10-01']);
+        $this->assertSame([], $sansar['Б.Сугар 2026-10-02']);
+        $this->assertArrayNotHasKey('Д.Бат 2026-10-01', $sansar->all());
+
+        // Хороолол төхөөрөмж дээр тааруулахад Сугар «Энэ салбарын» бүлэгт орно
+        $employees = collect($this->actingAs($hr)->get('/hr/attendance/devices')->viewData('page')['props']['employees'])->keyBy('id');
+        $this->assertEqualsCanonicalizing([$this->branch->id, $khoroolol->id], $employees[$sugar->id]['branch_ids']);
     }
 
     public function test_double_tap_is_not_counted_as_check_out(): void

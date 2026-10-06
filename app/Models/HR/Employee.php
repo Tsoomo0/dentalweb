@@ -134,6 +134,23 @@ class Employee extends Model
         return $this->hasOne(Doctor::class, 'employee_id');
     }
 
+    /**
+     * Ажилладаг бүх салбар: үндсэн салбар + эмчийн «Мөн ажилладаг салбарууд» (branch_doctor).
+     * Ирцийн төхөөрөмж тааруулах, салбараар шүүхэд хэрэглэнэ. `doctor.branches`-ийг урьдчилан ачаалбал зохино.
+     *
+     * @return list<int>
+     */
+    public function workBranchIds(): array
+    {
+        $ids = $this->branch_id ? [(int) $this->branch_id] : [];
+
+        foreach ($this->doctor?->branches ?? [] as $branch) {
+            $ids[] = (int) $branch->id;
+        }
+
+        return array_values(array_unique($ids));
+    }
+
     public function leaveRequests(): HasMany
     {
         return $this->hasMany(LeaveRequest::class);
