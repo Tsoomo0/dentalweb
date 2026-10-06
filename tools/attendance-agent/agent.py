@@ -210,6 +210,20 @@ def post(cfg: dict, payload: dict) -> dict:
     raise ConnectionError("Сервер олон удаа хүлээлгэлээ")
 
 
+def initial_since(cfg: dict) -> str:
+    """Анх ажиллахад хэдий үеэс хойшхи бүртгэлийг илгээх вэ.
+
+    Хуучин төхөөрөмж олон жилийн түүх хадгалдаг (TX628 дээр 2018 оноос 36,000 бүртгэл) —
+    бүгдийг нь илгээвэл PIN тааруулах бүрт олон жилийн өдрийг дахин тооцоолж удаашрана.
+    Анхдагчаар өмнөх сарын 1-нээс (тэр сарын цалингийн ирц бүрэн орно). Илүү хуучин
+    түүх хэрэгтэй бол config.json-д "since": "2025-01-01" гэж заана.
+    """
+    if cfg.get("since"):
+        return datetime.strptime(str(cfg["since"]), "%Y-%m-%d").strftime(TS_FORMAT)
+    first_this_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return (first_this_month - timedelta(days=1)).replace(day=1).strftime(TS_FORMAT)
+
+
 def remember_server_time(state: dict, response: dict) -> None:
     server_time = response.get("server_time")
     if server_time:
@@ -230,9 +244,10 @@ def run_once(cfg: dict, state_path: str, test: bool = False) -> str:
     cursor = state.get("cursor")
     if cursor:
         since = (datetime.strptime(cursor, TS_FORMAT) - timedelta(hours=float(cfg.get("overlap_hours", 24)))).strftime(TS_FORMAT)
-        pending = [p for p in punches if p["punched_at"] >= since]
     else:
-        pending = punches
+        since = initial_since(cfg)
+        log.info("Анхны татлага: %s-аас хойшхи бүртгэл", since)
+    pending = [p for p in punches if p["punched_at"] >= since]
 
     if test:
         response = post(cfg, {"device": info, "punches": [], "users": users})

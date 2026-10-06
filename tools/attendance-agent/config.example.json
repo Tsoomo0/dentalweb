@@ -10,5 +10,6 @@
     "encoding": "UTF-8"
   },
   "overlap_hours": 24,
+  "since": "2026-09-01",
   "verify_ssl": true
 }
