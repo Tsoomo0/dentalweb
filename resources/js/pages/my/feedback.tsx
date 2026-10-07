@@ -1,6 +1,7 @@
 ﻿import MyLayout from '@/layouts/my-layout';
 import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyPill, MyStat, MyTabs, type MyTone, myBtn, myInput } from '@/components/my/page-kit';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
@@ -42,6 +43,9 @@ const STATUS_CFG = {
     resolved: { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', label: 'Шийдвэрлэсэн' },
     rejected: { color: RED,       bg: '#fff5f5', border: '#fecaca', label: 'Татгалзсан' },
 } as const;
+
+const FEEDBACK_TYPE_TONE: Record<string, MyTone> = { suggestion: 'blue', request: 'violet', complaint: 'rose' };
+const FEEDBACK_STATUS_TONE: Record<string, MyTone> = { pending: 'amber', reviewed: 'blue', resolved: 'emerald', rejected: 'rose' };
 
 export default function MyFeedback() {
     const { employee, feedbacks, flash } = usePage<PageProps>().props;
@@ -238,74 +242,90 @@ export default function MyFeedback() {
             </div>
 
             {/* ═══════════════════ DESKTOP ═══════════════════ */}
-            <div className="hidden md:block p-4 md:p-6 space-y-5 print:hidden">
-                <div className="flex items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                            <MessageSquare className="size-5 text-orange-600" /> Санал хүсэлт
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">HR хэсэгт санал, хүсэлт, гомдол илгээх</p>
-                    </div>
-                    <button onClick={() => setShowForm(true)}
-                        className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-                        <Plus className="size-4" /> Шинэ илгээх
-                    </button>
-                </div>
+            <MyDesktop>
+                <MyHeader icon={MessageSquare} title="Санал хүсэлт"
+                    subtitle={<><span>{employee?.full_name}</span><span>HR хэсэгт санал, хүсэлт, гомдол илгээх</span></>}
+                    stats={[
+                        <MyStat key="t" label="Нийт" value={feedbacks.length} />,
+                        <MyStat key="p" label="Хүлээгдэж буй" value={pending} accent="amber" />,
+                        <MyStat key="v" label="Хянагдсан" value={feedbacks.filter(f => f.status === 'reviewed').length} accent="blue" />,
+                        <MyStat key="r" label="Шийдвэрлэсэн" value={resolved} accent="emerald" />,
+                        <MyStat key="x" label="Татгалзсан" value={feedbacks.filter(f => f.status === 'rejected').length} accent="rose" />,
+                    ]} />
 
-                {feedbacks.length === 0 ? (
-                    <div className="text-center py-16 text-muted-foreground">
-                        <MessageSquare className="size-12 mx-auto mb-3 opacity-20" />
-                        <p className="text-sm font-medium">Санал хүсэлт байхгүй байна</p>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {feedbacks.map(f => {
-                            const tCfg = TYPE_CFG[f.type as keyof typeof TYPE_CFG] ?? TYPE_CFG.suggestion;
-                            const sCfg = STATUS_CFG[f.status as keyof typeof STATUS_CFG] ?? STATUS_CFG.pending;
-                            return (
-                                <div key={f.id} className="rounded-2xl border border-border bg-card overflow-hidden">
-                                    <button className="w-full text-left px-4 py-4 flex items-start gap-3"
-                                        onClick={() => setExpanded(expanded === f.id ? null : f.id)}>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: tCfg.color, background: tCfg.bg, borderRadius: 99, padding: '2px 8px', border: `1px solid ${tCfg.border}` }}>{tCfg.label}</span>
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: sCfg.color, background: sCfg.bg, borderRadius: 99, padding: '2px 8px', border: `1px solid ${sCfg.border}` }}>{sCfg.label}</span>
-                                                <span className="text-[10px] text-muted-foreground">{f.created_at}</span>
-                                            </div>
-                                            <p className="text-sm font-semibold text-foreground">{f.subject}</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{f.body}</p>
-                                        </div>
-                                        {expanded === f.id ? <ChevronUp className="size-4 text-muted-foreground shrink-0 mt-1" /> : <ChevronDown className="size-4 text-muted-foreground shrink-0 mt-1" />}
-                                    </button>
-                                    {expanded === f.id && (
-                                        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
-                                            <div>
-                                                <p className="text-xs font-semibold text-muted-foreground mb-1">Агуулга</p>
-                                                <p className="text-sm text-foreground whitespace-pre-wrap">{f.body}</p>
-                                            </div>
-                                            {f.admin_response && (
-                                                <div style={{ background: sCfg.bg, borderRadius: 12, padding: '10px 14px', border: `1px solid ${sCfg.border}` }}>
-                                                    <p className="text-xs font-semibold mb-1" style={{ color: sCfg.color }}>
-                                                        HR хариу{f.reviewed_by ? ` · ${f.reviewed_by}` : ''}{f.reviewed_at ? ` · ${f.reviewed_at}` : ''}
-                                                    </p>
-                                                    <p className="text-sm text-foreground whitespace-pre-wrap">{f.admin_response}</p>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_380px]">
+                    <MyCard title="Миний илгээсэн" icon={MessageSquare} count={feedbacks.length} bodyClassName="">
+                        {feedbacks.length === 0 ? (
+                            <MyEmpty icon={MessageSquare} title="Санал хүсэлт байхгүй байна" hint="Баруун талын маягтаар HR-т шууд илгээнэ." />
+                        ) : (
+                            <div className="divide-y divide-border/40">
+                                {feedbacks.map(f => {
+                                    const open = expanded === f.id;
+                                    return (
+                                        <div key={f.id}>
+                                            <button type="button" onClick={() => setExpanded(open ? null : f.id)}
+                                                className={`flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors ${open ? 'bg-red-50/50 dark:bg-red-950/15' : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'}`}>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                                                        <MyPill tone={FEEDBACK_TYPE_TONE[f.type] ?? 'blue'}>{f.type_label}</MyPill>
+                                                        <MyPill tone={FEEDBACK_STATUS_TONE[f.status] ?? 'amber'}>{f.status_label}</MyPill>
+                                                        <span className="text-[10px] text-muted-foreground">{f.created_at}</span>
+                                                        {f.admin_response && <span className="text-[10px] font-semibold text-emerald-600">· HR хариулсан</span>}
+                                                    </div>
+                                                    <p className="truncate text-xs font-semibold">{f.subject}</p>
+                                                    {!open && <p className="truncate text-[11px] text-muted-foreground">{f.body}</p>}
+                                                </div>
+                                                {open ? <ChevronUp className="mt-1 size-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="mt-1 size-4 shrink-0 text-muted-foreground" />}
+                                            </button>
+                                            {open && (
+                                                <div className="space-y-2 px-3 pb-3">
+                                                    <p className="whitespace-pre-wrap rounded-lg bg-muted/40 px-3 py-2 text-xs">{f.body}</p>
+                                                    {f.admin_response ? (
+                                                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                                                            <p className="mb-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                                                HR хариу{f.reviewed_by ? ` · ${f.reviewed_by}` : ''}{f.reviewed_at ? ` · ${f.reviewed_at}` : ''}
+                                                            </p>
+                                                            <p className="whitespace-pre-wrap text-xs">{f.admin_response}</p>
+                                                        </div>
+                                                    ) : f.status === 'pending' && (
+                                                        <p className="flex items-center gap-1.5 text-[11px] text-amber-600">
+                                                            <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />HR хянаж байна...
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )}
-                                            {f.status === 'pending' && (
-                                                <p className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
-                                                    <span className="size-1.5 rounded-full bg-yellow-500 animate-pulse inline-block" />
-                                                    HR хянаж байна...
-                                                </p>
-                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </MyCard>
 
+                    <MyCard title="Шинэ илгээх" icon={Plus} className="self-start lg:sticky lg:top-4">
+                        <form onSubmit={submit} className="space-y-3">
+                            <div>
+                                <p className="mb-1 text-[11px] font-semibold text-muted-foreground">Төрөл</p>
+                                <MyTabs value={form.data.type} onChange={k => form.setData('type', k)}
+                                    tabs={[{ key: 'suggestion', label: 'Санал' }, { key: 'request', label: 'Хүсэлт' }, { key: 'complaint', label: 'Гомдол' }]} />
+                            </div>
+                            <label className="block text-[11px] font-semibold text-muted-foreground">Гарчиг *
+                                <input value={form.data.subject} onChange={e => form.setData('subject', e.target.value)} placeholder="Товч гарчиг..." maxLength={200} className={`${myInput} mt-1`} />
+                                {form.errors.subject && <span className="mt-1 block text-[10px] text-rose-600">{form.errors.subject}</span>}
+                            </label>
+                            <label className="block text-[11px] font-semibold text-muted-foreground">Агуулга *
+                                <textarea value={form.data.body} onChange={e => form.setData('body', e.target.value)} placeholder="Дэлгэрэнгүй бичнэ үү..." rows={6} maxLength={3000}
+                                    className={`${myInput} mt-1 h-auto resize-none py-2`} />
+                                <span className="mt-0.5 block text-right text-[10px] font-normal text-muted-foreground">{form.data.body.length}/3000</span>
+                                {form.errors.body && <span className="block text-[10px] text-rose-600">{form.errors.body}</span>}
+                            </label>
+                            <button type="submit" disabled={form.processing || !form.data.subject || !form.data.body} className={`${myBtn.primary} w-full justify-center`}>
+                                {form.processing ? <span className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Send className="size-3.5" />}
+                                Илгээх
+                            </button>
+                        </form>
+                    </MyCard>
+                </div>
+            </MyDesktop>
             {/* ─── Form bottom sheet ─── */}
             {showForm && (
                 <div onClick={() => { setShowForm(false); form.reset(); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>

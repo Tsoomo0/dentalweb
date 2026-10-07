@@ -1,11 +1,12 @@
 ﻿import MyLayout from '@/layouts/my-layout';
 import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyPill, MyStat, MyTabs, myBtn, myInput, myTable } from '@/components/my/page-kit';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     CalendarDays, CheckCircle2,
-    Clock, Plus, Send, X, XCircle,
+    Clock, History, Plus, Send, XCircle,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -40,28 +41,14 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Чөлөөний хүсэлт', href: '/my/leave-requests' },
 ];
 
-function StatusBadge({ status }: { status: string }) {
-    if (status === 'approved') return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400">
-            <CheckCircle2 className="size-3" /> Зөвшөөрсөн
-        </span>
-    );
-    if (status === 'rejected') return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/30 px-2.5 py-0.5 text-xs font-semibold text-red-600 dark:text-red-400">
-            <XCircle className="size-3" /> Цуцалсан
-        </span>
-    );
-    return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-            <Clock className="size-3" /> Хүлээгдэж байна
-        </span>
-    );
+function LeaveStatus({ status }: { status: string }) {
+    if (status === 'approved') return <MyPill tone="emerald" icon={CheckCircle2}>Зөвшөөрсөн</MyPill>;
+    if (status === 'rejected') return <MyPill tone="rose" icon={XCircle}>Татгалзсан</MyPill>;
+    return <MyPill tone="amber" icon={Clock}>Хүлээгдэж байна</MyPill>;
 }
 
-const INP = 'w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent transition-shadow';
 
 export default function MyLeaveRequests({ employee, requests, replacements }: Props) {
-    const [showForm, setShowForm] = useState(false);
     const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
 
     useEffect(() => {
@@ -79,7 +66,7 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        post('/my/leave-requests', { onSuccess: () => { reset(); setShowForm(false); } });
+        post('/my/leave-requests', { onSuccess: () => reset() });
     }
 
     const pending  = requests.filter(r => r.status === 'pending').length;
@@ -353,146 +340,102 @@ export default function MyLeaveRequests({ employee, requests, replacements }: Pr
             </div>
 
             {/* ════════════════ DESKTOP ════════════════ */}
-            <div className="hidden md:flex h-full flex-1 flex-col gap-6 p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">Чөлөөний хүсэлт</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">{employee.name} · {employee.position}</p>
-                    </div>
-                    <button onClick={() => setShowForm(v => !v)}
-                        className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition-colors">
-                        <Plus className="size-4" /> Чөлөө хүсэх
-                    </button>
-                </div>
+            <MyDesktop>
+                <MyHeader icon={CalendarDays} title="Чөлөөний хүсэлт"
+                    subtitle={<><span>{employee.name}</span>{employee.position && <span>{employee.position}</span>}{employee.branch && <span>{employee.branch}</span>}</>}
+                    stats={[
+                        <MyStat key="t" label="Нийт хүсэлт" value={requests.length} />,
+                        <MyStat key="p" label="Хүлээгдэж буй" value={pending} accent="amber" />,
+                        <MyStat key="a" label="Зөвшөөрсөн" value={approved} accent="emerald" />,
+                        <MyStat key="r" label="Татгалзсан" value={requests.filter(r => r.status === 'rejected').length} accent="rose" />,
+                        <MyStat key="d" label="Чөлөөтэй өдөр" value={requests.filter(r => r.status === 'approved').reduce((a, r) => a + r.days, 0)} sub="өдөр" accent="violet" />,
+                    ]} />
 
-                <div className="grid grid-cols-3 gap-4">
-                    {[
-                        { label: 'Нийт хүсэлт',    value: requests.length, color: 'text-foreground' },
-                        { label: 'Хүлээгдэж буй',   value: pending,          color: 'text-amber-500' },
-                        { label: 'Зөвшөөрсөн',      value: approved,         color: 'text-green-500' },
-                    ].map(s => (
-                        <div key={s.label} className="rounded-2xl border bg-card shadow-sm px-5 py-4">
-                            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
-                        </div>
-                    ))}
-                </div>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+                    <MyCard title="Хүсэлтийн түүх" icon={History} count={requests.length} bodyClassName="">
+                        {requests.length === 0 ? (
+                            <MyEmpty icon={CalendarDays} title="Чөлөөний хүсэлт байхгүй байна" hint="Баруун талын маягтаар шинэ хүсэлт илгээнэ." />
+                        ) : (
+                            <table className={myTable.table}>
+                                <thead className={myTable.thead}>
+                                    <tr className="border-b border-border/50">
+                                        <th className={myTable.th}>Огноо</th>
+                                        <th className={myTable.th}>Төрөл</th>
+                                        <th className={myTable.th}>Шалтгаан</th>
+                                        <th className={myTable.th}>Орлох</th>
+                                        <th className={myTable.th}>Нөхөж ажиллах</th>
+                                        <th className={`${myTable.th} text-right`}>Төлөв</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={myTable.tbody}>
+                                    {requests.map(r => (
+                                        <tr key={r.id} className={myTable.tr}>
+                                            <td className={`${myTable.td} whitespace-nowrap`}>
+                                                <p className="font-semibold tabular-nums">{r.start_date} → {r.end_date}</p>
+                                                <p className="text-[10px] text-muted-foreground">{r.days} өдөр · илгээсэн {r.created_at}</p>
+                                            </td>
+                                            <td className={myTable.td}><MyPill tone={r.leave_type === 'sick' ? 'sky' : 'violet'}>{LEAVE_TYPES[r.leave_type] ?? r.leave_type}</MyPill></td>
+                                            <td className={`${myTable.td} max-w-[260px]`}><p className="truncate text-muted-foreground" title={r.reason}>{r.reason}</p></td>
+                                            <td className={`${myTable.td} text-muted-foreground`}>{r.replacement ?? '—'}</td>
+                                            <td className={`${myTable.td} whitespace-nowrap text-muted-foreground`} title={r.makeup_note ?? ''}>
+                                                {r.makeup_date ?? '—'}{r.makeup_note && <span className="block max-w-[160px] truncate text-[10px]">{r.makeup_note}</span>}
+                                            </td>
+                                            <td className={`${myTable.td} text-right`}>
+                                                <LeaveStatus status={r.status} />
+                                                {r.status === 'rejected' && r.rejection_reason && <p className="mt-0.5 text-[10px] text-rose-600">{r.rejection_reason}</p>}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </MyCard>
 
-                {showForm && (
-                    <div className="rounded-2xl border border-red-200 dark:border-red-900 bg-red-50/40 dark:bg-red-950/10 shadow-sm overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-red-200/60 dark:border-red-900">
-                            <p className="font-bold text-foreground">Шинэ чөлөөний хүсэлт</p>
-                            <button onClick={() => { setShowForm(false); reset(); }}
-                                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors">
-                                <X className="size-4" />
-                            </button>
-                        </div>
-                        <form onSubmit={submit} className="p-6 grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Эхлэх огноо *</label>
-                                <input type="date" value={data.start_date} onChange={e => setData('start_date', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
-                                {errors.start_date && <p className="mt-1 text-xs text-red-500">{errors.start_date}</p>}
+                    <MyCard title="Шинэ хүсэлт" icon={Plus} className="self-start lg:sticky lg:top-4">
+                        <form onSubmit={submit} className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                <label className="block text-[11px] font-semibold text-muted-foreground">Эхлэх *
+                                    <input type="date" value={data.start_date} onChange={e => setData('start_date', e.target.value)} className={`${myInput} mt-1`} />
+                                    {errors.start_date && <span className="mt-1 block text-[10px] text-rose-600">{errors.start_date}</span>}
+                                </label>
+                                <label className="block text-[11px] font-semibold text-muted-foreground">Дуусах *
+                                    <input type="date" value={data.end_date} onChange={e => setData('end_date', e.target.value)} className={`${myInput} mt-1`} />
+                                    {errors.end_date && <span className="mt-1 block text-[10px] text-rose-600">{errors.end_date}</span>}
+                                </label>
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Дуусах огноо *</label>
-                                <input type="date" value={data.end_date} onChange={e => setData('end_date', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
-                                {errors.end_date && <p className="mt-1 text-xs text-red-500">{errors.end_date}</p>}
+                                <p className="mb-1 text-[11px] font-semibold text-muted-foreground">Төрөл *</p>
+                                <MyTabs tabs={Object.entries(LEAVE_TYPES).map(([key, label]) => ({ key, label }))} value={data.leave_type} onChange={k => setData('leave_type', k)} />
                             </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Чөлөөний төрөл *</label>
-                                <select value={data.leave_type} onChange={e => setData('leave_type', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400">
-                                    {Object.entries(LEAVE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Орлох ажилтан <span className="font-normal text-muted-foreground/60">(заавал биш)</span></label>
-                                <select value={data.replacement_employee_id} onChange={e => setData('replacement_employee_id', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400">
+                            <label className="block text-[11px] font-semibold text-muted-foreground">Шалтгаан *
+                                <textarea value={data.reason} onChange={e => setData('reason', e.target.value)} rows={3}
+                                    placeholder="Чөлөө хүсэх шалтгаанаа бичнэ үү..." className={`${myInput} mt-1 h-auto resize-none py-2`} />
+                                {errors.reason && <span className="mt-1 block text-[10px] text-rose-600">{errors.reason}</span>}
+                            </label>
+                            <label className="block text-[11px] font-semibold text-muted-foreground">Орлох ажилтан <span className="font-normal">(заавал биш)</span>
+                                <select value={data.replacement_employee_id} onChange={e => setData('replacement_employee_id', e.target.value)} className={`${myInput} mt-1`}>
                                     <option value="">Сонгоогүй</option>
                                     {replacements.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                 </select>
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <label className="block text-[11px] font-semibold text-muted-foreground">Нөхөж ажиллах
+                                    <input type="date" value={data.makeup_date} onChange={e => setData('makeup_date', e.target.value)} className={`${myInput} mt-1`} />
+                                    {errors.makeup_date && <span className="mt-1 block text-[10px] text-rose-600">{errors.makeup_date}</span>}
+                                </label>
+                                <label className="block text-[11px] font-semibold text-muted-foreground">Тайлбар
+                                    <input type="text" value={data.makeup_note} onChange={e => setData('makeup_note', e.target.value)} placeholder="Тайлбар..." className={`${myInput} mt-1`} />
+                                    {errors.makeup_note && <span className="mt-1 block text-[10px] text-rose-600">{errors.makeup_note}</span>}
+                                </label>
                             </div>
-                            <div className="col-span-2">
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Шалтгаан *</label>
-                                <textarea value={data.reason} onChange={e => setData('reason', e.target.value)}
-                                    rows={3} placeholder="Чөлөө хүсэх шалтгаанаа дэлгэрэнгүй бичнэ үү..."
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400 resize-none" />
-                                {errors.reason && <p className="mt-1 text-xs text-red-500">{errors.reason}</p>}
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Нөхөж ажиллах өдөр <span className="font-normal text-muted-foreground/60">(заавал биш)</span></label>
-                                <input type="date" value={data.makeup_date} onChange={e => setData('makeup_date', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
-                                {errors.makeup_date && <p className="mt-1 text-xs text-red-500">{errors.makeup_date}</p>}
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Нөхөж ажиллах тайлбар</label>
-                                <input type="text" value={data.makeup_note} onChange={e => setData('makeup_note', e.target.value)}
-                                    placeholder="Тайлбар..."
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
-                                {errors.makeup_note && <p className="mt-1 text-xs text-red-500">{errors.makeup_note}</p>}
-                            </div>
-                            <div className="col-span-2 flex justify-end">
-                                <button type="submit" disabled={processing}
-                                    className="flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
-                                    {processing ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Send className="size-4" />}
-                                    Хүсэлт илгээх
-                                </button>
-                            </div>
+                            <button type="submit" disabled={processing} className={`${myBtn.primary} w-full justify-center`}>
+                                {processing ? <span className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Send className="size-3.5" />}
+                                Хүсэлт илгээх
+                            </button>
                         </form>
-                    </div>
-                )}
-
-                <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                    <div className="border-b bg-muted/30 px-6 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Хүсэлтийн түүх</p>
-                    </div>
-                    {requests.length === 0 ? (
-                        <div className="py-14 text-center text-sm text-muted-foreground">Чөлөөний хүсэлт байхгүй байна</div>
-                    ) : (
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-border/50 text-xs text-muted-foreground">
-                                    <th className="px-6 py-3 text-left font-semibold">Огноо</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Өдөр</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Төрөл</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Шалтгаан</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Орлох</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Нөхөж ажиллах</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Статус</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/40">
-                                {requests.map(r => (
-                                    <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                                        <td className="px-6 py-3 text-foreground whitespace-nowrap">{r.start_date} → {r.end_date}</td>
-                                        <td className="px-4 py-3 text-muted-foreground">{r.days}</td>
-                                        <td className="px-4 py-3 text-muted-foreground">{LEAVE_TYPES[r.leave_type] ?? r.leave_type}</td>
-                                        <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{r.reason}</td>
-                                        <td className="px-4 py-3 text-muted-foreground">{r.replacement ?? '—'}</td>
-                                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                                            {r.makeup_date
-                                                ? <span title={r.makeup_note ?? ''}>{r.makeup_date}{r.makeup_note ? ' ⓘ' : ''}</span>
-                                                : '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div>
-                                                <StatusBadge status={r.status} />
-                                                {r.status === 'rejected' && r.rejection_reason && (
-                                                    <p className="mt-1 text-xs text-red-500">{r.rejection_reason}</p>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
+                    </MyCard>
                 </div>
-            </div>
+            </MyDesktop>
         </MyLayout>
     );
 }

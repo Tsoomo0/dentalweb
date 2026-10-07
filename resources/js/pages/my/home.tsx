@@ -3,11 +3,12 @@ import { NotificationBell } from '@/components/notification-bell';
 import { ChatIcon } from '@/components/chat-icon';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link, router } from '@inertiajs/react';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyPill, MyStat, myBtn } from '@/components/my/page-kit';
 import { type BreadcrumbItem } from '@/types';
 import {
     AlertTriangle, BookOpen, CalendarCheck, CalendarDays,
     ChevronRight, Clock, DollarSign, FileSignature, FileText, Fingerprint, LayoutGrid,
-    MessageSquare, Package, Umbrella, User, UserCircle2,
+    MessageSquare, Package, Umbrella, User,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -522,216 +523,145 @@ function DesktopHome({ employee, today_schedule, week_days, stats, attendance, c
         });
     }
 
+    const quickLinks = [
+        { label: 'Ажлын хуваарь', Icon: CalendarCheck, href: '/my/work-schedule', tone: 'bg-blue-500/10 text-blue-600' },
+        ...(can_manage_schedule ? [{ label: 'Хуваарь гаргах', Icon: CalendarCheck, href: '/my/schedule-manage', tone: 'bg-indigo-500/10 text-indigo-600' }] : []),
+        { label: 'Чөлөөний хүсэлт', Icon: CalendarDays, href: '/my/leave-requests', tone: 'bg-red-500/10 text-red-600' },
+        { label: 'Ээлжийн амралт', Icon: Umbrella, href: '/my/vacation-requests', tone: 'bg-emerald-500/10 text-emerald-600' },
+        { label: 'Цалингийн задаргаа', Icon: DollarSign, href: '/my/payroll', tone: 'bg-teal-500/10 text-teal-600' },
+        { label: 'Номын сан', Icon: BookOpen, href: '/my/book-rentals', tone: 'bg-purple-500/10 text-purple-600' },
+        { label: 'Тоног төхөөрөмж', Icon: Package, href: '/my/equipment', tone: 'bg-cyan-500/10 text-cyan-600' },
+        { label: 'Санал хүсэлт', Icon: MessageSquare, href: '/my/feedback', tone: 'bg-orange-500/10 text-orange-600' },
+        { label: 'Баримт бичиг', Icon: FileText, href: '/my/documents', tone: 'bg-slate-500/10 text-slate-600' },
+    ];
+
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-start justify-between">
-                <div>
-                    <p className="text-sm text-muted-foreground font-medium">{greeting(today_schedule?.shift_type)}</p>
-                    <h1 className="text-2xl font-bold text-foreground mt-0.5">
-                        {employee.full_name}
-                        {employee.position && <span className="text-muted-foreground font-normal text-lg ml-2">· {employee.position}</span>}
-                    </h1>
-                    {employee.branch && <p className="text-sm text-muted-foreground mt-1">{employee.branch}</p>}
-                </div>
-                <p className="text-xs text-muted-foreground">{employee.number}</p>
-            </div>
-
-            {/* Attendance card */}
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-                {geoError && (
-                    <div className="flex items-center gap-2 px-5 py-3 bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-800">
-                        <span className="text-base">📍</span>
-                        <p className="text-sm font-medium text-red-600">{geoError}</p>
-                    </div>
-                )}
-                <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
-                    <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
-                        <Clock className="size-4 text-red-600" />
-                    </div>
-                    <div className="flex-1">
-                        <p className="text-sm font-bold text-foreground leading-tight">Ирцийн бүртгэл</p>
-                        <p className="text-xs text-muted-foreground leading-tight mt-0.5">
-                            {hasSchedule ? `${today_schedule!.shift_label} · ${today_schedule!.start_time} – ${today_schedule!.end_time}` : 'Өнөөдрийн хуваарь байхгүй'}
-                        </p>
-                    </div>
-                    {checkedIn && !checkedOut && (
-                        <div className="flex items-center gap-2 text-sm font-mono font-bold text-foreground tabular-nums">
-                            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                            {elapsed}
-                        </div>
-                    )}
-                </div>
-
-                <div className="px-5 py-4 flex items-center gap-4">
-                    {!checkedIn ? (
-                        <>
-                            <div className="flex-1">
-                                <p className="text-sm text-muted-foreground">Та одоогоор бүртгэгдээгүй байна</p>
-                            </div>
-                            {gps_attendance_enabled ? (
-                                <button
-                                    onClick={handleCheckIn}
-                                    disabled={loading === 'in'}
-                                    className="flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 px-5 py-2.5 text-sm font-bold text-white transition-colors"
-                                >
-                                    {loading === 'in'
-                                        ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                        : <span>▶</span>}
-                                    Ажил эхлэх
-                                </button>
-                            ) : (
-                                <span className="flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-xs font-semibold text-muted-foreground">
-                                    <Fingerprint className="size-4" /> Хурууны хээгээр бүртгүүлнэ
-                                </span>
-                            )}
-                        </>
-                    ) : !checkedOut ? (
-                        <>
-                            <div className="flex-1 flex items-center gap-3">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-xs text-muted-foreground font-medium">Ирсэн:</span>
-                                    <span className="text-sm font-bold text-emerald-600">{attendance!.checked_in_at}</span>
-                                </div>
-                                <span className="text-muted-foreground">→</span>
-                                <span className="text-xs text-muted-foreground font-medium">Одоо ажиллаж байна</span>
-                            </div>
-                            {gps_attendance_enabled ? (
-                                <button
-                                    onClick={handleCheckOut}
-                                    disabled={loading === 'out'}
-                                    className="flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 px-5 py-2.5 text-sm font-bold text-white transition-colors"
-                                >
-                                    {loading === 'out'
-                                        ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                        : <span>■</span>}
-                                    Тарах
-                                </button>
-                            ) : (
-                                <span className="flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-xs font-semibold text-muted-foreground">
-                                    <Fingerprint className="size-4" /> Тарахдаа хуруугаа уншуулна
-                                </span>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            <div className="flex-1 flex items-center gap-4">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-xs text-muted-foreground">Ирсэн:</span>
-                                    <span className="text-sm font-bold text-emerald-600">{attendance!.checked_in_at}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-xs text-muted-foreground">Тарсан:</span>
-                                    <span className="text-sm font-bold text-blue-600">{attendance!.checked_out_at}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-xs text-muted-foreground">Нийт:</span>
-                                    <span className="text-sm font-bold text-foreground">
-                                        {Math.floor(attendance!.worked_minutes / 60)}ц {attendance!.worked_minutes % 60}мин
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2.5">
-                                <span className="text-emerald-600 text-sm font-bold">✓ Ажил дууслаа</span>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
+        <MyDesktop>
+            <MyHeader icon={User} photo={{ url: employee.photo_url, initials: employee.initials }}
+                title={<><span className="font-medium text-muted-foreground">{greeting(today_schedule?.shift_type)}</span> {employee.full_name}</>}
+                subtitle={<>
+                    {employee.position && <span>{employee.position}</span>}
+                    {employee.branch && <span>{employee.branch}</span>}
+                    <span className="tabular-nums">{employee.number}</span>
+                </>}
+                actions={<>
+                    <Link href="/my/work-schedule" className={myBtn.ghost}><CalendarCheck className="size-3.5" />Ажлын хуваарь</Link>
+                    <Link href="/my/leave-requests" className={myBtn.primary}><CalendarDays className="size-3.5" />Чөлөө хүсэх</Link>
+                </>}
+                stats={[
+                    <MyStat key="l" label="Хүлээгдэж буй чөлөө" value={stats.pending_leave + stats.pending_vacation} accent="amber" />,
+                    <MyStat key="v" label="Ээлжийн амралт" value={stats.vacation_days} sub="өдөр үлдсэн" accent="emerald" />,
+                    <MyStat key="c" label="Гарын үсэг хүлээж буй" value={stats.pending_contracts} accent={stats.pending_contracts ? 'red' : 'slate'} />,
+                    <MyStat key="d" label="Баримт бичиг" value={stats.documents} accent="sky" />,
+                    <MyStat key="w" label="Шинэ сануулга" value={stats.warnings} accent={stats.warnings ? 'rose' : 'slate'} />,
+                ]} />
 
             {stats.pending_contracts > 0 && (
-                <Link href="/my/contracts" className="block no-underline">
-                    <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-5 py-4">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/20">
-                            <FileSignature className="size-5 text-white" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-white">{stats.pending_contracts} гэрээ гарын үсэг хүлээж байна</p>
-                            <p className="text-xs text-white/75">Уншиж танилцаад гарын үсгээ зурна уу</p>
-                        </div>
-                        <ChevronRight className="size-4 text-white/80" />
-                    </div>
+                <Link href="/my/contracts" className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 transition hover:bg-emerald-500/10">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white"><FileSignature className="size-4" /></span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold text-emerald-800 dark:text-emerald-300">{stats.pending_contracts} гэрээ гарын үсэг хүлээж байна</span>
+                        <span className="block text-[11px] text-emerald-700/80 dark:text-emerald-400/80">Уншиж танилцаад гарын үсгээ зурна уу</span>
+                    </span>
+                    <ChevronRight className="size-4 text-emerald-700" />
                 </Link>
             )}
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                    { label: 'Чөлөөний хүсэлт', val: stats.pending_leave,   Icon: CalendarDays,  color: 'text-red-600',    bg: 'bg-red-50 dark:bg-red-950/30',      href: '/my/leave-requests',    sub: 'хүлээгдэж буй' },
-                    { label: 'Ээлжийн амралт',   val: stats.vacation_days,   Icon: Umbrella,      color: 'text-emerald-600',bg: 'bg-emerald-50 dark:bg-emerald-950/30',href: '/my/vacation-requests', sub: 'өдөр байна' },
-                    { label: 'Баримт бичиг',     val: stats.documents,       Icon: FileText,      color: 'text-slate-600',  bg: 'bg-slate-50 dark:bg-slate-900/50',  href: '/my/documents',         sub: 'нийт файл' },
-                    { label: 'Сануулга',          val: stats.warnings,        Icon: AlertTriangle, color: stats.warnings > 0 ? 'text-red-600' : 'text-slate-400', bg: stats.warnings > 0 ? 'bg-red-50 dark:bg-red-950/30' : 'bg-slate-50 dark:bg-slate-900/50', href: '/my/warnings', sub: 'шинэ байна' },
-                ].map(({ label, val, Icon: I, color, bg, href, sub }) => (
-                    <Link key={label} href={href} className="block no-underline">
-                        <div className="bg-card rounded-xl border border-border p-4 hover:border-primary/30 transition-colors">
-                            <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center mb-3`}>
-                                <I className={`size-4 ${color}`} />
+            <div className="grid gap-3 lg:grid-cols-3">
+                <MyCard title="Ирцийн бүртгэл" icon={Clock} className="lg:col-span-2"
+                    actions={checkedIn && !checkedOut && (
+                        <span className="flex items-center gap-1.5 font-mono text-xs font-bold tabular-nums">
+                            <span className="size-2 animate-pulse rounded-full bg-emerald-500" />{elapsed}
+                        </span>
+                    )}>
+                    {geoError && <p className="mb-2 rounded-lg bg-rose-500/10 px-3 py-2 text-[11px] font-semibold text-rose-700 dark:text-rose-300">📍 {geoError}</p>}
+                    <div className="flex items-center gap-4">
+                        <div className="grid flex-1 grid-cols-3 gap-2">
+                            <div className="rounded-lg bg-muted/40 px-3 py-2">
+                                <p className="text-[10px] text-muted-foreground">Ирсэн</p>
+                                <p className={`text-lg font-black tabular-nums ${checkedIn ? 'text-emerald-600' : 'text-muted-foreground/50'}`}>{attendance?.checked_in_at ?? '—'}</p>
                             </div>
-                            <p className="text-2xl font-bold text-foreground">{val}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
-                            <p className={`text-xs font-semibold mt-1 ${color}`}>{label}</p>
+                            <div className="rounded-lg bg-muted/40 px-3 py-2">
+                                <p className="text-[10px] text-muted-foreground">Тарсан</p>
+                                <p className={`text-lg font-black tabular-nums ${checkedOut ? 'text-blue-600' : 'text-muted-foreground/50'}`}>{attendance?.checked_out_at ?? '—'}</p>
+                            </div>
+                            <div className="rounded-lg bg-muted/40 px-3 py-2">
+                                <p className="text-[10px] text-muted-foreground">Ажилласан</p>
+                                <p className="text-lg font-black tabular-nums">
+                                    {checkedOut ? `${Math.floor(attendance!.worked_minutes / 60)}ц ${attendance!.worked_minutes % 60}м` : checkedIn ? elapsed.slice(0, 5) : '—'}
+                                </p>
+                            </div>
                         </div>
-                    </Link>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Today's schedule */}
-                <div className="bg-card rounded-xl border border-border p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
-                            <Clock className="size-4 text-red-600" />
+                        <div className="shrink-0">
+                            {!checkedIn ? (
+                                gps_attendance_enabled ? (
+                                    <button type="button" onClick={handleCheckIn} disabled={loading === 'in'}
+                                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60">
+                                        {loading === 'in' ? <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <span>▶</span>}Ажил эхлэх
+                                    </button>
+                                ) : <MyPill tone="slate" icon={Fingerprint}>Хурууны хээгээр бүртгүүлнэ</MyPill>
+                            ) : !checkedOut ? (
+                                gps_attendance_enabled ? (
+                                    <button type="button" onClick={handleCheckOut} disabled={loading === 'out'}
+                                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60">
+                                        {loading === 'out' ? <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <span>■</span>}Тарах
+                                    </button>
+                                ) : <MyPill tone="slate" icon={Fingerprint}>Тарахдаа хуруугаа уншуулна</MyPill>
+                            ) : <MyPill tone="emerald">✓ Ажил дууслаа</MyPill>}
                         </div>
-                        <h2 className="font-semibold text-foreground">Өнөөдрийн хуваарь</h2>
                     </div>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                        {hasSchedule ? `Өнөөдөр: ${today_schedule!.shift_label} · ${today_schedule!.start_time} – ${today_schedule!.end_time}` : 'Өнөөдрийн хуваарь байхгүй'}
+                    </p>
+                </MyCard>
+
+                <MyCard title="Өнөөдрийн хуваарь" icon={CalendarCheck}
+                    actions={<Link href="/my/work-schedule" className="text-[11px] font-semibold text-red-600 hover:underline">Бүх хуваарь →</Link>}>
                     {hasSchedule ? (
-                        <div>
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm font-medium text-foreground">{today_schedule!.shift_label}</span>
-                                <span className="text-sm font-bold text-red-600">{today_schedule!.start_time} – {today_schedule!.end_time}</span>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between rounded-lg border-l-4 border-red-500 bg-red-500/5 px-3 py-2">
+                                <span className="text-xs font-bold">{today_schedule!.shift_label}</span>
+                                <span className="text-sm font-black tabular-nums text-red-600">{today_schedule!.start_time} – {today_schedule!.end_time}</span>
                             </div>
-                            {today_schedule!.room && <p className="text-xs text-muted-foreground mb-1">Кабинет: {today_schedule!.room}</p>}
-                            {today_schedule!.assigned_doctor_name && <p className="text-xs text-muted-foreground mb-3">Эмч: {today_schedule!.assigned_doctor_name}</p>}
-                            <Link href="/my/work-schedule" className="text-xs font-semibold text-red-600 hover:underline">Бүх хуваарь →</Link>
+                            {today_schedule!.room && <p className="text-[11px] text-muted-foreground">Кабинет: <b className="text-foreground">{today_schedule!.room}</b></p>}
+                            {today_schedule!.assigned_doctor_name && <p className="text-[11px] text-muted-foreground">Эмч: <b className="text-foreground">{today_schedule!.assigned_doctor_name}</b></p>}
+                            {today_schedule!.notes && <p className="text-[11px] italic text-muted-foreground">{today_schedule!.notes}</p>}
                         </div>
-                    ) : today_schedule?.shift_type === 'off' ? (
-                        <div className="flex items-center gap-3 text-muted-foreground">
-                            <span className="text-2xl">☀️</span>
-                            <span className="text-sm font-medium">Амралтын өдөр</span>
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">Өнөөдрийн хуваарь байхгүй</p>
-                    )}
-                </div>
-
-                {/* Quick links */}
-                <div className="bg-card rounded-xl border border-border p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
-                            <LayoutGrid className="size-4 text-red-600" />
-                        </div>
-                        <h2 className="font-semibold text-foreground">Хурдан шилжих</h2>
-                    </div>
-                    <div className="space-y-1">
-                        {[
-                            { label: 'Ажлын хуваарь',    Icon: CalendarCheck, href: '/my/work-schedule',    color: 'text-blue-600' },
-                            ...(can_manage_schedule ? [{ label: 'Хуваарь гаргах', Icon: CalendarCheck, href: '/my/schedule-manage', color: 'text-indigo-600' }] : []),
-                            { label: 'Чөлөөний хүсэлт',  Icon: CalendarDays,  href: '/my/leave-requests',   color: 'text-red-600' },
-                            { label: 'Ээлжийн амралтын хүсэлт', Icon: Umbrella, href: '/my/vacation-requests', color: 'text-emerald-600' },
-                            { label: 'Цалингийн задаргаа',Icon: DollarSign,   href: '/my/payroll',           color: 'text-emerald-600' },
-                            { label: 'Номын сан',          Icon: BookOpen,      href: '/my/book-rentals',     color: 'text-purple-600' },
-                            { label: 'Тоног төхөөрөмж',   Icon: Package,       href: '/my/equipment',        color: 'text-cyan-600' },
-                            { label: 'Санал хүсэлт',      Icon: MessageSquare, href: '/my/feedback',         color: 'text-orange-600' },
-                        ].map(({ label, Icon: I, href, color }) => (
-                            <Link key={label} href={href} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors no-underline group">
-                                <I className={`size-4 ${color} shrink-0`} />
-                                <span className="text-sm font-medium text-foreground">{label}</span>
-                                <ChevronRight className="size-3 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </Link>
-                        ))}
-                    </div>
-                </div>
+                    ) : today_schedule?.shift_type === 'off'
+                        ? <MyEmpty icon={Umbrella} title="Амралтын өдөр" />
+                        : <MyEmpty icon={CalendarDays} title="Өнөөдрийн хуваарь байхгүй" />}
+                </MyCard>
             </div>
-        </div>
+
+            <MyCard title="Энэ 7 хоног" icon={CalendarDays}>
+                <div className="grid grid-cols-7 gap-2">
+                    {week_days.map(d => {
+                        const off = d.shift_type === 'off';
+                        const work = !!d.shift_type && !off;
+                        return (
+                            <div key={d.date} className={`rounded-xl px-2 py-2 text-center ring-1 ${d.is_today ? 'bg-red-50 ring-2 ring-red-500 dark:bg-red-950/25' : 'ring-black/[0.06] dark:ring-white/10'}`}>
+                                <p className={`text-[10px] font-bold uppercase ${d.is_today ? 'text-red-600' : 'text-muted-foreground'}`}>{d.day_label}</p>
+                                <p className="text-base font-black tabular-nums">{d.day_num}</p>
+                                <p className={`mt-0.5 truncate text-[10px] font-semibold tabular-nums ${work ? 'text-foreground' : 'text-muted-foreground/60'}`}>
+                                    {work ? (d.start_time ? `${d.start_time}–${d.end_time}` : 'Ажлын өдөр') : off ? 'Амралт' : '—'}
+                                </p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </MyCard>
+
+            <MyCard title="Хурдан шилжих" icon={LayoutGrid}>
+                <div className="grid grid-cols-3 gap-2 lg:grid-cols-5 xl:grid-cols-9">
+                    {quickLinks.map(({ label, Icon: I, href, tone }) => (
+                        <Link key={label} href={href} className="group flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center ring-1 ring-black/[0.06] transition hover:-translate-y-0.5 hover:shadow-sm hover:ring-red-200 dark:ring-white/10">
+                            <span className={`flex size-9 items-center justify-center rounded-xl ${tone}`}><I className="size-4" /></span>
+                            <span className="text-[11px] font-semibold leading-tight">{label}</span>
+                        </Link>
+                    ))}
+                </div>
+            </MyCard>
+        </MyDesktop>
     );
 }
 

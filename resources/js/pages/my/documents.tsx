@@ -1,6 +1,7 @@
 ﻿import MyLayout from '@/layouts/my-layout';
 import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyPill, MyStat, myBtn, myTable } from '@/components/my/page-kit';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Download, Eye, File, FileArchive, FileImage,
@@ -33,20 +34,8 @@ const CAT_COLORS: Record<string, string> = {
     sky: '#0284c7', green: '#16a34a', red: '#dc2626', pink: '#db2777',
     yellow: '#ca8a04', gray: '#6b7280',
 };
-const CAT_BG: Record<string, string> = {
-    blue: '#eff6ff', violet: '#f5f3ff', emerald: '#ecfdf5', orange: '#fff7ed',
-    sky: '#f0f9ff', green: '#f0fdf4', red: '#fff5f5', pink: '#fdf2f8',
-    yellow: '#fefce8', gray: '#f9fafb',
-};
-const CAT_BORDER: Record<string, string> = {
-    blue: '#bfdbfe', violet: '#ddd6fe', emerald: '#a7f3d0', orange: '#fed7aa',
-    sky: '#bae6fd', green: '#bbf7d0', red: '#fecaca', pink: '#fbcfe8',
-    yellow: '#fef08a', gray: '#e5e7eb',
-};
 
 function catColor(c: string | null) { return CAT_COLORS[c ?? 'gray'] ?? '#6b7280'; }
-function catBg(c: string | null)    { return CAT_BG[c ?? 'gray']     ?? '#f9fafb'; }
-function catBorder(c: string | null){ return CAT_BORDER[c ?? 'gray'] ?? '#e5e7eb'; }
 
 function fileIcon(mime: string) {
     if (mime.includes('pdf'))   return { Icon: FileText,        color: '#dc2626', bg: '#fff5f5', label: 'PDF' };
@@ -213,64 +202,122 @@ export default function MyDocuments() {
             </div>
 
             {/* ═══════════════════ DESKTOP ═══════════════════ */}
-            <div className="hidden md:block p-4 md:p-6 space-y-4 print:hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                        <FileText className="size-5 text-blue-500" /> Баримт бичиг
-                    </h1>
-                    <form onSubmit={e => { e.preventDefault(); applyFilter(catFilter, search); }} className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Хайх..."
-                            className="w-52 rounded-xl border bg-background pl-8 pr-8 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
-                        {search && (
-                            <button type="button" onClick={() => { setSearch(''); applyFilter(catFilter, ''); }}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                                <X className="size-3.5 text-muted-foreground" />
+            <MyDesktop>
+                <MyHeader icon={FileText} title="Баримт бичиг"
+                    subtitle={<><span>{employee?.full_name}</span><span>Байгууллагын журам, маягт, заавар</span></>}
+                    actions={
+                        <form onSubmit={e => { e.preventDefault(); applyFilter(catFilter, search); }} className="relative">
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Баримт хайх…"
+                                className="h-8 w-56 rounded-lg border border-border bg-background pl-8 pr-7 text-xs shadow-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20" />
+                            {search && (
+                                <button type="button" onClick={() => { setSearch(''); applyFilter(catFilter, ''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                    <X className="size-3.5" />
+                                </button>
+                            )}
+                        </form>
+                    }
+                    tabs={
+                        <>
+                            <button type="button" onClick={() => { setCatFilter(0); applyFilter(0); }}
+                                className={`h-7 rounded-lg px-2.5 text-[11px] font-semibold shadow-sm ring-1 transition ${!catFilter ? 'bg-red-600 text-white ring-red-600' : 'bg-white/80 text-muted-foreground ring-black/5 hover:text-foreground dark:bg-white/[0.06] dark:ring-white/10'}`}>
+                                Бүгд
                             </button>
-                        )}
-                    </form>
-                </div>
+                            {categories.map(c => {
+                                const count = documents.filter(d => d.category_id === c.id).length;
+                                if (count === 0 && catFilter !== c.id) return null;
+                                const active = catFilter === c.id;
+                                return (
+                                    <button key={c.id} type="button" onClick={() => { setCatFilter(c.id); applyFilter(c.id); }}
+                                        className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold shadow-sm ring-1 transition ${active ? 'bg-red-600 text-white ring-red-600' : 'bg-white/80 text-muted-foreground ring-black/5 hover:text-foreground dark:bg-white/[0.06] dark:ring-white/10'}`}>
+                                        <span className="size-2 rounded-full" style={{ background: catColor(c.color) }} />{c.name}
+                                        {!catFilter && <span className="tabular-nums opacity-70">{count}</span>}
+                                    </button>
+                                );
+                            })}
+                        </>
+                    }
+                    stats={[
+                        <MyStat key="t" label="Нийт файл" value={documents.length} />,
+                        <MyStat key="c" label="Ангилал" value={categories.filter(c => documents.some(d => d.category_id === c.id)).length} accent="sky" />,
+                        <MyStat key="e" label="Хугацаатай" value={documents.filter(d => d.expires_at).length} accent="amber" />,
+                        <MyStat key="p" label="PDF" value={documents.filter(d => d.file_type.includes('pdf')).length} accent="red" />,
+                    ]} />
 
-                <div className="flex flex-wrap gap-1.5">
-                    <button onClick={() => { setCatFilter(0); applyFilter(0); }}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${!catFilter ? 'bg-red-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
-                        Бүгд
-                    </button>
-                    {categories.map(c => {
-                        const count = documents.filter(d => d.category_id === c.id).length;
-                        if (count === 0 && catFilter !== c.id) return null;
-                        const active = catFilter === c.id;
-                        return (
-                            <button key={c.id} onClick={() => { setCatFilter(c.id); applyFilter(c.id); }}
-                                style={active ? { background: catBg(c.color), color: catColor(c.color), border: `1px solid ${catBorder(c.color)}` } : {}}
-                                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${!active ? 'bg-muted text-muted-foreground hover:bg-muted/80' : ''}`}>
-                                {c.name} {!catFilter && <span className="opacity-60">({count})</span>}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {documents.length === 0 ? (
-                    <div className="py-16 text-center rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-                        <FileText className="size-10 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
-                        <p className="text-sm text-muted-foreground">Баримт бичиг байхгүй байна</p>
-                    </div>
-                ) : (
-                    <div className="space-y-6">
-                        {catFilter
-                            ? <DesktopGroup cat={null} items={documents} catFilter={catFilter} />
-                            : <>
-                                {categories.map(c => {
-                                    const items = grouped[c.id];
-                                    if (!items) return null;
-                                    return <DesktopGroup key={c.id} cat={c} items={items} catFilter={catFilter} />;
-                                })}
-                                {uncategorized.length > 0 && <DesktopGroup cat={null} items={uncategorized} catFilter={catFilter} />}
-                            </>
-                        }
-                    </div>
-                )}
-            </div>
+                <MyCard title={catFilter ? categories.find(c => c.id === catFilter)?.name ?? 'Баримт' : 'Бүх баримт'} icon={FileText} count={documents.length} bodyClassName="">
+                    {documents.length === 0 ? (
+                        <MyEmpty icon={FileText} title={search ? 'Хайлтад тохирох баримт алга' : 'Баримт бичиг байхгүй байна'} />
+                    ) : (
+                        <table className={myTable.table}>
+                            <thead className={myTable.thead}>
+                                <tr className="border-b border-border/50">
+                                    <th className={myTable.th}>Файл</th>
+                                    <th className={myTable.th}>Хэмжээ</th>
+                                    <th className={myTable.th}>Нэмсэн</th>
+                                    <th className={myTable.th}>Хүчинтэй</th>
+                                    <th className={`${myTable.th} text-right`}>Үйлдэл</th>
+                                </tr>
+                            </thead>
+                            {(catFilter
+                                ? [{ cat: null as Category | null, items: documents }]
+                                : [...categories.filter(c => grouped[c.id]).map(c => ({ cat: c as Category | null, items: grouped[c.id] })),
+                                    ...(uncategorized.length ? [{ cat: null as Category | null, items: uncategorized }] : [])]
+                            ).map(({ cat, items }) => (
+                                <tbody key={cat?.id ?? 'none'} className={`${myTable.tbody} border-t border-border/60`}>
+                                    {!catFilter && (
+                                        <tr className="bg-muted/30">
+                                            <td colSpan={5} className="px-3 py-1.5">
+                                                <span className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: catColor(cat?.color ?? null) }}>
+                                                    <span className="size-2 rounded-full" style={{ background: catColor(cat?.color ?? null) }} />
+                                                    {cat?.name ?? 'Ангилалгүй'}<span className="font-medium text-muted-foreground">· {items.length} файл</span>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {items.map(doc => {
+                                        const { Icon, color, bg, label } = fileIcon(doc.file_type);
+                                        return (
+                                            <tr key={doc.id} className={myTable.tr}>
+                                                <td className={myTable.td}>
+                                                    <div className="flex items-center gap-2.5">
+                                                        <span className="flex size-9 shrink-0 flex-col items-center justify-center rounded-lg" style={{ background: bg }}>
+                                                            <Icon className="size-4" style={{ color }} />
+                                                            <span className="text-[7px] font-black" style={{ color }}>{label}</span>
+                                                        </span>
+                                                        <div className="min-w-0">
+                                                            <p className="truncate font-semibold">{doc.title}</p>
+                                                            {doc.description && <p className="max-w-[420px] truncate text-[10px] text-muted-foreground">{doc.description}</p>}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className={`${myTable.td} whitespace-nowrap tabular-nums text-muted-foreground`}>{doc.file_size}</td>
+                                                <td className={`${myTable.td} whitespace-nowrap tabular-nums text-muted-foreground`}>{doc.created_at}</td>
+                                                <td className={`${myTable.td} whitespace-nowrap`}>
+                                                    {doc.expires_at ? <MyPill tone="amber">{doc.expires_at} хүртэл</MyPill> : <span className="text-muted-foreground">Хугацаагүй</span>}
+                                                </td>
+                                                <td className={`${myTable.td} text-right`}>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        {canView(doc.file_type) && (
+                                                            <>
+                                                                <a href={`/my/documents/${doc.id}/view`} target="_blank" rel="noreferrer" className={myBtn.subtle} title="Харах"><Eye className="size-3.5" />Харах</a>
+                                                                <a href={`/my/documents/${doc.id}/view`} target="_blank" rel="noreferrer" title="Хэвлэх" className={myBtn.subtle}
+                                                                    onClick={e => { e.preventDefault(); const w = window.open(`/my/documents/${doc.id}/view`, '_blank'); if (w) w.onload = () => w.print(); }}>
+                                                                    <Printer className="size-3.5" />
+                                                                </a>
+                                                            </>
+                                                        )}
+                                                        <a href={`/my/documents/${doc.id}/download`} className={`${myBtn.primary} h-7`}><Download className="size-3.5" />Татах</a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            ))}
+                        </table>
+                    )}
+                </MyCard>
+            </MyDesktop>
         </MyLayout>
     );
 }
@@ -320,66 +367,6 @@ function MobileGroup({ cat, items, catFilter }: { cat: Category | null; items: D
                                         <Download size={16} color="white" />
                                     </a>
                                 </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-function DesktopGroup({ cat, items, catFilter }: { cat: Category | null; items: Document[]; catFilter: number }) {
-    const cc = catColor(cat?.color ?? null);
-    return (
-        <div>
-            {!catFilter && cat && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, marginBottom: 12, background: catBg(cat.color), border: `1px solid ${catBorder(cat.color)}` }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: cc }} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: cc }}>{cat.name}</span>
-                    <span style={{ marginLeft: 'auto', fontSize: 12, color: cc, opacity: 0.7 }}>{items.length} файл</span>
-                </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {items.map(doc => {
-                    const { Icon, color, bg, label } = fileIcon(doc.file_type);
-                    return (
-                        <div key={doc.id} className="rounded-2xl border bg-card hover:shadow-md transition-all flex flex-col">
-                            <div className="p-4 flex items-start gap-3">
-                                <div style={{ width: 46, height: 46, borderRadius: 14, background: bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <Icon size={18} color={color} />
-                                    <span style={{ fontSize: 8, fontWeight: 900, color, opacity: 0.8, marginTop: 2 }}>{label}</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-foreground line-clamp-2 leading-snug">{doc.title}</p>
-                                    <p className="text-[11px] text-muted-foreground mt-1">{doc.file_size}</p>
-                                </div>
-                            </div>
-                            {doc.description && <p className="px-4 -mt-1 text-[11px] text-muted-foreground line-clamp-2">{doc.description}</p>}
-                            <div className="px-4 pb-2 mt-auto pt-1">
-                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                    <span>{doc.created_at}</span>
-                                    {doc.expires_at && <span className="text-amber-600 font-medium">хүртэл {doc.expires_at}</span>}
-                                </div>
-                            </div>
-                            <div className="border-t px-3 py-2.5 flex gap-1.5">
-                                {canView(doc.file_type) && (
-                                    <a href={`/my/documents/${doc.id}/view`} target="_blank" rel="noreferrer"
-                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
-                                        <Eye className="size-3.5" /> Харах
-                                    </a>
-                                )}
-                                {canView(doc.file_type) && (
-                                    <a href={`/my/documents/${doc.id}/view`} target="_blank" rel="noreferrer"
-                                        onClick={e => { e.preventDefault(); const w = window.open(`/my/documents/${doc.id}/view`, '_blank'); if (w) w.onload = () => w.print(); }}
-                                        className="flex items-center justify-center gap-1 rounded-xl border py-2 px-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
-                                        <Printer className="size-3.5" />
-                                    </a>
-                                )}
-                                <a href={`/my/documents/${doc.id}/download`}
-                                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-red-600 py-2 text-xs font-semibold text-white hover:bg-red-700 transition-colors">
-                                    <Download className="size-3.5" /> Татах
-                                </a>
                             </div>
                         </div>
                     );

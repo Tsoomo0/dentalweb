@@ -1,6 +1,7 @@
 ﻿import MyLayout from '@/layouts/my-layout';
 import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyPill, MyStat, type MyTone } from '@/components/my/page-kit';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, CheckCircle2, ChevronDown, ChevronUp,
@@ -39,6 +40,9 @@ const SEV_CFG = {
     medium: { color: '#d97706', bg: '#fffbeb', border: '#fde68a', label: 'Дунд' },
     high:   { color: RED,       bg: '#fff5f5', border: '#fecaca', label: 'Өндөр' },
 } as const;
+
+const SEV_DOT: Record<string, string> = { low: '#16a34a', medium: '#d97706', high: '#dc2626' };
+const SEV_TONE: Record<string, MyTone> = { low: 'emerald', medium: 'amber', high: 'rose' };
 
 export default function MyWarnings() {
     const { employee, warnings, flash } = usePage<PageProps>().props;
@@ -259,81 +263,87 @@ export default function MyWarnings() {
             </div>
 
             {/* ═══════════════════ DESKTOP ═══════════════════ */}
-            <div className="hidden md:block p-4 md:p-6 space-y-4 print:hidden">
-                <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                    <AlertTriangle className="size-5 text-yellow-500" /> Сануулга / Зөрчил
-                </h1>
+            <MyDesktop>
+                <MyHeader icon={AlertTriangle} title="Сануулга / Зөрчил"
+                    subtitle={<><span>{employee?.full_name}</span>{employee?.position && <span>{employee.position}</span>}</>}
+                    stats={[
+                        <MyStat key="t" label="Нийт" value={warnings.length} />,
+                        <MyStat key="u" label="Хүлээгдэж буй" value={unread} accent="amber" title="Хүлээн зөвшөөрөөгүй" />,
+                        <MyStat key="a" label="Зөвшөөрсөн" value={ackCount} accent="emerald" />,
+                        <MyStat key="w" label="Сануулга" value={warnings.filter(w => w.type !== 'violation').length} accent="orange" />,
+                        <MyStat key="v" label="Зөрчил" value={warnings.filter(w => w.type === 'violation').length} accent="rose" />,
+                    ]} />
 
                 {warnings.length === 0 ? (
-                    <div className="py-16 text-center text-muted-foreground">
-                        <Shield className="size-10 mx-auto mb-3 opacity-30" />
-                        <p>Сануулга байхгүй байна</p>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {warnings.map(w => {
-                            const sevCfg = SEV_CFG[w.severity as keyof typeof SEV_CFG] ?? SEV_CFG.medium;
-                            const isViol = w.type === 'violation';
-                            const isAck  = w.status === 'acknowledged';
-                            return (
-                                <div key={w.id} className="rounded-xl border bg-card shadow-sm overflow-hidden"
-                                    style={{ borderLeft: `4px solid ${sevCfg.color}` }}>
-                                    <button onClick={() => setExpanded(expanded === w.id ? null : w.id)}
-                                        className="w-full text-left px-4 py-3 flex items-start gap-3">
-                                        <div style={{ width: 36, height: 36, borderRadius: 10, background: isViol ? '#fff5f5' : '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${isViol ? '#fecaca' : '#fde68a'}` }}>
-                                            {isViol ? <ShieldAlert size={16} color={RED} /> : <AlertTriangle size={16} color="#d97706" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: sevCfg.color, background: sevCfg.bg, borderRadius: 99, padding: '2px 8px', border: `1px solid ${sevCfg.border}` }}>{sevCfg.label}</span>
-                                                <span className="text-[10px] text-muted-foreground">{w.incident_date}</span>
-                                                {isAck
-                                                    ? <span className="text-[11px] font-semibold text-emerald-600">✓ Зөвшөөрсөн</span>
-                                                    : <span className="text-[11px] font-semibold text-yellow-600 animate-pulse">● Хүлээгдэж</span>
-                                                }
-                                            </div>
-                                            <p className="text-sm font-semibold text-foreground">{w.title}</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">{w.type_label}</p>
-                                        </div>
-                                        {expanded === w.id ? <ChevronUp className="size-4 text-muted-foreground shrink-0" /> : <ChevronDown className="size-4 text-muted-foreground shrink-0" />}
-                                    </button>
+                    <MyCard><MyEmpty icon={Shield} title="Сануулга байхгүй байна" hint="Танд сануулга, зөрчил бүртгэгдээгүй." /></MyCard>
+                ) : (() => {
+                    const current = warnings.find(w => w.id === expanded) ?? warnings[0];
+                    const isAck = current.status === 'acknowledged';
+                    return (
+                        <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                            <MyCard title="Жагсаалт" icon={ShieldAlert} count={warnings.length} bodyClassName="">
+                                <div className="divide-y divide-border/40">
+                                    {warnings.map(w => {
+                                        const sel = w.id === current.id;
+                                        return (
+                                            <button key={w.id} type="button" onClick={() => setExpanded(w.id)}
+                                                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${sel ? 'bg-red-50/70 dark:bg-red-950/20' : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'}`}>
+                                                <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: SEV_DOT[w.severity] ?? '#d97706' }} />
+                                                <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${w.type === 'violation' ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                                                    {w.type === 'violation' ? <ShieldAlert className="size-4" /> : <AlertTriangle className="size-4" />}
+                                                </span>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block truncate text-xs font-semibold">{w.title}</span>
+                                                    <span className="block truncate text-[10px] text-muted-foreground">{w.type_label} · {w.incident_date}</span>
+                                                </span>
+                                                {w.status === 'acknowledged'
+                                                    ? <MyPill tone="emerald" icon={CheckCircle2}>Зөвшөөрсөн</MyPill>
+                                                    : <MyPill tone="amber">Хүлээгдэж</MyPill>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </MyCard>
 
-                                    {expanded === w.id && (
-                                        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
-                                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                                <div><p className="text-[11px] text-muted-foreground mb-0.5">Арга хэмжээ</p><p className="font-medium">{w.action_label}</p></div>
-                                                <div><p className="text-[11px] text-muted-foreground mb-0.5">Илгээсэн</p><p className="font-medium">{w.issued_by ?? '—'}</p></div>
-                                            </div>
-                                            <div>
-                                                <p className="text-[11px] text-muted-foreground mb-0.5">Тайлбар</p>
-                                                <p className="text-sm whitespace-pre-wrap rounded-lg bg-muted/40 p-3">{w.description}</p>
-                                            </div>
-                                            {w.action_detail && (
-                                                <div>
-                                                    <p className="text-[11px] text-muted-foreground mb-0.5">Арга хэмжээний дэлгэрэнгүй</p>
-                                                    <p className="text-sm whitespace-pre-wrap rounded-lg bg-muted/40 p-3">{w.action_detail}</p>
-                                                </div>
-                                            )}
-                                            {isAck ? (
-                                                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-3">
-                                                    <p className="text-[11px] font-semibold text-emerald-700 mb-0.5">Таны хариу · {w.acknowledged_at}</p>
-                                                    <p className="text-sm text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap">{w.employee_response || '—'}</p>
-                                                </div>
-                                            ) : (
-                                                <button onClick={() => { setAckModal(w); setData('employee_response', ''); }}
-                                                    className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors">
-                                                    <CheckCircle2 className="size-4" /> Хүлээн зөвшөөрөх
-                                                </button>
-                                            )}
+                            <MyCard title={current.title} icon={current.type === 'violation' ? ShieldAlert : AlertTriangle} className="self-start lg:sticky lg:top-4">
+                                <div className="space-y-3">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <MyPill tone={current.type === 'violation' ? 'rose' : 'amber'}>{current.type_label}</MyPill>
+                                        <MyPill tone={SEV_TONE[current.severity] ?? 'amber'}>{current.severity_label} зэрэг</MyPill>
+                                        <MyPill tone={isAck ? 'emerald' : 'amber'}>{current.status_label}</MyPill>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-3 py-2">
+                                        <div><p className="text-[10px] text-muted-foreground">Огноо</p><p className="text-xs font-semibold tabular-nums">{current.incident_date}</p></div>
+                                        <div><p className="text-[10px] text-muted-foreground">Арга хэмжээ</p><p className="text-xs font-semibold">{current.action_label}</p></div>
+                                        <div><p className="text-[10px] text-muted-foreground">Илгээсэн</p><p className="truncate text-xs font-semibold">{current.issued_by ?? '—'}</p></div>
+                                    </div>
+                                    <div>
+                                        <p className="mb-1 text-[11px] font-semibold text-muted-foreground">Тайлбар</p>
+                                        <p className="whitespace-pre-wrap text-xs leading-relaxed">{current.description}</p>
+                                    </div>
+                                    {current.action_detail && (
+                                        <div>
+                                            <p className="mb-1 text-[11px] font-semibold text-muted-foreground">Арга хэмжээний дэлгэрэнгүй</p>
+                                            <p className="whitespace-pre-wrap text-xs leading-relaxed">{current.action_detail}</p>
                                         </div>
                                     )}
+                                    {isAck ? (
+                                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                                            <p className="mb-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">Таны хариу · {current.acknowledged_at}</p>
+                                            <p className="whitespace-pre-wrap text-xs">{current.employee_response || '—'}</p>
+                                        </div>
+                                    ) : (
+                                        <button type="button" onClick={() => { setAckModal(current); setData('employee_response', ''); }}
+                                            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                                            <CheckCircle2 className="size-3.5" />Хүлээн зөвшөөрөх
+                                        </button>
+                                    )}
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
+                            </MyCard>
+                        </div>
+                    );
+                })()}
+            </MyDesktop>
             {/* ─── Acknowledge bottom sheet ─── */}
             {ackModal && (
                 <div onClick={() => { setAckModal(null); reset(); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>

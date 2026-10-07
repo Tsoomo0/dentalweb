@@ -1,6 +1,7 @@
 ﻿import MyLayout from '@/layouts/my-layout';
 import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyPill, MyStat, myBtn, myTable } from '@/components/my/page-kit';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertTriangle, Box, CheckCircle2, ClipboardList,
@@ -44,6 +45,13 @@ const STATUS_CFG = {
 const CONDITION_COLOR: Record<string, string> = {
     new: '#16a34a', good: '#0ea5e9', fair: '#f59e0b', damaged: '#dc2626',
 };
+
+function AssignmentStatus({ status }: { status: string }) {
+    if (status === 'accepted') return <MyPill tone="emerald" icon={CheckCircle2}>Баталгаажсан</MyPill>;
+    if (status === 'rejected') return <MyPill tone="rose" icon={XCircle}>Татгалзсан</MyPill>;
+    if (status === 'returned') return <MyPill tone="slate" icon={RotateCcw}>Буцаасан</MyPill>;
+    return <MyPill tone="amber">Хүлээгдэж байна</MyPill>;
+}
 
 /* ── Print-only Act document ── */
 function ActDocument({ assignment, siteName, showFooter = true }: { assignment: Assignment; siteName: string; showFooter?: boolean }) {
@@ -377,104 +385,90 @@ export default function MyEquipment() {
             </div>
 
             {/* ═══════════════════ DESKTOP ═══════════════════ */}
-            <div className="hidden md:block p-4 md:p-6 space-y-6 print:hidden">
-                <div>
-                    <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                        <Package className="size-5 text-blue-600" /> Тоног төхөөрөмж
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Танд хариуцуулсан тоног төхөөрөмжийн жагсаалт</p>
-                </div>
+            <MyDesktop>
+                <MyHeader icon={Package} title="Тоног төхөөрөмж"
+                    subtitle={<><span>{employee?.full_name}</span>{employee?.position && <span>{employee.position}</span>}<span>Танд хариуцуулсан тоног төхөөрөмж</span></>}
+                    stats={[
+                        <MyStat key="p" label="Хүлээгдэж буй" value={pending.length} accent="amber" />,
+                        <MyStat key="a" label="Гартаа байгаа" value={accepted} accent="emerald" />,
+                        <MyStat key="r" label="Буцаасан" value={history.filter(a => a.status === 'returned').length} />,
+                        <MyStat key="x" label="Татгалзсан" value={history.filter(a => a.status === 'rejected').length} accent="rose" />,
+                    ]} />
 
                 {pending.length > 0 && (
-                    <div className="space-y-4">
-                        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                            <span className="size-2 rounded-full bg-yellow-500 animate-pulse inline-block" />
-                            Хүлээгдэж байгаа хүсэлт ({pending.length})
-                        </h2>
-                        {pending.map(a => (
-                            <div key={a.id} className="rounded-2xl border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/10 overflow-hidden">
-                                <div className="p-4 md:p-5">
+                    <MyCard title="Хүлээн авах акт" icon={ClipboardList} count={pending.length} className="border-amber-300/70 dark:border-amber-800/60">
+                        <div className="grid gap-3 xl:grid-cols-2">
+                            {pending.map(a => (
+                                <div key={a.id} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900/50 dark:bg-amber-950/10">
                                     <ActDocument assignment={a} siteName={site_name} />
-                                    {a.notes && (
-                                        <div className="mt-3 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-                                            Тэмдэглэл: {a.notes}
-                                        </div>
-                                    )}
-                                    <div className="flex gap-2 mt-4">
-                                        <button onClick={() => accept(a)} className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
-                                            <CheckCircle2 className="size-4" /> Зөвшөөрөх
+                                    {a.notes && <p className="mt-2 rounded-lg bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">Тэмдэглэл: {a.notes}</p>}
+                                    <div className="mt-3 flex gap-2">
+                                        <button type="button" onClick={() => accept(a)}
+                                            className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                                            <CheckCircle2 className="size-3.5" />Зөвшөөрөх
                                         </button>
-                                        <button onClick={() => setRejectTarget(a)} className="flex-1 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-sm font-semibold py-2.5 rounded-xl transition-colors">
-                                            <XCircle className="size-4" /> Цуцлах
+                                        <button type="button" onClick={() => setRejectTarget(a)}
+                                            className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-rose-500/10 text-xs font-semibold text-rose-700 transition hover:bg-rose-500/20 dark:text-rose-300">
+                                            <XCircle className="size-3.5" />Татгалзах
                                         </button>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    </MyCard>
                 )}
 
-                <div>
-                    <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                        <ClipboardList className="size-4 text-muted-foreground" /> Хариуцлагын түүх
-                    </h2>
+                <MyCard title="Хариуцлагын түүх" icon={ClipboardList} count={history.length} bodyClassName="">
                     {history.length === 0 ? (
-                        <div className="text-center py-12 text-muted-foreground">
-                            <Box className="size-10 mx-auto mb-2 opacity-30" />
-                            <p className="text-sm">Бүртгэл байхгүй</p>
-                        </div>
+                        <MyEmpty icon={Box} title="Бүртгэл байхгүй" hint="Танд тоног төхөөрөмж хариуцуулахад энд харагдана." />
                     ) : (
-                        <div className="rounded-xl border border-border overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted/50 border-b border-border">
-                                        <tr>
-                                            {['ТОНОГ ТӨХӨӨРӨМЖ', 'СТАТУС', 'ОГНОО', 'ҮЙЛДЭЛ'].map(h => (
-                                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border">
-                                        {history.map(a => {
-                                            const cfg = STATUS_CFG[a.status as keyof typeof STATUS_CFG];
-                                            return (
-                                                <tr key={a.id} className="hover:bg-muted/30 transition-colors">
-                                                    <td className="px-4 py-3">
-                                                        <div className="font-medium text-foreground">{a.equipment.name}</div>
-                                                        {a.equipment.serial_number && <div className="text-xs text-muted-foreground font-mono">{a.equipment.serial_number}</div>}
-                                                        {a.equipment.category && <div className="text-xs text-blue-600 dark:text-blue-400">{a.equipment.category}</div>}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        {cfg && (
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 99, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-                                                                {cfg.label}
-                                                            </span>
-                                                        )}
-                                                        {a.rejection_reason && <div className="text-xs text-red-500 mt-0.5 max-w-[200px]">{a.rejection_reason}</div>}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                                                        <div>Олгосон: {a.assigned_at}</div>
-                                                        {a.accepted_at && <div className="text-green-600">Авсан: {a.accepted_at}</div>}
-                                                        {a.returned_at && <div>Буцаасан: {a.returned_at}</div>}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        {a.status === 'accepted' && (
-                                                            <button onClick={() => setViewAct(a)} className="flex items-center gap-1 text-xs border hover:bg-muted px-2.5 py-1.5 rounded-lg transition-colors">
-                                                                <ClipboardList className="size-3.5" /> Акт харах
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <table className={myTable.table}>
+                            <thead className={myTable.thead}>
+                                <tr className="border-b border-border/50">
+                                    <th className={myTable.th}>Тоног төхөөрөмж</th>
+                                    <th className={myTable.th}>Ангилал</th>
+                                    <th className={myTable.th}>Байдал</th>
+                                    <th className={myTable.th}>Огноо</th>
+                                    <th className={myTable.th}>Төлөв</th>
+                                    <th className={`${myTable.th} text-right`}>Акт</th>
+                                </tr>
+                            </thead>
+                            <tbody className={myTable.tbody}>
+                                {history.map(a => (
+                                    <tr key={a.id} className={myTable.tr}>
+                                        <td className={myTable.td}>
+                                            <p className="font-semibold">{a.equipment.name}</p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {[[a.equipment.brand, a.equipment.model].filter(Boolean).join(' '), a.equipment.serial_number].filter(Boolean).join(' · ') || '—'}
+                                            </p>
+                                        </td>
+                                        <td className={`${myTable.td} text-muted-foreground`}>{a.equipment.category ?? '—'}</td>
+                                        <td className={myTable.td}>
+                                            <span className="inline-flex items-center gap-1.5 text-[11px]">
+                                                <span className="size-2 rounded-full" style={{ background: CONDITION_COLOR[a.equipment.condition] ?? '#94a3b8' }} />{a.equipment.condition_label}
+                                            </span>
+                                        </td>
+                                        <td className={`${myTable.td} whitespace-nowrap text-[11px] text-muted-foreground`}>
+                                            <p>Олгосон {a.assigned_at}</p>
+                                            {a.accepted_at && <p className="text-emerald-600">Авсан {a.accepted_at}</p>}
+                                            {a.returned_at && <p>Буцаасан {a.returned_at}</p>}
+                                        </td>
+                                        <td className={myTable.td}>
+                                            <AssignmentStatus status={a.status} />
+                                            {a.rejection_reason && <p className="mt-0.5 max-w-[220px] text-[10px] text-rose-600">{a.rejection_reason}</p>}
+                                        </td>
+                                        <td className={`${myTable.td} text-right`}>
+                                            {a.status === 'accepted' && (
+                                                <button type="button" onClick={() => setViewAct(a)} className={myBtn.ghost}><ClipboardList className="size-3.5" />Акт харах</button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     )}
-                </div>
-            </div>
-
+                </MyCard>
+            </MyDesktop>
             {/* ─── Reject bottom sheet ─── */}
             {rejectTarget && (
                 <div onClick={() => { setRejectTarget(null); rejectForm.reset(); }} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>

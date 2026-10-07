@@ -1,11 +1,12 @@
 ﻿import MyLayout from '@/layouts/my-layout';
 import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyPill, MyStat, myBtn, myInput, myTable } from '@/components/my/page-kit';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
-    CalendarDays, CheckCircle2, ChevronDown, Clock,
-    MapPin, Phone, Plus, Search, Send, Umbrella, X, XCircle,
+    CheckCircle2, ChevronDown, Clock, History,
+    MapPin, Phone, Plus, Search, Send, Umbrella, XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -46,22 +47,10 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Ээлжийн амралт', href: '/my/vacation-requests' },
 ];
 
-function StatusBadge({ status }: { status: string }) {
-    if (status === 'approved') return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400">
-            <CheckCircle2 className="size-3" /> Зөвшөөрсөн
-        </span>
-    );
-    if (status === 'rejected') return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/30 px-2.5 py-0.5 text-xs font-semibold text-red-600 dark:text-red-400">
-            <XCircle className="size-3" /> Цуцалсан
-        </span>
-    );
-    return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-            <Clock className="size-3" /> Хүлээгдэж байна
-        </span>
-    );
+function RequestStatus({ status }: { status: string }) {
+    if (status === 'approved') return <MyPill tone="emerald" icon={CheckCircle2}>Зөвшөөрсөн</MyPill>;
+    if (status === 'rejected') return <MyPill tone="rose" icon={XCircle}>Татгалзсан</MyPill>;
+    return <MyPill tone="amber" icon={Clock}>Хүлээгдэж байна</MyPill>;
 }
 
 function calcDays(start: string, end: string): number {
@@ -79,7 +68,6 @@ function calcDays(start: string, end: string): number {
 }
 
 export default function MyVacationRequests({ employee, balance, requests, replacements }: Props) {
-    const [showForm, setShowForm] = useState(false);
     const [activeTab, setActiveTab]   = useState<'new' | 'history'>('new');
     const [showPicker, setShowPicker] = useState(false);
     const [pickerSearch, setPickerSearch] = useState('');
@@ -104,7 +92,7 @@ export default function MyVacationRequests({ employee, balance, requests, replac
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        post('/my/vacation-requests', { onSuccess: () => { reset(); setShowForm(false); } });
+        post('/my/vacation-requests', { onSuccess: () => reset() });
     }
 
     const balancePct  = balance.allowed > 0 ? Math.round((balance.remaining / balance.allowed) * 100) : 0;
@@ -473,157 +461,113 @@ export default function MyVacationRequests({ employee, balance, requests, replac
             )}
 
             {/* ════════════════ DESKTOP ════════════════ */}
-            <div className="hidden md:flex h-full flex-1 flex-col gap-6 p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">Ээлжийн амралтын хүсэлт</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">{employee.name} · {employee.position}</p>
-                    </div>
-                    <button onClick={() => setShowForm(v => !v)}
-                        className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition-colors">
-                        <Plus className="size-4" /> Ээлжийн амралт хүсэх
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-4 gap-4">
-                    {[
-                        { label: 'Үндсэн хоног',    value: balance.vacation_days,       color: 'text-foreground' },
-                        { label: 'Нэмэлт хоног',    value: balance.vacation_extra_days, color: 'text-blue-500' },
-                        { label: 'Ашигласан хоног', value: balance.used,                color: 'text-orange-500' },
-                        { label: 'Үлдсэн хоног',    value: balance.remaining,           color: balance.remaining > 0 ? 'text-green-500' : 'text-red-500' },
-                    ].map(s => (
-                        <div key={s.label} className="rounded-2xl border bg-card shadow-sm px-5 py-4">
-                            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+            <MyDesktop>
+                <MyHeader icon={Umbrella} title="Ээлжийн амралт"
+                    subtitle={<><span>{employee.name}</span>{employee.position && <span>{employee.position}</span>}{employee.branch && <span>{employee.branch}</span>}</>}
+                    tabs={
+                        <div className="flex w-full items-center gap-3">
+                            <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">{new Date().getFullYear()} оны ашиглалт</span>
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                                <div className={`h-full rounded-full ${balancePct > 50 ? 'bg-emerald-500' : balancePct > 20 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                                    style={{ width: `${Math.min(100, balance.allowed > 0 ? (balance.used / balance.allowed) * 100 : 0)}%` }} />
+                            </div>
+                            <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground"><b className="text-foreground">{balance.used}</b> / {balance.allowed} өдөр · үлдсэн {balancePct}%</span>
                         </div>
-                    ))}
-                </div>
+                    }
+                    stats={[
+                        <MyStat key="b" label="Үндсэн хоног" value={balance.vacation_days} />,
+                        <MyStat key="e" label="Нэмэлт хоног" value={balance.vacation_extra_days} accent="blue" />,
+                        <MyStat key="u" label="Ашигласан" value={balance.used} accent="orange" />,
+                        <MyStat key="r" label="Үлдсэн" value={balance.remaining} accent={balance.remaining > 0 ? 'emerald' : 'rose'} />,
+                        <MyStat key="p" label="Хүлээгдэж буй" value={pending} sub={`/ ${requests.length}`} accent="amber" />,
+                    ]} />
 
-                <div className="rounded-2xl border bg-card shadow-sm px-5 py-4">
-                    <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-semibold text-foreground">Амралтын хоногийн ашиглалт ({new Date().getFullYear()} он)</p>
-                        <p className="text-sm text-muted-foreground">{balance.used} / {balance.allowed} өдөр</p>
-                    </div>
-                    <div className="h-3 rounded-full bg-muted overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${balancePct > 50 ? 'bg-green-500' : balancePct > 20 ? 'bg-amber-500' : 'bg-red-500'}`}
-                            style={{ width: `${Math.min(100, balance.allowed > 0 ? (balance.used / balance.allowed) * 100 : 0)}%` }} />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1.5">Үлдсэн: {balance.remaining} өдөр ({balancePct}%)</p>
-                </div>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+                    <MyCard title="Хүсэлтийн түүх" icon={History} count={requests.length} bodyClassName="">
+                        {requests.length === 0 ? (
+                            <MyEmpty icon={Umbrella} title="Ээлжийн амралтын хүсэлт байхгүй байна" hint="Баруун талын маягтаар шинэ хүсэлт илгээнэ." />
+                        ) : (
+                            <table className={myTable.table}>
+                                <thead className={myTable.thead}>
+                                    <tr className="border-b border-border/50">
+                                        <th className={myTable.th}>Огноо</th>
+                                        <th className={myTable.th}>Байршил</th>
+                                        <th className={myTable.th}>Яаралтай утас</th>
+                                        <th className={myTable.th}>Орлох</th>
+                                        <th className={`${myTable.th} text-right`}>Төлөв</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={myTable.tbody}>
+                                    {requests.map(r => (
+                                        <tr key={r.id} className={myTable.tr}>
+                                            <td className={`${myTable.td} whitespace-nowrap`}>
+                                                <p className="font-semibold tabular-nums">{r.start_date} → {r.end_date}</p>
+                                                <p className="text-[10px] text-muted-foreground">{r.days} ажлын өдөр · илгээсэн {r.created_at}</p>
+                                            </td>
+                                            <td className={`${myTable.td} max-w-[200px]`}><p className="truncate text-muted-foreground" title={r.location_during_leave}>{r.location_during_leave}</p></td>
+                                            <td className={`${myTable.td} whitespace-nowrap tabular-nums text-muted-foreground`}>{r.emergency_phone}</td>
+                                            <td className={`${myTable.td} text-muted-foreground`}>{r.replacement ?? '—'}</td>
+                                            <td className={`${myTable.td} text-right`}>
+                                                <RequestStatus status={r.status} />
+                                                {r.status === 'rejected' && r.rejection_reason && <p className="mt-0.5 text-[10px] text-rose-600">{r.rejection_reason}</p>}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </MyCard>
 
-                {showForm && (
-                    <div className="rounded-2xl border border-red-200 dark:border-red-900 bg-red-50/40 dark:bg-red-950/10 shadow-sm overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-red-200/60 dark:border-red-900">
-                            <p className="font-bold text-foreground">Шинэ ээлжийн амралтын хүсэлт</p>
-                            <button onClick={() => { setShowForm(false); reset(); }}
-                                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors">
-                                <X className="size-4" />
-                            </button>
-                        </div>
-                        <form onSubmit={submit} className="p-6 grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Эхлэх огноо *</label>
-                                <input type="date" value={data.start_date} onChange={e => setData('start_date', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
-                                {errors.start_date && <p className="mt-1 text-xs text-red-500">{errors.start_date}</p>}
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Дуусах огноо *</label>
-                                <input type="date" value={data.end_date} onChange={e => setData('end_date', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
-                                {errors.end_date && <p className="mt-1 text-xs text-red-500">{errors.end_date}</p>}
-                            </div>
-                            {totalDays > 0 && (
-                                <div className="col-span-2 rounded-xl bg-blue-50 dark:bg-blue-950/20 px-4 py-2.5 text-sm text-blue-700 dark:text-blue-400 font-semibold flex items-center justify-between">
-                                    <span>Нийт хоног: {totalDays} өдөр</span>
-                                    <span className="text-xs font-normal">Үлдэгдэл: {balance.remaining} өдөр</span>
-                                </div>
-                            )}
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground"><MapPin className="inline size-3 mr-0.5" /> Амралтын үед байх газар *</label>
-                                <input type="text" value={data.location_during_leave} onChange={e => setData('location_during_leave', e.target.value)}
-                                    placeholder="Хот, улс, хаяг..." className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
-                                {errors.location_during_leave && <p className="mt-1 text-xs text-red-500">{errors.location_during_leave}</p>}
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground"><Phone className="inline size-3 mr-0.5" /> Яаралтай холбоо барих утас *</label>
-                                <input type="tel" value={data.emergency_phone} onChange={e => setData('emergency_phone', e.target.value)}
-                                    placeholder="9900-0000" className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400" />
-                                {errors.emergency_phone && <p className="mt-1 text-xs text-red-500">{errors.emergency_phone}</p>}
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Орлох ажилтан <span className="font-normal text-muted-foreground/60">(заавал биш)</span></label>
-                                <select value={data.replacement_employee_id} onChange={e => setData('replacement_employee_id', e.target.value)}
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400">
-                                    <option value="">Сонгоогүй</option>
-                                    {replacements.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex items-center">
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <input type="checkbox" checked={data.had_annual_leave_this_year} onChange={e => setData('had_annual_leave_this_year', e.target.checked)} className="size-4 rounded border-border" />
-                                    <span className="text-sm text-foreground">Энэ жил ээлжийн амралт авсан</span>
+                    <MyCard title="Шинэ хүсэлт" icon={Plus} className="self-start lg:sticky lg:top-4">
+                        <form onSubmit={submit} className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                <label className="block text-[11px] font-semibold text-muted-foreground">Эхлэх *
+                                    <input type="date" value={data.start_date} onChange={e => setData('start_date', e.target.value)} className={`${myInput} mt-1`} />
+                                    {errors.start_date && <span className="mt-1 block text-[10px] text-rose-600">{errors.start_date}</span>}
+                                </label>
+                                <label className="block text-[11px] font-semibold text-muted-foreground">Дуусах *
+                                    <input type="date" value={data.end_date} onChange={e => setData('end_date', e.target.value)} className={`${myInput} mt-1`} />
+                                    {errors.end_date && <span className="mt-1 block text-[10px] text-rose-600">{errors.end_date}</span>}
                                 </label>
                             </div>
-                            <div className="col-span-2">
-                                <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Шалтгаан *</label>
-                                <textarea value={data.reason} onChange={e => setData('reason', e.target.value)}
-                                    rows={3} placeholder="Ээлжийн амралт авах шалтгаанаа бичнэ үү..."
-                                    className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-red-400 resize-none" />
-                                {errors.reason && <p className="mt-1 text-xs text-red-500">{errors.reason}</p>}
+                            {totalDays > 0 && (
+                                <p className={`flex items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold ${totalDays > balance.remaining ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300' : 'bg-sky-500/10 text-sky-700 dark:text-sky-300'}`}>
+                                    <span>{totalDays} ажлын өдөр</span><span className="font-normal">үлдэгдэл {balance.remaining} өдөр</span>
+                                </p>
+                            )}
+                            <label className="block text-[11px] font-semibold text-muted-foreground"><MapPin className="mr-0.5 inline size-3" />Амралтын үед байх газар *
+                                <input type="text" value={data.location_during_leave} onChange={e => setData('location_during_leave', e.target.value)} placeholder="Хот, улс, хаяг..." className={`${myInput} mt-1`} />
+                                {errors.location_during_leave && <span className="mt-1 block text-[10px] text-rose-600">{errors.location_during_leave}</span>}
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <label className="block text-[11px] font-semibold text-muted-foreground"><Phone className="mr-0.5 inline size-3" />Яаралтай утас *
+                                    <input type="tel" value={data.emergency_phone} onChange={e => setData('emergency_phone', e.target.value)} placeholder="9900-0000" className={`${myInput} mt-1`} />
+                                    {errors.emergency_phone && <span className="mt-1 block text-[10px] text-rose-600">{errors.emergency_phone}</span>}
+                                </label>
+                                <label className="block text-[11px] font-semibold text-muted-foreground">Орлох ажилтан
+                                    <select value={data.replacement_employee_id} onChange={e => setData('replacement_employee_id', e.target.value)} className={`${myInput} mt-1`}>
+                                        <option value="">Сонгоогүй</option>
+                                        {replacements.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                    </select>
+                                </label>
                             </div>
-                            <div className="col-span-2 flex justify-end">
-                                <button type="submit" disabled={processing}
-                                    className="flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
-                                    {processing ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Send className="size-4" />}
-                                    Хүсэлт илгээх
-                                </button>
-                            </div>
+                            <label className="flex cursor-pointer items-center gap-2 text-xs">
+                                <input type="checkbox" checked={data.had_annual_leave_this_year} onChange={e => setData('had_annual_leave_this_year', e.target.checked)} className="size-4 rounded border-border accent-red-600" />
+                                Энэ жил ээлжийн амралт авсан
+                            </label>
+                            <label className="block text-[11px] font-semibold text-muted-foreground">Шалтгаан *
+                                <textarea value={data.reason} onChange={e => setData('reason', e.target.value)} rows={3}
+                                    placeholder="Ээлжийн амралт авах шалтгаанаа бичнэ үү..." className={`${myInput} mt-1 h-auto resize-none py-2`} />
+                                {errors.reason && <span className="mt-1 block text-[10px] text-rose-600">{errors.reason}</span>}
+                            </label>
+                            <button type="submit" disabled={processing} className={`${myBtn.primary} w-full justify-center`}>
+                                {processing ? <span className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Send className="size-3.5" />}
+                                Хүсэлт илгээх
+                            </button>
                         </form>
-                    </div>
-                )}
-
-                <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                    <div className="border-b bg-muted/30 px-6 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Хүсэлтийн түүх</p>
-                    </div>
-                    {requests.length === 0 ? (
-                        <div className="py-14 text-center text-sm text-muted-foreground">Ээлжийн амралтын хүсэлт байхгүй байна</div>
-                    ) : (
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-border/50 text-xs text-muted-foreground">
-                                    <th className="px-6 py-3 text-left font-semibold">Огноо</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Хоног</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Байршил</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Яаралтай утас</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Орлох</th>
-                                    <th className="px-4 py-3 text-left font-semibold">Статус</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/40">
-                                {requests.map(r => (
-                                    <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                                        <td className="px-6 py-3 text-foreground whitespace-nowrap">{r.start_date} → {r.end_date}</td>
-                                        <td className="px-4 py-3 text-muted-foreground">{r.days}</td>
-                                        <td className="px-4 py-3 text-muted-foreground max-w-[160px] truncate">{r.location_during_leave}</td>
-                                        <td className="px-4 py-3 text-muted-foreground">{r.emergency_phone}</td>
-                                        <td className="px-4 py-3 text-muted-foreground">{r.replacement ?? '—'}</td>
-                                        <td className="px-4 py-3">
-                                            <div>
-                                                <StatusBadge status={r.status} />
-                                                {r.status === 'rejected' && r.rejection_reason && (
-                                                    <p className="mt-1 text-xs text-red-500">{r.rejection_reason}</p>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
+                    </MyCard>
                 </div>
-            </div>
+            </MyDesktop>
         </MyLayout>
     );
 }

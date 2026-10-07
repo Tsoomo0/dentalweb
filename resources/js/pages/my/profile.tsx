@@ -1,13 +1,14 @@
 import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
+import { MyCard, MyDesktop, MyEmpty, MyField, MyHeader, MyPill, MyStat, myBtn, myTable } from '@/components/my/page-kit';
 import MyLayout from '@/layouts/my-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import {
     BadgeCheck, BookOpen, Briefcase, Calendar, CreditCard,
     Edit2, GraduationCap, Heart,
-    Mail, MapPin, Phone, PhoneCall, Plus, Save,
-    Shield, Trash2, User, Users, X,
+    Mail, Phone, PhoneCall, Plus, Save,
+    Trash2, User, Users, X,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -93,31 +94,9 @@ function MGroup({ icon: Icon, color, bg, label, children }: {
     );
 }
 
-/* ── Desktop row ── */
-function DRow({ label, value }: { label: string; value?: string | null | boolean }) {
-    if (value === null || value === undefined || value === '') return null;
-    const display = typeof value === 'boolean' ? (value ? 'Тийм' : 'Үгүй') : value;
-    return (
-        <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border/40 last:border-0">
-            <span className="text-xs text-muted-foreground shrink-0 w-36">{label}</span>
-            <span className="text-sm font-medium text-foreground text-right break-words min-w-0">{display}</span>
-        </div>
-    );
-}
-
-/* ── Desktop section (card with header inside) ── */
-function DSection({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
-    const rows = (Array.isArray(children) ? children : [children]).filter(Boolean);
-    if (rows.length === 0) return null;
-    return (
-        <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-            <div className="border-b bg-muted/30 px-5 py-3 flex items-center gap-2">
-                <Icon className="size-4 text-muted-foreground" />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-            </div>
-            <div className="px-5 py-4">{children}</div>
-        </div>
-    );
+/* ── Desktop field (тийм/үгүй утгыг текст болгоно) ── */
+function PField({ label, value }: { label: string; value?: string | null | boolean }) {
+    return <MyField label={label} value={typeof value === 'boolean' ? (value ? 'Тийм' : 'Үгүй') : value} />;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -159,9 +138,6 @@ export default function MyProfile({ employee }: Props) {
     const isActive  = employee.status === 'active';
     const showPhoto = employee.photo_url && !imgError;
     const initials  = employee.full_name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?';
-    const statusCls = isActive
-        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-        : 'bg-muted text-muted-foreground';
 
     const workedDuration = calcWorkedDuration(employee.hired_date);
 
@@ -424,212 +400,164 @@ export default function MyProfile({ employee }: Props) {
             </div>
 
             {/* ════════════════ DESKTOP ════════════════ */}
-            <div className="hidden md:flex h-full flex-1 flex-col gap-6 p-6">
-                <div>
-                    <h1 className="text-xl font-bold text-foreground">Хувийн мэдээлэл</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Таны ажлын бүртгэлийн мэдээлэл</p>
+            <MyDesktop>
+                <MyHeader icon={User} photo={{ url: showPhoto ? employee.photo_url : null, initials }}
+                    title={employee.full_name}
+                    badge={<MyPill tone={isActive ? 'emerald' : 'slate'}>{isActive ? 'Идэвхтэй' : 'Идэвхгүй'}</MyPill>}
+                    subtitle={<>
+                        {employee.position && <span className="inline-flex items-center gap-1"><Briefcase className="size-3" />{employee.position}</span>}
+                        {employee.branch && <span className="inline-flex items-center gap-1"><BadgeCheck className="size-3" />{employee.branch}</span>}
+                        <span className="tabular-nums">{employee.employee_number}</span>
+                    </>}
+                    actions={<>
+                        {employee.phone && <a href={`tel:${employee.phone}`} className={myBtn.ghost}><Phone className="size-3.5" />{employee.phone}</a>}
+                        {employee.email && <a href={`mailto:${employee.email}`} className={myBtn.ghost}><Mail className="size-3.5" />{employee.email}</a>}
+                    </>}
+                    stats={[
+                        <MyStat key="w" label="Ажилласан хугацаа" value={workedDuration} accent="red" />,
+                        <MyStat key="h" label="Ажилд орсон" value={employee.hired_date ?? '—'} />,
+                        <MyStat key="c" label="Гэрээ" value={employee.contracts.length} accent="sky" />,
+                        <MyStat key="l" label="Лиценз" value={employee.licenses.length} accent="violet" />,
+                        <MyStat key="f" label="Гэр бүлийн гишүүд" value={employee.family_members.length} accent="emerald" />,
+                    ]} />
+
+                <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                    <MyCard title="Хувийн мэдээлэл" icon={User} bodyClassName="divide-y divide-border/40 px-3 py-1">
+                        <PField label="Овог" value={employee.last_name} />
+                        <PField label="Нэр" value={employee.first_name} />
+                        <PField label="Эцэг/эхийн нэр" value={employee.family_name} />
+                        <PField label="Регистр" value={employee.register_number} />
+                        <PField label="Төрсөн огноо" value={employee.birth_date} />
+                        <PField label="Хүйс" value={employee.gender === 'male' ? 'Эрэгтэй' : employee.gender === 'female' ? 'Эмэгтэй' : null} />
+                        <PField label="Яс үндэс" value={employee.ethnicity} />
+                        <PField label="Төрсөн газар" value={employee.birth_place} />
+                        <PField label="Цусны бүлэг" value={employee.blood_type} />
+                        <PField label="Жолооны үнэмлэх" value={employee.driver_license} />
+                        <PField label="Цэргийн алба" value={employee.military_service} />
+                    </MyCard>
+
+                    <MyCard title="Ажлын мэдээлэл" icon={Briefcase} bodyClassName="divide-y divide-border/40 px-3 py-1">
+                        <PField label="Ажилтны дугаар" value={employee.employee_number} />
+                        <PField label="Албан тушаал" value={employee.position} />
+                        <PField label="Салбар" value={employee.branch} />
+                        <PField label="Ажилд орсон огноо" value={employee.hired_date} />
+                        <PField label="Ажилласан хугацаа" value={workedDuration} />
+                        <PField label="Туршилтын хугацаа" value={employee.probation_end_date} />
+                        <PField label="Төлөв" value={isActive ? 'Идэвхтэй' : 'Идэвхгүй'} />
+                    </MyCard>
+
+                    <MyCard title="Холбоо барих" icon={PhoneCall} bodyClassName="divide-y divide-border/40 px-3 py-1">
+                        <PField label="Утас" value={employee.phone} />
+                        <PField label="Имэйл" value={employee.email} />
+                        <PField label="Хаяг" value={employee.address} />
+                        <PField label="Яаралтай үед — нэр" value={employee.emergency_name} />
+                        <PField label="Яаралтай үед — утас" value={employee.emergency_phone} />
+                        <PField label="Хамаарал" value={employee.emergency_relation} />
+                    </MyCard>
+
+                    <MyCard title="Боловсрол" icon={GraduationCap} bodyClassName="divide-y divide-border/40 px-3 py-1">
+                        <PField label="Зэрэг" value={employee.education_degree} />
+                        <PField label="Сургууль" value={employee.education_school} />
+                        <PField label="Мэргэжил" value={employee.education_major} />
+                    </MyCard>
+
+                    <MyCard title="Гэр бүлийн байдал" icon={Heart} bodyClassName="divide-y divide-border/40 px-3 py-1">
+                        <PField label="Гэрлэсэн эсэх" value={employee.is_married} />
+                        <PField label="Хүүхэдтэй эсэх" value={employee.has_children} />
+                        {employee.has_children && <PField label="Хүүхдийн тоо" value={String(employee.children_count)} />}
+                    </MyCard>
+
+                    <MyCard title="Банкны мэдээлэл" icon={CreditCard} bodyClassName="divide-y divide-border/40 px-3 py-1">
+                        <PField label="Банк" value={employee.bank_name} />
+                        <PField label="Дансны дугаар" value={employee.bank_account} />
+                        <PField label="Дансны эзэн" value={employee.bank_account_name} />
+                    </MyCard>
                 </div>
 
-                {/* Desktop profile card */}
-                <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                    <div className="h-24 bg-gradient-to-r from-red-500 to-red-600" />
-                    <div className="px-6 pb-6">
-                        <div className="-mt-10 mb-4 flex items-end justify-between">
-                            {showPhoto ? (
-                                <img src={employee.photo_url!} alt={employee.full_name}
-                                    onError={() => setImgError(true)}
-                                    className="size-20 rounded-xl border-4 border-card object-cover object-top shadow" />
-                            ) : (
-                                <div className="flex size-20 items-center justify-center rounded-xl border-4 border-card bg-red-100 text-red-600 shadow">
-                                    <User className="size-9" />
-                                </div>
-                            )}
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusCls}`}>
-                                {isActive ? 'Идэвхтэй' : 'Идэвхгүй'}
-                            </span>
+                <MyCard title="Гэр бүлийн гишүүд" icon={Users} count={employee.family_members.length} bodyClassName=""
+                    actions={!showAdd && <button type="button" onClick={() => setShowAdd(true)} className={`${myBtn.primary} h-7`}><Plus className="size-3.5" />Нэмэх</button>}>
+                    {showAdd && (
+                        <div className="border-b border-border/60 bg-red-50/40 p-3 dark:bg-red-950/10">
+                            <p className="mb-2 text-xs font-semibold">Шинэ гишүүн нэмэх</p>
+                            <MemberForm data={addForm.data} setData={(k, v) => addForm.setData(k as keyof typeof addForm.data, v)} errors={addForm.errors}
+                                processing={addForm.processing} onSave={addMember} onCancel={() => { setShowAdd(false); addForm.reset(); }} />
                         </div>
-                        <h2 className="text-xl font-bold text-foreground">{employee.full_name}</h2>
-                        <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                            {employee.position && <span className="flex items-center gap-1"><Briefcase className="size-3.5" />{employee.position}</span>}
-                            {employee.branch && <span className="flex items-center gap-1"><BadgeCheck className="size-3.5" />{employee.branch}</span>}
-                            <span className="text-muted-foreground/50">{employee.employee_number}</span>
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-3">
-                            {employee.phone && (
-                                <a href={`tel:${employee.phone}`} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm hover:bg-muted/80 transition-colors">
-                                    <Phone className="size-3.5 text-muted-foreground" />{employee.phone}
-                                </a>
-                            )}
-                            {employee.email && (
-                                <a href={`mailto:${employee.email}`} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm hover:bg-muted/80 transition-colors">
-                                    <Mail className="size-3.5 text-muted-foreground" />{employee.email}
-                                </a>
-                            )}
-                            {employee.address && (
-                                <span className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
-                                    <MapPin className="size-3.5 text-muted-foreground" />{employee.address}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Desktop 2-column info grid */}
-                <div className="grid gap-6 lg:grid-cols-2">
-                    <DSection title="Хувийн мэдээлэл" icon={User}>
-                        <DRow label="Овог"                value={employee.last_name} />
-                        <DRow label="Нэр"                 value={employee.first_name} />
-                        <DRow label="Эцэг/эхийн нэр"     value={employee.family_name} />
-                        <DRow label="Регистр"             value={employee.register_number} />
-                        <DRow label="Төрсөн огноо"        value={employee.birth_date} />
-                        <DRow label="Хүйс"                value={employee.gender === 'male' ? 'Эрэгтэй' : employee.gender === 'female' ? 'Эмэгтэй' : null} />
-                        <DRow label="Яс үндэс"            value={employee.ethnicity} />
-                        <DRow label="Төрсөн газар"        value={employee.birth_place} />
-                        <DRow label="Цусны бүлэг"         value={employee.blood_type} />
-                        <DRow label="Жолооны үнэмлэх"     value={employee.driver_license} />
-                        <DRow label="Цэргийн алба"        value={employee.military_service} />
-                    </DSection>
-
-                    <DSection title="Боловсрол" icon={GraduationCap}>
-                        <DRow label="Зэрэг"    value={employee.education_degree} />
-                        <DRow label="Сургууль" value={employee.education_school} />
-                        <DRow label="Мэргэжил" value={employee.education_major} />
-                    </DSection>
-
-                    <DSection title="Ажлын мэдээлэл" icon={Briefcase}>
-                        <DRow label="Ажилтны дугаар"    value={employee.employee_number} />
-                        <DRow label="Албан тушаал"       value={employee.position} />
-                        <DRow label="Салбар"             value={employee.branch} />
-                        <DRow label="Ажилд орсон огноо" value={employee.hired_date} />
-                        <DRow label="Туршилтын хугацаа" value={employee.probation_end_date} />
-                        <DRow label="Статус"             value={isActive ? 'Идэвхтэй' : 'Идэвхгүй'} />
-                    </DSection>
-
-                    <DSection title="Гэр бүлийн байдал" icon={Heart}>
-                        <DRow label="Гэрлэсэн эсэх"   value={employee.is_married} />
-                        <DRow label="Хүүхэдтэй эсэх"  value={employee.has_children} />
-                        {employee.has_children && <DRow label="Хүүхдийн тоо" value={String(employee.children_count)} />}
-                    </DSection>
-
-                    {(employee.emergency_name || employee.emergency_phone) && (
-                        <DSection title="Яаралтай холбоо" icon={Phone}>
-                            <DRow label="Нэр"      value={employee.emergency_name} />
-                            <DRow label="Утас"     value={employee.emergency_phone} />
-                            <DRow label="Хамаарал" value={employee.emergency_relation} />
-                        </DSection>
                     )}
-
-                    {(employee.bank_name || employee.bank_account) && (
-                        <DSection title="Банкны мэдээлэл" icon={Shield}>
-                            <DRow label="Банк"           value={employee.bank_name} />
-                            <DRow label="Дансны дугаар"  value={employee.bank_account} />
-                            <DRow label="Дансны эзэн"    value={employee.bank_account_name} />
-                        </DSection>
-                    )}
-                </div>
-
-                {/* Desktop family members */}
-                <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                    <div className="border-b bg-muted/30 px-5 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Users className="size-4 text-muted-foreground" />
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Гэр бүлийн гишүүд</p>
-                        </div>
-                        <button onClick={() => setShowAdd(true)}
-                            className="flex items-center gap-1 font-bold text-white bg-red-600 hover:bg-red-700 transition-colors rounded-lg px-3 py-1.5 text-xs">
-                            <Plus className="size-3" /> Нэмэх
-                        </button>
-                    </div>
-                    <div className="divide-y divide-border/50">
-                        {showAdd && (
-                            <div className="bg-red-50/60 dark:bg-red-950/10 p-4">
-                                <p className="mb-3 text-sm font-semibold text-foreground">Шинэ гишүүн нэмэх</p>
-                                <MemberForm
-                                    data={addForm.data}
-                                    setData={(k, v) => addForm.setData(k as any, v)}
-                                    errors={addForm.errors}
-                                    processing={addForm.processing}
-                                    onSave={addMember}
-                                    onCancel={() => { setShowAdd(false); addForm.reset(); }}
-                                />
-                            </div>
-                        )}
-                        {employee.family_members.length === 0 && !showAdd && (
-                            <div className="py-10 text-center text-sm text-muted-foreground bg-card">
-                                Гэр бүлийн гишүүн бүртгэгдээгүй байна
-                            </div>
-                        )}
-                        {employee.family_members.map(m => (
-                            <div key={m.id} className="px-4 py-3 bg-card">
-                                {editingId === m.id ? (
-                                    <MemberForm
-                                        data={editForm.data}
-                                        setData={(k, v) => editForm.setData(k as any, v)}
-                                        errors={editForm.errors}
-                                        processing={editForm.processing}
-                                        onSave={() => saveEdit(m.id)}
-                                        onCancel={() => setEditingId(null)}
-                                    />
+                    {employee.family_members.length === 0 && !showAdd ? (
+                        <MyEmpty icon={Users} title="Гэр бүлийн гишүүн бүртгэгдээгүй байна" />
+                    ) : employee.family_members.length > 0 && (
+                        <table className={myTable.table}>
+                            <thead className={myTable.thead}>
+                                <tr className="border-b border-border/50">
+                                    <th className={myTable.th}>Овог нэр</th>
+                                    <th className={myTable.th}>Хамаарал</th>
+                                    <th className={myTable.th}>Утас</th>
+                                    <th className={myTable.th}>Төрсөн огноо</th>
+                                    <th className={myTable.th}>Ажлын байдал</th>
+                                    <th className={`${myTable.th} text-right`}></th>
+                                </tr>
+                            </thead>
+                            <tbody className={myTable.tbody}>
+                                {employee.family_members.map(m => editingId === m.id ? (
+                                    <tr key={m.id}>
+                                        <td colSpan={6} className="bg-red-50/40 p-3 dark:bg-red-950/10">
+                                            <MemberForm data={editForm.data} setData={(k, v) => editForm.setData(k as keyof typeof editForm.data, v)} errors={editForm.errors}
+                                                processing={editForm.processing} onSave={() => saveEdit(m.id)} onCancel={() => setEditingId(null)} />
+                                        </td>
+                                    </tr>
                                 ) : (
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 font-bold text-sm">
-                                            {m.first_name?.[0]?.toUpperCase() ?? '?'}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-foreground">
-                                                {m.last_name} {m.first_name}
-                                                <span className="ml-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">{m.relationship}</span>
-                                            </p>
-                                            <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                                {m.phone && <span className="flex items-center gap-1"><Phone className="size-3" />{m.phone}</span>}
-                                                {m.birth_date && <span><Calendar className="inline size-3 mr-0.5" />{m.birth_date}</span>}
-                                                {m.employment_status && <span>{m.employment_status}</span>}
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-1 shrink-0">
-                                            <button onClick={() => startEdit(m)}
-                                                className="rounded-xl p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
-                                                <Edit2 className="size-4" />
-                                            </button>
-                                            <button onClick={() => deleteMember(m.id)}
-                                                className="rounded-xl p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors">
-                                                <Trash2 className="size-4" />
-                                            </button>
-                                        </div>
+                                    <tr key={m.id} className={myTable.tr}>
+                                        <td className={myTable.td}>
+                                            <span className="flex items-center gap-2">
+                                                <span className="flex size-7 items-center justify-center rounded-full bg-red-500/10 text-[11px] font-bold text-red-600">{m.first_name?.[0]?.toUpperCase() ?? '?'}</span>
+                                                <span className="font-semibold">{m.last_name} {m.first_name}</span>
+                                            </span>
+                                        </td>
+                                        <td className={myTable.td}><MyPill tone="slate">{m.relationship}</MyPill></td>
+                                        <td className={`${myTable.td} tabular-nums text-muted-foreground`}>{m.phone ?? '—'}</td>
+                                        <td className={`${myTable.td} tabular-nums text-muted-foreground`}>{m.birth_date ?? '—'}</td>
+                                        <td className={`${myTable.td} text-muted-foreground`}>{m.employment_status ?? '—'}</td>
+                                        <td className={`${myTable.td} text-right`}>
+                                            <button type="button" onClick={() => startEdit(m)} className={myBtn.subtle} title="Засах"><Edit2 className="size-3.5" /></button>
+                                            <button type="button" onClick={() => deleteMember(m.id)} className={myBtn.danger} title="Устгах"><Trash2 className="size-3.5" /></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </MyCard>
+
+                <div className="grid gap-3 lg:grid-cols-2">
+                    <MyCard title="Гэрээ" icon={Calendar} count={employee.contracts.length} bodyClassName="">
+                        {employee.contracts.length === 0 ? <MyEmpty icon={Calendar} title="Гэрээ бүртгэгдээгүй" /> : (
+                            <div className="divide-y divide-border/40">
+                                {employee.contracts.map(c => (
+                                    <div key={c.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                        <span className="text-xs font-semibold">{CONTRACT_TYPE[c.contract_type] ?? c.contract_type}</span>
+                                        <span className="text-[11px] tabular-nums text-muted-foreground">{c.start_date}{c.end_date ? ` → ${c.end_date}` : ' · хугацаагүй'}</span>
                                     </div>
-                                )}
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        )}
+                    </MyCard>
+                    <MyCard title="Лиценз / Гэрчилгээ" icon={BookOpen} count={employee.licenses.length} bodyClassName="">
+                        {employee.licenses.length === 0 ? <MyEmpty icon={BookOpen} title="Лиценз бүртгэгдээгүй" /> : (
+                            <div className="divide-y divide-border/40">
+                                {employee.licenses.map(l => (
+                                    <div key={l.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                        <span className="min-w-0">
+                                            <span className="block truncate text-xs font-semibold">{l.name}</span>
+                                            {l.issuer && <span className="block truncate text-[10px] text-muted-foreground">{l.issuer}</span>}
+                                        </span>
+                                        {l.end_date && <MyPill tone="slate">дуусах {l.end_date}</MyPill>}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </MyCard>
                 </div>
-
-                {employee.contracts.length > 0 && (
-                    <DSection title="Гэрээ" icon={Calendar}>
-                        <div className="space-y-3">
-                            {employee.contracts.map(c => (
-                                <div key={c.id} className="rounded-lg border bg-muted/30 px-4 py-3 text-sm">
-                                    <p className="font-semibold text-foreground">{CONTRACT_TYPE[c.contract_type] ?? c.contract_type}</p>
-                                    <p className="mt-0.5 text-muted-foreground">{c.start_date}{c.end_date ? ` → ${c.end_date}` : ' (Хугацаагүй)'}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </DSection>
-                )}
-
-                {employee.licenses.length > 0 && (
-                    <DSection title="Лиценз / Гэрчилгээ" icon={BookOpen}>
-                        <div className="space-y-3">
-                            {employee.licenses.map(l => (
-                                <div key={l.id} className="rounded-lg border bg-muted/30 px-4 py-3 text-sm">
-                                    <p className="font-semibold text-foreground">{l.name}</p>
-                                    {l.issuer && <p className="mt-0.5 text-muted-foreground">{l.issuer}</p>}
-                                    {l.end_date && <p className="mt-0.5 text-xs text-muted-foreground/70">Дуусах: {l.end_date}</p>}
-                                </div>
-                            ))}
-                        </div>
-                    </DSection>
-                )}
-            </div>
+            </MyDesktop>
         </MyLayout>
     );
 }

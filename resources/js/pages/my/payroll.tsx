@@ -2,9 +2,10 @@
 import { NotificationBell } from '@/components/notification-bell';
 import MyLayout from '@/layouts/my-layout';
 import { type PayrollColumn } from '@/lib/payroll-formula';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyStat, myTable } from '@/components/my/page-kit';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronDown, ChevronUp, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronUp, DollarSign, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const RED = '#dc2626';
@@ -400,131 +401,58 @@ function MobileSlipCard({ entry, columns }: { entry: PayrollEntry; columns: Payr
 }
 
 /* ── Desktop slip card ──────────────────────────── */
-function SlipCard({ entry, employee, columns }: { entry: PayrollEntry; employee: EmployeeInfo; columns: PayrollColumn[] }) {
-    const [open, setOpen] = useState(false);
-
+/* ── Desktop: сонгосон тооцооны задаргаа ───────────────── */
+function PayslipDetail({ entry, employee, columns }: { entry: PayrollEntry; employee: EmployeeInfo; columns: PayrollColumn[] }) {
     /**
      * Задаргааг баганын үүргээр хэсэглэнэ.  Ажилтанд админы 9 бүлэг хэрэггүй —
-     * орлого / өдөр / дүн / суутгал гэсэн 4 хэсэг хангалттай бөгөөд эхэн, сүүл
-     * цалин хоёуланд ижил ойлгомжтой гарна.
+     * орлого / өдөр / дүн / суутгал гэсэн 4 хэсэг хангалттай.
      */
     const sections = useMemo(() => {
         const spec: Array<{ label: string; color: string; roles: string[] }> = [
             { label: 'Орлого · Нэмэгдэл', color: 'blue', roles: ['earning'] },
-            { label: 'Өдөр', color: 'violet', roles: ['day'] },
             { label: 'Тооцсон дүн', color: 'teal', roles: ['total'] },
             { label: 'Суутгал', color: 'red', roles: ['deduction'] },
         ];
 
         return spec
-            .map((s) => ({ ...s, columns: columns.filter((c) => s.roles.includes(c.role)) }))
-            .filter((s) => s.label === 'Өдөр' || s.columns.some((c) => num(entry, c.key) !== 0));
+            .map((sec) => ({ ...sec, columns: columns.filter((c) => sec.roles.includes(c.role) && num(entry, c.key) !== 0) }))
+            .filter((sec) => sec.columns.length > 0);
     }, [columns, entry]);
 
     return (
-        <div className="bg-card overflow-hidden rounded-2xl border shadow-sm">
-            <button
-                onClick={() => setOpen((v) => !v)}
-                className="hover:bg-muted/30 flex w-full items-center justify-between px-5 py-4 text-left transition-colors"
-            >
-                <div className="flex items-center gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/40">
-                        <DollarSign className="size-5 text-emerald-600 dark:text-emerald-400" />
+        <MyCard title={entry.run_title} icon={DollarSign} className="self-start lg:sticky lg:top-4"
+            actions={<span className="text-[11px] text-muted-foreground">{entry.half_label}</span>}>
+            <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                        <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">Гарт олгох</p>
+                        <p className="text-lg font-black tabular-nums text-emerald-700 dark:text-emerald-400">{fmt(num(entry, 'net_hand'), true)}</p>
                     </div>
-                    <div>
-                        <p className="text-foreground text-sm font-bold">{entry.run_title}</p>
-                        <p className="text-muted-foreground text-xs">{entry.half_label}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-6">
-                    <div className="text-right">
-                        <p className="text-muted-foreground text-xs">Гарт олгох</p>
-                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmt(num(entry, 'net_hand'), true)}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-muted-foreground text-xs">Банкаар</p>
-                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">{fmt(num(entry, 'bank_salary'), true)}</p>
-                    </div>
-                    {open ? <ChevronUp className="text-muted-foreground size-4" /> : <ChevronDown className="text-muted-foreground size-4" />}
-                </div>
-            </button>
-            {open && (
-                <div className="space-y-4 border-t px-5 py-4">
-                    <div className="bg-muted/20 grid grid-cols-2 gap-x-8 gap-y-1 rounded-xl border px-4 py-3 text-xs">
-                        <div>
-                            <span className="text-muted-foreground">Ажилтан: </span>
-                            <span className="font-semibold">{employee.full_name}</span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">Дугаар: </span>
-                            <span className="font-semibold">{employee.employee_number}</span>
-                        </div>
-                        {employee.position && (
-                            <div>
-                                <span className="text-muted-foreground">Тушаал: </span>
-                                <span className="font-semibold">{employee.position}</span>
-                            </div>
-                        )}
-                        {employee.bank_account && (
-                            <div>
-                                <span className="text-muted-foreground">Данс: </span>
-                                <span className="font-semibold">{employee.bank_account}</span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {sections.map((section) => (
-                            <div key={section.label} className="rounded-xl border p-4">
-                                <p className={`mb-2 text-[10px] font-bold tracking-wider uppercase ${GROUP_TEXT[section.color] ?? GROUP_TEXT.slate}`}>
-                                    {section.label}
-                                </p>
-                                {section.label === 'Өдөр' ? (
-                                    <>
-                                        <div className="border-border/30 flex justify-between border-b py-1.5 text-xs">
-                                            <span className="text-muted-foreground">Ажлын өдөр</span>
-                                            <span className="font-semibold">{num(entry, 'working_days')}</span>
-                                        </div>
-                                        <div className="border-border/30 flex justify-between border-b py-1.5 text-xs">
-                                            <span className="text-muted-foreground">Ажилласан</span>
-                                            <span className="font-semibold">{num(entry, 'worked_days')}</span>
-                                        </div>
-                                        <Row label="1 өдрийн цалин" value={num(entry, 'daily_rate')} />
-                                    </>
-                                ) : (
-                                    section.columns.map((col) => (
-                                        <Row
-                                            key={col.key}
-                                            label={labelFor(entry, col)}
-                                            value={num(entry, col.key)}
-                                            highlight={col.role === 'total'}
-                                            decimal={col.decimal}
-                                        />
-                                    ))
-                                )}
-                            </div>
-                        ))}
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 dark:border-emerald-800 dark:bg-emerald-950/10">
-                            <p className="mb-2 text-[10px] font-bold tracking-wider text-emerald-600 uppercase">Олгох</p>
-                            <div className="flex justify-between border-b border-emerald-200/50 py-2 text-xs">
-                                <span className="text-foreground font-semibold">Гарт олгох</span>
-                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{fmt(num(entry, 'net_hand'), true)}</span>
-                            </div>
-                            <div className="flex justify-between py-2 text-xs">
-                                <span className="text-foreground font-semibold">Банкаар олгох</span>
-                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                                    {fmt(num(entry, 'bank_salary'), true)}
-                                </span>
-                            </div>
-                            {employee.bank_account && (
-                                <p className="text-muted-foreground mt-1 text-[10px]">
-                                    {employee.bank_name} · {employee.bank_account}
-                                </p>
-                            )}
-                        </div>
+                    <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2">
+                        <p className="text-[10px] font-semibold text-sky-700 dark:text-sky-300">Банкаар олгох</p>
+                        <p className="text-lg font-black tabular-nums text-sky-700 dark:text-sky-400">{fmt(num(entry, 'bank_salary'), true)}</p>
+                        {employee.bank_account && <p className="truncate text-[10px] text-muted-foreground">{employee.bank_name} · {employee.bank_account}</p>}
                     </div>
                 </div>
-            )}
-        </div>
+
+                <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-3 py-2 text-center">
+                    <div><p className="text-[10px] text-muted-foreground">Ажлын өдөр</p><p className="text-sm font-bold tabular-nums">{num(entry, 'working_days') || '—'}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground">Ажилласан</p><p className="text-sm font-bold tabular-nums">{num(entry, 'worked_days') || '—'}</p></div>
+                    <div><p className="text-[10px] text-muted-foreground">1 өдрийн цалин</p><p className="text-sm font-bold tabular-nums">{fmt(num(entry, 'daily_rate'))}</p></div>
+                </div>
+
+                <div className="grid gap-3 xl:grid-cols-2">
+                    {sections.map((section) => (
+                        <div key={section.label} className={`rounded-lg border border-border/60 px-3 py-2 ${section.color === 'red' ? 'xl:col-span-2' : ''}`}>
+                            <p className={`mb-1 text-[10px] font-bold uppercase tracking-wider ${GROUP_TEXT[section.color] ?? GROUP_TEXT.slate}`}>{section.label}</p>
+                            {section.columns.map((col) => (
+                                <Row key={col.key} label={labelFor(entry, col)} value={num(entry, col.key)} highlight={col.role === 'total'} decimal={col.decimal} />
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </MyCard>
     );
 }
 
@@ -542,6 +470,14 @@ export default function MyPayroll({ employee, entries, schemas }: Props) {
     }, []);
 
     const latest = entries[0];
+
+    // Компьютерийн жагсаалт: шинээс нь хуучин руу (он → сар → сүүл/эхний хагас)
+    const sorted = [...entries].sort((a, b) => b.year - a.year || b.month - a.month || (a.half === b.half ? 0 : a.half === 'second' ? -1 : 1));
+    const latestSorted = sorted[0];
+    const thisYear = new Date().getFullYear();
+    const yearBank = sorted.filter(e => e.year === thisYear).reduce((sum, e) => sum + num(e, 'bank_salary'), 0);
+    const [selId, setSelId] = useState<number | null>(null);
+    const selected = sorted.find(e => e.id === selId) ?? latestSorted;
 
     return (
         <MyLayout breadcrumbs={breadcrumbs}>
@@ -771,23 +707,57 @@ export default function MyPayroll({ employee, entries, schemas }: Props) {
             </div>
 
             {/* ════════════════ DESKTOP ════════════════ */}
-            <div className="hidden flex-col gap-4 p-6 md:flex">
-                <div>
-                    <h1 className="text-foreground text-lg font-bold">Цалингийн задаргаа</h1>
-                    <p className="text-muted-foreground mt-0.5 text-xs">Баталгаажсан цалингийн тооцоонууд</p>
-                </div>
-                {entries.length === 0 ? (
-                    <div className="bg-card rounded-2xl border p-12 text-center">
-                        <p className="text-muted-foreground text-sm">Баталгаажсан цалингийн мэдээлэл байхгүй байна.</p>
-                    </div>
+            <MyDesktop>
+                <MyHeader icon={Wallet} title="Цалингийн задаргаа"
+                    subtitle={<>
+                        <span>{employee.full_name}</span>
+                        <span className="tabular-nums">{employee.employee_number}</span>
+                        {employee.position && <span>{employee.position}</span>}
+                        {employee.bank_account && <span>{employee.bank_name} · {employee.bank_account}</span>}
+                    </>}
+                    stats={[
+                        <MyStat key="h" label="Сүүлийн · гарт олгох" value={latestSorted ? fmt(num(latestSorted, 'net_hand'), true) : '—'} accent="emerald" title={latestSorted?.run_title} />,
+                        <MyStat key="b" label="Сүүлийн · банкаар" value={latestSorted ? fmt(num(latestSorted, 'bank_salary'), true) : '—'} accent="emerald" />,
+                        <MyStat key="y" label={`${thisYear} онд банкаар`} value={fmt(yearBank)} accent="sky" />,
+                        <MyStat key="c" label="Тооцоо" value={sorted.length} sub="удаа" />,
+                    ]} />
+
+                {sorted.length === 0 ? (
+                    <MyCard><MyEmpty icon={Wallet} title="Баталгаажсан цалингийн мэдээлэл байхгүй байна" hint="HR цалинг баталгаажуулсны дараа энд харагдана." /></MyCard>
                 ) : (
-                    <div className="space-y-3">
-                        {entries.map((e) => (
-                            <SlipCard key={e.id} entry={e} employee={employee} columns={schemas[e.half]} />
-                        ))}
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+                        <MyCard title="Тооцоонууд" icon={DollarSign} count={sorted.length} bodyClassName="">
+                            <table className={myTable.table}>
+                                <thead className={myTable.thead}>
+                                    <tr className="border-b border-border/50">
+                                        <th className={myTable.th}>Хугацаа</th>
+                                        <th className={`${myTable.th} text-right`}>Гарт олгох</th>
+                                        <th className={`${myTable.th} text-right`}>Банкаар</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={myTable.tbody}>
+                                    {sorted.map(e => {
+                                        const sel = e.id === selected?.id;
+                                        return (
+                                            <tr key={e.id} onClick={() => setSelId(e.id)}
+                                                className={`cursor-pointer transition-colors ${sel ? 'bg-red-50/70 dark:bg-red-950/20' : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'}`}>
+                                                <td className={myTable.td}>
+                                                    <p className="font-semibold">{e.year} оны {e.month}-р сар</p>
+                                                    <p className="text-[10px] text-muted-foreground">{e.half_label}</p>
+                                                </td>
+                                                <td className={`${myTable.td} text-right font-semibold tabular-nums text-emerald-700 dark:text-emerald-400`}>{fmt(num(e, 'net_hand'), true)}</td>
+                                                <td className={`${myTable.td} text-right tabular-nums`}>{fmt(num(e, 'bank_salary'), true)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </MyCard>
+
+                        {selected && <PayslipDetail entry={selected} employee={employee} columns={schemas[selected.half]} />}
                     </div>
                 )}
-            </div>
+            </MyDesktop>
         </MyLayout>
     );
 }

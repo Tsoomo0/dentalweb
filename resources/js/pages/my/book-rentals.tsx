@@ -1,6 +1,7 @@
 ﻿import MyLayout from '@/layouts/my-layout';
 import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
+import { MyCard, MyDesktop, MyEmpty, MyHeader, MyPill, MyStat, myBtn, myTable } from '@/components/my/page-kit';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { BookOpen, CheckCircle2, Clock, Search, Send, Tag, X, XCircle } from 'lucide-react';
@@ -52,17 +53,14 @@ const STATUS_CFG = {
     returned: { color: '#64748b', bg: '#f8fafc', border: '#e2e8f0', label: 'Буцаасан',         Icon: BookOpen },
 } as const;
 
-/* ── Desktop helpers (unchanged) ── */
-function StatusBadge({ status }: { status: string }) {
-    const cfg = STATUS_CFG[status as keyof typeof STATUS_CFG];
-    if (!cfg) return null;
-    const Icon = cfg.Icon;
-    return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 99, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-            <Icon size={11} /> {cfg.label}
-        </span>
-    );
+/* ── Desktop helpers ── */
+function RentalStatus({ status }: { status: string }) {
+    if (status === 'approved') return <MyPill tone="emerald" icon={CheckCircle2}>Зөвшөөрсөн</MyPill>;
+    if (status === 'rejected') return <MyPill tone="rose" icon={XCircle}>Татгалзсан</MyPill>;
+    if (status === 'returned') return <MyPill tone="slate" icon={BookOpen}>Буцаасан</MyPill>;
+    return <MyPill tone="amber" icon={Clock}>Хүлээгдэж байна</MyPill>;
 }
+
 function BookCover({ url, title, size = 'md' }: { url: string | null; title: string; size?: 'sm' | 'md' }) {
     const ini = title.slice(0, 2).toUpperCase();
     const cls = size === 'sm' ? 'size-10' : 'size-14';
@@ -333,146 +331,98 @@ export default function MyBookRentals({ employee, rentals, books }: Props) {
             </div>
 
             {/* ═══════════════════ DESKTOP ═══════════════════ */}
-            <div className="hidden md:flex h-full flex-1 flex-col gap-6 p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-foreground">Номын сан</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">{employee.name}</p>
-                    </div>
-                </div>
+            <MyDesktop>
+                <MyHeader icon={BookOpen} title="Номын сан"
+                    subtitle={<><span>{employee.name}</span>{employee.position && <span>{employee.position}</span>}{employee.branch && <span>{employee.branch}</span>}</>}
+                    stats={[
+                        <MyStat key="b" label="Нийт ном" value={books.length} />,
+                        <MyStat key="av" label="Боломжтой" value={books.filter(b => b.available_copies > 0).length} accent="emerald" />,
+                        <MyStat key="r" label="Миний хүсэлт" value={rentals.length} accent="sky" />,
+                        <MyStat key="p" label="Хүлээгдэж буй" value={pending} accent="amber" />,
+                        <MyStat key="a" label="Гартаа байгаа" value={approved} accent="violet" />,
+                    ]} />
 
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4">
-                    {[
-                        { label: 'Нийт хүсэлт',  value: rentals.length, color: 'text-foreground' },
-                        { label: 'Хүлээгдэж буй', value: pending,         color: 'text-amber-500' },
-                        { label: 'Зөвшөөрсөн',    value: approved,        color: 'text-green-500' },
-                    ].map(s => (
-                        <div key={s.label} className="rounded-2xl border bg-card shadow-sm px-5 py-4">
-                            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Book catalog */}
-                <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-3 border-b bg-muted/30">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Номын жагсаалт</p>
-                        <input
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Хайх..."
-                            className="rounded-lg border bg-background px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-400 w-52" />
-                    </div>
-                    {filteredBooks.length === 0 ? (
-                        <div className="py-12 text-center text-sm text-muted-foreground">Ном байхгүй байна</div>
-                    ) : (
-                        <table className="w-full text-sm">
-                            <thead className="border-b bg-muted/20">
-                                <tr className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                    <th className="px-5 py-3 text-left">НОМ</th>
-                                    <th className="px-4 py-3 text-left">АНГИЛАЛ</th>
-                                    <th className="px-4 py-3 text-center">НИЙТ</th>
-                                    <th className="px-4 py-3 text-center">БОЛОМЖИТ</th>
-                                    <th className="px-4 py-3 text-right">ҮЙЛДЭЛ</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/50">
-                                {filteredBooks.map(b => (
-                                    <tr key={b.id} className="hover:bg-muted/20 transition-colors">
-                                        <td className="px-5 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <BookCover url={b.cover_url} title={b.title} size="sm" />
-                                                <div className="min-w-0">
-                                                    <p className="font-semibold text-foreground">{b.title}</p>
-                                                    {b.author && <p className="text-xs text-muted-foreground">{b.author}{b.isbn ? ` · ${b.isbn}` : ''}</p>}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {b.category_name ? (
-                                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${COLOR_MAP[b.category_color] ?? COLOR_MAP.blue}`}>
-                                                    <Tag className="size-3" /> {b.category_name}
-                                                </span>
-                                            ) : <span className="text-muted-foreground text-xs">—</span>}
-                                        </td>
-                                        <td className="px-4 py-3 text-center"><span className="font-semibold">{b.total_copies}</span></td>
-                                        <td className="px-4 py-3 text-center">
-                                            {b.available_copies > 0 ? (
-                                                <span className="inline-flex items-center justify-center size-7 rounded-full bg-teal-500 text-white text-xs font-bold">{b.available_copies}</span>
-                                            ) : (
-                                                <span className="inline-flex items-center justify-center size-7 rounded-full bg-red-100 dark:bg-red-950/30 text-red-500 text-xs font-bold">0</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            {b.already_requested ? (
-                                                <span className="rounded-full bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 px-3 py-1.5 text-xs font-medium text-amber-600">Хүсэлт илгээсэн</span>
-                                            ) : b.available_copies <= 0 ? (
-                                                <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">Боломжгүй</span>
-                                            ) : (
-                                                <button onClick={() => setRequestBookId(b.id)}
-                                                    className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 transition-colors ml-auto">
-                                                    <Send className="size-3" /> Түрээслэх
-                                                </button>
-                                            )}
-                                        </td>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_380px]">
+                    <MyCard title="Номын жагсаалт" icon={BookOpen} count={filteredBooks.length} bodyClassName=""
+                        actions={
+                            <label className="relative">
+                                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Нэр, зохиогч, ISBN…"
+                                    className="h-7 w-56 rounded-lg border border-border bg-background pl-8 pr-2 text-xs focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20" />
+                            </label>
+                        }>
+                        {filteredBooks.length === 0 ? (
+                            <MyEmpty icon={BookOpen} title={search ? 'Хайлтад тохирох ном алга' : 'Ном байхгүй байна'} />
+                        ) : (
+                            <table className={myTable.table}>
+                                <thead className={myTable.thead}>
+                                    <tr className="border-b border-border/50">
+                                        <th className={myTable.th}>Ном</th>
+                                        <th className={myTable.th}>Ангилал</th>
+                                        <th className={`${myTable.th} text-center`}>Боломжтой</th>
+                                        <th className={`${myTable.th} text-right`}>Үйлдэл</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
+                                </thead>
+                                <tbody className={myTable.tbody}>
+                                    {filteredBooks.map(b => (
+                                        <tr key={b.id} className={myTable.tr}>
+                                            <td className={myTable.td}>
+                                                <div className="flex items-center gap-2.5">
+                                                    <BookCover url={b.cover_url} title={b.title} size="sm" />
+                                                    <div className="min-w-0">
+                                                        <p className="truncate font-semibold">{b.title}</p>
+                                                        <p className="truncate text-[10px] text-muted-foreground">{[b.author, b.isbn].filter(Boolean).join(' · ') || '—'}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className={myTable.td}>
+                                                {b.category_name ? (
+                                                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${COLOR_MAP[b.category_color] ?? COLOR_MAP.blue}`}>
+                                                        <Tag className="size-3" />{b.category_name}
+                                                    </span>
+                                                ) : <span className="text-muted-foreground">—</span>}
+                                            </td>
+                                            <td className={`${myTable.td} text-center tabular-nums`}>
+                                                <span className={`font-bold ${b.available_copies > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{b.available_copies}</span>
+                                                <span className="text-muted-foreground"> / {b.total_copies}</span>
+                                            </td>
+                                            <td className={`${myTable.td} text-right`}>
+                                                {b.already_requested ? <MyPill tone="amber" icon={Clock}>Хүсэлт илгээсэн</MyPill>
+                                                    : b.available_copies <= 0 ? <MyPill tone="slate">Боломжгүй</MyPill>
+                                                    : <button type="button" onClick={() => setRequestBookId(b.id)} className={myBtn.primary}><Send className="size-3" />Түрээслэх</button>}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </MyCard>
 
-                {/* Rental history */}
-                <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                    <div className="border-b bg-muted/30 px-6 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Миний хүсэлтүүд</p>
-                    </div>
-                    {rentals.length === 0 ? (
-                        <div className="py-14 text-center text-sm text-muted-foreground">Хүсэлт байхгүй байна</div>
-                    ) : (
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-border/50 text-xs text-muted-foreground">
-                                    <th className="px-6 py-3 text-left font-semibold">НОМ</th>
-                                    <th className="px-4 py-3 text-left font-semibold">СТАТУС</th>
-                                    <th className="px-4 py-3 text-left font-semibold">ОГНОО</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/40">
+                    <MyCard title="Миний хүсэлтүүд" icon={Clock} count={rentals.length} className="self-start lg:sticky lg:top-4" bodyClassName="">
+                        {rentals.length === 0 ? (
+                            <MyEmpty icon={Send} title="Хүсэлт байхгүй байна" hint="Жагсаалтаас ном сонгоод «Түрээслэх» дарна." />
+                        ) : (
+                            <div className="divide-y divide-border/40">
                                 {rentals.map(r => (
-                                    <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                                        <td className="px-6 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <BookCover url={r.book_cover_url} title={r.book_title} size="sm" />
-                                                <div>
-                                                    <p className="font-semibold text-foreground">{r.book_title}</p>
-                                                    {r.book_author && <p className="text-xs text-muted-foreground">{r.book_author}</p>}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div>
-                                                <StatusBadge status={r.status} />
-                                                {r.status === 'rejected' && r.rejection_reason && (
-                                                    <p className="mt-1 text-xs text-red-500">{r.rejection_reason}</p>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                                            <p>Илгээсэн: {r.created_at}</p>
-                                            {r.approved_at && <p className="mt-0.5 text-green-600 dark:text-green-400">Зөвшөөрсөн: {r.approved_at}</p>}
-                                            {r.returned_at && <p className="mt-0.5">Буцаасан: {r.returned_at}</p>}
-                                        </td>
-                                    </tr>
+                                    <div key={r.id} className="flex items-start gap-2.5 px-3 py-2">
+                                        <BookCover url={r.book_cover_url} title={r.book_title} size="sm" />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-xs font-semibold">{r.book_title}</p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                Илгээсэн {r.created_at}
+                                                {r.approved_at && <> · зөвшөөрсөн {r.approved_at}</>}
+                                                {r.returned_at && <> · буцаасан {r.returned_at}</>}
+                                            </p>
+                                            {r.status === 'rejected' && r.rejection_reason && <p className="mt-0.5 text-[10px] text-rose-600">{r.rejection_reason}</p>}
+                                        </div>
+                                        <RentalStatus status={r.status} />
+                                    </div>
                                 ))}
-                            </tbody>
-                        </table>
-                    )}
+                            </div>
+                        )}
+                    </MyCard>
                 </div>
-            </div>
-
+            </MyDesktop>
             {/* ─── Confirm bottom sheet (mobile) ─── */}
             {requestBookId !== null && requestingBook && (
                 <div className="md:hidden" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
@@ -549,7 +499,7 @@ export default function MyBookRentals({ employee, rentals, books }: Props) {
                             </p>
                             <div className="flex gap-2">
                                 <button onClick={() => submitRequest(requestBookId)} disabled={processing}
-                                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 py-2.5 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors">
+                                    className={`${myBtn.primary} h-9 flex-1 justify-center`}>
                                     {processing ? <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Send className="size-4" />}
                                     Хүсэлт илгээх
                                 </button>
