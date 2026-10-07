@@ -8,54 +8,122 @@ use App\Models\Branch;
 use App\Models\HR\AttendancePunch;
 use App\Models\HR\Employee;
 use App\Services\Attendance\AttendanceIngestService;
+use App\Services\Attendance\AttendancePeriod;
 use App\Services\Attendance\AttendanceReport;
 use App\Services\Schedule\ScheduleSettings;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AttendanceController extends Controller
 {
     public function __construct(private readonly AttendanceIngestService $attendance) {}
 
-    public function index(): Response
+    /**
+     * Ирцийн хуудас — хоёр харагдацтай:
+     *   day    — нэг өдрийн ирц, салбар салбараар (өдрийн мөр + долоо хоногийн тойм)
+     *   report — бүх ажилтны 15 хоног / сар / улирал / хагас жил / жилийн нэгтгэл
+     */
+    public function index(Request $request): Response
     {
-        $month = request()->integer('month', now()->month);
-        $year = request()->integer('year', now()->year);
+        $view = $request->query('view') === 'report' ? 'report' : 'day';
 
-        $from = Carbon::create($year, $month, 1)->startOfMonth();
-        $to = $from->copy()->endOfMonth();
-
-        $employeeId = request()->integer('employee_id', 0) ?: null;
-        $branchId = request()->integer('branch_id', 0) ?: null;
-
-        // Ирцийг НИЙТЛЭГДСЭН хуваарьтай харьцуулж хоцролт/эрт явсан/илүү цаг/ирээгүйг тооцно.
-        $report = (new AttendanceReport($from->toDateString(), $to->toDateString(), $branchId, $employeeId))->build();
-
-        // Салбар сонгосон бол эмчийн «Мөн ажилладаг салбарууд»-аар тэнд ажилладаг хүмүүсийг ч гаргана.
-        $employees = Employee::with('doctor.branches:id')->where('status', 'active')->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name', 'branch_id'])
-            ->when($branchId, fn ($list) => $list->filter(fn (Employee $e) => in_array($branchId, $e->workBranchIds(), true)))
-            ->values();
-
-        return Inertia::render('hr/attendance/index', [
-            'logs' => $report['rows'],
-            'summary' => $report['summary'],
+        $props = [
+            'view' => $view,
             'rules' => [
                 'late_grace' => ScheduleSettings::lateGrace(),
                 'overtime_min' => ScheduleSettings::overtimeMin(),
             ],
-            'employees' => $employees->map(fn ($e) => ['id' => $e->id, 'name' => $e->full_name]),
+            'employees' => $this->employeeOptions(),
             'branches' => Branch::orderBy('order')->get(['id', 'name']),
-            'year' => $year,
-            'month' => $month,
-            'employee_id' => $employeeId,
-            'branch_id' => $branchId,
+            'branch_id' => $request->integer('branch_id', 0) ?: null,
+        ];
+
+        if ($view === 'report') {
+            // Ирцийг НИЙТЛЭГДСЭН хуваарьтай харьцуулж хоцролт/эрт явсан/илүү цаг/ирээгүйг тооцно.
+            $period = AttendancePeriod::make($request->query('period'), $request->query('date'));
+            $report = (new AttendanceReport($period->from->toDateString(), $period->to->toDateString()))->build(withRows: false);
+
+            return Inertia::render('hr/attendance/index', $props + [
+                'period' => $period->toArray(),
+                'summary' => $report['summary'],
+            ]);
+        }
+
+        $date = $this->dayParam($request);
+        $monday = Carbon::parse($date)->startOfWeek(Carbon::MONDAY);
+        $sunday = $monday->copy()->addDays(6);
+
+        // Долоо хоногийг нэг дор тооцоолж, сонгосон өдрийн мөр + бусад өдрийн товч тоог гаргана.
+        $week = (new AttendanceReport($monday->toDateString(), $sunday->toDateString()))->build(withPending: true);
+        $rows = collect($week['rows']);
+
+        return Inertia::render('hr/attendance/index', $props + [
+            'date' => $date,
+            'logs' => $rows->where('date', $date)->values(),
+            'week' => collect(CarbonPeriod::create($monday, $sunday))->map(fn (Carbon $d) => [
+                'date' => $d->toDateString(),
+                // Салбараар шүүхэд front-д тоолно
+                'rows' => $rows->where('date', $d->toDateString())
+                    ->map(fn ($r) => ['b' => $r['branch_id'], 's' => $r['status'], 'in' => $r['checked_in_at'] !== null])
+                    ->values(),
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Нэг ажилтны ирцийн тайлан — 15 хоног / сар / улирал / хагас жил / жил.
+     * Олон сартай үеийг сар бүрээр задлана.
+     */
+    public function employee(Request $request, Employee $employee): Response
+    {
+        $period = AttendancePeriod::make($request->query('period'), $request->query('date'));
+        $from = $period->from->toDateString();
+        $to = $period->to->toDateString();
+
+        $report = (new AttendanceReport($from, $to, null, $employee->id))->build(withPending: true);
+
+        $months = [];
+        if (count($period->months()) > 1) {
+            foreach ($period->months() as [$mFrom, $mTo]) {
+                $months[] = [
+                    'from' => $mFrom,
+                    'to' => $mTo,
+                    'summary' => (new AttendanceReport($mFrom, $mTo, null, $employee->id))->build(withRows: false)['summary'][0] ?? null,
+                ];
+            }
+        }
+
+        $employee->loadMissing(['position:id,name', 'branch:id,name']);
+
+        return Inertia::render('hr/attendance/employee', [
+            'employee' => [
+                'id' => $employee->id,
+                'name' => $employee->full_name,
+                'short_name' => $employee->short_name,
+                'number' => $employee->employee_number,
+                'position' => $employee->position?->name,
+                'branch' => $employee->branch?->name,
+                'photo_url' => $employee->photo_url,
+                'status' => $employee->status,
+            ],
+            'period' => $period->toArray(),
+            'summary' => $report['summary'][0] ?? null,
+            'logs' => $report['rows'],
+            'months' => $months,
+            'rules' => [
+                'late_grace' => ScheduleSettings::lateGrace(),
+                'overtime_min' => ScheduleSettings::overtimeMin(),
+            ],
+            'employees' => $this->employeeOptions(),
         ]);
     }
 
@@ -131,22 +199,40 @@ class AttendanceController extends Controller
         return back()->with('success', 'Гараар нэмсэн бүртгэл устгагдлаа.');
     }
 
-    public function exportExcel(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function exportExcel(Request $request): BinaryFileResponse
     {
-        $month = request()->integer('month', now()->month);
-        $year = request()->integer('year', now()->year);
-        $employeeId = request()->integer('employee_id', 0) ?: null;
-        $branchId = request()->integer('branch_id', 0) ?: null;
+        $employeeId = $request->integer('employee_id', 0) ?: null;
+        $branchId = $request->integer('branch_id', 0) ?: null;
 
-        $from = Carbon::create($year, $month, 1)->startOfMonth();
-        $to = $from->copy()->endOfMonth();
+        if ($request->query('view') === 'day') {
+            $from = $to = $this->dayParam($request);
+            $label = $from;
+        } else {
+            $period = AttendancePeriod::make($request->query('period'), $request->query('date'));
+            [$from, $to] = [$period->from->toDateString(), $period->to->toDateString()];
+            $label = $period->label();
+        }
 
-        $report = (new AttendanceReport($from->toDateString(), $to->toDateString(), $branchId, $employeeId))->build();
+        $report = (new AttendanceReport($from, $to, $branchId, $employeeId))->build();
 
-        $monthLabels = ['1-р сар', '2-р сар', '3-р сар', '4-р сар', '5-р сар', '6-р сар',
-            '7-р сар', '8-р сар', '9-р сар', '10-р сар', '11-р сар', '12-р сар'];
-        $monthLabel = $monthLabels[$month - 1];
+        $who = $employeeId ? ' - '.Employee::find($employeeId)?->full_name : '';
 
-        return Excel::download(new AttendanceExport($report['rows'], $report['summary']), "Ирцийн бүртгэл {$monthLabel} {$year}.xlsx");
+        return Excel::download(new AttendanceExport($report['rows'], $report['summary']), "Ирцийн бүртгэл{$who} {$label}.xlsx");
+    }
+
+    /** Өдрийн харагдацын огноо — буруу эсвэл ирээдүйн огноо бол өнөөдөр. */
+    private function dayParam(Request $request): string
+    {
+        $date = AttendancePeriod::parseDate($request->query('date'));
+
+        return $date && $date->toDateString() <= today()->toDateString() ? $date->toDateString() : today()->toDateString();
+    }
+
+    /** @return Collection<int, array{id: int, name: string, branch_id: ?int}> */
+    private function employeeOptions()
+    {
+        return Employee::where('status', 'active')->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name', 'branch_id'])
+            ->map(fn (Employee $e) => ['id' => $e->id, 'name' => $e->full_name, 'branch_id' => $e->branch_id]);
     }
 }

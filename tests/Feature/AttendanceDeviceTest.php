@@ -13,6 +13,7 @@ use App\Models\HR\Position;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\AttendanceDeviceOffline;
+use App\Services\Attendance\AttendanceReport;
 use App\Services\Attendance\DeviceUserMatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -374,9 +375,8 @@ class AttendanceDeviceTest extends TestCase
         ])->assertOk();
         $this->ingest($sansarToken, [['pin' => '3', 'punched_at' => '2026-10-02 09:05:00']])->assertOk();
 
-        $hr = $this->hrUser();
-        $rows = fn (int $branchId) => collect($this->actingAs($hr)->get("/hr/attendance?year=2026&month=10&branch_id={$branchId}")
-            ->assertOk()->viewData('page')['props']['logs'])
+        // Excel-ийн салбарын шүүлтүүр
+        $rows = fn (int $branchId) => collect((new AttendanceReport('2026-10-01', '2026-10-31', $branchId))->build()['rows'])
             ->filter(fn ($r) => $r['id'] !== null)
             ->mapWithKeys(fn ($r) => [$r['employee_name'].' '.$r['date'] => $r['branches']]);
 
@@ -390,6 +390,14 @@ class AttendanceDeviceTest extends TestCase
         $this->assertSame(['Хороолол'], $sansar['Б.Сугар 2026-10-01']);
         $this->assertSame([], $sansar['Б.Сугар 2026-10-02']);
         $this->assertArrayNotHasKey('Д.Бат 2026-10-01', $sansar->all());
+
+        // Өдрийн хуудас: хуруу дарсан төхөөрөмжийн салбарын бүлэгт орж, үндсэн салбар нь тэмдэглэгдэнэ
+        $hr = $this->hrUser();
+        $day = collect($this->actingAs($hr)->get('/hr/attendance?date=2026-10-01')->assertOk()
+            ->viewData('page')['props']['logs'])->keyBy('employee_name');
+        $this->assertSame($khoroolol->id, $day['Б.Сугар']['branch_id']);
+        $this->assertSame('Сансар', $day['Б.Сугар']['home_branch']);
+        $this->assertSame($khoroolol->id, $day['Д.Бат']['branch_id']);
 
         // Хороолол төхөөрөмж дээр тааруулахад Сугар «Энэ салбарын» бүлэгт орно
         $employees = collect($this->actingAs($hr)->get('/hr/attendance/devices')->viewData('page')['props']['employees'])->keyBy('id');

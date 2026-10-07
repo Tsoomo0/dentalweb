@@ -114,6 +114,7 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     // ── Ирцийн бүртгэл ──────────────────────────────────────────────────────
     Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('attendance/export-excel', [AttendanceController::class, 'exportExcel'])->name('attendance.export-excel');
+    Route::get('attendance/employees/{employee}', [AttendanceController::class, 'employee'])->name('attendance.employee');
     // Хуруу дарахаа мартсан үед HR гараар засах (шалтгаан заавал, хэн засав нь хадгалагдана)
     Route::get('attendance/day', [AttendanceController::class, 'day'])->name('attendance.day');
     Route::post('attendance/manual', [AttendanceController::class, 'storeManual'])->name('attendance.manual');

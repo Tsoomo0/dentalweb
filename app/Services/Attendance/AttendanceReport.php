@@ -13,10 +13,13 @@ use Carbon\CarbonPeriod;
 
 /**
  * Ирцийн хуудас ба Excel-д: өдөр бүрийн мөр (ирц + хуваарьтай харьцуулалт,
- * хуваарьтай боловч ирээгүй өдрүүд) болон ажилтан бүрийн сарын нэгтгэл.
+ * хуваарьтай боловч ирээгүй өдрүүд) болон ажилтан бүрийн тухайн хугацааны нэгтгэл.
  */
 final class AttendanceReport
 {
+    /** Ирээгүй мөрүүдийн дараалал */
+    private const PENDING_ORDER = ['absent' => 1, 'missing' => 1, 'upcoming' => 2, 'leave' => 3, 'off' => 4];
+
     public function __construct(
         private readonly string $from,
         private readonly string $to,
@@ -24,8 +27,13 @@ final class AttendanceReport
         private readonly ?int $employeeId = null,
     ) {}
 
-    /** @return array{rows: list<array<string, mixed>>, summary: list<array<string, mixed>>} */
-    public function build(): array
+    /**
+     * @param  bool  $withRows  false бол зөвхөн нэгтгэл — жилийн тайланд мянга мянган мөр илгээхгүй
+     * @param  bool  $withPending  чөлөөтэй, ээлж нь эхлээгүй, амралтын өдрийн мөрийг ч гаргана
+     *                             (нэг өдрийн болон нэг ажилтны харагдацад хэн хаана байгааг бүрэн харуулна)
+     * @return array{rows: list<array<string, mixed>>, summary: list<array<string, mixed>>}
+     */
+    public function build(bool $withRows = true, bool $withPending = false): array
     {
         // Салбараар шүүхэд үндсэн салбараас гадна эмчийн «Мөн ажилладаг салбарууд»,
         // тэр салбарт хуваарьтай эсвэл тэнд хуруу дарсан хүмүүсийг ч оруулна.
@@ -63,8 +71,10 @@ final class AttendanceReport
                 'employee_id' => $employee->id, 'employee_name' => $employee->short_name,
                 'full_name' => $employee->full_name, 'position' => $employee->position?->name,
                 'photo_url' => $employee->photo_url,
+                'branch_id' => $employee->branch_id ? (int) $employee->branch_id : null,
+                'branch_name' => $branchNames[$employee->branch_id] ?? null,
                 'planned_days' => 0, 'planned_minutes' => 0, 'worked_days' => 0, 'worked_minutes' => 0,
-                'late_count' => 0, 'late_minutes' => 0, 'early_count' => 0, 'early_minutes' => 0,
+                'on_time_days' => 0, 'late_count' => 0, 'late_minutes' => 0, 'early_count' => 0, 'early_minutes' => 0,
                 'overtime_minutes' => 0, 'absent_days' => 0, 'leave_days' => 0, 'unscheduled_days' => 0,
                 'no_checkout' => 0,
             ];
@@ -93,6 +103,11 @@ final class AttendanceReport
 
                 $r = $evaluator->evaluate($date, $log, $plan, $leave);
                 if ($r['status'] === null) {
+                    // Хуваарьт амралтын өдөр — нэгтгэлд тооцохгүй, бүрэн харагдацад л мөр болно.
+                    if ($withRows && $withPending && $plan && $plan['off']) {
+                        $rows[] = $this->dayRow($employee, $date, $log, $plan, ['status' => 'off'] + $r, $today, $punchedAt, $branchNames);
+                    }
+
                     continue;
                 }
 
@@ -100,6 +115,7 @@ final class AttendanceReport
                     $s['worked_days']++;
                     $s['worked_minutes'] += $r['worked'];
                 }
+                $s['on_time_days'] += $r['status'] === 'on_time' ? 1 : 0;
                 $s['late_count'] += $r['late'] > 0 ? 1 : 0;
                 $s['late_minutes'] += $r['late'];
                 $s['early_count'] += $r['early'] > 0 ? 1 : 0;
@@ -110,16 +126,16 @@ final class AttendanceReport
                 $s['unscheduled_days'] += $r['status'] === 'unscheduled' ? 1 : 0;
                 $s['no_checkout'] += $r['no_checkout'] ? 1 : 0;
 
-                // Чөлөөтэй/хүлээгдэж буй өдрийг өдрийн жагсаалтад гаргахгүй — ирсэн эсвэл ирээгүйг л харуулна.
-                if (! $log && ! in_array($r['status'], ['absent', 'missing'], true)) {
+                if (! $withRows) {
                     continue;
                 }
 
-                // Үндсэн салбараасаа өөр газар хуруу дарсан бол хаана ажилласныг харуулна.
-                $elsewhere = array_values(array_filter($punchedAt, fn ($b) => $b !== (int) $employee->branch_id));
-                $row = $this->row($employee, $date, $log, $plan, $r, $date === $today);
-                $row['branches'] = array_values(array_map(fn ($b) => $branchNames[$b] ?? '', $elsewhere));
-                $rows[] = $row;
+                // Сарын жагсаалтад чөлөөтэй/хүлээгдэж буй өдрийг гаргахгүй — ирсэн эсвэл ирээгүйг л харуулна.
+                if (! $withPending && ! $log && ! in_array($r['status'], ['absent', 'missing'], true)) {
+                    continue;
+                }
+
+                $rows[] = $this->dayRow($employee, $date, $log, $plan, $r, $today, $punchedAt, $branchNames);
             }
 
             if ($s['planned_days'] || $s['worked_days'] || $s['leave_days']) {
@@ -127,8 +143,10 @@ final class AttendanceReport
             }
         }
 
-        usort($rows, fn ($a, $b) => [$b['date'], $a['checked_in_at'] === null ? 1 : 0, $a['checked_in_at'] ?? '', $a['employee_name']]
-            <=> [$a['date'], $b['checked_in_at'] === null ? 1 : 0, $b['checked_in_at'] ?? '', $b['employee_name']]);
+        // Өдөр бүрт: ирсэн нь ирсэн цагаараа, дараа нь ирээгүй → ээлж эхлээгүй → чөлөөтэй → амралт
+        $rank = fn (array $r) => $r['checked_in_at'] !== null ? 0 : (self::PENDING_ORDER[$r['status']] ?? 1);
+        usort($rows, fn ($a, $b) => [$b['date'], $rank($a), $a['checked_in_at'] ?? '', $a['employee_name']]
+            <=> [$a['date'], $rank($b), $b['checked_in_at'] ?? '', $b['employee_name']]);
         usort($summary, fn ($a, $b) => strcmp($a['employee_name'], $b['employee_name']));
 
         return ['rows' => $rows, 'summary' => $summary];
@@ -187,6 +205,31 @@ final class AttendanceReport
             });
 
         return $out;
+    }
+
+    /**
+     * @param  list<int>  $punchedAt  тухайн өдөр хуруу дарсан төхөөрөмжүүдийн салбар
+     */
+    private function dayRow(Employee $employee, string $date, ?AttendanceLog $log, ?array $plan, array $r, string $today, array $punchedAt, $branchNames): array
+    {
+        $home = $employee->branch_id ? (int) $employee->branch_id : null;
+
+        // Тухайн өдөр АЖИЛЛАСАН салбар: нийтлэгдсэн ээлжийнх → хуруу дарсан төхөөрөмжийнх → үндсэн салбар
+        $branchId = ($plan['work'] ?? false) && $plan['branch_ids'] !== []
+            ? (int) $plan['branch_ids'][0]
+            : ($punchedAt[0] ?? $home);
+
+        $row = $this->row($employee, $date, $log, $plan, $r, $date === $today);
+        $row['branch_id'] = $branchId;
+        $row['home_branch_id'] = $home;
+        $row['home_branch'] = $home ? ($branchNames[$home] ?? null) : null;
+        // Үндсэн салбараасаа өөр газар хуруу дарсан бол хаана ажилласныг харуулна.
+        $row['branches'] = array_values(array_map(
+            fn ($b) => $branchNames[$b] ?? '',
+            array_values(array_filter($punchedAt, fn ($b) => $b !== $home)),
+        ));
+
+        return $row;
     }
 
     private function row(Employee $employee, string $date, ?AttendanceLog $log, ?array $plan, array $r, bool $isToday): array
