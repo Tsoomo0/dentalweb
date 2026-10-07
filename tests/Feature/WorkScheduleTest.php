@@ -330,6 +330,28 @@ class WorkScheduleTest extends TestCase
         $this->assertSame('шалгалт', $res->json('board.unavailable.0.note'));
     }
 
+    public function test_employee_sees_only_arrival_departure_worked_and_late(): void
+    {
+        $this->withoutVite();
+        $user = User::factory()->create();
+        $anu = $this->employee('Ану', user: $user);
+        Shift::create([
+            'employee_id' => $anu->id, 'branch_id' => $this->sansar->id, 'date' => '2026-10-02', 'shift_template_id' => $this->morning->id,
+            'kind' => 'work', 'start_time' => $this->morning->start_time, 'end_time' => $this->morning->end_time,
+            'status' => Shift::STATUS_PUBLISHED, 'published_at' => now(),
+        ]);
+        // 20 минут хоцорч, хуваарийн дуусахаас нэг цаг илүү үлдсэн
+        AttendanceLog::create(['employee_id' => $anu->id, 'date' => '2026-10-02',
+            'checked_in_at' => '2026-10-02 08:50:00', 'checked_out_at' => '2026-10-02 17:30:00']);
+
+        $days = collect($this->actingAs($user)->get('/my/work-schedule?date=2026-10-01')->assertOk()
+            ->viewData('page')['props']['days'])->keyBy('date');
+
+        $attendance = $days['2026-10-02']['attendance'];
+        $this->assertSame(['in', 'out', 'status', 'late', 'worked'], array_keys($attendance), 'Илүү цаг, эрт явсныг ажилтанд илгээхгүй');
+        $this->assertSame(['08:50', '17:30', 20], [$attendance['in'], $attendance['out'], $attendance['late']]);
+    }
+
     public function test_legacy_rows_are_converted_to_published_shifts(): void
     {
         $emp = $this->employee('Ану');

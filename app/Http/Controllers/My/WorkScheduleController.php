@@ -11,6 +11,7 @@ use App\Models\HR\ShiftSwapRequest;
 use App\Services\Attendance\AttendanceEvaluator;
 use App\Services\Schedule\LeaveCalendar;
 use App\Services\Schedule\RosterLookup;
+use App\Services\Schedule\ScheduleSettings;
 use App\Services\Schedule\ShiftMath;
 use App\Services\Schedule\ShiftSwapService;
 use Carbon\Carbon;
@@ -80,13 +81,12 @@ class WorkScheduleController extends Controller
                 ])->values(),
                 'leave' => $leave,
                 'unavailable' => $availability->has($date) ? ['id' => $availability[$date]->id, 'note' => $availability[$date]->note] : null,
+                // Ажилтанд зөвхөн ирсэн/тарсан/ажилласан цаг ба хоцролт — илүү цаг, эрт явсныг HR л харна.
                 'attendance' => $log || ($eval && $eval['status']) ? [
                     'in' => $log?->checked_in_at?->format('H:i'),
                     'out' => $log?->checked_out_at?->format('H:i'),
                     'status' => $eval['status'] ?? null,
                     'late' => $eval['late'] ?? 0,
-                    'early' => $eval['early'] ?? 0,
-                    'overtime' => $eval['overtime'] ?? 0,
                     'worked' => $eval['worked'] ?? 0,
                 ] : null,
             ];
@@ -105,6 +105,7 @@ class WorkScheduleController extends Controller
             'days' => $days,
             'swaps' => $this->swaps($employee),
             'colleagues' => $this->colleagues($employee),
+            'late_grace' => ScheduleSettings::lateGrace(),
         ]);
     }
 

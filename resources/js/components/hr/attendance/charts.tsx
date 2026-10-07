@@ -120,8 +120,10 @@ export interface HoursDatum {
  *          үлдсэн нь дутуу, цэнхэр давсан нь илүү цаг. Өдрүүд салангид тул муруй биш багана.
  *   area — сар бүрээр: ажилласан нь градиенттэй талбай, төлөвлөсөн нь саарал шугам.
  */
-export function HoursChart({ data, variant, onPick, height = 150 }: {
+export function HoursChart({ data, variant, onPick, height = 150, showDiff = true }: {
     data: HoursDatum[]; variant: 'bar' | 'area'; onPick?: (key: string) => void; height?: number;
+    /** false бол tooltip-д илүү/дутуу цагийг харуулахгүй (ажилтны талд) */
+    showDiff?: boolean;
 }) {
     if (!data.some(d => d.workedMin || d.plannedMin)) return <Empty height={height} />;
 
@@ -135,7 +137,7 @@ export function HoursChart({ data, variant, onPick, height = 150 }: {
                     <TipBox title={d.title} rows={[
                         { color: 'var(--att-blue)', value: fmtMins(d.workedMin) ?? '0', label: 'ажилласан' },
                         { color: 'var(--att-plan)', value: fmtMins(d.plannedMin) ?? '0', label: 'төлөвлөсөн' },
-                    ]} note={d.plannedMin ? (diff >= 0 ? `+${fmtMins(diff) ?? '0'} илүү` : `${fmtMins(-diff)} дутуу`) : undefined} />
+                    ]} note={showDiff && d.plannedMin ? (diff >= 0 ? `+${fmtMins(diff) ?? '0'} илүү` : `${fmtMins(-diff)} дутуу`) : undefined} />
                 );
             }} />
     );
