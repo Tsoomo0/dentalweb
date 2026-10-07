@@ -8,14 +8,14 @@ use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\Faq;
 use App\Models\GalleryItem;
-use App\Models\Setting;
 use App\Models\Social\SocialAccount;
 use App\Models\TreatmentCategory;
 use App\Services\Social\MetaGraphService;
-use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -174,15 +174,11 @@ class PublicController extends Controller
     }
 
     /**
-     * Нийтэд харагдах салбарууд — "Оффис/Офис/Office" зэрэг эмнэлэг бус
-     * байршлыг хасна (case-insensitive collation дээр ажиллана).
+     * Нийтэд харагдах салбарууд — админ «Нийтийн сайтад харуулах»-ыг асаасан идэвхтэй салбар.
      */
     private function publicBranchQuery()
     {
-        return Branch::where('is_active', true)
-            ->where('name', 'not like', '%офис%')
-            ->where('name', 'not like', '%оффис%')
-            ->where('name', 'not like', '%office%');
+        return Branch::public();
     }
 
     /**
@@ -196,7 +192,7 @@ class PublicController extends Controller
         return Cache::remember('home_fb_posts', 1800, function () {
             $account = SocialAccount::whereNotNull('page_id')
                 ->when(
-                    \Illuminate\Support\Facades\Schema::hasColumn('social_accounts', 'status'),
+                    Schema::hasColumn('social_accounts', 'status'),
                     fn ($q) => $q->where('status', 'active')
                 )
                 ->first();

@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Building2, CheckCircle2, Clock, Edit, MapPin, Phone, Plus, Star, Trash2, Users } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, Edit, EyeOff, Globe, MapPin, Phone, Plus, Star, Trash2, Users } from 'lucide-react';
 
 interface Branch {
     id: number;
@@ -13,6 +13,7 @@ interface Branch {
     doctor_count: number;
     is_featured: boolean;
     is_active: boolean;
+    is_public: boolean;
 }
 
 interface Props {
@@ -168,9 +169,25 @@ export default function BranchesIndex({ branches, total_doctors }: Props) {
                                 </div>
 
                                 <div className="flex items-center justify-between border-t px-4 py-3">
-                                    <span className={`text-xs font-medium ${branch.is_active ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                                        {branch.is_active ? '● Идэвхтэй' : '● Идэвхгүй'}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xs font-medium ${branch.is_active ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                                            {branch.is_active ? '● Идэвхтэй' : '● Идэвхгүй'}
+                                        </span>
+                                        {/* Нийтийн сайтад харуулах эсэхийг нэг товшилтоор солино */}
+                                        <button
+                                            type="button"
+                                            onClick={() => router.patch(`/admin/branches/${branch.id}/visibility`, {}, { preserveScroll: true })}
+                                            title={branch.is_public ? 'Нийтийн сайтад харагдаж байна — дарж нууна' : 'Нийтийн сайтаас нуусан — дарж харуулна'}
+                                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset transition ${
+                                                branch.is_public
+                                                    ? 'bg-sky-500/10 text-sky-700 ring-sky-500/25 hover:bg-sky-500/20 dark:text-sky-300'
+                                                    : 'bg-muted text-muted-foreground ring-border hover:text-foreground'
+                                            }`}
+                                        >
+                                            {branch.is_public ? <Globe className="size-3" /> : <EyeOff className="size-3" />}
+                                            {branch.is_public ? 'Нийтэд' : 'Нуусан'}
+                                        </button>
+                                    </div>
                                     <div className="flex gap-2">
                                         <Link
                                             href={`/admin/branches/${branch.id}/edit`}

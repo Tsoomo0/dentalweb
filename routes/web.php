@@ -398,6 +398,7 @@ Route::middleware(['auth', 'admin', 'throttle:120,1'])->prefix('admin')->name('a
     Route::resource('treatment-categories', TreatmentCategoryController::class)->except(['show', 'create', 'edit']);
     Route::resource('treatments.sub-treatments', SubTreatmentController::class)->only(['store', 'update', 'destroy']);
     Route::resource('branches', BranchController::class)->except(['show']);
+    Route::patch('branches/{branch}/visibility', [BranchController::class, 'toggleVisibility'])->name('branches.visibility');
     Route::resource('doctors', DoctorController::class)->except(['show']);
     Route::resource('articles', ArticleController::class)->except(['show']);
     Route::resource('faqs', FaqController::class)->except(['show']);

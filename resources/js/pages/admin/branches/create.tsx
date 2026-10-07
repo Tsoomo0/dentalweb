@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Upload } from 'lucide-react';
+import { ArrowLeft, Globe, Upload } from 'lucide-react';
 import { type FormEvent, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -22,6 +22,7 @@ export default function BranchCreate() {
         doctor_count: '0',
         is_featured: false as boolean,
         is_active: true as boolean,
+        is_public: true as boolean,
         image: null as File | null,
         lat: '',
         lng: '',
@@ -208,7 +209,19 @@ export default function BranchCreate() {
                                     onChange={(e) => setData('is_active', e.target.checked)}
                                     className="size-4 accent-red-600"
                                 />
-                                <span className="text-sm font-medium">Идэвхтэй байдлаар нийтлэх</span>
+                                <span className="text-sm font-medium">Идэвхтэй <span className="font-normal text-muted-foreground">(HR, ирц, хуваарьт ашиглана)</span></span>
+                            </label>
+                            <label className="flex cursor-pointer items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={data.is_public}
+                                    onChange={(e) => setData('is_public', e.target.checked)}
+                                    className="mt-0.5 size-4 accent-sky-600"
+                                />
+                                <span>
+                                    <span className="flex items-center gap-1.5 text-sm font-medium"><Globe className="size-3.5 text-sky-600" />Нийтийн сайтад харуулах</span>
+                                    <span className="block text-xs text-muted-foreground">Нүүр хуудас, салбарууд, холбоо барих болон онлайн цаг захиалгад харагдана. Оффис зэрэг дотоод байршилд унтраана.</span>
+                                </span>
                             </label>
                             <label className="flex cursor-pointer items-center gap-3">
                                 <input

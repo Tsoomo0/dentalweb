@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Upload } from 'lucide-react';
+import { ArrowLeft, Globe, Upload } from 'lucide-react';
 import { type FormEvent, useRef, useState } from 'react';
 
 interface Branch {
@@ -14,6 +14,7 @@ interface Branch {
     doctor_count: number;
     is_featured: boolean;
     is_active: boolean;
+    is_public: boolean;
     lat: number | null;
     lng: number | null;
     radius_m: number;
@@ -43,6 +44,7 @@ export default function BranchEdit({ branch }: Props) {
         doctor_count: branch.doctor_count.toString(),
         is_featured: branch.is_featured,
         is_active: branch.is_active,
+        is_public: branch.is_public ?? true,
         image: null as File | null,
         lat: branch.lat?.toString() ?? '',
         lng: branch.lng?.toString() ?? '',
@@ -218,7 +220,19 @@ export default function BranchEdit({ branch }: Props) {
                                     onChange={(e) => setData('is_active', e.target.checked)}
                                     className="size-4 accent-red-600"
                                 />
-                                <span className="text-sm font-medium">Идэвхтэй</span>
+                                <span className="text-sm font-medium">Идэвхтэй <span className="font-normal text-muted-foreground">(HR, ирц, хуваарьт ашиглана)</span></span>
+                            </label>
+                            <label className="flex cursor-pointer items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={data.is_public}
+                                    onChange={(e) => setData('is_public', e.target.checked)}
+                                    className="mt-0.5 size-4 accent-sky-600"
+                                />
+                                <span>
+                                    <span className="flex items-center gap-1.5 text-sm font-medium"><Globe className="size-3.5 text-sky-600" />Нийтийн сайтад харуулах</span>
+                                    <span className="block text-xs text-muted-foreground">Нүүр хуудас, салбарууд, холбоо барих болон онлайн цаг захиалгад харагдана. Оффис зэрэг дотоод байршилд унтраана.</span>
+                                </span>
                             </label>
                             <label className="flex cursor-pointer items-center gap-3">
                                 <input
