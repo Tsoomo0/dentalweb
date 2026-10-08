@@ -128,6 +128,7 @@ Route::middleware(['auth', 'hr'])->prefix('hr')->name('hr.')->group(function () 
     Route::post('attendance/devices/{device}/token', [AttendanceDeviceController::class, 'regenerateToken'])->name('attendance.devices.token');
     Route::post('attendance/devices/{device}/import', [AttendanceDeviceController::class, 'importUsb'])->name('attendance.devices.import');
     Route::post('attendance/device-users/bulk-map', [AttendanceDeviceController::class, 'bulkMap'])->name('attendance.device-users.bulk-map');
+    Route::post('attendance/device-users/hide', [AttendanceDeviceController::class, 'hideUsers'])->name('attendance.device-users.hide');
     Route::patch('attendance/device-users/{deviceUser}', [AttendanceDeviceController::class, 'mapUser'])->name('attendance.device-users.map');
 
     // ── Ажлын хуваарь (нэгдсэн: бүх албан тушаал, ноорог → нийтлэх) ─────────

@@ -33,7 +33,7 @@ class AttendanceDeviceController extends Controller
 
         $devices = AttendanceDevice::with('branch:id,name')
             ->withCount([
-                'users as unmapped_count' => fn ($q) => $q->whereNull('employee_id'),
+                'users as unmapped_count' => fn ($q) => $q->whereNull('employee_id')->whereNull('hidden_at'),
                 'punches as today_count' => fn ($q) => $q->whereBetween('punched_at', ["{$today} 00:00:00", "{$today} 23:59:59"]),
             ])
             ->orderByDesc('is_active')
@@ -67,12 +67,13 @@ class AttendanceDeviceController extends Controller
             ]);
 
         // Тааруулалт (device, pin) хоёр баганаар холбогддог тул тоог тусад нь бүлэглэж авна.
-        $punchCounts = AttendancePunch::whereNotNull('attendance_device_id')
-            ->selectRaw('attendance_device_id, device_user_pin, COUNT(*) as c')
+        // Сүүлийн бүртгэлийн огноогоор HR одоо ажиллаж буй хүн, гарсан хүнийг ялгана.
+        $punchStats = AttendancePunch::whereNotNull('attendance_device_id')
+            ->selectRaw('attendance_device_id, device_user_pin, COUNT(*) as c, MAX(punched_at) as last_at')
             ->groupBy('attendance_device_id', 'device_user_pin')
             ->toBase()
             ->get()
-            ->mapWithKeys(fn ($r) => ["{$r->attendance_device_id}|{$r->device_user_pin}" => (int) $r->c]);
+            ->keyBy(fn ($r) => "{$r->attendance_device_id}|{$r->device_user_pin}");
 
         $users = AttendanceDeviceUser::with(['device:id,name,branch_id', 'employee:id,first_name,last_name,employee_number'])
             ->orderByRaw('employee_id IS NOT NULL')
@@ -91,22 +92,28 @@ class AttendanceDeviceController extends Controller
             ->groupBy('attendance_device_id')
             ->map(fn ($rows) => $rows->pluck('employee_id')->all())
             ->all();
-        $suggestions = $this->matcher->suggest($users->whereNull('employee_id'), $employees, $mappedByDevice);
+        $suggestions = $this->matcher->suggest($users->whereNull('employee_id')->whereNull('hidden_at'), $employees, $mappedByDevice);
 
-        $deviceUsers = $users->map(fn (AttendanceDeviceUser $u) => [
-            'id' => $u->id,
-            'device_id' => $u->attendance_device_id,
-            'device_name' => $u->device?->name,
-            'device_branch_id' => $u->device?->branch_id,
-            'pin' => $u->device_user_pin,
-            'name' => $u->name,
-            'employee_id' => $u->employee_id,
-            'employee_name' => $u->employee ? "{$u->employee->full_name} ({$u->employee->employee_number})" : null,
-            'punches_count' => $punchCounts["{$u->attendance_device_id}|{$u->device_user_pin}"] ?? 0,
-            'suggestion' => isset($suggestions[$u->id])
-                ? ['employee_id' => $suggestions[$u->id], 'employee_name' => $employeeLabels[$suggestions[$u->id]] ?? null]
-                : null,
-        ]);
+        $deviceUsers = $users->map(function (AttendanceDeviceUser $u) use ($punchStats, $suggestions, $employeeLabels) {
+            $stats = $punchStats["{$u->attendance_device_id}|{$u->device_user_pin}"] ?? null;
+
+            return [
+                'id' => $u->id,
+                'device_id' => $u->attendance_device_id,
+                'device_name' => $u->device?->name,
+                'device_branch_id' => $u->device?->branch_id,
+                'pin' => $u->device_user_pin,
+                'name' => $u->name,
+                'employee_id' => $u->employee_id,
+                'employee_name' => $u->employee ? "{$u->employee->full_name} ({$u->employee->employee_number})" : null,
+                'hidden' => $u->hidden_at !== null,
+                'punches_count' => (int) ($stats->c ?? 0),
+                'last_punch_at' => $stats?->last_at ? substr((string) $stats->last_at, 0, 10) : null,
+                'suggestion' => isset($suggestions[$u->id])
+                    ? ['employee_id' => $suggestions[$u->id], 'employee_name' => $employeeLabels[$suggestions[$u->id]] ?? null]
+                    : null,
+            ];
+        });
 
         $appUrl = parse_url((string) config('app.url'));
 
@@ -194,6 +201,26 @@ class AttendanceDeviceController extends Controller
         }
 
         return back()->with('success', count($data['mappings']).' PIN ажилтантай тааруулагдлаа.');
+    }
+
+    /**
+     * Тааруулахгүй PIN-үүдийг (гарсан ажилтан, туршилтын хэрэглэгч) нуух эсвэл сэргээх.
+     * Бүртгэлүүд нь устахгүй — зөвхөн жагсаалт, тоолуураас гарна.
+     */
+    public function hideUsers(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids' => 'required|array|min:1|max:2000',
+            'ids.*' => 'integer',
+            'hidden' => 'required|boolean',
+        ]);
+
+        // Тааруулсан PIN-ийг нуувал ирц нь харагдахгүй алга болно — зөвхөн тааруулаагүйг.
+        $count = AttendanceDeviceUser::whereIn('id', $data['ids'])
+            ->whereNull('employee_id')
+            ->update(['hidden_at' => $data['hidden'] ? now() : null]);
+
+        return back()->with('success', $data['hidden'] ? "{$count} PIN нуугдлаа." : "{$count} PIN сэргээгдлээ.");
     }
 
     /**

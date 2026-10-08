@@ -226,7 +226,8 @@ class AttendanceIngestService
         $previous = $deviceUser->employee_id;
 
         DB::transaction(function () use ($deviceUser, $employeeId) {
-            $deviceUser->update(['employee_id' => $employeeId]);
+            // Нуусан PIN-ийг тааруулбал жагсаалтад буцаж гарна
+            $deviceUser->update($employeeId ? ['employee_id' => $employeeId, 'hidden_at' => null] : ['employee_id' => null]);
 
             AttendancePunch::where('attendance_device_id', $deviceUser->attendance_device_id)
                 ->where('device_user_pin', $deviceUser->device_user_pin)

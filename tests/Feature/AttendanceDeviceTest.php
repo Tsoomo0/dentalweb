@@ -188,6 +188,49 @@ class AttendanceDeviceTest extends TestCase
         $this->assertSame($bilguun->id, AttendancePunch::where('device_user_pin', '15')->sole()->employee_id);
     }
 
+    public function test_hidden_pins_leave_the_unmapped_list_until_restored_or_mapped(): void
+    {
+        $bilguun = $this->employee('Билгүүн');
+        $saraa = $this->employee('Сараа');
+        [$device, $token] = $this->pullDevice();
+        $this->mapPin($device, '20', $saraa);
+
+        $this->ingest($token, [
+            ['pin' => '15', 'punched_at' => '2026-10-05 08:50:00'],
+            ['pin' => '99', 'punched_at' => '2026-08-01 09:00:00'],
+            ['pin' => '20', 'punched_at' => '2026-10-05 09:10:00'],
+        ], ['users' => [['pin' => '15', 'name' => 'Bilguun'], ['pin' => '99', 'name' => 'Old Staff']]])->assertOk();
+
+        $ids = AttendanceDeviceUser::pluck('id', 'device_user_pin');
+        $hr = $this->hrUser();
+
+        $this->actingAs($hr)->post('/hr/attendance/device-users/hide', ['ids' => [$ids['15'], $ids['99'], $ids['20']], 'hidden' => true])
+            ->assertRedirect()->assertSessionHas('success', '2 PIN нуугдлаа.');
+        $this->assertNull(AttendanceDeviceUser::find($ids['20'])->hidden_at, 'Тааруулсан PIN-ийг нуухгүй — ирц нь алга болно');
+
+        $this->actingAs($hr)->get('/hr/attendance/devices')->assertOk()
+            ->assertInertia(function ($page) {
+                $props = $page->toArray()['props'];
+                $this->assertSame(0, $props['devices'][0]['unmapped_count'], 'Нуусан PIN тааруулаагүйн тоонд орохгүй');
+
+                $users = collect($props['deviceUsers'])->keyBy('pin');
+                $this->assertTrue($users['15']['hidden']);
+                $this->assertNull($users['15']['suggestion'], 'Нуусан PIN-д нэрийн санал гаргахгүй');
+                $this->assertSame('2026-08-01', $users['99']['last_punch_at']);
+                $this->assertSame(1, $users['99']['punches_count']);
+            });
+
+        // Нуусан PIN-ийг тааруулбал жагсаалтад буцаж, бүртгэл нь ирцэд орно
+        $this->actingAs($hr)->patch("/hr/attendance/device-users/{$ids['15']}", ['employee_id' => $bilguun->id])->assertRedirect();
+        $this->assertNull(AttendanceDeviceUser::find($ids['15'])->hidden_at);
+        $this->assertSame($bilguun->id, AttendancePunch::where('device_user_pin', '15')->sole()->employee_id);
+
+        $this->actingAs($hr)->post('/hr/attendance/device-users/hide', ['ids' => [$ids['99']], 'hidden' => false])
+            ->assertSessionHas('success', '1 PIN сэргээгдлээ.');
+        $this->assertNull(AttendanceDeviceUser::find($ids['99'])->hidden_at);
+        $this->assertSame(1, AttendancePunch::where('device_user_pin', '99')->count(), 'Нуух/сэргээхэд бүртгэл устахгүй');
+    }
+
     public function test_name_skeleton_matches_common_transliterations(): void
     {
         $matcher = new DeviceUserMatcher;

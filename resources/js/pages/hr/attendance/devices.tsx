@@ -3,12 +3,12 @@ import { ToastContainer } from '@/components/toast';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { HR_PANEL_FX } from '@/components/hr/document-status';
-import { HrButton, HrEmpty, HrGhostButton, HrListCard, HrPanel, HrTabs } from '@/components/hr/page-panel';
+import { HrButton, HrEmpty, HrGhostButton, HrListCard, HrPager, HrPanel, HrSearch, HrTabs, usePaged } from '@/components/hr/page-panel';
 import {
-    AlertTriangle, ArrowLeft, Check, Copy, Fingerprint, KeyRound, MapPin, Pencil, Plus,
+    AlertTriangle, ArrowLeft, Check, Copy, Eye, EyeOff, Fingerprint, History, KeyRound, MapPin, Pencil, Plus,
     Radio, Server, Sparkles, Trash2, Upload, Usb, Users, X,
 } from 'lucide-react';
-import { type FormEvent, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 type ConnectionType = 'pull' | 'push';
 
@@ -35,14 +35,19 @@ interface DeviceUser {
     id: number; device_id: number; device_name: string | null; device_branch_id: number | null;
     pin: string; name: string | null;
     employee_id: number | null; employee_name: string | null; punches_count: number;
+    /** HR «тааруулахгүй» гэж нуусан (гарсан ажилтан, туршилтын хэрэглэгч) */
+    hidden: boolean;
+    /** Y-m-d — сүүлд хуруу уншуулсан өдөр */
+    last_punch_at: string | null;
     /** Төхөөрөмж дээрх нэрээр гаргасан санал — HR баталгаажуулна */
     suggestion: { employee_id: number; employee_name: string | null } | null;
 }
 interface Option { id: number; name: string; }
+type EmployeeOption = Option & { branch_ids: number[] };
 interface PageProps {
     devices: Device[]; deviceUsers: DeviceUser[];
     /** branch_ids — үндсэн салбар + эмчийн «Мөн ажилладаг салбарууд» */
-    employees: (Option & { branch_ids: number[] })[]; branches: Option[];
+    employees: EmployeeOption[]; branches: Option[];
     server: { ingest_url: string; push_host: string; push_port: number };
     newToken: { device_id: number; token: string } | null;
     [key: string]: unknown;
@@ -55,6 +60,21 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const TYPE_LABEL: Record<ConnectionType, string> = { pull: '4370 · агент', push: 'Push · ADMS' };
+
+type UserTab = 'unmapped' | 'mapped' | 'all' | 'hidden';
+/** 'all', 'none' (салбар сонгоогүй төхөөрөмж) эсвэл салбарын id */
+type BranchFilter = string;
+
+const USERS_PER_PAGE = 20;
+/** Үүнээс удаан бүртгэлгүй PIN нь гарсан хүн байх магадлалтай — нэг дор сонгож нууна. */
+const STALE_DAYS = 30;
+
+const TAB_EMPTY: Record<UserTab, string> = {
+    unmapped: 'Бүх PIN тааруулагдсан байна.',
+    mapped: 'Тааруулсан PIN алга.',
+    all: 'Төхөөрөмжөөс хэрэглэгч ирээгүй байна.',
+    hidden: 'Нуусан PIN алга. Тааруулахгүй хүмүүсээ «Тааруулаагүй» табаас нууна.',
+};
 
 const inputCls = 'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40';
 
@@ -95,9 +115,11 @@ export default function AttendanceDevices() {
 
     const [editing, setEditing] = useState<Device | 'new' | null>(null);
     const [deleting, setDeleting] = useState<Device | null>(null);
-    const [userTab, setUserTab] = useState<'unmapped' | 'all'>(deviceUsers.some(u => !u.employee_id) ? 'unmapped' : 'all');
+    const [userTab, setUserTab] = useState<UserTab>(deviceUsers.some(u => !u.employee_id && !u.hidden) ? 'unmapped' : 'all');
+    const [userBranch, setUserBranch] = useState<BranchFilter>('all');
     const [importFor, setImportFor] = useState<Device | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
+    const usersRef = useRef<HTMLDivElement>(null);
 
     const form = useForm({
         name: '', branch_id: '' as number | '', connection_type: 'pull' as ConnectionType,
@@ -146,14 +168,11 @@ export default function AttendanceDevices() {
         });
     }
 
-    function mapUser(user: DeviceUser, employeeId: string | number) {
-        router.patch(`/hr/attendance/device-users/${user.id}`, { employee_id: employeeId ? Number(employeeId) : null }, { preserveScroll: true });
-    }
-
-    function confirmAllSuggestions() {
-        const mappings = suggested.map(u => ({ id: u.id, employee_id: u.suggestion!.employee_id }));
-        if (!confirm(`Нэрээр санал болгосон ${mappings.length} тааруулалтыг батлах уу? Жагсаалтыг нэг харчихаад батлаарай.`)) return;
-        router.post('/hr/attendance/device-users/bulk-map', { mappings }, { preserveScroll: true });
+    /** Төхөөрөмжийн картаас — тухайн салбарын тааруулаагүй PIN-үүд рүү үсэрнэ. */
+    function showUnmapped(device: Device) {
+        setUserTab('unmapped');
+        setUserBranch(device.branch_id ? String(device.branch_id) : 'none');
+        usersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     const tokenDevice = newToken ? devices.find(d => d.id === newToken.device_id) : undefined;
@@ -163,9 +182,6 @@ export default function AttendanceDevices() {
         device: { ip: tokenDevice.ip_address, port: tokenDevice.port, comm_key: tokenDevice.comm_key },
     }, null, 2) : '';
 
-    const unmapped = deviceUsers.filter(u => !u.employee_id);
-    const suggested = unmapped.filter(u => u.suggestion);
-    const shownUsers = userTab === 'unmapped' ? unmapped : deviceUsers;
     const onlineCount = devices.filter(d => d.is_active && d.online).length;
     const todayTotal = devices.reduce((s, d) => s + d.today_count, 0);
 
@@ -268,85 +284,20 @@ export default function AttendanceDevices() {
                                     </p>
                                 )}
                                 {d.unmapped_count > 0 && (
-                                    <p className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-rose-600">
-                                        <Users className="size-3.5" /> {d.unmapped_count} PIN ажилтантай тааруулагдаагүй
-                                    </p>
+                                    <button type="button" onClick={() => showUnmapped(d)}
+                                        className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-rose-600 underline-offset-2 hover:underline">
+                                        <Users className="size-3.5" /> {d.unmapped_count} PIN ажилтантай тааруулагдаагүй — харах
+                                    </button>
                                 )}
                             </HrListCard>
                         ))}
                     </div>
                 )}
 
-                <HrListCard className="overflow-hidden">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-                        <div>
-                            <p className="text-sm font-bold text-foreground">Төхөөрөмж дээрх хэрэглэгчид</p>
-                            <p className="text-[11px] text-muted-foreground">
-                                Төхөөрөмж дээрх ID системийн дугаартай таарах албагүй — төхөөрөмж бүр дээр нэг удаа тааруулахад
-                                өмнөх болон дараагийн бүх бүртгэл тухайн ажилтанд орно. Нэр нь таарвал санал гарна.
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1">
-                            {suggested.length > 0 && (
-                                <button type="button" onClick={confirmAllSuggestions}
-                                    className="mr-1 flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700">
-                                    <Sparkles className="size-3.5" /> Санал болгосон {suggested.length}-ийг батлах
-                                </button>
-                            )}
-                            <HrTabs tone="sky" active={userTab} onChange={k => setUserTab(k as 'unmapped' | 'all')}
-                                items={[
-                                    { key: 'unmapped', label: 'Тааруулаагүй', value: unmapped.length },
-                                    { key: 'all', label: 'Бүгд', value: deviceUsers.length },
-                                ]} />
-                        </div>
-                    </div>
-                    {shownUsers.length === 0 ? (
-                        <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-                            {userTab === 'unmapped' ? 'Бүх PIN тааруулагдсан байна.' : 'Төхөөрөмжөөс хэрэглэгч ирээгүй байна.'}
-                        </p>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-border/60 bg-muted/40 text-left text-xs font-bold text-muted-foreground">
-                                        <th className="px-4 py-2.5">Төхөөрөмж</th>
-                                        <th className="px-4 py-2.5">PIN</th>
-                                        <th className="px-4 py-2.5">Төхөөрөмж дээрх нэр</th>
-                                        <th className="px-4 py-2.5 text-right">Бүртгэл</th>
-                                        <th className="px-4 py-2.5">Ажилтан</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {shownUsers.map(u => (
-                                        <tr key={u.id} className="hover:bg-muted/30">
-                                            <td className="px-4 py-2 text-xs text-muted-foreground">{u.device_name}</td>
-                                            <td className="px-4 py-2 font-mono text-xs font-bold">{u.pin}</td>
-                                            <td className="px-4 py-2 text-xs">{u.name ?? '—'}</td>
-                                            <td className="px-4 py-2 text-right text-xs tabular-nums">{u.punches_count}</td>
-                                            <td className="px-4 py-2">
-                                                <select value={u.employee_id ?? ''} onChange={e => mapUser(u, e.target.value)}
-                                                    className={`h-8 w-full min-w-[200px] rounded-lg border px-2 text-xs ${u.employee_id ? 'border-border/70 bg-background' : 'border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/30'}`}>
-                                                    <option value="">— Тааруулаагүй —</option>
-                                                    <EmployeeOptions employees={employees} branchId={u.device_branch_id} />
-                                                </select>
-                                                {!u.employee_id && u.suggestion && (
-                                                    <div className="mt-1 flex items-center gap-1.5 text-[11px]">
-                                                        <Sparkles className="size-3 shrink-0 text-emerald-600" />
-                                                        <span className="truncate text-muted-foreground">Санал: <b className="text-foreground">{u.suggestion.employee_name}</b></span>
-                                                        <button type="button" onClick={() => mapUser(u, u.suggestion!.employee_id)}
-                                                            className="shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                                            Батлах
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </HrListCard>
+                <div ref={usersRef} className="scroll-mt-4">
+                    <DeviceUsersCard users={deviceUsers} employees={employees} branches={branches}
+                        tab={userTab} onTab={setUserTab} branch={userBranch} onBranch={setUserBranch} />
+                </div>
             </div>
 
             <input ref={fileRef} type="file" accept=".dat,.txt,.csv" className="hidden" onChange={e => uploadUsb(e.target.files?.[0])} />
@@ -459,8 +410,265 @@ export default function AttendanceDevices() {
     );
 }
 
+function mapUser(user: DeviceUser, employeeId: string | number) {
+    router.patch(`/hr/attendance/device-users/${user.id}`, { employee_id: employeeId ? Number(employeeId) : null }, { preserveScroll: true });
+}
+
+/** Тааруулахгүй PIN-ийг нуух / сэргээх — бүртгэл нь устахгүй. */
+function setHidden(ids: number[], hidden: boolean, onSuccess?: () => void) {
+    router.post('/hr/attendance/device-users/hide', { ids, hidden }, { preserveScroll: true, onSuccess });
+}
+
+function localDate(d: Date) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function inUserTab(u: DeviceUser, tab: UserTab) {
+    if (tab === 'mapped') return u.employee_id !== null;
+    if (tab === 'hidden') return u.employee_id === null && u.hidden;
+    if (tab === 'unmapped') return u.employee_id === null && !u.hidden;
+    return u.employee_id !== null || !u.hidden;
+}
+
+function inUserBranch(u: DeviceUser, branch: BranchFilter) {
+    if (branch === 'all') return true;
+    return branch === 'none' ? u.device_branch_id === null : String(u.device_branch_id) === branch;
+}
+
+/**
+ * Төхөөрөмж дээрх PIN ↔ ажилтан. Төхөөрөмж дээр гарсан ажилтан олон үлддэг тул
+ * тааруулахгүй хүмүүсээ «Нуусан» руу шилжүүлж, салбар, төлөвөөр шүүж хуудаслана.
+ */
+function DeviceUsersCard({ users, employees, branches, tab, onTab, branch, onBranch }: {
+    users: DeviceUser[]; employees: EmployeeOption[]; branches: Option[];
+    tab: UserTab; onTab: (tab: UserTab) => void;
+    branch: BranchFilter; onBranch: (branch: BranchFilter) => void;
+}) {
+    const [search, setSearch] = useState('');
+    const [selected, setSelected] = useState<Set<number>>(() => new Set());
+    const q = search.trim().toLowerCase();
+
+    const staleCutoff = new Date();
+    staleCutoff.setDate(staleCutoff.getDate() - STALE_DAYS);
+    const staleBefore = localDate(staleCutoff);
+    const isStale = (u: DeviceUser) => !u.last_punch_at || u.last_punch_at < staleBefore;
+
+    const searched = q
+        ? users.filter(u => [u.pin, u.name, u.device_name, u.employee_name].some(v => v?.toLowerCase().includes(q)))
+        : users;
+    const scoped = searched.filter(u => inUserBranch(u, branch));
+    const tabRows = searched.filter(u => inUserTab(u, tab));
+
+    // Тааруулаагүй/нуусан жагсаалтад одоо ажиллаж буй хүмүүс (сүүлд уншуулсан) эхэнд
+    let rows = scoped.filter(u => inUserTab(u, tab));
+    if (tab === 'unmapped' || tab === 'hidden') {
+        rows = [...rows].sort((a, b) => (b.last_punch_at ?? '').localeCompare(a.last_punch_at ?? ''));
+    }
+
+    const paged = usePaged(rows, USERS_PER_PAGE);
+    const { setPage } = paged;
+
+    // Шүүлтүүр солигдоход эхний хуудас руу буцаж, сонголтыг цэвэрлэнэ
+    useEffect(() => {
+        setPage(1);
+        setSelected(new Set());
+    }, [tab, branch, q, setPage]);
+
+    const usedBranches = new Set(users.map(u => u.device_branch_id));
+    const branchOptions = [
+        ...branches.filter(b => usedBranches.has(b.id)).map(b => ({ key: String(b.id), label: b.name })),
+        ...(usedBranches.has(null) ? [{ key: 'none', label: 'Салбаргүй' }] : []),
+    ];
+
+    const suggested = scoped.filter(u => inUserTab(u, 'unmapped') && u.suggestion);
+    const stale = tab === 'unmapped' ? rows.filter(isStale) : [];
+    const selectable = tab === 'unmapped' || tab === 'hidden';
+    const selectedIds = rows.filter(u => selected.has(u.id)).map(u => u.id);
+    const pageIds = paged.data.map(u => u.id);
+    const pageSelected = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+
+    function toggle(id: number) {
+        setSelected(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }
+
+    function togglePage() {
+        setSelected(prev => {
+            const next = new Set(prev);
+            pageIds.forEach(id => (pageSelected ? next.delete(id) : next.add(id)));
+            return next;
+        });
+    }
+
+    function confirmSuggestions() {
+        const mappings = suggested.map(u => ({ id: u.id, employee_id: u.suggestion!.employee_id }));
+        if (!confirm(`Нэрээр санал болгосон ${mappings.length} тааруулалтыг батлах уу? Жагсаалтыг нэг харчихаад батлаарай.`)) return;
+        router.post('/hr/attendance/device-users/bulk-map', { mappings }, { preserveScroll: true });
+    }
+
+    return (
+        <HrListCard className="overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+                <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">Төхөөрөмж дээрх хэрэглэгчид</p>
+                    <p className="text-[11px] text-muted-foreground">
+                        Төхөөрөмж дээрх ID системийн дугаартай таарах албагүй — нэг удаа тааруулахад өмнөх болон дараагийн бүх бүртгэл
+                        тухайн ажилтанд орно. Гарсан ажилтан, туршилтын хэрэглэгчийг нуухад бүртгэл нь устахгүй.
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                    {suggested.length > 0 && (
+                        <button type="button" onClick={confirmSuggestions}
+                            className="mr-1 flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700">
+                            <Sparkles className="size-3.5" /> Санал болгосон {suggested.length}-ийг батлах
+                        </button>
+                    )}
+                    <HrTabs tone="sky" active={tab} onChange={k => onTab(k as UserTab)}
+                        items={[
+                            { key: 'unmapped', label: 'Тааруулаагүй', value: scoped.filter(u => inUserTab(u, 'unmapped')).length },
+                            { key: 'mapped', label: 'Тааруулсан', value: scoped.filter(u => inUserTab(u, 'mapped')).length },
+                            { key: 'all', label: 'Бүгд', value: scoped.filter(u => inUserTab(u, 'all')).length },
+                            { key: 'hidden', label: 'Нуусан', value: scoped.filter(u => inUserTab(u, 'hidden')).length, Icon: EyeOff },
+                        ]} />
+                </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-muted/20 px-4 py-2">
+                <div className="flex flex-wrap items-center gap-1">
+                    {branchOptions.length > 1 && (
+                        <>
+                            <MapPin className="mr-0.5 size-3.5 text-muted-foreground" />
+                            <BranchChip active={branch === 'all'} label="Бүх салбар" count={tabRows.length} onClick={() => onBranch('all')} />
+                            {branchOptions.map(b => (
+                                <BranchChip key={b.key} active={branch === b.key} label={b.label}
+                                    count={tabRows.filter(u => inUserBranch(u, b.key)).length} onClick={() => onBranch(b.key)} />
+                            ))}
+                        </>
+                    )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    {stale.length > 0 && (
+                        <button type="button" onClick={() => setSelected(new Set(stale.map(u => u.id)))}
+                            title={`Сүүлийн ${STALE_DAYS} хоногт хуруу уншуулаагүй — ихэвчлэн гарсан ажилтан`}
+                            className="flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-background px-2.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+                            <History className="size-3.5" /> {STALE_DAYS}+ хоног бүртгэлгүй {stale.length}-ийг сонгох
+                        </button>
+                    )}
+                    <HrSearch tone="sky" value={search} onChange={setSearch} placeholder="PIN, нэр, ажилтан…" />
+                </div>
+            </div>
+
+            {selectable && selectedIds.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 bg-sky-50 px-4 py-2 text-xs dark:border-sky-900 dark:bg-sky-950/30">
+                    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sky-900 dark:text-sky-200">
+                        <span><b className="tabular-nums">{selectedIds.length}</b> PIN сонгосон</span>
+                        {selectedIds.length < rows.length && (
+                            <button type="button" onClick={() => setSelected(new Set(rows.map(u => u.id)))} className="font-semibold underline-offset-2 hover:underline">
+                                Шүүлтүүрийн бүх {rows.length}-ийг сонгох
+                            </button>
+                        )}
+                        <button type="button" onClick={() => setSelected(new Set())} className="text-muted-foreground hover:text-foreground">Цуцлах</button>
+                    </p>
+                    <button type="button" onClick={() => setHidden(selectedIds, tab !== 'hidden', () => setSelected(new Set()))}
+                        className="flex h-8 items-center gap-1.5 rounded-lg bg-sky-600 px-3 text-xs font-bold text-white hover:bg-sky-700">
+                        {tab === 'hidden'
+                            ? <><Eye className="size-3.5" /> Сэргээх</>
+                            : <><EyeOff className="size-3.5" /> Нуух</>}
+                    </button>
+                </div>
+            )}
+
+            {rows.length === 0 ? (
+                <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+                    {q || branch !== 'all' ? 'Шүүлтүүрт тохирох PIN алга.' : TAB_EMPTY[tab]}
+                </p>
+            ) : (
+                <>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-border/60 bg-muted/40 text-left text-xs font-bold text-muted-foreground">
+                                    {selectable && (
+                                        <th className="w-8 py-2.5 pl-4">
+                                            <input type="checkbox" checked={pageSelected} onChange={togglePage} title="Энэ хуудсыг сонгох" className="size-3.5 accent-sky-600" />
+                                        </th>
+                                    )}
+                                    <th className="px-4 py-2.5">Төхөөрөмж</th>
+                                    <th className="px-4 py-2.5">PIN</th>
+                                    <th className="px-4 py-2.5">Төхөөрөмж дээрх нэр</th>
+                                    <th className="px-4 py-2.5 text-right">Бүртгэл</th>
+                                    <th className="px-4 py-2.5">Сүүлд</th>
+                                    <th className="px-4 py-2.5">Ажилтан</th>
+                                    <th className="w-10 py-2.5 pr-4" />
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                                {paged.data.map(u => (
+                                    <tr key={u.id} className={selected.has(u.id) ? 'bg-sky-50/70 dark:bg-sky-950/20' : 'hover:bg-muted/30'}>
+                                        {selectable && (
+                                            <td className="py-2 pl-4">
+                                                <input type="checkbox" checked={selected.has(u.id)} onChange={() => toggle(u.id)} className="size-3.5 accent-sky-600" />
+                                            </td>
+                                        )}
+                                        <td className="px-4 py-2 text-xs text-muted-foreground">{u.device_name}</td>
+                                        <td className="px-4 py-2 font-mono text-xs font-bold">{u.pin}</td>
+                                        <td className="px-4 py-2 text-xs">{u.name ?? '—'}</td>
+                                        <td className="px-4 py-2 text-right text-xs tabular-nums">{u.punches_count}</td>
+                                        <td className={`whitespace-nowrap px-4 py-2 text-xs tabular-nums ${u.employee_id === null && isStale(u) ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                                            {u.last_punch_at ?? '—'}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <select value={u.employee_id ?? ''} onChange={e => mapUser(u, e.target.value)}
+                                                className={`h-8 w-full min-w-[200px] rounded-lg border px-2 text-xs ${u.employee_id || u.hidden ? 'border-border/70 bg-background' : 'border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/30'}`}>
+                                                <option value="">— Тааруулаагүй —</option>
+                                                <EmployeeOptions employees={employees} branchId={u.device_branch_id} />
+                                            </select>
+                                            {!u.employee_id && u.suggestion && (
+                                                <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                                                    <Sparkles className="size-3 shrink-0 text-emerald-600" />
+                                                    <span className="truncate text-muted-foreground">Санал: <b className="text-foreground">{u.suggestion.employee_name}</b></span>
+                                                    <button type="button" onClick={() => mapUser(u, u.suggestion!.employee_id)}
+                                                        className="shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                                        Батлах
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="py-2 pr-4 text-right">
+                                            {u.employee_id === null && (u.hidden
+                                                ? <IconBtn title="Сэргээх — тааруулаагүй жагсаалтад буцаана" onClick={() => setHidden([u.id], false)}><Eye className="size-3.5" /></IconBtn>
+                                                : <IconBtn title="Тааруулахгүй — нуух (бүртгэл нь устахгүй)" onClick={() => setHidden([u.id], true)}><EyeOff className="size-3.5" /></IconBtn>)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <HrPager {...paged} onPage={setPage} unit="PIN" />
+                </>
+            )}
+        </HrListCard>
+    );
+}
+
+function BranchChip({ active, label, count, onClick }: { active: boolean; label: string; count: number; onClick: () => void }) {
+    return (
+        <button type="button" onClick={onClick}
+            className={`flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors ${
+                active
+                    ? 'border-sky-400 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
+                    : 'border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+            {label}
+            <span className={`rounded px-1 text-[10px] font-semibold tabular-nums ${active ? 'bg-sky-100 dark:bg-sky-900/60' : 'bg-muted'}`}>{count}</span>
+        </button>
+    );
+}
+
 /** Төхөөрөмжийн салбарын ажилтнуудыг эхэнд — 4 салбарын бүх ажилтнаас хайхгүй. */
-function EmployeeOptions({ employees, branchId }: { employees: (Option & { branch_ids: number[] })[]; branchId: number | null }) {
+function EmployeeOptions({ employees, branchId }: { employees: EmployeeOption[]; branchId: number | null }) {
     if (!branchId) return <>{employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</>;
     // Тухайн салбарт үндсэн эсвэл нэмэлтээр ажилладаг хүмүүс эхэнд
     const own = employees.filter(e => e.branch_ids.includes(branchId));

@@ -7,7 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AttendanceDeviceUser extends Model
 {
-    protected $fillable = ['attendance_device_id', 'device_user_pin', 'employee_id', 'name'];
+    protected $fillable = ['attendance_device_id', 'device_user_pin', 'employee_id', 'name', 'hidden_at'];
+
+    protected $casts = [
+        // HR «тааруулахгүй» гэж нуусан — тааруулаагүйн тоо, нэрийн саналд орохгүй
+        'hidden_at' => 'datetime',
+    ];
 
     public function device(): BelongsTo
     {
