@@ -4,6 +4,7 @@ namespace App\Services\CallPro;
 
 use App\Models\CallPro\Call;
 use App\Models\CallPro\CallBlockedNumber;
+use App\Models\CallPro\CallEvent;
 use App\Models\CallPro\CallExtension;
 use App\Models\CallPro\CallQueue;
 use Illuminate\Support\Carbon;
@@ -40,7 +41,12 @@ class CallIngestor
     /** @var array<string,int|null>|null queue нэр → branch_id */
     private ?array $queueMap = null;
 
-    public function ingest(array $data, string $source = 'realtime'): Call
+    /**
+     * @return Call|null null — дуудлагыг бүртгэхгүй гэж шийдсэн (товч
+     *                   дараагүй алдсан дуудлага, shouldDiscard-ыг үз).
+     *                   Түүхий event нь `call_events`-д хэвээр үлдэнэ.
+     */
+    public function ingest(array $data, string $source = 'realtime'): ?Call
     {
         if (($data['event'] ?? null) === 'queue') {
             return DB::transaction(fn () => $this->enrichWithQueue($data, $source));
@@ -49,16 +55,76 @@ class CallIngestor
         return DB::transaction(function () use ($data, $source) {
             $call = $this->findOrCreateCall($data, $source);
 
+            if (! $call->exists && $this->wasDiscarded($data)) {
+                return null;
+            }
+
             $this->fillTimestamps($call, $data);
             $this->fillIfEmpty($call, $data);
             $this->resolveBranchAndAgent($call, $data);
             $this->applyMissedFlag($call, $data);
+
+            if ($this->shouldDiscard($call, $data)) {
+                $this->discard($call);
+
+                return null;
+            }
+
             $this->applyOperationalFlags($call);
 
             $call->save();
 
             return $call;
         });
+    }
+
+    /**
+     * Abandoned болоогүй алдсан дуудлагыг бүртгэхгүй.
+     *
+     * Товч дарж дараалалд орсон дуудлага л салбартай (queue_name нь зөвхөн
+     * abandoned/queue event-ээр ирнэ). Түүнгүй алдсан дуудлага бол IVR-ийн
+     * мэндчилгээн дээр тасалсан хүн — аль салбар эргэж залгахыг хэн ч
+     * мэдэхгүй, салбар хооронд шилжүүлэх нь төлбөртэй тул ашиггүй.
+     *
+     * Abandoned хожуу ирвэл шинэ мөр болж бүртгэгдэнэ (findOrCreateCall).
+     */
+    private function shouldDiscard(Call $call, array $data): bool
+    {
+        return $data['event'] === 'end'
+            && $call->direction === 'inbound'
+            && $call->is_missed
+            && blank($call->queue_name)
+            && $call->handled_at === null;
+    }
+
+    /**
+     * Мөрийг устгана. `call_events` нь cascade-тай тул эхлээд салгана —
+     * эс бөгөөс түүхий payload хамт устаж, дахин боловсруулах боломжгүй болно.
+     */
+    private function discard(Call $call): void
+    {
+        if (! $call->exists) {
+            return;
+        }
+
+        CallEvent::where('call_id', $call->id)->update(['call_id' => null]);
+        $call->delete();
+    }
+
+    /**
+     * `end` түрүүлж боловсруулагдаад дуудлага хасагдсан бол хожуу ирсэн
+     * start/answered нь түүнийг дахин үүсгэх ёсгүй — эс бөгөөс төлөвгүй
+     * хоосон мөр жагсаалтад гарна.
+     */
+    private function wasDiscarded(array $data): bool
+    {
+        return filled($data['unique_id'])
+            && in_array($data['event'], ['start', 'answered'], true)
+            && CallEvent::where('unique_id', (string) $data['unique_id'])
+                ->where('event', 'end')
+                ->where('processed', true)
+                ->whereNull('call_id')
+                ->exists();
     }
 
     /**
@@ -85,7 +151,10 @@ class CallIngestor
 
             if ($branchId !== null) {
                 $call->branch_id = $branchId;
-                $this->branchJustResolved = true;
+                // Салбарт л нөхөж мэдэгдэх нь админ аль хэдийн мэдэгдэл авсан
+                // үед. Шинэ мөр (товчгүй `end` нь бүртгэгдээгүй) бол хэн ч
+                // аваагүй тул бүрэн мэдэгдэнэ.
+                $this->branchJustResolved = $call->missed_notified_at !== null;
             }
         }
 
@@ -236,8 +305,8 @@ class CallIngestor
      * Тиймээс алдсан дуудлагын цорын ганц эх сурвалж нь queue_name буюу
      * IVR-д дарсан товч. Түүнийг ч зөвхөн `abandoned` event авчирдаг.
      *
-     * Аль нь ч олдохгүй бол branch_id хоосон үлдэж, админ талд "тодорхойгүй"
-     * гэж харагдана. Дата хэзээ ч алдагдахгүй.
+     * Аль нь ч олдохгүй бол branch_id хоосон үлдэнэ. Товч дараагүй алдсан
+     * дуудлага бүртгэгдэхгүй (shouldDiscard) — түүхий event нь л үлдэнэ.
      */
     private function resolveBranchAndAgent(Call $call, array $data): void
     {

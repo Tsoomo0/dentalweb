@@ -20,7 +20,8 @@ use Tests\TestCase;
  * Гол шалгах зүйлс:
  *   - Нэг дуудлагын 3 event нэг мөр болж нэгдэх (unique_id-аар)
  *   - Дотуур дугаараар салбар, ажилтан тодорхойлогдох
- *   - Алдсан дуудлага илрэх (abandoned болон NO ANSWER хоёуланг)
+ *   - Алдсан дуудлага илрэх (зөвхөн abandoned — товч дараагүй алдсан
+ *     дуудлага бүртгэгдэхгүй)
  *   - Алдсан дуудлагад ресепшн мэдэгдэл авах, ДАВХАРДАХГҮЙ байх
  *   - Түүхэн дата мэдэгдэл үүсгэхгүй байх
  */
@@ -109,20 +110,69 @@ class CallProWebhookTest extends TestCase
         Notification::assertSentTo($user, MissedCall::class);
     }
 
-    public function test_no_answer_on_end_is_flagged_as_missed(): void
+    /**
+     * Товч дараагүй (abandoned болоогүй) алдсан дуудлага бүртгэгдэхгүй.
+     *
+     * Аль салбар эргэж залгахыг мэдэхгүй, салбар хооронд шилжүүлэх нь
+     * төлбөртэй тул ашиггүй. Түүхий event нь л үлдэнэ.
+     */
+    public function test_missed_call_without_queue_is_not_recorded(): void
     {
         Notification::fake();
-        $this->receptionist();
+        $user = $this->receptionist();
+        $admin = User::factory()->create(['role_id' => Role::firstOrCreate(['name' => 'admin'])->id]);
 
+        $this->hook('start', ['unique_id' => 'x.3', 'number' => 99112233, 'call_type' => 'inbound']);
         $this->hook('end', [
             'unique_id' => 'x.3',
             'number' => 99112233,
             'call_type' => 'inbound',
             'call_status' => 'NO ANSWER',
-            'duration' => 0,
+            'duration' => 10,
         ]);
 
-        $this->assertTrue(Call::first()->is_missed);
+        $this->assertSame(0, Call::count());
+        $this->assertSame(2, CallEvent::whereNull('call_id')->where('processed', true)->count(), 'Түүхий event устах ёсгүй');
+
+        Notification::assertNotSentTo($user, MissedCall::class);
+        Notification::assertNotSentTo($admin, MissedCall::class);
+    }
+
+    /** `end` түрүүлж хасагдсан дуудлагад abandoned хожуу ирвэл бүртгэгдэнэ. */
+    public function test_late_abandoned_is_recorded_after_end_was_discarded(): void
+    {
+        Notification::fake();
+        $user = $this->receptionist();
+
+        $this->hook('start', ['unique_id' => 'x.6', 'number' => 99112233, 'call_type' => 'inbound']);
+        $this->hook('end', ['unique_id' => 'x.6', 'number' => 99112233, 'call_type' => 'inbound', 'call_status' => 'NO ANSWER', 'duration' => 40]);
+        $this->hook('abandoned', ['number' => 99112233, 'queue_name' => 'sansar_queue']);
+
+        $this->assertSame(1, Call::count());
+
+        $call = Call::first();
+        $this->assertTrue($call->is_missed);
+        $this->assertSame($this->branch->id, $call->branch_id);
+        Notification::assertSentToTimes($user, MissedCall::class, 1);
+    }
+
+    /** Хасагдсан дуудлагын start хожуу боловсруулагдвал мөрийг дахин үүсгэхгүй. */
+    public function test_late_start_does_not_bring_back_a_discarded_call(): void
+    {
+        $this->hook('end', ['unique_id' => 'x.7', 'number' => 99112233, 'call_type' => 'inbound', 'call_status' => 'NO ANSWER', 'duration' => 10]);
+        $this->hook('start', ['unique_id' => 'x.7', 'number' => 99112233, 'call_type' => 'inbound']);
+
+        $this->assertSame(0, Call::count());
+    }
+
+    /** Хариулсан дуудлага queue-гүй ч бүртгэгдэнэ — зөвхөн алдсаныг хасна. */
+    public function test_answered_call_without_queue_is_recorded(): void
+    {
+        $this->hook('start', ['unique_id' => 'x.8', 'number' => 99112233, 'call_type' => 'inbound']);
+        $this->hook('end', ['unique_id' => 'x.8', 'number' => 99112233, 'call_type' => 'inbound', 'call_status' => 'ANSWERED', 'agent' => 101, 'duration' => 60]);
+
+        $this->assertSame(1, Call::count());
+        $this->assertFalse(Call::first()->is_missed);
     }
 
     /** Нэг дуудлагад abandoned + end гэсэн 2 event ирж болзошгүй. */
@@ -145,13 +195,10 @@ class CallProWebhookTest extends TestCase
         Notification::fake();
         $this->receptionist();
 
-        $this->hook('end', [
-            'unique_id' => 'old.1',
+        $this->hook('abandoned', [
             'number' => 99112233,
-            'call_type' => 'inbound',
-            'call_status' => 'NO ANSWER',
+            'queue_name' => 'sansar_queue',
             'call_date' => now()->subMonths(3)->format('Y-m-d H:i:s'),
-            'duration' => 0,
         ], ['source' => 'history']);
 
         $call = Call::first();

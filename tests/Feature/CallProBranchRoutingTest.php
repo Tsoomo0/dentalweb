@@ -234,11 +234,12 @@ class CallProBranchRoutingTest extends TestCase
     /* ── Хожим мэдэгдсэн queue ───────────────────────────── */
 
     /**
-     * Дуудлага дууссаны дараа queue нь мэдэгдвэл салбарыг нь нөхнө.
+     * Дуудлага дууссаны дараа queue нь мэдэгдвэл алдсан дуудлага болж
+     * бүртгэгдэнэ.
      *
      * CallPro «хэрэглэгч утсаа тасаллаа» тохиолдолд webhook илгээдэггүй тул
-     * товчны мэдээлэл хожуу ирж болзошгүй. Тэр үед дуудлага аль хэдийн
-     * хаагдсан байдаг — шинэ мөр үүсгэлгүй, байгаа дээр нь бичих ёстой.
+     * товчны мэдээлэл хожуу ирж болзошгүй. Товчгүй `end` нь бүртгэгдээгүй
+     * тул queue ирэхэд шинэ мөр үүснэ — давхардах зүйл байхгүй.
      */
     public function test_late_queue_event_fills_in_the_branch(): void
     {
@@ -251,17 +252,39 @@ class CallProBranchRoutingTest extends TestCase
             'call_status' => 'NO ANSWER',
         ]);
 
-        $call = Call::where('unique_id', 'late.1')->first();
-        $this->assertTrue($call->is_missed);
-        $this->assertNull($call->branch_id, 'Товчгүй бол салбар мэдэгдэх ёсгүй');
+        $this->assertSame(0, Call::count(), 'Товчгүй алдсан дуудлага бүртгэгдэх ёсгүй');
 
         $this->hook('queue', ['number' => 99112233, 'queue_name' => '3']);
 
-        $this->assertSame(1, Call::count(), 'Давхардсан мөр үүсгэсэн байна');
+        $this->assertSame(1, Call::count());
 
-        $call->refresh();
+        $call = Call::first();
         $this->assertSame($this->branchId('Цамбагарав'), $call->branch_id);
         $this->assertSame('3', $call->queue_name);
+        $this->assertTrue($call->is_missed);
+    }
+
+    /**
+     * Дуудлага явж байхад товч нь мэдэгдсэн бол (урсгал дээрх HTTP) `end`
+     * дээр хасагдахгүй — салбартай алдсан дуудлага болно.
+     */
+    public function test_queue_known_before_end_keeps_the_call(): void
+    {
+        $this->hook('start', ['number' => 99112233, 'unique_id' => 'late.4', 'call_type' => 'inbound']);
+        $this->hook('queue', ['number' => 99112233, 'queue_name' => '2']);
+        $this->hook('end', [
+            'number' => 99112233,
+            'unique_id' => 'late.4',
+            'call_type' => 'inbound',
+            'duration' => 50,
+            'call_status' => 'NO ANSWER',
+        ]);
+
+        $this->assertSame(1, Call::count());
+
+        $call = Call::first();
+        $this->assertSame('late.4', $call->unique_id);
+        $this->assertSame($this->branchId('Хороолол'), $call->branch_id);
         $this->assertTrue($call->is_missed);
     }
 
@@ -282,11 +305,17 @@ class CallProBranchRoutingTest extends TestCase
         $this->assertSame($this->branchId('Сансар'), $call->branch_id, 'Хариулсан салбар өөрчлөгдөх ёсгүй');
     }
 
-    /** Салбар нь хожим мэдэгдвэл тухайн салбарын ажилтанд нөхөж мэдэгдэнэ. */
+    /**
+     * Товчгүй `end` нь бүртгэгдээгүй тул хэн ч мэдэгдэл аваагүй — хожуу
+     * ирсэн queue-ээр салбар төдийгүй админ ч мэдэгдэл авна.
+     */
     public function test_late_queue_event_notifies_the_branch(): void
     {
         Notification::fake();
 
+        $admin = User::factory()->create([
+            'role_id' => Role::firstOrCreate(['name' => 'admin'])->id,
+        ]);
         $receptionRole = Role::firstOrCreate(['name' => 'receptionist'])->id;
         $tsambagarav = User::factory()->create([
             'role_id' => $receptionRole,
@@ -302,10 +331,12 @@ class CallProBranchRoutingTest extends TestCase
         ]);
 
         Notification::assertNotSentTo($tsambagarav, MissedCall::class);
+        Notification::assertNotSentTo($admin, MissedCall::class);
 
         $this->hook('queue', ['number' => 99112233, 'queue_name' => '3']);
 
         Notification::assertSentTo($tsambagarav, MissedCall::class);
+        Notification::assertSentTo($admin, MissedCall::class);
     }
 
     /**

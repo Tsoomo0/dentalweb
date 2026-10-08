@@ -56,7 +56,8 @@ class ProcessCallEvent implements ShouldQueue
             $call = $ingestor->ingest($data, $source);
 
             $event->forceFill([
-                'call_id' => $call->id,
+                // null — дуудлага бүртгэгдээгүй (товч дараагүй алдсан дуудлага)
+                'call_id' => $call?->id,
                 'event' => $data['event'],
                 'unique_id' => $data['unique_id'],
                 'source' => $source,
@@ -66,7 +67,9 @@ class ProcessCallEvent implements ShouldQueue
 
             // Салбар нь хожим тодорхойлогдсон бол тухайн салбарын ажилтнууд
             // мэдэгдэл аваагүй үлдсэн байна — тэдэнд нөхөж илгээнэ.
-            $notifier->notify($call, branchOnly: $ingestor->branchJustResolved);
+            if ($call) {
+                $notifier->notify($call, branchOnly: $ingestor->branchJustResolved);
+            }
         } catch (\Throwable $e) {
             $event->forceFill(['error' => substr($e->getMessage(), 0, 1000)])->save();
 

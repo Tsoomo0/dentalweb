@@ -62,7 +62,6 @@ class SeedDemoCalls extends Command
 
         // ── Алдсан — сүүлийн цагт, тул МЭДЭГДЭЛ үүснэ ───────────────────────
         $n += $this->abandoned('99223344', $queue->name, now()->subMinutes(11));
-        $n += $this->noAnswer('88776655', $extensions->first(), now()->subMinutes(26));
 
         // ── Давтан залгасан — «3 дахь удаа» гэж мэдэгдэнэ ───────────────────
         foreach ([38, 22, 6] as $ago) {
@@ -139,23 +138,6 @@ class SeedDemoCalls extends Command
             'call_date' => $at->copy()->addSeconds(22)->format('Y-m-d H:i:s')]);
 
         $this->line("  ✗ {$at->format('H:i')}  {$number} — дараалалд таслав ({$queue})");
-
-        return 1;
-    }
-
-    /** Хонх дуугарсан ч хариулаагүй. */
-    private function noAnswer(string $number, string $agent, Carbon $at): int
-    {
-        $uid = self::PREFIX.$at->getTimestamp().'.'.$number;
-
-        $this->fire('start', ['unique_id' => $uid, 'number' => $number, 'call_type' => 'inbound',
-            'call_date' => $at->format('Y-m-d H:i:s')]);
-
-        $this->fire('end', ['unique_id' => $uid, 'number' => $number, 'call_type' => 'inbound',
-            'agent' => $agent, 'call_status' => 'NO ANSWER', 'duration' => 0,
-            'call_date' => $at->copy()->addSeconds(30)->format('Y-m-d H:i:s')]);
-
-        $this->line("  ✗ {$at->format('H:i')}  {$number} — {$agent} хариулсангүй");
 
         return 1;
     }
