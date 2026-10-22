@@ -2,6 +2,7 @@ import { ChatIcon } from '@/components/chat-icon';
 import { NotificationBell } from '@/components/notification-bell';
 import { usePushSubscribe } from '@/hooks/use-push-subscribe';
 import { playChime } from '@/lib/chat-chime';
+import { csrfTokenHeader } from '@/lib/csrf';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import {
@@ -147,7 +148,6 @@ function fileSizeStr(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const csrfToken = (): string => (document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '');
 
 /* ──────────────────────────────────────────────────────────────────────────
    Component
@@ -193,7 +193,7 @@ export function ChatBody({ currentUserId, isStaff, mode = 'employee', initialCon
 
     // Heartbeat: mark this user as online every 30 seconds.
     useEffect(() => {
-        const ping = () => axios.post('/my/chat/heartbeat', {}, { headers: { 'X-CSRF-TOKEN': csrfToken() } }).catch(() => {});
+        const ping = () => axios.post('/my/chat/heartbeat', {}, { headers: csrfTokenHeader() }).catch(() => {});
         ping();
         const t = setInterval(ping, 30_000);
         return () => clearInterval(t);
@@ -318,7 +318,7 @@ export function ChatBody({ currentUserId, isStaff, mode = 'employee', initialCon
             if (replyTo) fd.append('reply_to_id', String(replyTo.id));
             files.forEach((f) => fd.append('files[]', f));
             const res = await axios.post(`/my/chat/conversations/${selectedId}/messages`, fd, {
-                headers: { 'X-CSRF-TOKEN': csrfToken() },
+                headers: csrfTokenHeader(),
             });
             const newMessage: Message = res.data.message;
             setDetail((prev) => {
@@ -349,7 +349,7 @@ export function ChatBody({ currentUserId, isStaff, mode = 'employee', initialCon
         }
         try {
             await axios.post(`/my/chat/conversations/${selectedId}/bot/button/${button.id}`, {}, {
-                headers: { 'X-CSRF-TOKEN': csrfToken() },
+                headers: csrfTokenHeader(),
             });
             loadThread(selectedId);
         } catch (e) { console.error(e); }
@@ -609,14 +609,14 @@ export function ChatBody({ currentUserId, isStaff, mode = 'employee', initialCon
                                 if (groupName && userIds.length >= 1) {
                                     const res = await axios.post('/my/chat/groups', {
                                         name: groupName, user_ids: userIds,
-                                    }, { headers: { 'X-CSRF-TOKEN': csrfToken() } });
+                                    }, { headers: csrfTokenHeader() });
                                     setShowNew(false);
                                     await loadConversations();
                                     setSelectedId(res.data?.conversation_id ?? null);
                                 } else if (userIds.length === 1) {
                                     const res = await axios.post('/my/chat/conversations/direct', {
                                         user_id: userIds[0],
-                                    }, { headers: { 'X-CSRF-TOKEN': csrfToken() } });
+                                    }, { headers: csrfTokenHeader() });
                                     setShowNew(false);
                                     await loadConversations();
                                     setSelectedId(res.data?.conversation_id ?? null);
@@ -869,7 +869,7 @@ function ThreadPanel({
                             onClick={async () => {
                                 if (!confirm('Энэ чатыг устгах уу?')) return;
                                 try {
-                                    await axios.delete(`/my/chat/conversations/${conv.id}`, { headers: { 'X-CSRF-TOKEN': csrfToken() } });
+                                    await axios.delete(`/my/chat/conversations/${conv.id}`, { headers: csrfTokenHeader() });
                                     window.location.reload();
                                 } catch (e: any) { alert(e?.response?.data?.message ?? 'Алдаа'); }
                             }}

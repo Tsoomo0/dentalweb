@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { csrfTokenHeader } from '@/lib/csrf';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
@@ -23,7 +24,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Чатын хүсэлт', href: '/admin/chat-inbox' },
 ];
 
-const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
 declare global {
     interface Window { Echo: any }
@@ -54,7 +54,7 @@ export default function ChatInboxIndex() {
 
     const claim = async (h: Handoff) => {
         try {
-            const res = await axios.post(`/admin/chat-inbox/handoffs/${h.id}/claim`, {}, { headers: { 'X-CSRF-TOKEN': csrf() } });
+            const res = await axios.post(`/admin/chat-inbox/handoffs/${h.id}/claim`, {}, { headers: csrfTokenHeader() });
             const cid = res.data?.handoff?.direct_conversation_id;
             await load();
             if (cid) router.visit('/admin/chat');
@@ -65,7 +65,7 @@ export default function ChatInboxIndex() {
 
     const close = async (h: Handoff) => {
         if (!confirm('Хүсэлтийг хаах уу?')) return;
-        await axios.post(`/admin/chat-inbox/handoffs/${h.id}/close`, {}, { headers: { 'X-CSRF-TOKEN': csrf() } });
+        await axios.post(`/admin/chat-inbox/handoffs/${h.id}/close`, {}, { headers: csrfTokenHeader() });
         load();
     };
 

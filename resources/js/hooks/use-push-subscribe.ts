@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { csrfTokenHeader } from '@/lib/csrf';
 import { useEffect, useRef } from 'react';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -9,9 +10,6 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     for (let i = 0; i < rawData.length; ++i) out[i] = rawData.charCodeAt(i);
     return out;
 }
-
-const csrfToken = (): string =>
-    document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
 /**
  * Registers the service worker and subscribes the current browser to Web Push.
@@ -63,7 +61,7 @@ export function usePushSubscribe(enabled: boolean) {
                         },
                         user_agent: navigator.userAgent,
                     },
-                    { headers: { 'X-CSRF-TOKEN': csrfToken() } }
+                    { headers: csrfTokenHeader() }
                 );
             } catch {
                 /* silent — push is best-effort */

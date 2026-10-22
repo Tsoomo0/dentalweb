@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, FileVideo, Loader2, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { csrfHeaders } from '@/lib/csrf';
 
 /**
  * Том видеог хэсэгчлэн (chunk) байршуулах хэсэг.
@@ -26,20 +27,6 @@ interface Props {
     onDone: (video: UploadedVideo) => void;
     onClear: () => void;
     disabled?: boolean;
-}
-
-function csrfHeaders(): Record<string, string> {
-    const xsrf = decodeURIComponent(
-        document.cookie.split('; ').find((c) => c.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? '',
-    );
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-
-    return {
-        'X-XSRF-TOKEN': xsrf,
-        'X-CSRF-TOKEN': meta,
-        Accept: 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-    };
 }
 
 export function humanSize(bytes: number): string {

@@ -1,4 +1,4 @@
-import { csrfHeaders } from '@/lib/csrf';
+import { csrfHeaders, csrfMetaToken } from '@/lib/csrf';
 import {
     Check, Gauge, Maximize, Minimize, Pause, Play, RotateCcw, RotateCw,
     SkipForward, Volume2, VolumeX,
@@ -155,7 +155,7 @@ const LabLessonPlayer = forwardRef<PlayerHandle, Props>(function LabLessonPlayer
             fd.append('duration', String(payload.duration));
             fd.append('opened', payload.opened ? '1' : '0');
             payload.buckets.forEach((b) => fd.append('buckets[]', String(b)));
-            fd.append('_token', csrfHeaders()['X-CSRF-TOKEN']);
+            fd.append('_token', csrfMetaToken());
             navigator.sendBeacon(url, fd);
 
             return;

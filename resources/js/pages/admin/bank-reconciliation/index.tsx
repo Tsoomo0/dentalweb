@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { csrfHeaders } from '@/lib/csrf';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import {
@@ -92,19 +93,9 @@ export default function BankReconciliationIndex({ branches }: Props) {
             fd.append('day', String(day));
             fd.append('file', file);
 
-            const xsrf = decodeURIComponent(
-                document.cookie.split('; ').find(c => c.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? ''
-            );
-            const csrfMeta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
-
             const res = await fetch('/admin/bank-reconciliation/check', {
                 method: 'POST',
-                headers: {
-                    'X-XSRF-TOKEN': xsrf,
-                    'X-CSRF-TOKEN': csrfMeta,
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
+                headers: csrfHeaders(),
                 body: fd,
                 credentials: 'include',
             });

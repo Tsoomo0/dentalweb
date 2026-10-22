@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { csrfTokenHeader } from '@/lib/csrf';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
@@ -30,7 +31,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Админ', href: '/admin/dashboard' },
     { title: 'Bot тохиргоо', href: '/admin/chatbot-flows' },
 ];
-const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
 /* ── Main ─────────────────────────────────────────────────────────────────── */
 export default function BotBuilderIndex({ flows, welcomeNode }: Props) {
@@ -258,13 +258,13 @@ function TopicView({
 
     const deleteFlow = async () => {
         if (!confirm(`"${flow.name}" сэдвийг бүхэлд нь устгах уу? Бүх асуулт-хариулт устана.`)) return;
-        await axios.delete(`/admin/chatbot/flows/${flow.id}`, { headers: { 'X-CSRF-TOKEN': csrf() } });
+        await axios.delete(`/admin/chatbot/flows/${flow.id}`, { headers: csrfTokenHeader() });
         onDeleted();
     };
 
     const deleteQa = async (node: Node) => {
         if (!confirm(`"${node.title}" асуултыг устгах уу?`)) return;
-        await axios.delete(`/admin/chatbot/nodes/${node.id}`, { headers: { 'X-CSRF-TOKEN': csrf() } });
+        await axios.delete(`/admin/chatbot/nodes/${node.id}`, { headers: csrfTokenHeader() });
         onChanged();
     };
 
@@ -476,7 +476,7 @@ function WelcomeModal({ node, onClose, onSaved }: { node: Node; onClose: () => v
     const save = async () => {
         setBusy(true);
         try {
-            await axios.put('/admin/chatbot/welcome', { body }, { headers: { 'X-CSRF-TOKEN': csrf() } });
+            await axios.put('/admin/chatbot/welcome', { body }, { headers: csrfTokenHeader() });
             onSaved();
         } finally { setBusy(false); }
     };
@@ -500,10 +500,10 @@ function FlowModal({ flow, onClose, onSaved }: { flow: Flow | null; onClose: () 
         setBusy(true);
         try {
             if (isNew) {
-                const res = await axios.post('/admin/chatbot/flows', { name, icon: icon || null }, { headers: { 'X-CSRF-TOKEN': csrf() } });
+                const res = await axios.post('/admin/chatbot/flows', { name, icon: icon || null }, { headers: csrfTokenHeader() });
                 onSaved(res.data?.flow?.id);
             } else {
-                await axios.put(`/admin/chatbot/flows/${flow!.id}`, { name, icon: icon || null }, { headers: { 'X-CSRF-TOKEN': csrf() } });
+                await axios.put(`/admin/chatbot/flows/${flow!.id}`, { name, icon: icon || null }, { headers: csrfTokenHeader() });
                 onSaved();
             }
         } catch (e: any) {
@@ -538,7 +538,7 @@ function MenuModal({ flow, onClose, onSaved }: { flow: Flow; onClose: () => void
     const save = async () => {
         setBusy(true);
         try {
-            await axios.put(`/admin/chatbot/flows/${flow.id}/menu`, { body }, { headers: { 'X-CSRF-TOKEN': csrf() } });
+            await axios.put(`/admin/chatbot/flows/${flow.id}/menu`, { body }, { headers: csrfTokenHeader() });
             onSaved();
         } finally { setBusy(false); }
     };
@@ -562,9 +562,9 @@ function QaModal({ flow, node, onClose, onSaved }: { flow: Flow; node: Node | nu
         setBusy(true);
         try {
             if (isNew) {
-                await axios.post('/admin/chatbot/nodes', { flow_id: flow.id, title, body }, { headers: { 'X-CSRF-TOKEN': csrf() } });
+                await axios.post('/admin/chatbot/nodes', { flow_id: flow.id, title, body }, { headers: csrfTokenHeader() });
             } else {
-                await axios.put(`/admin/chatbot/nodes/${node!.id}`, { title, body }, { headers: { 'X-CSRF-TOKEN': csrf() } });
+                await axios.put(`/admin/chatbot/nodes/${node!.id}`, { title, body }, { headers: csrfTokenHeader() });
             }
             onSaved();
         } catch (e: any) {

@@ -1,4 +1,4 @@
-import { csrfHeaders } from '@/lib/csrf';
+import { csrfHeaders, csrfMetaToken } from '@/lib/csrf';
 import { cn } from '@/lib/utils';
 import {
     AlertTriangle, Check, Download, FileText, Loader2, Maximize, Minimize,
@@ -125,7 +125,7 @@ export default function LabDocumentViewer({ lessonId, document: doc, seenPages, 
             fd.append('opened', payload.opened ? '1' : '0');
             fd.append('last', String(payload.last));
             payload.pages.forEach((p) => fd.append('pages[]', String(p)));
-            fd.append('_token', csrfHeaders()['X-CSRF-TOKEN']);
+            fd.append('_token', csrfMetaToken());
             navigator.sendBeacon(url, fd);
 
             return;
