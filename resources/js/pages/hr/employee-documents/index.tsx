@@ -151,6 +151,44 @@ function dateVars(effectiveDate: string): Record<string, string> {
     };
 }
 
+/**
+ * Тоог монгол үсгээр тодотгох хэлбэрээр бичнэ («нэг сая таван зуун мянган
+ * төгрөг») — DocumentRenderer::moneyInWords-тэй яг ижил дүрэм.
+ */
+function moneyInWords(amount: number): string {
+    const ones = ['', 'нэг', 'хоёр', 'гурван', 'дөрвөн', 'таван', 'зургаан', 'долоон', 'найман', 'есөн'];
+    const tens = ['', 'арван', 'хорин', 'гучин', 'дөчин', 'тавин', 'жаран', 'далан', 'наян', 'ерэн'];
+    const scales = ['', 'мянган', 'сая', 'тэрбум', 'их наяд'];
+
+    const threeDigits = (n: number) => {
+        const words: string[] = [];
+        const h = Math.floor(n / 100);
+        const t = Math.floor((n % 100) / 10);
+        const o = n % 10;
+        if (h > 0) words.push(`${ones[h]} зуун`);
+        if (t > 0) words.push(tens[t]);
+        if (o > 0) words.push(ones[o]);
+        return words.join(' ');
+    };
+
+    let n = Math.abs(Math.round(amount));
+    if (n === 0) return 'тэг төгрөг';
+
+    const groups: number[] = [];
+    while (n > 0) {
+        groups.push(n % 1000);
+        n = Math.floor(n / 1000);
+    }
+
+    const parts: string[] = [];
+    for (let i = groups.length - 1; i >= 0; i--) {
+        if (groups[i] === 0) continue;
+        parts.push([threeDigits(groups[i]), scales[i] ?? ''].filter(Boolean).join(' '));
+    }
+
+    return `${amount < 0 ? 'хасах ' : ''}${parts.join(' ')} төгрөг`;
+}
+
 /** Гэрээний агуулгыг шаардлагатай үед нь татна. */
 function useDocumentBody(id: number | null) {
     const [body, setBody] = useState<string | null>(null);
@@ -798,6 +836,12 @@ function CreateModal({ employees, templates, catalog, onClose }: {
         if (docNumber) vars.doc_number = docNumber;
         for (const [k, v] of Object.entries(overrides)) {
             if (v.trim() !== '') vars[k] = v.trim();
+        }
+        // Цалинг гараар зассан бол үсгээр бичсэн хэлбэрийг дахин тооцно (сервертэй ижил)
+        const rawSalary = (overrides.salary ?? '').replace(/[,\s]/g, '');
+        if (rawSalary !== '' && !overrides.salary_text?.trim() && /^\d+(\.\d+)?$/.test(rawSalary)) {
+            vars.salary = Math.round(Number(rawSalary)).toLocaleString('en-US');
+            vars.salary_text = moneyInWords(Number(rawSalary));
         }
         return vars;
     }, [employee, overrides, docNumber, effectiveDate]);
