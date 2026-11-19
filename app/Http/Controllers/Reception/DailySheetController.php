@@ -187,6 +187,17 @@ class DailySheetController extends Controller
                 ->map(fn ($e) => trim((string) $e->patient_name).'|'.trim((string) $e->appointment_number).'|'.(int) $e->outstanding_amount)
                 ->all();
 
+            // Ижил баримтын дугаартай олон мөр байвал илүү тооцооны кредитийг
+            // зөвхөн нэг (хамгийн эрт үүссэн) мөрт тооцно — үгүй бол бусад мөр
+            // дээр давхар харагдаж, хуурамч "илүү төлбөр" үүсгэнэ.
+            $payloadIds = collect($request->input('entries', []))
+                ->pluck('id')->filter()->map(fn ($id) => (int) $id)->all();
+            $creditHolders = OverpaidUsage::creditHolderIds(
+                $sheet->entries()->whereNotNull('appointment_number')->get(['id', 'appointment_number'])
+                    ->reject(fn ($e) => $editableEntries->has($e->id) && ! in_array($e->id, $payloadIds, true))
+            );
+            $creditGiven = [];
+
             $rowIdx = 0;
             foreach ($request->input('entries', []) as $row) {
                 $mobile = (int) ($row['mobile_amount'] ?? 0);
@@ -204,7 +215,12 @@ class DailySheetController extends Controller
                 // Энэ баримтад холбогдсон илүү тооцооноос ашигласан credit (Дутуу/Илүү тооцооны зөв тооцоонд)
                 // Баримтын дугаар давтагддаг тул зөвхөн энэ хуудасны өдөр, энэ салбарт ашигласан кредитийг тооцно
                 $appliedCredit = 0;
-                if ($aptNumber) {
+                $holderId = $aptNumber ? ($creditHolders[$aptNumber] ?? null) : null;
+                $isCreditHolder = $aptNumber && ($holderId === null
+                    ? ! isset($creditGiven[$aptNumber])
+                    : $holderId === (isset($row['id']) ? (int) $row['id'] : null));
+                if ($isCreditHolder) {
+                    $creditGiven[$aptNumber] = true;
                     $appliedCredit = (int) OverpaidUsage::where('target_receipt', $aptNumber)
                         ->whereDate('target_date', $date)
                         ->whereHas('sourceEntry', fn ($sq) => $sq->withTrashed()
@@ -552,6 +568,8 @@ class DailySheetController extends Controller
 
         // Batch: бүх entry-ийн applied credit-ийг нэг query-ээр татна (N+1 болохгүй)
         // Баримтын дугаар давтагддаг тул зөвхөн энэ хуудасны өдөр, энэ салбарын кредитийг авна
+        // Ижил дугаартай олон мөр байвал кредит зөвхөн эхний (бага id) мөрт харагдана
+        $creditHolders = OverpaidUsage::creditHolderIds($entries);
         $apptNumbers = $entries->pluck('appointment_number')->filter()->unique()->values()->all();
         $creditsByReceipt = empty($apptNumbers)
             ? collect()
@@ -586,10 +604,11 @@ class DailySheetController extends Controller
             'entries' => $entries
                 ->sortBy(fn ($e) => [$e->user_id === $currentUserId ? 0 : 1, $e->row_order])
                 ->values()
-                ->map(function ($e) use ($currentUserId, $creditsByReceipt, $techNameById) {
+                ->map(function ($e) use ($currentUserId, $creditsByReceipt, $creditHolders, $techNameById) {
                     // Credit-ийн мэдээлэл — batch-аас авна
                     $appliedFrom = [];
-                    if ($e->appointment_number && $creditsByReceipt->has($e->appointment_number)) {
+                    if ($e->appointment_number && $creditsByReceipt->has($e->appointment_number)
+                        && ($creditHolders[trim($e->appointment_number)] ?? null) === $e->id) {
                         foreach ($creditsByReceipt->get($e->appointment_number) as $u) {
                             $appliedFrom[] = [
                                 'kind' => 'overpaid',

@@ -661,6 +661,8 @@ class DailySheetAdminController extends Controller
     private function mapSheet(DailySheet $sheet, ?string $doctorId): array
     {
         $entries = $sheet->entries;
+        // Ижил дугаартай олон мөр байвал кредит зөвхөн эхний мөрт харагдана
+        $creditHolders = OverpaidUsage::creditHolderIds($sheet->entries);
 
         if ($doctorId) {
             $entries = $entries->filter(fn ($e) => $e->doctor_id == $doctorId)->values();
@@ -682,12 +684,12 @@ class DailySheetAdminController extends Controller
 
         // Илүү тооцоогоор хаагдсан мөр "дутуу" болж тоологдохгүйн тулд
         // ресепшний дэлгэцтэй ижилхэн кредитийг оруулж бодно (DB-д бичихгүй)
-        $outstandingOf = function ($e) use ($creditsByReceipt) {
+        $outstandingOf = function ($e) use ($creditsByReceipt, $creditHolders) {
             if ((int) $e->gross_amount <= 0) {
                 return (int) $e->outstanding_amount;
             }
 
-            $credit = $e->appointment_number
+            $credit = $e->appointment_number && ($creditHolders[trim($e->appointment_number)] ?? null) === $e->id
                 ? (int) collect($creditsByReceipt->get($e->appointment_number, []))->sum('amount')
                 : 0;
 
@@ -721,7 +723,7 @@ class DailySheetAdminController extends Controller
             'totals' => $totals,
             'entries' => $entries->map(fn ($e) => [
                 'id' => $e->id,
-                'applied_credits' => $e->appointment_number
+                'applied_credits' => $e->appointment_number && ($creditHolders[trim($e->appointment_number)] ?? null) === $e->id
                     ? collect($creditsByReceipt->get($e->appointment_number, []))
                         ->map(fn ($u) => [
                             'amount' => (int) $u->amount,

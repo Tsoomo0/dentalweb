@@ -24,6 +24,7 @@ class DailySheetExport implements FromCollection, ShouldAutoSize, WithHeadings, 
 
         foreach ($this->sheets as $sheet) {
             $entries = $sheet->entries;
+            $creditHolders = OverpaidUsage::creditHolderIds($sheet->entries);
             if ($this->doctorId) {
                 $entries = $entries->filter(fn ($e) => $e->doctor_id == $this->doctorId);
             }
@@ -31,7 +32,8 @@ class DailySheetExport implements FromCollection, ShouldAutoSize, WithHeadings, 
             foreach ($entries as $e) {
                 $tech = $techNames[$e->technician_employee_id] ?? null;
                 $creditKey = $sheet->branch_id.'|'.$sheet->date->format('Y-m-d').'|'.$e->appointment_number;
-                $credit = $credits[$creditKey] ?? 0;
+                $isHolder = ($creditHolders[trim((string) $e->appointment_number)] ?? null) === $e->id;
+                $credit = $isHolder ? ($credits[$creditKey] ?? 0) : 0;
 
                 $rows->push([
                     $sheet->date->format('Y-m-d'),
