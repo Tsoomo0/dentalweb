@@ -41,6 +41,10 @@ class AuthenticatedSessionController extends Controller
             Auth::guard('doctor')->login($doctor, $request->boolean('remember'));
             $request->session()->regenerate();
 
+            if ($hub = HubSsoController::resume($request)) {
+                return $hub;
+            }
+
             return $doctor->employee_id
                 ? redirect()->route('portal.select')
                 : redirect()->route('doctor.dashboard');
@@ -67,6 +71,10 @@ class AuthenticatedSessionController extends Controller
         $user = Auth::guard('web')->getLastAttempted();
         Auth::guard('web')->login($user, $request->boolean('remember'));
         $request->session()->regenerate();
+
+        if ($hub = HubSsoController::resume($request)) {
+            return $hub;
+        }
 
         if ($user->isAdmin()) {
             return redirect()->route('admin.dashboard');

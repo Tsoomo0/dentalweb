@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\HubSsoController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -39,6 +40,9 @@ Route::middleware('guest')->group(function () {
 Route::get('two-factor', [TwoFactorController::class, 'show'])->name('two-factor');
 Route::post('two-factor', [TwoFactorController::class, 'verify'])->middleware('throttle:10,1')->name('two-factor.verify');
 Route::post('two-factor/resend', [TwoFactorController::class, 'resend'])->middleware('throttle:3,1')->name('two-factor.resend');
+
+// Cuticul Hub-д нэвтрүүлэх (SSO). Нэвтрээгүй бол login руу явуулаад буцааж энд ирнэ.
+Route::get('sso/hub', HubSsoController::class)->middleware('throttle:30,1')->name('hub.sso');
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)

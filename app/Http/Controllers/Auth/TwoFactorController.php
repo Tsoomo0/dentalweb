@@ -91,6 +91,10 @@ class TwoFactorController extends Controller
             Auth::guard('doctor')->login($doctor, $pending['remember']);
             AuditService::log('login', $doctor, null, null, 'Эмч 2FA нэвтэрсэн');
 
+            if ($hub = HubSsoController::resume($request)) {
+                return $hub;
+            }
+
             return $doctor->employee_id
                 ? redirect()->route('portal.select')
                 : redirect()->route('doctor.dashboard');
@@ -99,6 +103,10 @@ class TwoFactorController extends Controller
         $user = User::findOrFail($pending['user_id']);
         Auth::guard('web')->login($user, $pending['remember']);
         AuditService::log('login', $user, null, null, '2FA нэвтэрсэн');
+
+        if ($hub = HubSsoController::resume($request)) {
+            return $hub;
+        }
 
         if ($user->isAdmin()) {
             return redirect()->route('admin.dashboard');
